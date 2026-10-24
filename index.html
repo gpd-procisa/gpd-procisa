@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPD - Setor Construção MDU PROCISA RJ</title>
+    <!-- Tailwind CSS para estilização moderna -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-start p-2 sm:p-6">
+
+    <!-- Container Principal Adaptável -->
+    <div class="w-full max-w-7xl bg-white shadow-2xl rounded-2xl flex flex-col overflow-hidden border border-slate-200 min-h-[90vh]">
+        
+        <!-- Cabeçalho Principal (Sem Imagem) -->
+        <header class="bg-blue-900 text-white p-4 sm:p-6 shadow-md flex flex-col sm:flex-row justify-between items-center gap-4 border-b-4 border-cyan-400">
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="bg-cyan-500 text-blue-950 font-black text-xs px-2 py-0.5 rounded tracking-wider">GPD</span>
+                    <h1 class="font-bold text-xl sm:text-2xl">Gestão de Produção Diária</h1>
+                </div>
+                <p class="text-xs sm:text-sm text-cyan-200 font-bold mt-1" id="header-subtitle">Setor Construção MDU • PROCISA RJ</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="badge-usuario-logado" class="text-xs bg-blue-950 px-3 py-1.5 rounded-lg border border-blue-700 hidden">👤 <span id="txt-email-ativo"></span></span>
+                <div class="flex bg-blue-950 p-1 rounded-xl border border-blue-700">
+                    <button onclick="alternarVisao('campo')" id="btn-modo-campo" class="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-cyan-200 hover:text-white">
+                        📱 Modo Campo
+                    </button>
+                    <button onclick="tentarAcessarGestor()" id="btn-modo-gestor" class="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold">
+                        🔒 Dashboard Gestor
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- ================= MODO GESTOR ================= -->
+        <main id="view-gestor" class="flex-1 p-4 sm:p-6 bg-slate-50 space-y-6 hidden">
+            
+            <!-- KPIs / Indicadores Independentes por Projeto -->
+            <div class="space-y-2">
+                <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Indicadores por Tipo de Projeto (Construção MDU - RJ)</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                    <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase">Vistoria</span>
+                        <span class="text-xl font-bold text-slate-800 mt-1" id="kpi-proj-vistoria">0</span>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase">Ativação</span>
+                        <span class="text-xl font-bold text-blue-600 mt-1" id="kpi-proj-ativacao">0</span>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase">Construção</span>
+                        <span class="text-xl font-bold text-indigo-600 mt-1" id="kpi-proj-construcao">0</span>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase">Construção + Ativação</span>
+                        <span class="text-xl font-bold text-purple-600 mt-1" id="kpi-proj-const-ativ">0</span>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lotada Ativação</span>
+                        <span class="text-xl font-bold text-amber-600 mt-1" id="kpi-proj-nap-ativ">0</span>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lotada Construção</span>
+                        <span class="text-xl font-bold text-orange-600 mt-1" id="kpi-proj-nap-const">0</span>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lot. Const + Ativ</span>
+                        <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-nap-ambos">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub-Abas do Gestor -->
+            <div class="flex flex-wrap border-b border-slate-200 gap-4">
+                <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition">📋 Atividades</button>
+                <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">📦 Materiais</button>
+                <button onclick="mudarSubAbaGestor('retornos')" id="subtab-btn-retornos" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">💬 Retornos</button>
+                <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">👥 Usuários</button>
+                <button onclick="mudarSubAbaGestor('auditoria')" id="subtab-btn-auditoria" class="pb-3 text-sm font-medium text-amber-600 hover:text-amber-800 transition font-bold">🛡️ Auditoria (Log)</button>
+                <button onclick="mudarSubAbaGestor('bonificacao')" id="subtab-btn-bonificacao" class="pb-3 text-sm font-medium text-emerald-700 hover:text-emerald-900 transition font-bold">🏆 Bonificação e Metas</button>
+            </div>
+
+            <!-- Barra de Filtros e Ações -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full sm:w-auto flex-1">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">Filtrar por Data</label>
+                        <input type="date" id="gestor-filtro-data" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">Filtrar por Equipe</label>
+                        <select id="gestor-filtro-equipe" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
+                            <option value="">Todas as Equipes</option>
+                            <option value="Equipe Alfa">Equipe Alfa</option>
+                            <option value="Equipe Beta">Equipe Beta</option>
+                            <option value="Equipe Gama">Equipe Gama</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">Filtrar por Projeto</label>
+                        <select id="gestor-filtro-projeto" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
+                            <option value="">Todos os Projetos</option>
+                            <option value="VISTORIA">VISTORIA</option>
+                            <option value="ATIVAÇÃO">ATIVAÇÃO</option>
+                            <option value="CONSTRUÇÃO">CONSTRUÇÃO</option>
+                            <option value="CONSTRUÇÃO + ATIVAÇÃO">CONSTRUÇÃO + ATIVAÇÃO</option>
+                            <option value="NAP LOTADA ATIVAÇÃO">NAP LOTADA ATIVAÇÃO</option>
+                            <option value="NAP LOTADA CONSTRUÇÃO">NAP LOTADA CONSTRUÇÃO</option>
+                            <option value="NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO">NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex gap-2 w-full sm:w-auto justify-end">
+                    <button onclick="exportarCSV()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
+                        📥 Baixar Relatório (CSV)
+                    </button>
+                </div>
+            </div>
+
+            <!-- TABELA ATIVIDADES -->
+            <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
+                    <span>Atividades em Campo <span class="text-xs text-slate-400 font-normal">(Duplo clique na linha para detalhes)</span></span>
+                    <span class="text-xs font-normal text-slate-500" id="contador-resultados">0 registros</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
+                                <th class="p-3">Data / Imóvel</th>
+                                <th class="p-3">Equipe</th>
+                                <th class="p-3">Projeto</th>
+                                <th class="p-3">Desfecho</th>
+                                <th class="p-3">Horários</th>
+                                <th class="p-3">Responsável</th>
+                                <th class="p-3">Ações Master</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-gestor-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- RELATÓRIO DE MATERIAIS SEPARADOS -->
+            <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden">
+                <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais Utilizados</div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[9px] tracking-wider border-b">
+                                <th class="p-2.5">Imóvel / Data</th>
+                                <th class="p-2.5">Equipe / Projeto</th>
+                                <th class="p-2.5">Cabo Rise+Low (m)</th>
+                                <th class="p-2.5">Conectores</th>
+                                <th class="p-2.5">Cabo Drop (m)</th>
+                                <th class="p-2.5">NAP</th>
+                                <th class="p-2.5">DIO</th>
+                                <th class="p-2.5">Cx. Sobrepor</th>
+                                <th class="p-2.5">Cx. Embutida</th>
+                                <th class="p-2.5">Cx. FOSC</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-materiais-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- RETORNOS TÉCNICOS -->
+            <div id="subview-retornos" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden">
+                <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm">💬 Retornos e Desfechos Técnicos</div>
+                <div class="p-4 space-y-3" id="lista-retornos-container"></div>
+            </div>
+
+            <!-- GESTÃO DE USUÁRIOS -->
+            <div id="subview-usuarios" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
+                <div class="border-b pb-2 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800 text-sm">👥 Controle de Acesso e Usuários</h3>
+                    <button onclick="abrirModalUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium">+ Novo Usuário</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
+                                <th class="p-3">Nome / E-mail</th>
+                                <th class="p-3">Nível de Permissão</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-usuarios-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- AUDITORIA -->
+            <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
+                <div class="border-b pb-2">
+                    <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria e Rastreio (Logs Permanentes)</h3>
+                    <p class="text-xs text-slate-400">Registro imutável de alterações e exclusões do Master.</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
+                                <th class="p-3">Data / Hora</th>
+                                <th class="p-3">Usuário</th>
+                                <th class="p-3">Ação</th>
+                                <th class="p-3">Imóvel</th>
+                                <th class="p-3">Detalhes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-auditoria-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- BONIFICAÇÃO -->
+            <div id="subview-bonificacao" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6 hidden">
+                <div class="border-b pb-3 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base">🏆 Dashboard de Bonificação, Metas e Eficiência</h3>
+                        <p class="text-xs text-slate-500">Média de 1.4 ativ./dia | Assiduidade (22+ dias) | Malogros Internos vs Externos | Conformidade</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200 flex flex-col justify-between">
+                        <span class="text-xs font-bold text-emerald-800 uppercase">Equipes Elegíveis ao Bônus</span>
+                        <span class="text-3xl font-bold text-emerald-700 mt-2" id="bonif-elegiveis">0</span>
+                    </div>
+                    <div class="bg-amber-50 p-4 rounded-xl border border-amber-200 flex flex-col justify-between">
+                        <span class="text-xs font-bold text-amber-800 uppercase">Em Avaliação / Parciais</span>
+                        <span class="text-3xl font-bold text-amber-700 mt-2" id="bonif-parciais">0</span>
+                    </div>
+                    <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 flex flex-col justify-between">
+                        <span class="text-xs font-bold text-blue-800 uppercase">Média Geral Ativ. OK/Dia</span>
+                        <span class="text-3xl font-bold text-blue-700 mt-2" id="bonif-media-geral">0.0</span>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-xl border border-red-200 flex flex-col justify-between">
+                        <span class="text-xs font-bold text-red-800 uppercase">Malogros Internos (Alerta)</span>
+                        <span class="text-3xl font-bold text-red-700 mt-2" id="bonif-malogros-internos">0</span>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto border rounded-xl">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
+                                <th class="p-3">Posição / Equipe</th>
+                                <th class="p-3">Técnicos</th>
+                                <th class="p-3 text-center">Dias Trab. (Meta: 22)</th>
+                                <th class="p-3 text-center">Ativ. OK (Meta: 1.4/d)</th>
+                                <th class="p-3 text-center">Malogros Internos (Frota/Mat/Equip)</th>
+                                <th class="p-3 text-center">Malogros Externos (Cliente/Rede)</th>
+                                <th class="p-3 text-center">Conformidade</th>
+                                <th class="p-3 text-center">Status Bonificação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-bonificacao-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- ================= MODO CAMPO (SMARTPHONE) ================= -->
+        <main id="view-campo" class="flex-1 p-4 bg-slate-50 flex justify-center items-center">
+            <div class="w-full max-w-md bg-white shadow-lg rounded-2xl p-4 space-y-4 border border-slate-200 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <div>
+                        <h2 class="font-bold text-slate-800 text-sm">GPD - Lançamento de Campo</h2>
+                        <p class="text-[10px] text-blue-900 font-bold">Construção MDU - PROCISA RJ</p>
+                    </div>
+                    <span class="text-xs text-blue-900 font-medium" id="current-user-team">Selecione Equipe</span>
+                </div>
+
+                <div id="form-campo-container" class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Equipe</label>
+                        <select id="sel-equipe" onchange="atualizarMembrosEquipe()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
+                            <option value="">Selecione a Equipe...</option>
+                            <option value="Equipe Alfa">Equipe Alfa (João, Carlos)</option>
+                            <option value="Equipe Beta">Equipe Beta (Marcos, Ana)</option>
+                            <option value="Equipe Gama">Equipe Gama (Pedro, Lucas)</option>
+                        </select>
+                        <p class="text-[11px] text-slate-500 mt-1" id="txt-membros">Membros: -</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Projeto / Atividade</label>
+                        <select id="sel-projeto" onchange="mudarTipoProjeto()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
+                            <option value="VISTORIA">VISTORIA</option>
+                            <option value="ATIVAÇÃO">ATIVAÇÃO</option>
+                            <option value="CONSTRUÇÃO">CONSTRUÇÃO</option>
+                            <option value="CONSTRUÇÃO + ATIVAÇÃO">CONSTRUÇÃO + ATIVAÇÃO</option>
+                            <option value="NAP LOTADA ATIVAÇÃO">NAP LOTADA ATIVAÇÃO</option>
+                            <option value="NAP LOTADA CONSTRUÇÃO">NAP LOTADA CONSTRUÇÃO</option>
+                            <option value="NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO">NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Cód. Imóvel</label>
+                        <input type="text" id="inp-imovel" placeholder="Ex: IMO-98421" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none">
+                    </div>
+
+                    <div class="pt-2">
+                        <button onclick="fazerCheckIn()" id="btn-checkin" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
+                            🚀 Iniciar Atividade
+                        </button>
+                    </div>
+                </div>
+
+                <div id="bloco-pos-abertura" class="space-y-3 hidden">
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
+                        <p><strong>Entrada:</strong> <span id="lbl-h-entrada">-</span></p>
+                    </div>
+
+                    <div class="space-y-3 border-t pt-3">
+                        <h3 class="font-bold text-xs text-slate-700" id="titulo-form-dinamico">Dados da Vistoria</h3>
+                        
+                        <div class="space-y-2">
+                            <div><label class="block text-[11px] font-semibold text-slate-600">Responsável</label><input type="text" id="form-responsavel" class="w-full text-xs border rounded-lg p-2 outline-none"></div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="block text-[11px] font-semibold text-slate-600">Contato</label><input type="text" id="form-contato" class="w-full text-xs border rounded-lg p-2 outline-none"></div>
+                                <div><label class="block text-[11px] font-semibold text-slate-600">E-mail</label><input type="email" id="form-email" class="w-full text-xs border rounded-lg p-2 outline-none"></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="block text-[11px] font-semibold text-slate-600">Agendamento</label><input type="date" id="form-agendamento" class="w-full text-xs border rounded-lg p-2 outline-none"></div>
+                                <div><label class="block text-[11px] font-semibold text-slate-600">Andares</label><input type="number" id="form-andares" class="w-full text-xs border rounded-lg p-2 outline-none" placeholder="0"></div>
+                            </div>
+                            <div><label class="block text-[11px] font-semibold text-slate-600">Nº de HPs</label><input type="number" id="form-hps" class="w-full text-xs border rounded-lg p-2 outline-none" placeholder="0"></div>
+                        </div>
+
+                        <div id="bloco-materiais-completo" class="space-y-2 pt-2 border-t border-slate-100 hidden">
+                            <h4 class="text-[11px] font-bold text-blue-900 uppercase">Materiais e Rede</h4>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="block text-[10px] font-semibold text-slate-600">Fusões</label><input type="number" id="mat-fusoes" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                                <div><label class="block text-[10px] font-semibold text-slate-600">Conectores</label><input type="number" id="mat-conectores" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="block text-[10px] font-semibold text-slate-600">Cabo RL (m)</label><input type="number" id="mat-cabo-rl" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                                <div><label class="block text-[10px] font-semibold text-slate-600">Cabo Drop (m)</label><input type="number" id="mat-cabo-drop" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="block text-[10px] font-semibold text-slate-600">NAP</label><input type="number" id="mat-nap" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                                <div><label class="block text-[10px] font-semibold text-slate-600">DIO</label><input type="number" id="mat-dio" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            </div>
+                            <div><label class="block text-[10px] font-semibold text-slate-600">Caixa Sobrepor</label><input type="text" id="mat-cx-sobrepor" placeholder="Ex: 2 - Mod. X" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            <div><label class="block text-[10px] font-semibold text-slate-600">Caixa Embutida</label><input type="text" id="mat-cx-embutida" placeholder="Ex: 1 - Mod. Y" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            <div><label class="block text-[10px] font-semibold text-slate-600">Caixa FOSC</label><input type="text" id="mat-cx-fosc" placeholder="Ex: 1 - FOSC-16" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-600">Serviço de Obra Realizado?</label>
+                                <select id="mat-obra-realizada" onchange="toggleDetalheObra()" class="w-full text-xs border rounded-lg p-1.5 bg-white outline-none">
+                                    <option value="Não">Não</option><option value="Sim">Sim</option>
+                                </select>
+                            </div>
+                            <div id="div-detalhe-obra" class="hidden">
+                                <label class="block text-[10px] font-semibold text-slate-600">Detalhamento da Obra</label>
+                                <textarea id="mat-detalhe-obra" rows="2" class="w-full text-xs border rounded-lg p-1.5 outline-none" placeholder="Detalhes..."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- SELEÇÃO DE DESFECHO -->
+                        <div class="space-y-3 pt-3 border-t border-slate-200">
+                            <label class="block text-xs font-bold text-slate-800 uppercase">Selecione o Desfecho da Atividade:</label>
+                            
+                            <div class="grid grid-cols-3 gap-2">
+                                <button type="button" onclick="selecionarDesfecho('CONCLUIDA')" id="btn-desf-conc" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-2 rounded-lg text-xs transition shadow-sm">CONCLUÍDA</button>
+                                <button type="button" onclick="selecionarDesfecho('PENDENTE')" id="btn-desf-pend" class="bg-amber-500 hover:bg-amber-600 text-white font-bold p-2 rounded-lg text-xs transition shadow-sm">PENDENTE</button>
+                                <button type="button" onclick="selecionarDesfecho('MALOGRADA')" id="btn-desf-malo" class="bg-red-600 hover:bg-red-700 text-white font-bold p-2 rounded-lg text-xs transition shadow-sm">MALOGRADA</button>
+                            </div>
+
+                            <div id="bloco-concluida" class="space-y-2 hidden bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                                <label class="block text-[11px] font-semibold text-emerald-900">Informação Complementar (Opcional)</label>
+                                <input type="text" id="obs-concluida" class="w-full text-xs border border-emerald-300 rounded-lg p-2 outline-none bg-white" placeholder="Detalhe opcional...">
+                            </div>
+
+                            <div id="bloco-pendente" class="space-y-2 hidden bg-amber-50 p-3 rounded-xl border border-amber-200">
+                                <label class="block text-[11px] font-bold text-amber-900">Motivo da Pendência (Obrigatório)*</label>
+                                <textarea id="obs-pendente" rows="2" class="w-full text-xs border border-amber-300 rounded-lg p-2 outline-none bg-white" placeholder="Descreva o motivo..."></textarea>
+                            </div>
+
+                            <div id="bloco-malograda" class="space-y-2 hidden bg-red-50 p-3 rounded-xl border border-red-200">
+                                <label class="block text-[11px] font-bold text-red-900">Motivo do Malogro (Obrigatório)*</label>
+                                <textarea id="obs-malograda" rows="2" class="w-full text-xs border border-red-300 rounded-lg p-2 outline-none bg-white" placeholder="Descreva o motivo..."></textarea>
+                                
+                                <label class="block text-[11px] font-bold text-red-900 mt-2">Selecione o(s) Malogro(s) Pré-definido(s):*</label>
+                                <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-red-200 max-h-40 overflow-y-auto">
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="FROTA"> FROTA</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="MATERIAL"> MATERIAL</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="FINANCEIRO"> FINANCEIRO</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="EQUIPAMENTOS"> EQUIPAMENTOS</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="ACESSO"> ACESSO</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="PROJETO"> PROJETO</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="REDE EXTERNA"> REDE EXTERNA</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="INFRAESTRUTURA"> INFRAESTRUTURA</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="ERRO DE ABERTURA (ENCERRADO)"> ERRO DE ABERTURA (ENCERRADO)</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="ÁREA DE RISCO"> ÁREA DE RISCO</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="ENDEREÇO NÃO LOCALIZADO"> ENDEREÇO NÃO LOCALIZADO</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="SDU - ATENDIDO DIRETO DA REDE"> SDU - ATENDIDO DIRETO DA REDE</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="malogro-check" value="PRÉDIO EM OBRA (SEM INFRA)"> PRÉDIO EM OBRA (SEM INFRA)</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-600">Observações Gerais</label>
+                            <textarea id="form-observacoes" rows="2" class="w-full text-xs border border-slate-300 rounded-lg p-2 outline-none" placeholder="Ocorrências..."></textarea>
+                        </div>
+                    </div>
+
+                    <button onclick="salvarRegistro()" class="w-full bg-blue-900 hover:bg-blue-950 text-white font-medium py-3 rounded-xl text-sm transition shadow-md">
+                        💾 Finalizar e Salvar Atendimento
+                    </button>
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- MODAIS -->
+    <div id="modal-detalhes" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm" id="modal-titulo">Explosão de Detalhes da Atividade</h3>
+                <button onclick="fecharModalDetalhes()" class="text-white hover:text-slate-200 font-bold text-lg">✕</button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4 text-xs text-slate-700" id="modal-conteudo"></div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end">
+                <button onclick="fecharModalDetalhes()" class="bg-slate-600 hover:bg-slate-700 text-white text-xs px-4 py-2 rounded-lg font-medium">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-edicao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="bg-amber-600 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm">Editar Registro (Master)</h3>
+                <button onclick="fecharModalEdicao()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-3 text-xs">
+                <input type="hidden" id="edit-id">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Cód. Imóvel</label>
+                    <input type="text" id="edit-imovel" class="w-full border rounded-lg p-2 outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block font-semibold text-slate-600 mb-1">Responsável</label><input type="text" id="edit-responsavel" class="w-full border rounded-lg p-2 outline-none"></div>
+                    <div><label class="block font-semibold text-slate-600 mb-1">Contato</label><input type="text" id="edit-contato" class="w-full border rounded-lg p-2 outline-none"></div>
+                </div>
+                <div><label class="block font-semibold text-slate-600 mb-1">Observações</label><textarea id="edit-observacoes" rows="3" class="w-full border rounded-lg p-2 outline-none"></textarea></div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalEdicao()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="salvarEdicaoMaster()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-usuario" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm">Cadastrar Novo Usuário</h3>
+                <button onclick="fecharModalUsuario()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 space-y-3 text-xs">
+                <div><label class="block font-semibold text-slate-600 mb-1">Nome Completo</label><input type="text" id="novo-user-nome" class="w-full border rounded-lg p-2 outline-none"></div>
+                <div><label class="block font-semibold text-slate-600 mb-1">E-mail Corporativo</label><input type="email" id="novo-user-email" class="w-full border rounded-lg p-2 outline-none" placeholder="usuario@procisa.com.br"></div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Nível de Permissão</label>
+                    <select id="novo-user-nivel" class="w-full border rounded-lg p-2 bg-white outline-none">
+                        <option value="Visualizador">Visualizador</option>
+                        <option value="Operador">Operador</option>
+                        <option value="Gestor Parcial">Gestor Parcial</option>
+                    </select>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalUsuario()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="salvarNovoUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const equipesMembros = {
+            "Equipe Alfa": "João Silva, Carlos Eduardo",
+            "Equipe Beta": "Marcos Vinicius, Ana Paula",
+            "Equipe Gama": "Pedro Henrique, Lucas Gabriel"
+        };
+
+        const causasInternas = ["FROTA", "MATERIAL", "EQUIPAMENTOS"];
+
+        let dadosAtendimento = { hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, desfechoSelecionado: null };
+        let registrosSalvos = JSON.parse(localStorage.getItem('registros_producao')) || [];
+        let usuariosSistema = JSON.parse(localStorage.getItem('usuarios_sistema')) || [
+            { id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", nivel: "Master", status: "Ativo" }
+        ];
+        let trilhaAuditoria = JSON.parse(localStorage.getItem('trilha_auditoria')) || [];
+        let usuarioLogado = null;
+
+        window.onload = function() { alternarVisao('campo'); };
+
+        function tentarAcessarGestor() {
+            let emailInformado = prompt("🔒 Digite o seu e-mail corporativo para acessar o Dashboard:");
+            if (!emailInformado) return;
+            emailInformado = emailInformado.trim().toLowerCase();
+            let userEncontrado = usuariosSistema.find(u => u.email.toLowerCase() === emailInformado && u.status === "Ativo");
+
+            if (emailInformado === "lsimoes@procisa.com.br" || userEncontrado) {
+                usuarioLogado = userEncontrado || { nome: "Leonardo Simões", email: "lsimoes@procisa.com.br", nivel: "Master" };
+                document.getElementById('badge-usuario-logado').classList.remove('hidden');
+                document.getElementById('txt-email-ativo').innerText = usuarioLogado.email;
+                alternarVisao('gestor');
+            } else {
+                alert("❌ E-mail não autorizado ou usuário inativo no sistema.");
+            }
+        }
+
+        function alternarVisao(visao) {
+            const vGestor = document.getElementById('view-gestor');
+            const vCampo = document.getElementById('view-campo');
+            const btnGestor = document.getElementById('btn-modo-gestor');
+            const btnCampo = document.getElementById('btn-modo-campo');
+            const subtitle = document.getElementById('header-subtitle');
+
+            if (visao === 'gestor') {
+                vGestor.classList.remove('hidden');
+                vCampo.classList.add('hidden');
+                btnGestor.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold";
+                btnCampo.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-cyan-200 hover:text-white";
+                subtitle.innerText = "Painel Gerencial - Setor Construção MDU • PROCISA RJ";
+                atualizarDashboardGestor();
+            } else {
+                vGestor.classList.add('hidden');
+                vCampo.classList.remove('hidden');
+                btnCampo.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold";
+                btnGestor.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-cyan-200 hover:text-white";
+                subtitle.innerText = "Setor Construção MDU • PROCISA RJ";
+            }
+        }
+
+        function mudarSubAbaGestor(aba) {
+            const subs = ['atividades', 'materiais', 'retornos', 'usuarios', 'auditoria', 'bonificacao'];
+            subs.forEach(s => {
+                document.getElementById(`subview-${s}`).classList.add('hidden');
+                document.getElementById(`subtab-btn-${s}`).className = "pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition";
+            });
+            document.getElementById(`subview-${aba}`).classList.remove('hidden');
+            document.getElementById(`subtab-btn-${aba}`).className = "pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition";
+
+            if (aba === 'usuarios') renderizarTabelaUsuarios();
+            if (aba === 'auditoria') renderizarTabelaAuditoria();
+            if (aba === 'bonificacao') calcularBonificacaoAvancada();
+        }
+
+        function atualizarMembrosEquipe() {
+            const equipe = document.getElementById('sel-equipe').value;
+            document.getElementById('current-user-team').innerText = equipe || "Selecione Equipe";
+            document.getElementById('txt-membros').innerText = "Membros: " + (equipesMembros[equipe] || "-");
+        }
+
+        function mudarTipoProjeto() {
+            const projeto = document.getElementById('sel-projeto').value;
+            const titulo = document.getElementById('titulo-form-dinamico');
+            const blocoMateriais = document.getElementById('bloco-materiais-completo');
+            if (projeto === 'VISTORIA') {
+                titulo.innerText = "Dados da Vistoria";
+                blocoMateriais.classList.add('hidden');
+            } else {
+                titulo.innerText = "Dados de Execução e Materiais (" + projeto + ")";
+                blocoMateriais.classList.remove('hidden');
+            }
+        }
+
+        function toggleDetalheObra() {
+            const status = document.getElementById('mat-obra-realizada').value;
+            const div = document.getElementById('div-detalhe-obra');
+            if (status === 'Sim') { div.classList.remove('hidden'); } else { div.classList.add('hidden'); }
+        }
+
+        function selecionarDesfecho(tipo) {
+            dadosAtendimento.desfechoSelecionado = tipo;
+            document.getElementById('bloco-concluida').classList.add('hidden');
+            document.getElementById('bloco-pendente').classList.add('hidden');
+            document.getElementById('bloco-malograda').classList.add('hidden');
+
+            document.getElementById('btn-desf-conc').style.opacity = tipo === 'CONCLUIDA' ? '1' : '0.5';
+            document.getElementById('btn-desf-pend').style.opacity = tipo === 'PENDENTE' ? '1' : '0.5';
+            document.getElementById('btn-desf-malo').style.opacity = tipo === 'MALOGRADA' ? '1' : '0.5';
+
+            if (tipo === 'CONCLUIDA') document.getElementById('bloco-concluida').classList.remove('hidden');
+            if (tipo === 'PENDENTE') document.getElementById('bloco-pendente').classList.remove('hidden');
+            if (tipo === 'MALOGRADA') document.getElementById('bloco-malograda').classList.remove('hidden');
+        }
+
+        async function obterHorarioOficial() {
+            try {
+                const response = await fetch('https://worldtimeapi.org/api/timezone/America/Sao_Paulo');
+                const data = await response.json();
+                return new Date(data.datetime).toLocaleTimeString('pt-BR');
+            } catch (e) {
+                return new Date().toLocaleTimeString('pt-BR');
+            }
+        }
+
+        function obterGPS(callback) {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => callback(`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`),
+                    (err) => callback("GPS Simulado (-22.9068, -43.1729)"),
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            } else {
+                callback("GPS Indisponível");
+            }
+        }
+
+        async function fazerCheckIn() {
+            const equipe = document.getElementById('sel-equipe').value;
+            const imovel = document.getElementById('inp-imovel').value;
+            if (!equipe || !imovel) { alert("Selecione a Equipe e informe o Cód. Imóvel."); return; }
+
+            const hora = await obterHorarioOficial();
+            obterGPS((gps) => {
+                dadosAtendimento.hEntrada = hora;
+                dadosAtendimento.gpsEntrada = gps;
+                document.getElementById('lbl-h-entrada').innerText = hora;
+                document.getElementById('form-campo-container').classList.add('hidden');
+                document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+                mudarTipoProjeto();
+            });
+        }
+
+        async function salvarRegistro() {
+            if (!dadosAtendimento.desfechoSelecionado) {
+                alert("⚠️ Selecione o desfecho da atividade (Concluída, Pendente ou Malograda).");
+                return;
+            }
+
+            let motivoDesfecho = "";
+            let malogrosSelecionados = [];
+
+            if (dadosAtendimento.desfechoSelecionado === 'PENDENTE') {
+                motivoDesfecho = document.getElementById('obs-pendente').value.trim();
+                if (!motivoDesfecho) { alert("⚠️ Informe o motivo da pendência."); return; }
+            } else if (dadosAtendimento.desfechoSelecionado === 'MALOGRADA') {
+                motivoDesfecho = document.getElementById('obs-malograda').value.trim();
+                let checkboxes = document.querySelectorAll('input[name="malogro-check"]:checked');
+                checkboxes.forEach(cb => malogrosSelecionados.push(cb.value));
+                if (!motivoDesfecho || malogrosSelecionados.length === 0) {
+                    alert("⚠️ Informe o motivo e selecione pelo menos um malogro.");
+                    return;
+                }
+            } else if (dadosAtendimento.desfechoSelecionado === 'CONCLUIDA') {
+                motivoDesfecho = document.getElementById('obs-concluida').value.trim();
+            }
+
+            const horaSaida = await obterHorarioOficial();
+            obterGPS((gpsSaida) => {
+                const equipe = document.getElementById('sel-equipe').value;
+                const projeto = document.getElementById('sel-projeto').value;
+                const imovel = document.getElementById('inp-imovel').value;
+
+                const registro = {
+                    id: Date.now(),
+                    dataRegistro: new Date().toISOString().split('T')[0],
+                    equipe, membros: equipesMembros[equipe], projeto, imovel,
+                    hEntrada: dadosAtendimento.hEntrada, hSaida: horaSaida,
+                    gpsEntrada: dadosAtendimento.gpsEntrada, gpsSaida: gpsSaida,
+                    desfecho: dadosAtendimento.desfechoSelecionado,
+                    motivoDesfecho: motivoDesfecho,
+                    malogros: malogrosSelecionados,
+                    responsavel: document.getElementById('form-responsavel').value,
+                    contato: document.getElementById('form-contato').value,
+                    email: document.getElementById('form-email').value,
+                    agendamento: document.getElementById('form-agendamento').value,
+                    andares: document.getElementById('form-andares').value,
+                    hps: document.getElementById('form-hps').value,
+                    observacoes: document.getElementById('form-observacoes').value,
+                    fusoes: document.getElementById('mat-fusoes').value || 0,
+                    conectores: document.getElementById('mat-conectores').value || 0,
+                    caboRL: document.getElementById('mat-cabo-rl').value || 0,
+                    caboDrop: document.getElementById('mat-cabo-drop').value || 0,
+                    nap: document.getElementById('mat-nap').value || 0,
+                    dio: document.getElementById('mat-dio').value || 0,
+                    cxSobrepor: document.getElementById('mat-cx-sobrepor').value || '',
+                    cxEmbutida: document.getElementById('mat-cx-embutida').value || '',
+                    cxFosc: document.getElementById('mat-cx-fosc').value || '',
+                    obraRealizada: document.getElementById('mat-obra-realizada').value,
+                    detalheObra: document.getElementById('mat-detalhe-obra').value || ''
+                };
+
+                registrosSalvos.unshift(registro);
+                localStorage.setItem('registros_producao', JSON.stringify(registrosSalvos));
+                alert("Atendimento finalizado com sucesso!");
+                location.reload();
+            });
+        }
+
+        function atualizarDashboardGestor() {
+            const fData = document.getElementById('gestor-filtro-data').value;
+            const fEquipe = document.getElementById('gestor-filtro-equipe').value;
+            const fProjeto = document.getElementById('gestor-filtro-projeto').value;
+
+            const corpoAtiv = document.getElementById('tabela-gestor-corpo');
+            const corpoMat = document.getElementById('tabela-materiais-corpo');
+            const listaRet = document.getElementById('lista-retornos-container');
+
+            corpoAtiv.innerHTML = "";
+            corpoMat.innerHTML = "";
+            listaRet.innerHTML = "";
+
+            let filtrados = registrosSalvos.filter(item => {
+                let mData = fData ? item.dataRegistro === fData : true;
+                let mEquipe = fEquipe ? item.equipe === fEquipe : true;
+                let mProj = fProjeto ? item.projeto === fProjeto : true;
+                return mData && mEquipe && mProj;
+            });
+
+            // Atualização dos Indicadores Independentes por Projeto
+            document.getElementById('kpi-proj-vistoria').innerText = filtrados.filter(i => i.projeto === 'VISTORIA').length;
+            document.getElementById('kpi-proj-ativacao').innerText = filtrados.filter(i => i.projeto === 'ATIVAÇÃO').length;
+            document.getElementById('kpi-proj-construcao').innerText = filtrados.filter(i => i.projeto === 'CONSTRUÇÃO').length;
+            document.getElementById('kpi-proj-const-ativ').innerText = filtrados.filter(i => i.projeto === 'CONSTRUÇÃO + ATIVAÇÃO').length;
+            document.getElementById('kpi-proj-nap-ativ').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA ATIVAÇÃO').length;
+            document.getElementById('kpi-proj-nap-const').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO').length;
+            document.getElementById('kpi-proj-nap-ambos').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO').length;
+
+            document.getElementById('contador-resultados').innerText = filtrados.length + " registros encontrados";
+
+            if (filtrados.length === 0) {
+                corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
+                corpoMat.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
+                listaRet.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">Nenhum retorno registrado.</p>`;
+                return;
+            }
+
+            filtrados.forEach(item => {
+                let corDesfecho = "bg-slate-100 text-slate-800";
+                if (item.desfecho === 'CONCLUIDA') corDesfecho = "bg-emerald-100 text-emerald-800";
+                if (item.desfecho === 'PENDENTE') corDesfecho = "bg-amber-100 text-amber-800";
+                if (item.desfecho === 'MALOGRADA') corDesfecho = "bg-red-100 text-red-800";
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-blue-50/50 border-b border-slate-100 transition cursor-pointer";
+                tr.ondblclick = () => abrirModalDetalhes(item);
+                tr.innerHTML = `
+                    <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
+                    <td class="p-3"><div class="font-semibold text-slate-700">${item.equipe}</div><div class="text-[10px] text-slate-400">${item.membros || ''}</div></td>
+                    <td class="p-3"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span></td>
+                    <td class="p-3"><span class="${corDesfecho} font-bold px-2 py-0.5 rounded text-[10px]">${item.desfecho || 'N/D'}</span></td>
+                    <td class="p-3"><div>Entrada: ${item.hEntrada}</div><div>Saída: ${item.hSaida}</div></td>
+                    <td class="p-3"><div>${item.responsavel || '-'}</div><div class="text-[10px] text-slate-400">${item.contato || '-'}</div></td>
+                    <td class="p-3 space-x-1">
+                        <button onclick='abrirModalEdicao(${JSON.stringify(item)})' class="text-amber-600 hover:text-amber-800 font-bold text-[10px] bg-amber-50 px-2 py-1 rounded">Editar</button>
+                        <button onclick="excluirRegistro(${item.id})" class="text-red-500 hover:text-red-700 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
+                    </td>
+                `;
+                corpoAtiv.appendChild(tr);
+
+                // Tabela de Materiais com colunas separadas
+                const trMat = document.createElement('tr');
+                trMat.className = "hover:bg-slate-50 border-b border-slate-100 transition";
+                trMat.innerHTML = `
+                    <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
+                    <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
+                    <td class="p-2.5 font-semibold">${item.caboRL || 0} m</td>
+                    <td class="p-2.5 font-semibold">${item.conectores || 0}</td>
+                    <td class="p-2.5 font-semibold">${item.caboDrop || 0} m</td>
+                    <td class="p-2.5 font-bold text-blue-900">${item.nap || 0}</td>
+                    <td class="p-2.5 font-bold text-indigo-700">${item.dio || 0}</td>
+                    <td class="p-2.5">${item.cxSobrepor || '-'}</td>
+                    <td class="p-2.5">${item.cxEmbutida || '-'}</td>
+                    <td class="p-2.5">${item.cxFosc || '-'}</td>
+                `;
+                corpoMat.appendChild(trMat);
+
+                const divRet = document.createElement('div');
+                divRet.className = "p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2";
+                divRet.innerHTML = `
+                    <div class="flex justify-between items-center border-b pb-1.5">
+                        <span class="font-bold text-slate-800">Imóvel: ${item.imovel} <span class="text-blue-900 font-normal">(${item.projeto})</span></span>
+                        <span class="text-xs ${corDesfecho} px-2 py-0.5 rounded font-bold">Desfecho: ${item.desfecho}</span>
+                    </div>
+                    <div class="text-xs space-y-1">
+                        <p><strong>Motivo / Informação:</strong> ${item.motivoDesfecho || 'Nenhum'}</p>
+                        ${item.malogros && item.malogros.length > 0 ? `<p><strong>Causas Malogradas:</strong> <span class="text-red-600 font-bold">${item.malogros.join(', ')}</span></p>` : ''}
+                        <p><strong>Observações Gerais:</strong> ${item.observacoes || 'Nenhuma'}</p>
+                    </div>
+                `;
+                listaRet.appendChild(divRet);
+            });
+        }
+
+        function calcularBonificacaoAvancada() {
+            const corpo = document.getElementById('tabela-bonificacao-corpo');
+            corpo.innerHTML = "";
+
+            let equipesCadastradas = Object.keys(equipesMembros);
+            let estatisticas = {};
+
+            equipesCadastradas.forEach(eq => {
+                estatisticas[eq] = {
+                    diasTrabalhados: new Set(),
+                    totalAtividadesOK: 0,
+                    malogrosInternos: 0,
+                    malogrosExternos: 0,
+                    totalRegistros: 0
+                };
+            });
+
+            registrosSalvos.forEach(item => {
+                if (estatisticas[item.equipe]) {
+                    estatisticas[item.equipe].diasTrabalhados.add(item.dataRegistro);
+                    estatisticas[item.equipe].totalRegistros++;
+                    
+                    if (item.desfecho === 'CONCLUIDA') {
+                        estatisticas[item.equipe].totalAtividadesOK++;
+                    } else if (item.desfecho === 'MALOGRADA' && item.malogros) {
+                        item.malogros.forEach(m => {
+                            if (causasInternas.includes(m)) {
+                                estatisticas[item.equipe].malogrosInternos++;
+                            } else {
+                                estatisticas[item.equipe].malogrosExternos++;
+                            }
+                        });
+                    }
+                }
+            });
+
+            let totalElegiveis = 0;
+            let totalParciais = 0;
+            let somaMedias = 0;
+            let totalMalogrosInternosGeral = 0;
+            let countEquipesAtivas = 0;
+
+            let rankingArray = equipesCadastradas.map(eq => {
+                let dias = estatisticas[eq].diasTrabalhados.size;
+                let ativOK = estatisticas[eq].totalAtividadesOK;
+                let mInternos = estatisticas[eq].malogrosInternos;
+                let mExternos = estatisticas[eq].malogrosExternos;
+                
+                let mediaDia = dias > 0 ? (ativOK / dias).toFixed(2) : 0;
+                
+                countEquipesAtivas++;
+                somaMedias += parseFloat(mediaDia);
+                totalMalogrosInternosGeral += mInternos;
+
+                let assiduidadeOK = dias >= 22;
+                let produtividadeOK = parseFloat(mediaDia) >= 1.4;
+                let qualidadeInternaOK = mInternos <= 2;
+
+                let statusBônus = "Elegível 🏆";
+                let corStatus = "bg-emerald-100 text-emerald-800";
+
+                if (!assiduidadeOK && !produtividadeOK) {
+                    statusBônus = "Não Atingiu Metas ❌";
+                    corStatus = "bg-red-100 text-red-800";
+                    totalParciais++;
+                } else if (!assiduidadeOK || !produtividadeOK || !qualidadeInternaOK) {
+                    statusBônus = "Parcial / Alerta ⚠️";
+                    corStatus = "bg-amber-100 text-amber-800";
+                    totalParciais++;
+                } else {
+                    totalElegiveis++;
+                }
+
+                return {
+                    equipe: eq,
+                    membros: equipesMembros[eq],
+                    dias: dias,
+                    ativOK: ativOK,
+                    mediaDia: mediaDia,
+                    mInternos: mInternos,
+                    mExternos: mExternos,
+                    conformidade: qualidadeInternaOK ? "100% OK" : "Alerta Interno",
+                    statusBônus: statusBônus,
+                    corStatus: corStatus
+                };
+            });
+
+            rankingArray.sort((a, b) => b.mediaDia - a.mediaDia);
+
+            document.getElementById('bonif-elegiveis').innerText = totalElegiveis;
+            document.getElementById('bonif-parciais').innerText = totalParciais;
+            document.getElementById('bonif-media-geral').innerText = countEquipesAtivas > 0 ? (somaMedias / countEquipesAtivas).toFixed(2) : "0.0";
+            document.getElementById('bonif-malogros-internos').innerText = totalMalogrosInternosGeral;
+
+            if (rankingArray.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhum dado para calcular.</td></tr>`;
+                return;
+            }
+
+            rankingArray.forEach((r, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 border-b";
+                tr.innerHTML = `
+                    <td class="p-3"><div class="font-bold text-slate-800">${index + 1}º - ${r.equipe}</div></td>
+                    <td class="p-3 text-[11px] text-slate-500">${r.membros}</td>
+                    <td class="p-3 text-center font-bold ${r.dias >= 22 ? 'text-emerald-600' : 'text-amber-600'}">${r.dias} / 22 dias</td>
+                    <td class="p-3 text-center font-bold ${parseFloat(r.mediaDia) >= 1.4 ? 'text-emerald-600' : 'text-amber-600'}">${r.ativOK} (${r.mediaDia}/d)</td>
+                    <td class="p-3 text-center font-bold ${r.mInternos <= 2 ? 'text-emerald-600' : 'text-red-600'}">${r.mInternos} falhas</td>
+                    <td class="p-3 text-center text-slate-500">${r.mExternos} ocorrências</td>
+                    <td class="p-3 text-center"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${r.conformidade}</span></td>
+                    <td class="p-3 text-center"><span class="${r.corStatus} font-bold px-2.5 py-1 rounded-full text-[10px]">${r.statusBônus}</span></td>
+                `;
+                corpo.appendChild(tr);
+            });
+        }
+
+        function abrirModalEdicao(item) {
+            document.getElementById('edit-id').value = item.id;
+            document.getElementById('edit-imovel').value = item.imovel;
+            document.getElementById('edit-responsavel').value = item.responsavel || '';
+            document.getElementById('edit-contato').value = item.contato || '';
+            document.getElementById('edit-observacoes').value = item.observacoes || '';
+            document.getElementById('modal-edicao').classList.remove('hidden');
+        }
+        function fecharModalEdicao() { document.getElementById('modal-edicao').classList.add('hidden'); }
+
+        function salvarEdicaoMaster() {
+            const id = Number(document.getElementById('edit-id').value);
+            const index = registrosSalvos.findIndex(r => r.id === id);
+            if (index === -1) return;
+
+            registrosSalvos[index].imovel = document.getElementById('edit-imovel').value;
+            registrosSalvos[index].responsavel = document.getElementById('edit-responsavel').value;
+            registrosSalvos[index].contato = document.getElementById('edit-contato').value;
+            registrosSalvos[index].observacoes = document.getElementById('edit-observacoes').value;
+
+            localStorage.setItem('registros_producao', JSON.stringify(registrosSalvos));
+            registrarLogAuditoria("EDIÇÃO", registrosSalvos[index].imovel, `Imóvel ID ${id} editado pelo Master.`);
+            fecharModalEdicao();
+            alert("Registro atualizado!");
+            atualizarDashboardGestor();
+        }
+
+        function excluirRegistro(id) {
+            let reg = registrosSalvos.find(r => r.id === id);
+            if (!reg) return;
+            if (confirm(`Deseja excluir o registro do imóvel ${reg.imovel}?`)) {
+                registrosSalvos = registrosSalvos.filter(i => i.id !== id);
+                localStorage.setItem('registros_producao', JSON.stringify(registrosSalvos));
+                registrarLogAuditoria("EXCLUSÃO", reg.imovel, `Registro do imóvel ${reg.imovel} excluído.`);
+                atualizarDashboardGestor();
+            }
+        }
+
+        function registrarLogAuditoria(acao, imovel, detalhes) {
+            const novoLog = {
+                id: Date.now(),
+                dataHora: new Date().toLocaleString('pt-BR'),
+                usuario: usuarioLogado ? usuarioLogado.email : "lsimoes@procisa.com.br",
+                acao: acao, imovel: imovel, detalhes: detalhes
+            };
+            trilhaAuditoria.unshift(novoLog);
+            localStorage.setItem('trilha_auditoria', JSON.stringify(trilhaAuditoria));
+        }
+
+        function renderizarTabelaAuditoria() {
+            const corpo = document.getElementById('tabela-auditoria-corpo');
+            corpo.innerHTML = "";
+            if (trilhaAuditoria.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">Nenhum evento registrado.</td></tr>`;
+                return;
+            }
+            trilhaAuditoria.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 border-b";
+                tr.innerHTML = `
+                    <td class="p-3 font-mono text-[11px]">${log.dataHora}</td>
+                    <td class="p-3 font-semibold">${log.usuario}</td>
+                    <td class="p-3"><span class="bg-${log.acao === 'EXCLUSÃO' ? 'red' : 'amber'}-100 text-${log.acao === 'EXCLUSÃO' ? 'red' : 'amber'}-800 font-bold px-2 py-0.5 rounded text-[10px]">${log.acao}</span></td>
+                    <td class="p-3 font-bold">${log.imovel}</td>
+                    <td class="p-3 text-slate-600">${log.detalhes}</td>
+                `;
+                corpo.appendChild(tr);
+            });
+        }
+
+        function renderizarTabelaUsuarios() {
+            const corpo = document.getElementById('tabela-usuarios-corpo');
+            corpo.innerHTML = "";
+            usuariosSistema.forEach(u => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 border-b";
+                tr.innerHTML = `
+                    <td class="p-3"><div class="font-bold">${u.nome}</div><div class="text-[10px] text-slate-400">${u.email}</div></td>
+                    <td class="p-3"><span class="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-[10px]">${u.nivel}</span></td>
+                    <td class="p-3"><span class="text-emerald-600 font-semibold">${u.status}</span></td>
+                    <td class="p-3">${u.email !== 'lsimoes@procisa.com.br' ? `<button onclick="excluirUsuario(${u.id})" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Remover</button>` : '<span class="text-[10px] text-slate-400">Master</span>'}</td>
+                `;
+                corpo.appendChild(tr);
+            });
+        }
+
+        function abrirModalUsuario() { document.getElementById('modal-usuario').classList.remove('hidden'); }
+        function fecharModalUsuario() { document.getElementById('modal-usuario').classList.add('hidden'); }
+        function salvarNovoUsuario() {
+            const nome = document.getElementById('novo-user-nome').value;
+            const email = document.getElementById('novo-user-email').value;
+            const nivel = document.getElementById('novo-user-nivel').value;
+            if (!nome || !email) { alert("Preencha todos os campos."); return; }
+            usuariosSistema.push({ id: Date.now(), nome, email, nivel, status: "Ativo" });
+            localStorage.setItem('usuarios_sistema', JSON.stringify(usuariosSistema));
+            alert("Usuário cadastrado!");
+            fecharModalUsuario();
+            renderizarTabelaUsuarios();
+        }
+        function excluirUsuario(id) {
+            if (confirm("Remover usuário?")) {
+                usuariosSistema = usuariosSistema.filter(u => u.id !== id);
+                localStorage.setItem('usuarios_sistema', JSON.stringify(usuariosSistema));
+                renderizarTabelaUsuarios();
+            }
+        }
+
+        function abrirModalDetalhes(item) {
+            const modal = document.getElementById('modal-detalhes');
+            document.getElementById('modal-titulo').innerText = `Detalhes do Imóvel: ${item.imovel} (${item.projeto})`;
+            document.getElementById('modal-conteudo').innerHTML = `
+                <div class="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border">
+                    <p><strong>Equipe:</strong> ${item.equipe}</p>
+                    <p><strong>Técnicos:</strong> ${item.membros || '-'}</p>
+                    <p><strong>Desfecho:</strong> <span class="font-bold text-blue-900">${item.desfecho}</span></p>
+                    <p><strong>Motivo/Detalhe:</strong> ${item.motivoDesfecho || '-'}</p>
+                    ${item.malogros && item.malogros.length > 0 ? `<p class="col-span-2"><strong>Causas Malogradas:</strong> <span class="text-red-600 font-bold">${item.malogros.join(', ')}</span></p>` : ''}
+                </div>
+            `;
+            modal.classList.remove('hidden');
+        }
+        function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
+
+        function exportarCSV() {
+            if (registrosSalvos.length === 0) { alert("Não há registros."); return; }
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "ID;Data;Equipe;Membros;Projeto;Imóvel;Desfecho;Motivo/Detalhe;Malogros;H.Entrada;H.Saída;Responsável;Contato;Observações\r\n";
+            registrosSalvos.forEach(r => {
+                let row = [
+                    r.id, r.dataRegistro, r.equipe, r.membros, r.projeto, r.imovel,
+                    r.desfecho, r.motivoDesfecho, r.malogros ? r.malogros.join(' | ') : '',
+                    r.hEntrada, r.hSaida, r.responsavel, r.contato, r.observacoes
+                ].map(val => `"${val || ''}"`).join(";");
+                csvContent += row + "\r\n";
+            });
+            const link = document.createElement("a");
+            link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", `GPD_Construcao_MDU_RJ_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
