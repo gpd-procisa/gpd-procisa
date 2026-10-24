@@ -26,7 +26,7 @@
             </div>
             <div class="flex flex-col items-end gap-1.5">
                 <div class="flex items-center gap-3">
-                    <span id="badge-usuario-logado" class="text-xs bg-blue-950 px-3 py-1.5 rounded-lg border border-blue-700 hidden">👤 <span id="txt-email-ativo"></span></span>
+                    <span id="badge-usuario-logado" class="text-xs bg-blue-950 px-3 py-1.5 rounded-lg border border-blue-700 hidden">👤 <span id="txt-email-ativo"></span> (<span id="txt-nivel-ativo" class="text-cyan-300 font-bold"></span>)</span>
                     <div class="flex bg-blue-950 p-1 rounded-xl border border-blue-700">
                         <button onclick="alternarVisao('campo')" id="btn-modo-campo" class="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-cyan-200 hover:text-white">
                             📱 Modo Campo
@@ -169,7 +169,7 @@
                                 <th class="p-3">Desfecho</th>
                                 <th class="p-3">Horários & Duração</th>
                                 <th class="p-3">GPS (Entrada / Saída)</th>
-                                <th class="p-3">Ações Master</th>
+                                <th class="p-3" id="th-acao-master-label">Ações Master</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-gestor-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -381,7 +381,7 @@
             <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos</h3>
-                    <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium">+ Nova Equipe</button>
+                    <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-nova-equipe">+ Nova Equipe</button>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
@@ -389,7 +389,7 @@
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
                                 <th class="p-3">Nome do Técnico / Equipe</th>
                                 <th class="p-3">Status (Ativo / Inativo)</th>
-                                <th class="p-3">Ações</th>
+                                <th class="p-3" id="th-equipe-acoes">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-equipes-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -401,7 +401,7 @@
             <div id="subview-usuarios" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 text-sm">👥 Controle de Acesso e Usuários</h3>
-                    <button onclick="abrirModalUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium">+ Novo Usuário</button>
+                    <button onclick="abrirModalUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-novo-usuario">+ Novo Usuário</button>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
@@ -410,7 +410,7 @@
                                 <th class="p-3">Nome / E-mail</th>
                                 <th class="p-3">Nível de Permissão</th>
                                 <th class="p-3">Status</th>
-                                <th class="p-3">Ações Master</th>
+                                <th class="p-3" id="th-user-acoes">Ações Master</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-usuarios-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -448,7 +448,7 @@
             <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria e Logs (Quem fez o quê)</h3>
-                    <button onclick="limparLogsAuditoria()" class="bg-red-50 text-red-600 hover:bg-red-100 text-xs px-3 py-1.5 rounded-lg font-medium">Limpar Logs</button>
+                    <button onclick="limparLogsAuditoria()" class="bg-red-50 text-red-600 hover:bg-red-100 text-xs px-3 py-1.5 rounded-lg font-medium" id="btn-limpar-logs">Limpar Logs</button>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
@@ -704,12 +704,12 @@
             </div>
             <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
                 <button onclick="fecharModalUsuario()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
-                <button onclick="salvarOuAtualizarUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar}
+                <button onclick="salvarOuAtualizarUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar</button>
             </div>
         </div>
     </div>
 
-    <!-- Script Principal -->
+    <!-- Script Principal com Controle de Permissões Aplicado -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -754,6 +754,7 @@
         ];
         let trilhaAuditoria = JSON.parse(localStorage.getItem('gpd_trilha_auditoria')) || [];
         let usuarioLogado = sessionStorage.getItem('gpd_user_logado') || null;
+        let nivelUsuarioLogado = "Visualizador";
         let graficoProjetosInstancia = null;
         let graficoDesfechosInstancia = null;
         let dadosFiltradosAtuais = [];
@@ -775,16 +776,30 @@
 
         window.onload = async function() { 
             popularSelectEquipes();
+            verificarPermissoesSessao();
             if (usuarioLogado) {
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
                 document.getElementById('btn-sair-gestor').classList.remove('hidden');
                 document.getElementById('txt-email-ativo').innerText = usuarioLogado;
+                document.getElementById('txt-nivel-ativo').innerText = nivelUsuarioLogado;
                 alternarVisao('gestor');
             } else {
                 alternarVisao('campo');
             }
             await carregarRegistrosDaNuvem();
         };
+
+        function verificarPermissoesSessao() {
+            if (!usuarioLogado) return;
+            let u = usuariosSistema.find(user => user.email.toLowerCase() === usuarioLogado.toLowerCase());
+            if (u) {
+                nivelUsuarioLogado = u.nivel;
+            } else if (usuarioLogado.toLowerCase() === "lsimoes@procisa.com.br") {
+                nivelUsuarioLogado = "Master";
+            } else {
+                nivelUsuarioLogado = "Visualizador";
+            }
+        }
 
         function registrarLogAuditoria(acao, detalhes) {
             let userAtivo = usuarioLogado || "Sistema / Campo";
@@ -836,11 +851,14 @@
             if (usuarioEncontrado || (emailInformado === "lsimoes@procisa.com.br" && senhaInformada === "Leo290301@")) {
                 usuarioLogado = emailInformado;
                 sessionStorage.setItem('gpd_user_logado', usuarioLogado);
+                verificarPermissoesSessao();
+                
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
                 document.getElementById('btn-sair-gestor').classList.remove('hidden');
                 document.getElementById('txt-email-ativo').innerText = usuarioLogado;
+                document.getElementById('txt-nivel-ativo').innerText = nivelUsuarioLogado;
                 
-                registrarLogAuditoria("LOGIN NO SISTEMA", `Acesso ao Dashboard Gestor com sucesso.`);
+                registrarLogAuditoria("LOGIN NO SISTEMA", `Acesso ao Dashboard Gestor com nível (${nivelUsuarioLogado}).`);
                 alternarVisao('gestor');
             } else {
                 alert("❌ E-mail ou senha incorretos, ou usuário não autorizado.");
@@ -851,6 +869,7 @@
             registrarLogAuditoria("LOGOUT", `Saída do painel gerencial.`);
             sessionStorage.removeItem('gpd_user_logado');
             usuarioLogado = null;
+            nivelUsuarioLogado = "Visualizador";
             document.getElementById('badge-usuario-logado').classList.add('hidden');
             document.getElementById('btn-sair-gestor').classList.add('hidden');
             alternarVisao('campo');
@@ -874,6 +893,8 @@
                 btnGestor.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold";
                 btnCampo.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-cyan-200 hover:text-white";
                 subtitle.innerText = "Painel Gerencial - Setor Construção MDU • PROCISA RJ";
+                
+                aplicarRestricoesInterface();
                 atualizarDashboardGestor();
             } else {
                 vGestor.classList.add('hidden');
@@ -881,6 +902,26 @@
                 btnCampo.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold";
                 btnGestor.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-cyan-200 hover:text-white";
                 subtitle.innerText = "Setor Construção MDU • PROCISA RJ";
+            }
+        }
+
+        function aplicarRestricoesInterface() {
+            const btnNovaEquipe = document.getElementById('btn-nova-equipe');
+            const btnNovoUsuario = document.getElementById('btn-novo-usuario');
+            const btnLimparLogs = document.getElementById('btn-limpar-logs');
+
+            if (nivelUsuarioLogado === 'Visualizador') {
+                if (btnNovaEquipe) btnNovaEquipe.classList.add('hidden');
+                if (btnNovoUsuario) btnNovoUsuario.classList.add('hidden');
+                if (btnLimparLogs) btnLimparLogs.classList.add('hidden');
+            } else if (nivelUsuarioLogado === 'Operador') {
+                if (btnNovoUsuario) btnNovoUsuario.classList.add('hidden');
+                if (btnLimparLogs) btnLimparLogs.classList.add('hidden');
+                if (btnNovaEquipe) btnNovaEquipe.classList.remove('hidden');
+            } else {
+                if (btnNovaEquipe) btnNovaEquipe.classList.remove('hidden');
+                if (btnNovoUsuario) btnNovoUsuario.classList.remove('hidden');
+                if (btnLimparLogs) btnLimparLogs.classList.remove('hidden');
             }
         }
 
@@ -1127,7 +1168,6 @@
             document.getElementById('total-cx-embutida').innerText = sumEmbutida;
             document.getElementById('total-cx-fosc').innerText = sumFosc;
 
-            // Renderizar Medição Financeira
             renderizarTabelaFinanceiro({
                 vistorias: sumVistorias,
                 caboRL: sumCaboRL,
@@ -1154,6 +1194,11 @@
                 tr.className = "hover:bg-blue-50/50 border-b cursor-pointer transition";
                 tr.title = "Clique para ver todos os detalhes";
                 tr.onclick = () => abrirDetalhesAtividade(item);
+                
+                let botaoAcaoMaster = nivelUsuarioLogado !== 'Visualizador' ? 
+                    `<button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>` : 
+                    `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
+
                 tr.innerHTML = `
                     <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
                     <td class="p-3"><div class="font-semibold">${item.equipe}</div></td>
@@ -1168,7 +1213,7 @@
                         <div>Out: ${item.gpsSaida}</div>
                     </td>
                     <td class="p-3" onclick="event.stopPropagation()">
-                        <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
+                        ${botaoAcaoMaster}
                     </td>
                 `;
                 corpoAtiv.appendChild(tr);
@@ -1194,6 +1239,7 @@
             renderizarGraficos(filtrados);
             renderizarTabelaConsolidada(filtrados);
             renderizarRankingsSeparados(filtrados);
+            renderizarTabelaUsuariosPermissao();
         }
 
         function renderizarTabelaFinanceiro(totais) {
@@ -1235,6 +1281,33 @@
             });
 
             spanTotalGeral.innerText = `R$ ${valorGeralAcumulado.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        }
+
+        function renderizarTabelaUsuariosPermissao() {
+            const corpo = document.getElementById('tabela-usuarios-corpo');
+            if (!corpo) return;
+            corpo.innerHTML = "";
+
+            let listaVisivel = usuariosSistema;
+            if (nivelUsuarioLogado === 'Visualizador' || nivelUsuarioLogado === 'Operador') {
+                listaVisivel = usuariosSistema.filter(u => u.email.toLowerCase() === usuarioLogado.toLowerCase());
+            }
+
+            listaVisivel.forEach(u => {
+                let acoesHtml = `<button onclick="abrirModalUsuario(${u.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Alterar Senha</button>`;
+                if (nivelUsuarioLogado === 'Master') {
+                    acoesHtml += ` <button onclick="excluirUsuario(${u.id}, '${u.email}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>`;
+                }
+
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3"><div class="font-bold">${u.nome}</div><div class="text-[10px] text-slate-400">${u.email}</div></td>
+                        <td class="p-3"><span class="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-[10px]">${u.nivel}</span></td>
+                        <td class="p-3"><span class="text-emerald-600 font-semibold">${u.status}</span></td>
+                        <td class="p-3">${acoesHtml}</td>
+                    </tr>
+                `;
+            });
         }
 
         function renderizarRankingsSeparados(dados) {
@@ -1470,6 +1543,7 @@
 
         // --- GESTÃO DE EQUIPES ---
         function abrirModalEquipe(id = null) {
+            if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Usuários visualizadores não podem gerenciar equipes."); return; }
             document.getElementById('modal-equipe').classList.remove('hidden');
             if (id) {
                 document.getElementById('modal-equipe-titulo').innerText = "Editar Equipe";
@@ -1490,6 +1564,7 @@
         function fecharModalEquipe() { document.getElementById('modal-equipe').classList.add('hidden'); }
 
         function salvarOuAtualizarEquipe() {
+            if (nivelUsuarioLogado === 'Visualizador') return;
             const editId = document.getElementById('edit-equipe-id').value;
             const nome = document.getElementById('inp-nome-equipe').value.trim().toUpperCase();
             const status = document.getElementById('sel-status-equipe').value;
@@ -1521,6 +1596,10 @@
             if (!corpo) return;
             corpo.innerHTML = "";
             equipesSistema.forEach(eq => {
+                let acoesEq = nivelUsuarioLogado === 'Master' ? 
+                    `<button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button> <button onclick="excluirEquipe(${eq.id}, '${eq.nome}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>` :
+                    `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
+
                 corpo.innerHTML += `
                     <tr class="hover:bg-slate-50 border-b">
                         <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
@@ -1529,16 +1608,14 @@
                                 ${eq.status}
                             </span>
                         </td>
-                        <td class="p-3 space-x-1">
-                            <button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>
-                            <button onclick="excluirEquipe(${eq.id}, '${eq.nome}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>
-                        </td>
+                        <td class="p-3 space-x-1">${acoesEq}</td>
                     </tr>
                 `;
             });
         }
 
         function excluirEquipe(id, nome) {
+            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem excluir equipes."); return; }
             if (confirm(`Deseja realmente excluir a equipe ${nome} do sistema?`)) {
                 registrarLogAuditoria("EXCLUSÃO DE EQUIPE", `Equipe removida: ${nome}`);
                 equipesSistema = equipesSistema.filter(e => e.id !== id);
@@ -1550,6 +1627,12 @@
 
         // Funções de Usuários
         function abrirModalUsuario(id = null) {
+            if (nivelUsuarioLogado === 'Visualizador' && id) {
+                // Visualizador só altera a própria senha
+                let uSelf = usuariosSistema.find(u => u.email.toLowerCase() === usuarioLogado.toLowerCase());
+                if (uSelf) id = uSelf.id;
+            }
+
             document.getElementById('modal-usuario').classList.remove('hidden');
             if (id) {
                 let u = usuariosSistema.find(user => user.id === id);
@@ -1559,13 +1642,23 @@
                     document.getElementById('novo-user-email').value = u.email;
                     document.getElementById('novo-user-senha').value = u.senha;
                     document.getElementById('novo-user-nivel').value = u.nivel;
+
+                    if (nivelUsuarioLogado !== 'Master') {
+                        document.getElementById('novo-user-nome').disabled = true;
+                        document.getElementById('novo-user-email').disabled = true;
+                        document.getElementById('novo-user-nivel').disabled = true;
+                    }
                 }
             } else {
+                if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem cadastrar novos usuários."); fecharModalUsuario(); return; }
                 document.getElementById('edit-user-id').value = "";
                 document.getElementById('novo-user-nome').value = "";
                 document.getElementById('novo-user-email').value = "";
                 document.getElementById('novo-user-senha').value = "";
                 document.getElementById('novo-user-nivel').value = "Visualizador";
+                document.getElementById('novo-user-nome').disabled = false;
+                document.getElementById('novo-user-email').disabled = false;
+                document.getElementById('novo-user-nivel').disabled = false;
             }
         }
 
@@ -1583,150 +1676,33 @@
             if (editId) {
                 let u = usuariosSistema.find(user => user.id == editId);
                 if (u) { 
-                    registrarLogAuditoria("EDIÇÃO DE USUÁRIO", `Dados alterados para o usuário: ${email}`);
-                    u.nome = nome; u.email = email; u.senha = senha; u.nivel = nivel; 
+                    registrarLogAuditoria("EDIÇÃO DE USUÁRIO", `Senha alterada para o usuário: ${email}`);
+                    if (nivelUsuarioLogado === 'Master') {
+                        u.nome = nome; u.email = email; u.senha = senha; u.nivel = nivel; 
+                    } else {
+                        // Operador/Visualizador só altera a própria senha
+                        u.senha = senha;
+                    }
                 }
             } else {
+                if (nivelUsuarioLogado !== 'Master') { alert("Acesso negado."); return; }
                 registrarLogAuditoria("NOVO USUÁRIO", `Cadastrado novo usuário: ${email} (${nivel})`);
                 usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
             }
 
             localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
             fecharModalUsuario();
-            renderizarTabelaUsuarios();
+            renderizarTabelaUsuariosPermissao();
+            alert("Dados de usuário salvos com sucesso!");
         }
 
-        function renderizarTabelaUsuarios() {
-            const corpo = document.getElementById('tabela-usuarios-corpo');
-            if (!corpo) return;
-            corpo.innerHTML = "";
-            usuariosSistema.forEach(u => {
-                corpo.innerHTML += `
-                    <tr class="hover:bg-slate-50 border-b">
-                        <td class="p-3"><div class="font-bold">${u.nome}</div><div class="text-[10px] text-slate-400">${u.email}</div></td>
-                        <td class="p-3"><span class="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-[10px]">${u.nivel}</span></td>
-                        <td class="p-3"><span class="text-emerald-600 font-semibold">${u.status}</span></td>
-                        <td class="p-3"><button onclick="abrirModalUsuario(${u.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button></td>
-                    </tr>
-                `;
-            });
-        }
-
-        function renderizarTabelaAuditoria() {
-            const corpo = document.getElementById('tabela-auditoria-corpo');
-            if (!corpo) return;
-            corpo.innerHTML = "";
-            if (trilhaAuditoria.length === 0) {
-                corpo.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400">Nenhum registo de auditoria recente.</td></tr>`;
-                return;
-            }
-            trilhaAuditoria.forEach(log => {
-                corpo.innerHTML += `
-                    <tr class="hover:bg-slate-50 border-b text-xs">
-                        <td class="p-3 font-mono text-slate-500">${log.dataHora}</td>
-                        <td class="p-3 font-bold text-blue-900">${log.usuario}</td>
-                        <td class="p-3"><span class="bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded text-[10px]">${log.acao}</span></td>
-                        <td class="p-3 text-slate-600">${log.detalhes}</td>
-                    </tr>
-                `;
-            });
-        }
-
-        function limparLogsAuditoria() {
-            if (confirm("Deseja limpar o histórico de logs de auditoria?")) {
-                trilhaAuditoria = [];
-                localStorage.removeItem('gpd_trilha_auditoria');
-                renderizarTabelaAuditoria();
-            }
-        }
-
-        function renderizarGraficos(dados) {
-            let projetosCount = {
-                'VISTORIA': 0,
-                'ATIVAÇÃO': 0,
-                'CONSTRUÇÃO': 0,
-                'CONSTRUÇÃO + ATIVAÇÃO': 0,
-                'NAP LOTADA ATIVAÇÃO': 0,
-                'NAP LOTADA CONSTRUÇÃO': 0,
-                'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO': 0
-            };
-
-            let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
-
-            dados.forEach(d => {
-                if (projetosCount[d.projeto] !== undefined) {
-                    projetosCount[d.projeto]++;
-                }
-                if (desfechosCount[d.desfecho] !== undefined) {
-                    desfechosCount[d.desfecho]++;
-                }
-            });
-
-            const ctxProj = document.getElementById('graficoProjetos')?.getContext('2d');
-            if (ctxProj) {
-                if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
-                graficoProjetosInstancia = new Chart(ctxProj, {
-                    type: 'bar',
-                    data: {
-                        labels: Object.keys(projetosCount),
-                        datasets: [{
-                            label: 'Volume de Atendimentos',
-                            data: Object.values(projetosCount),
-                            backgroundColor: ['#1e3a8a', '#2563eb', '#3b82f6', '#60a5fa', '#d97706', '#ea580c', '#059669'],
-                            borderRadius: 6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        onClick: (event, elements) => {
-                            if (elements.length > 0) {
-                                let index = elements[0].index;
-                                let chaveProjeto = Object.keys(projetosCount)[index];
-                                dispararExplosaoGrafico('projeto', chaveProjeto);
-                            }
-                        }
-                    }
-                });
-            }
-
-            const ctxDesf = document.getElementById('graficoDesfechos')?.getContext('2d');
-            if (ctxDesf) {
-                if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
-                graficoDesfechosInstancia = new Chart(ctxDesf, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'],
-                        datasets: [{
-                            data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']],
-                            backgroundColor: ['#059669', '#d97706', '#dc2626']
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        onClick: (event, elements) => {
-                            if (elements.length > 0) {
-                                let index = elements[0].index;
-                                let chaveDesfecho = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'][index];
-                                dispararExplosaoGrafico('desfecho', chaveDesfecho);
-                            }
-                        }
-                    }
-                });
-            }
-        }
-
-        async function excluirRegistro(id, imovelCod) {
-            if (confirm("Deseja excluir este registro de produção?")) {
-                const { error } = await supabaseClient.from('registros_producao').delete().eq('id', id);
-                if (error) {
-                    alert("Erro ao excluir: " + error.message);
-                } else {
-                    registrarLogAuditoria("EXCLUSÃO DE REGISTRO", `Registro do imóvel ${imovelCod} (ID: ${id}) foi apagado.`);
-                    await recarregarDadosGestor();
-                }
+        function excluirUsuario(id, email) {
+            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem excluir usuários."); return; }
+            if (confirm(`Deseja realmente remover o acesso de ${email}?`)) {
+                registrarLogAuditoria("EXCLUSÃO DE USUÁRIO", `Removido usuário: ${email}`);
+                usuariosSistema = usuariosSistema.filter(u => u.id !== id);
+                localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
+                renderizarTabelaUsuariosPermissao();
             }
         }
 
@@ -1744,7 +1720,7 @@
             if (targetView) targetView.classList.remove('hidden');
             if (targetBtn) targetBtn.className = "px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5";
 
-            if (aba === 'usuarios') renderizarTabelaUsuarios();
+            if (aba === 'usuarios') renderizarTabelaUsuariosPermissao();
             if (aba === 'equipes') renderizarTabelaEquipes();
             if (aba === 'auditoria') renderizarTabelaAuditoria();
             if (aba === 'graficos') atualizarDashboardGestor();
