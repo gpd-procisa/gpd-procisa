@@ -469,7 +469,7 @@
                     </div>
 
                     <div class="space-y-3 border-t pt-3">
-                        <h3 class="font-bold text-xs text-slate-700" id="titulo-form-dinamico">Dados da Vistoria</h3>
+                        <h3 class="font-bold text-xs text-slate-700" id="titulo-form-dinamico">Dados da Atividade</h3>
                         
                         <div class="space-y-2">
                             <div><label class="block text-[11px] font-semibold text-slate-600">Responsável</label><input type="text" id="form-responsavel" class="w-full text-xs border rounded-lg p-2 outline-none"></div>
@@ -478,15 +478,14 @@
                                 <div><label class="block text-[11px] font-semibold text-slate-600">E-mail</label><input type="email" id="form-email" class="w-full text-xs border rounded-lg p-2 outline-none"></div>
                             </div>
                             <div class="grid grid-cols-2 gap-2">
-                                <div><label class="block text-[11px] font-semibold text-slate-600">Agendamento</label><input type="date" id="form-agendamento" class="w-full text-xs border rounded-lg p-2 outline-none"></div>
                                 <div><label class="block text-[11px] font-semibold text-slate-600">Andares</label><input type="number" id="form-andares" class="w-full text-xs border rounded-lg p-2 outline-none" placeholder="0"></div>
+                                <div><label class="block text-[11px] font-semibold text-slate-600">Nº de HPs</label><input type="number" id="form-hps" class="w-full text-xs border rounded-lg p-2 outline-none" placeholder="0"></div>
                             </div>
-                            <div><label class="block text-[11px] font-semibold text-slate-600">Nº de HPs</label><input type="number" id="form-hps" class="w-full text-xs border rounded-lg p-2 outline-none" placeholder="0"></div>
                         </div>
 
-                        <!-- Bloco de Materiais visível e pronto para preenchimento em campo -->
+                        <!-- Bloco de Materiais / Caixas totalmente visível -->
                         <div id="bloco-materiais-completo" class="space-y-2 pt-2 border-t border-slate-100">
-                            <h4 class="text-[11px] font-bold text-blue-900 uppercase">Materiais e Rede</h4>
+                            <h4 class="text-[11px] font-bold text-blue-900 uppercase">Materiais e Caixas (Rede MDU)</h4>
                             <div class="grid grid-cols-2 gap-2">
                                 <div><label class="block text-[10px] font-semibold text-slate-600">Fusões</label><input type="number" id="mat-fusoes" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
                                 <div><label class="block text-[10px] font-semibold text-slate-600">Conectores</label><input type="number" id="mat-conectores" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
@@ -496,8 +495,8 @@
                                 <div><label class="block text-[10px] font-semibold text-slate-600">Cabo Drop (m)</label><input type="number" id="mat-cabo-drop" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
                             </div>
                             <div class="grid grid-cols-2 gap-2">
-                                <div><label class="block text-[10px] font-semibold text-slate-600">NAP</label><input type="number" id="mat-nap" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                                <div><label class="block text-[10px] font-semibold text-slate-600">DIO</label><input type="number" id="mat-dio" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                                <div><label class="block text-[10px] font-semibold text-slate-600">NAP (Caixa)</label><input type="number" id="mat-nap" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                                <div><label class="block text-[10px] font-semibold text-slate-600">DIO (Caixa)</label><input type="number" id="mat-dio" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
                             </div>
                         </div>
 
@@ -936,6 +935,8 @@
                 responsavel: document.getElementById('form-responsavel').value || '',
                 contato: document.getElementById('form-contato').value || '',
                 email: document.getElementById('form-email').value || '',
+                andares: Number(document.getElementById('form-andares')?.value) || 0,
+                hps: Number(document.getElementById('form-hps')?.value) || 0,
                 observacoes: document.getElementById('form-observacoes').value || '',
                 fusoes: Number(document.getElementById('mat-fusoes')?.value) || 0,
                 conectores: Number(document.getElementById('mat-conectores')?.value) || 0,
@@ -1165,6 +1166,8 @@
                     <div><strong>Técnico / Equipe:</strong> ${item.equipe}</div>
                     <div><strong>Projeto:</strong> ${item.projeto}</div>
                     <div><strong>Desfecho:</strong> <span class="font-bold text-blue-900">${item.desfecho}</span></div>
+                    <div><strong>Andares:</strong> ${item.andares || 0}</div>
+                    <div><strong>HPs:</strong> ${item.hps || 0}</div>
                     <div><strong>Responsável:</strong> ${item.responsavel || '-'}</div>
                     <div><strong>Contato:</strong> ${item.contato || '-'}</div>
                 </div>
