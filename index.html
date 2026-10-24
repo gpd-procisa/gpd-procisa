@@ -66,7 +66,7 @@
                 </button>
             </div>
 
-            <!-- Barra de Ações Rápidas e Atualização (Botão XLSX e Verde) -->
+            <!-- Barra de Ações Rápidas e Atualização -->
             <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Painel Gerencial em Tempo Real</span>
@@ -142,7 +142,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Atividades (Visível por padrão) -->
+            <!-- Sub-Aba: Atividades -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
                     <span>Atividades em Campo (Clique na linha para ver todos os detalhes)</span>
@@ -436,7 +436,7 @@
         </div>
     </div>
 
-    <!-- Script Principal Completo -->
+    <!-- Script Principal -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -588,25 +588,25 @@
                 if (data) {
                     registrosSalvos = data.map(r => ({
                         id: r.id,
-                        dataRegistro: r.data_registro,
-                        equipe: r.equipe,
-                        membros: r.membros || '-',
-                        projeto: r.projeto,
-                        imovel: r.imovel,
-                        hEntrada: r.h_entrada || '08:00',
-                        hSaida: r.h_saida || '17:00',
-                        gpsEntrada: r.gps_entrada || 'GPS não capturado',
-                        gpsSaida: r.gps_saida || 'GPS não capturado',
-                        desfecho: r.desfecho,
-                        motivoDesfecho: r.motivo_desfecho,
-                        malogros: r.malogros,
-                        responsavel: r.responsavel,
-                        contato: r.contato,
-                        email: r.email,
-                        agendamento: r.agendamento,
-                        andares: r.andares,
-                        hps: r.hps,
-                        observacoes: r.observacoes,
+                        dataRegistro: r.data_registro || '',
+                        equipe: r.equipe || '',
+                        membros: r.membros || '',
+                        projeto: r.projeto || '',
+                        imovel: r.imovel || '',
+                        hEntrada: r.h_entrada || '',
+                        hSaida: r.h_saida || '',
+                        gpsEntrada: r.gps_entrada || '',
+                        gpsSaida: r.gps_saida || '',
+                        desfecho: r.desfecho || '',
+                        motivoDesfecho: r.motivo_desfecho || '',
+                        malogros: r.malogros || [],
+                        responsavel: r.responsavel || '',
+                        contato: r.contato || '',
+                        email: r.email || '',
+                        agendamento: r.agendamento || '',
+                        andares: r.andares || '',
+                        hps: r.hps || '',
+                        observacoes: r.observacoes || '',
                         fusoes: Number(r.fusoes) || 0,
                         conectores: Number(r.conectores) || 0,
                         caboRL: Number(r.cabo_rl) || 0,
@@ -687,10 +687,10 @@
                 gps_saida: "-22.90710, -43.17320",
                 desfecho: dadosAtendimento.desfechoSelecionado,
                 motivo_desfecho: motivoDesfecho,
-                responsavel: document.getElementById('form-responsavel').value,
-                contato: document.getElementById('form-contato').value,
-                email: document.getElementById('form-email').value,
-                observacoes: document.getElementById('form-observacoes').value,
+                responsavel: document.getElementById('form-responsavel').value || '',
+                contato: document.getElementById('form-contato').value || '',
+                email: document.getElementById('form-email').value || '',
+                observacoes: document.getElementById('form-observacoes').value || '',
                 fusoes: Number(document.getElementById('mat-fusoes')?.value) || 0,
                 conectores: Number(document.getElementById('mat-conectores')?.value) || 0,
                 cabo_rl: Number(document.getElementById('mat-cabo-rl')?.value) || 0,
@@ -838,24 +838,36 @@
                 alert("Nenhum registro para exportar.");
                 return;
             }
+            // Garante que todas as colunas sejam mantidas, mesmo se vazias (undefined/null viram string vazia)
             let dadosExportacao = registrosSalvos.map(r => ({
-                ID: r.id,
-                Data: r.dataRegistro,
-                Equipe: r.equipe,
-                Projeto: r.projeto,
-                Imóvel: r.imovel,
-                Desfecho: r.desfecho,
-                Responsável: r.responsavel || '',
-                Contato: r.contato || '',
-                Fusões: r.fusoes,
-                Conectores: r.conectores,
-                'Cabo RL (m)': r.caboRL,
-                'Cabo Drop (m)': r.caboDrop,
-                NAP: r.nap,
-                DIO: r.dio
+                ID: r.id || "",
+                Data: r.dataRegistro || "",
+                Equipe: r.equipe || "",
+                Membros: r.membros || "",
+                Projeto: r.projeto || "",
+                Imóvel: r.imovel || "",
+                'Hora Entrada': r.hEntrada || "",
+                'Hora Saída': r.hSaida || "",
+                'GPS Entrada': r.gpsEntrada || "",
+                'GPS Saída': r.gpsSaida || "",
+                Desfecho: r.desfecho || "",
+                'Motivo Desfecho': r.motivoDesfecho || "",
+                Responsável: r.responsavel || "",
+                Contato: r.contato || "",
+                E-mail: r.email || "",
+                Agendamento: r.agendamento || "",
+                Andares: r.andares !== "" ? r.andares : 0,
+                HPs: r.hps !== "" ? r.hps : 0,
+                Fusões: r.fusoes !== "" ? r.fusoes : 0,
+                Conectores: r.conectores !== "" ? r.conectores : 0,
+                'Cabo RL (m)': r.caboRL !== "" ? r.caboRL : 0,
+                'Cabo Drop (m)': r.caboDrop !== "" ? r.caboDrop : 0,
+                NAP: r.nap !== "" ? r.nap : 0,
+                DIO: r.dio !== "" ? r.dio : 0,
+                'Observações Gerais': r.observacoes || ""
             }));
 
-            let worksheet = XLSX.utils.json_to_sheet(dadosExportacao);
+            let worksheet = XLSX.utils.json_to_sheet(dadosExportacao, { header: Object.keys(dadosExportacao[0]) });
             let workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "GPD Produção");
             XLSX.writeFile(workbook, `relatorio_gpd_procisa_${new Date().toISOString().split('T')[0]}.xlsx`);
