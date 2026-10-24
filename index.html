@@ -150,7 +150,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Atividades (Visível por padrão) -->
+            <!-- Sub-Aba: Atividades -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
                     <span>Atividades em Campo (Clique na linha para ver todos os detalhes)</span>
@@ -174,7 +174,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos Detalhados para Apresentação Executiva -->
+            <!-- Sub-Aba: Gráficos -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
@@ -193,7 +193,6 @@
                     </div>
                 </div>
 
-                <!-- Painel de Explosão de Detalhes Executivos para a Diretoria -->
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
                     <h3 class="font-bold text-slate-800 text-sm uppercase tracking-wide border-b pb-2">🔍 Detalhamento Executivo para a Diretoria</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
@@ -434,6 +433,19 @@
                             <div id="bloco-malograda" class="space-y-2 hidden bg-red-50 p-3 rounded-xl border border-red-200">
                                 <label class="block text-[11px] font-bold text-red-900">Motivo do Malogro (Obrigatório)*</label>
                                 <textarea id="obs-malograda" rows="2" class="w-full text-xs border border-red-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo..."></textarea>
+                                
+                                <label class="block text-[11px] font-bold text-red-900 mt-2">Selecione o(s) Ofensor(es) / Malogro(s):*</label>
+                                <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-red-200 max-h-40 overflow-y-auto">
+                                    <label><input type="checkbox" name="malogro-check" value="FROTA"> FROTA</label>
+                                    <label><input type="checkbox" name="malogro-check" value="MATERIAL"> MATERIAL</label>
+                                    <label><input type="checkbox" name="malogro-check" value="FINANCEIRO"> FINANCEIRO</label>
+                                    <label><input type="checkbox" name="malogro-check" value="EQUIPAMENTOS"> EQUIPAMENTOS</label>
+                                    <label><input type="checkbox" name="malogro-check" value="ACESSO"> ACESSO</label>
+                                    <label><input type="checkbox" name="malogro-check" value="PROJETO"> PROJETO</label>
+                                    <label><input type="checkbox" name="malogro-check" value="REDE EXTERNA"> REDE EXTERNA</label>
+                                    <label><input type="checkbox" name="malogro-check" value="INFRAESTRUTURA"> INFRAESTRUTURA</label>
+                                    <label><input type="checkbox" name="malogro-check" value="ÁREA DE RISCO"> ÁREA DE RISCO</label>
+                                </div>
                             </div>
                         </div>
 
@@ -770,10 +782,19 @@
             }
 
             let motivoDesfecho = "";
+            let malogrosSelecionados = [];
+
             if (dadosAtendimento.desfechoSelecionado === 'PENDENTE') {
                 motivoDesfecho = document.getElementById('obs-pendente').value.trim();
+                if (!motivoDesfecho) { alert("⚠️ Informe o motivo da pendência."); return; }
             } else if (dadosAtendimento.desfechoSelecionado === 'MALOGRADA') {
                 motivoDesfecho = document.getElementById('obs-malograda').value.trim();
+                let checkboxes = document.querySelectorAll('input[name="malogro-check"]:checked');
+                checkboxes.forEach(cb => malogrosSelecionados.push(cb.value));
+                if (!motivoDesfecho || malogrosSelecionados.length === 0) {
+                    alert("⚠️ Informe o motivo e selecione pelo menos um ofensor/malogro.");
+                    return;
+                }
             }
 
             const equipeNome = document.getElementById('sel-equipe').value;
@@ -793,6 +814,7 @@
                 gps_saida: "-22.90710, -43.17320",
                 desfecho: dadosAtendimento.desfechoSelecionado,
                 motivo_desfecho: motivoDesfecho,
+                malogros: malogrosSelecionados,
                 responsavel: document.getElementById('form-responsavel').value || '',
                 contato: document.getElementById('form-contato').value || '',
                 email: document.getElementById('form-email').value || '',
@@ -811,7 +833,7 @@
                 return;
             }
 
-            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome})`);
+            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome}) [Desfecho: ${dadosAtendimento.desfechoSelecionado}]`);
             alert("Atendimento sincronizado com sucesso!");
             location.reload();
         }
@@ -928,6 +950,8 @@
             let linkGpsSaida = item.gpsSaida && item.gpsSaida.includes(',') ? 
                 `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsSaida)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsSaida} (Abrir no Maps)</a>` : item.gpsSaida;
 
+            let malogrosStr = item.malogros && item.malogros.length > 0 ? item.malogros.join(', ') : 'Nenhum';
+
             conteudo.innerHTML = `
                 <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
                     <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
@@ -958,6 +982,7 @@
                     </div>
                 </div>
 
+                ${item.desfecho === 'MALOGRADA' ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Ofensores/Malogros:</strong> ${malogrosStr}</div>` : ''}
                 ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Motivo / Observação:</strong> ${item.motivoDesfecho}</div>` : ''}
             `;
             modal.classList.remove('hidden');
@@ -974,7 +999,7 @@
             let colunas = [
                 "ID", "Data", "Equipe", "Membros", "Projeto", "Imóvel", 
                 "Hora Entrada", "Hora Saída", "GPS Entrada", "GPS Saída", 
-                "Desfecho", "Motivo Desfecho", "Responsável", "Contato", 
+                "Desfecho", "Ofensores/Malogros", "Motivo Desfecho", "Responsável", "Contato", 
                 "E-mail", "Agendamento", "Andares", "HPs", 
                 "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", 
                 "NAP", "DIO", "Observações Gerais"
@@ -992,6 +1017,7 @@
                 r.gpsEntrada || "",
                 r.gpsSaida || "",
                 r.desfecho || "",
+                r.malogros ? r.malogros.join(', ') : "",
                 r.motivoDesfecho || "",
                 r.responsavel || "",
                 r.contato || "",
@@ -1199,7 +1225,6 @@
         }
 
         function renderizarGraficos(dados) {
-            // Mapeamento exato de todos os 7 projetos do sistema
             let projetosCount = {
                 'VISTORIA': 0,
                 'ATIVAÇÃO': 0,
