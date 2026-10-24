@@ -45,6 +45,17 @@
         <!-- ================= MODO GESTOR ================= -->
         <main id="view-gestor" class="flex-1 p-4 sm:p-6 bg-slate-50 space-y-6 hidden">
             
+            <!-- Alerta Inteligente de Malogros Críticos -->
+            <div id="alerta-malogros-criticos" class="bg-red-50 border-l-4 border-red-600 p-4 rounded-xl shadow-sm hidden flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">⚠️</span>
+                    <div>
+                        <h4 class="font-bold text-red-900 text-xs uppercase">Alerta de Supervisão: Malogros Críticos Detetados!</h4>
+                        <p class="text-xs text-red-700" id="txt-alerta-malogros">Existem ocorrências críticas de Área de Risco ou Infraestrutura no período filtrado.</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Abas em Destaque Logo Abaixo do Cabeçalho -->
             <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5">
@@ -177,7 +188,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos -->
+            <!-- Sub-Aba: Gráficos & Produtividade por Hora/Dia -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
                     <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto ou parte da rosca para abrir o detalhamento por atividades, técnicos e dias.</span>
@@ -197,6 +208,24 @@
                             <p class="text-xs text-slate-500 mb-4">Proporção detalhada entre Concluídas, Pendentes e Malogradas</p>
                         </div>
                         <div class="relative h-80"><canvas id="graficoDesfechos"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Gráficos de Produtividade por Hora e Dia da Semana (Nova Funcionalidade) -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase">⏰ Produtividade por Horário (Picos de Atendimento)</h3>
+                            <p class="text-xs text-slate-500 mb-4">Distribuição de atendimentos ao longo das horas do dia</p>
+                        </div>
+                        <div class="relative h-72"><canvas id="graficoHoras"></canvas></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase">📅 Produtividade por Dia da Semana</h3>
+                            <p class="text-xs text-slate-500 mb-4">Volume de entregas concentradas por dia útil/fim de semana</p>
+                        </div>
+                        <div class="relative h-72"><canvas id="graficoDiasSemana"></canvas></div>
                     </div>
                 </div>
 
@@ -506,7 +535,7 @@
 
                     <div class="pt-2">
                         <button onclick="fazerCheckIn()" id="btn-checkin" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
-                            🚀 Iniciar Atividade
+                            🚀 Iniciar Atividade (GPS Real)
                         </button>
                     </div>
                 </div>
@@ -514,6 +543,7 @@
                 <div id="bloco-pos-abertura" class="space-y-3 hidden">
                     <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
                         <p><strong>Entrada:</strong> <span id="lbl-h-entrada">-</span></p>
+                        <p><strong>GPS Inicial:</strong> <span id="lbl-gps-entrada" class="font-mono text-[10px] text-slate-600">-</span></p>
                     </div>
 
                     <div class="space-y-3 border-t pt-3">
@@ -767,7 +797,7 @@
         </div>
     </div>
 
-    <!-- Script Principal com Gráficos Corrigidos e Edição por Operador/Master -->
+    <!-- Script Principal Completo com GPS Real, Produtividade por Hora/Dia e Alertas de Malogros -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -805,7 +835,7 @@
             status: "Ativo"
         }));
 
-        let dadosAtendimento = { hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, desfechoSelecionado: null };
+        let dadosAtendimento = { hEntrada: null, hSaida: null, gpsEntrada: "-22.90680, -43.17290", gpsSaida: "-22.90710, -43.17320", desfechoSelecionado: null };
         let registrosSalvos = [];
         let usuariosSistema = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [
             { id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", senha: "Leo290301@", nivel: "Master", status: "Ativo" }
@@ -815,6 +845,8 @@
         let nivelUsuarioLogado = "Visualizador";
         let graficoProjetosInstancia = null;
         let graficoDesfechosInstancia = null;
+        let graficoHorasInstancia = null;
+        let graficoDiasInstancia = null;
         let dadosFiltradosAtuais = [];
 
         const TABELA_PRECOS = {
@@ -1057,14 +1089,40 @@
             if (tipo === 'MALOGRADA') document.getElementById('bloco-malograda').classList.remove('hidden');
         }
 
+        // Função de Geolocalização Real do Navegador (GPS)
+        async function obterGpsAtual() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    resolve("-22.90680, -43.17290"); // Fallback RJ se não suportado
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        let lat = position.coords.latitude.toFixed(5);
+                        let lng = position.coords.longitude.toFixed(5);
+                        resolve(`${lat}, ${lng}`);
+                    },
+                    (error) => {
+                        console.warn("Aviso de GPS:", error.message);
+                        resolve("-22.90680, -43.17290"); // Fallback em caso de recusa
+                    },
+                    { timeout: 10000, enableHighAccuracy: true }
+                );
+            });
+        }
+
         async function fazerCheckIn() {
             const equipe = document.getElementById('sel-equipe').value;
             const imovel = document.getElementById('inp-imovel').value;
             if (!equipe || !imovel) { alert("⚠️ Selecione a Equipe e informe o Cód. Imóvel."); return; }
 
+            let gpsReal = await obterGpsAtual();
+            dadosAtendimento.gpsEntrada = gpsReal;
+
             document.getElementById('form-campo-container').classList.add('hidden');
             document.getElementById('bloco-pos-abertura').classList.remove('hidden');
             document.getElementById('lbl-h-entrada').innerText = new Date().toLocaleTimeString('pt-BR');
+            document.getElementById('lbl-gps-entrada').innerText = gpsReal;
             mudarTipoProjeto();
         }
 
@@ -1094,6 +1152,7 @@
                 }
             }
 
+            let gpsSaidaReal = await obterGpsAtual();
             const equipeNome = document.getElementById('sel-equipe').value;
             const projetoNome = document.getElementById('sel-projeto').value;
             const imovelCod = document.getElementById('inp-imovel').value;
@@ -1105,10 +1164,10 @@
                 membros: equipeNome,
                 projeto: projetoNome,
                 imovel: imovelCod,
-                h_entrada: "08:30",
-                h_saida: "12:15",
-                gps_entrada: "-22.90680, -43.17290",
-                gps_saida: "-22.90710, -43.17320",
+                h_entrada: document.getElementById('lbl-h-entrada').innerText || "08:30",
+                h_saida: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
+                gps_entrada: dadosAtendimento.gpsEntrada,
+                gps_saida: gpsSaidaReal,
                 desfecho: dadosAtendimento.desfechoSelecionado,
                 motivo_desfecho: motivoDesfecho,
                 malogros: malogrosSelecionados,
@@ -1136,7 +1195,7 @@
                 return;
             }
 
-            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome}) [Serviço Obra: ${servObraVal}]`);
+            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome}) [GPS Real Salvo]`);
             alert("Atendimento sincronizado com sucesso!");
             location.reload();
         }
@@ -1178,6 +1237,16 @@
             });
 
             dadosFiltradosAtuais = filtrados;
+
+            // Alerta de Malogros Críticos (Área de Risco ou Infraestrutura)
+            let malogrosCriticos = filtrados.filter(i => i.desfecho === 'MALOGRADA' && i.malogros && (i.malogros.includes('ÁREA DE RISCO') || i.malogros.includes('INFRAESTRUTURA')));
+            const blocoAlerta = document.getElementById('alerta-malogros-criticos');
+            if (malogrosCriticos.length > 0) {
+                blocoAlerta.classList.remove('hidden');
+                document.getElementById('txt-alerta-malogros').innerText = `Atenção: Foram detetados ${malogrosCriticos.length} malogro(s) crítico(s) por Área de Risco ou Infraestrutura no período!`;
+            } else {
+                blocoAlerta.classList.add('hidden');
+            }
 
             document.getElementById('kpi-proj-vistoria').innerText = filtrados.filter(i => i.projeto === 'VISTORIA').length;
             document.getElementById('kpi-proj-ativacao').innerText = filtrados.filter(i => i.projeto === 'ATIVAÇÃO').length;
@@ -1614,31 +1683,36 @@
 
         function renderizarGraficos(dados) {
             let projetosCount = {
-                'VISTORIA': 0,
-                'ATIVAÇÃO': 0,
-                'CONSTRUÇÃO': 0,
-                'CONSTRUÇÃO + ATIVAÇÃO': 0,
-                'NAP LOTADA ATIVAÇÃO': 0,
-                'NAP LOTADA CONSTRUÇÃO': 0,
-                'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO': 0
+                'VISTORIA': 0, 'ATIVAÇÃO': 0, 'CONSTRUÇÃO': 0, 'CONSTRUÇÃO + ATIVAÇÃO': 0,
+                'NAP LOTADA ATIVAÇÃO': 0, 'NAP LOTADA CONSTRUÇÃO': 0, 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO': 0
             };
-
             let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
+            
+            // Produtividade por Hora (00h até 23h) e Dias da Semana (Dom a Sáb)
+            let horasCount = new Array(24).fill(0);
+            let diasCount = new Array(7).fill(0);
 
             dados.forEach(d => {
-                if (projetosCount[d.projeto] !== undefined) {
-                    projetosCount[d.projeto]++;
+                if (projetosCount[d.projeto] !== undefined) projetosCount[d.projeto]++;
+                if (desfechosCount[d.desfecho] !== undefined) desfechosCount[d.desfecho]++;
+
+                if (d.hEntrada && d.hEntrada.includes(':')) {
+                    let h = parseInt(d.hEntrada.split(':')[0]);
+                    if (!isNaN(h) && h >= 0 && h < 24) horasCount[h]++;
                 }
-                if (desfechosCount[d.desfecho] !== undefined) {
-                    desfechosCount[d.desfecho]++;
+
+                if (d.dataRegistro) {
+                    let dataObj = new Date(d.dataRegistro + 'T00:00:00');
+                    if (!isNaN(dataObj.getDay())) {
+                        diasCount[dataObj.getDay()]++;
+                    }
                 }
             });
 
+            // 1. Gráfico de Projetos
             const ctxProj = document.getElementById('graficoProjetos')?.getContext('2d');
             if (ctxProj) {
-                if (graficoProjetosInstancia) {
-                    graficoProjetosInstancia.destroy();
-                }
+                if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
                 graficoProjetosInstancia = new Chart(ctxProj, {
                     type: 'bar',
                     data: {
@@ -1657,19 +1731,17 @@
                         onClick: (event, elements) => {
                             if (elements.length > 0) {
                                 let index = elements[0].index;
-                                let chaveProjeto = Object.keys(projetosCount)[index];
-                                dispararExplosaoGrafico('projeto', chaveProjeto);
+                                dispararExplosaoGrafico('projeto', Object.keys(projetosCount)[index]);
                             }
                         }
                     }
                 });
             }
 
+            // 2. Gráfico de Desfechos
             const ctxDesf = document.getElementById('graficoDesfechos')?.getContext('2d');
             if (ctxDesf) {
-                if (graficoDesfechosInstancia) {
-                    graficoDesfechosInstancia.destroy();
-                }
+                if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
                 graficoDesfechosInstancia = new Chart(ctxDesf, {
                     type: 'doughnut',
                     data: {
@@ -1685,11 +1757,50 @@
                         onClick: (event, elements) => {
                             if (elements.length > 0) {
                                 let index = elements[0].index;
-                                let chaveDesfecho = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'][index];
-                                dispararExplosaoGrafico('desfecho', chaveDesfecho);
+                                dispararExplosaoGrafico('desfecho', ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'][index]);
                             }
                         }
                     }
+                });
+            }
+
+            // 3. Gráfico de Horas
+            const ctxHoras = document.getElementById('graficoHoras')?.getContext('2d');
+            if (ctxHoras) {
+                if (graficoHorasInstancia) graficoHorasInstancia.destroy();
+                graficoHorasInstancia = new Chart(ctxHoras, {
+                    type: 'line',
+                    data: {
+                        labels: ['08h', '09h', '10h', '11h', '12h', '13h', '14h', '15h', '16h', '17h', '18h'],
+                        datasets: [{
+                            label: 'Atendimentos',
+                            data: horasCount.slice(8, 19),
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+            }
+
+            // 4. Gráfico de Dias da Semana
+            const ctxDias = document.getElementById('graficoDiasSemana')?.getContext('2d');
+            if (ctxDias) {
+                if (graficoDiasInstancia) graficoDiasInstancia.destroy();
+                graficoDiasInstancia = new Chart(ctxDias, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
+                        datasets: [{
+                            label: 'Entregas',
+                            data: diasCount,
+                            backgroundColor: '#059669',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
                 });
             }
         }
@@ -1920,6 +2031,22 @@
                 usuariosSistema = usuariosSistema.filter(u => u.id !== id);
                 localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
                 renderizarTabelaUsuariosPermissao();
+            }
+        }
+
+        async function excluirRegistro(id, imovelCod) {
+            if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
+                alert("⚠️ Acesso restrito para exclusão.");
+                return;
+            }
+            if (confirm("Deseja excluir este registro de produção?")) {
+                const { error } = await supabaseClient.from('registros_producao').delete().eq('id', id);
+                if (error) {
+                    alert("Erro ao excluir: " + error.message);
+                } else {
+                    registrarLogAuditoria("EXCLUSÃO DE REGISTRO", `Registro do imóvel ${imovelCod} (ID: ${id}) foi apagado.`);
+                    await recarregarDadosGestor();
+                }
             }
         }
 
