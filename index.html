@@ -73,10 +73,10 @@
                 </button>
             </div>
 
-            <!-- Barra de Ações Rápidas e Atualização -->
+            <!-- Barra de Ações Rápidas, Busca e Atualização -->
             <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Painel Gerencial em Tempo Real</span>
+                <div class="flex items-center gap-2 w-full sm:w-80">
+                    <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, equipe, projeto..." class="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-none bg-slate-50 focus:bg-white transition">
                 </div>
                 <div class="flex gap-2 w-full sm:w-auto justify-end">
                     <button onclick="exportarExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
@@ -347,7 +347,7 @@
                 </div>
             </div>
 
-            <!-- SUB-ABA: MEDIÇÃO FINANCEIRA (NOVA) -->
+            <!-- SUB-ABA: MEDIÇÃO FINANCEIRA -->
             <div id="subview-financeiro" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
                 <div class="flex flex-col sm:flex-row justify-between items-center border-b pb-3 gap-2">
                     <div>
@@ -704,7 +704,7 @@
             </div>
             <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
                 <button onclick="fecharModalUsuario()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
-                <button onclick="salvarOuAtualizarUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar</button>
+                <button onclick="salvarOuAtualizarUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar}
             </div>
         </div>
     </div>
@@ -1048,6 +1048,7 @@
             const dataFim = document.getElementById('gestor-filtro-data-fim').value;
             const fEquipe = document.getElementById('gestor-filtro-equipe').value;
             const fProjeto = document.getElementById('gestor-filtro-projeto').value;
+            const termoBusca = document.getElementById('inp-busca-global')?.value.toLowerCase().trim() || "";
 
             const corpoAtiv = document.getElementById('tabela-gestor-corpo');
             const corpoMat = document.getElementById('tabela-materiais-corpo');
@@ -1066,7 +1067,16 @@
 
                 let mEquipe = fEquipe ? item.equipe === fEquipe : true;
                 let mProj = fProjeto ? item.projeto === fProjeto : true;
-                return mData && mEquipe && mProj;
+
+                let mBusca = true;
+                if (termoBusca) {
+                    mBusca = (item.imovel && item.imovel.toLowerCase().includes(termoBusca)) ||
+                             (item.equipe && item.equipe.toLowerCase().includes(termoBusca)) ||
+                             (item.projeto && item.projeto.toLowerCase().includes(termoBusca)) ||
+                             (item.desfecho && item.desfecho.toLowerCase().includes(termoBusca));
+                }
+
+                return mData && mEquipe && mProj && mBusca;
             });
 
             dadosFiltradosAtuais = filtrados;
