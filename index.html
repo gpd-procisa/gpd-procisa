@@ -275,38 +275,50 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Materiais com Consolidado Geral -->
+            <!-- Sub-Aba: Materiais com Consolidado Geral (Incluindo as Novas Caixas) -->
             <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
                 <div class="flex justify-between items-center border-b pb-3">
-                    <h3 class="font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais Utilizados</h3>
+                    <h3 class="font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais & Caixas Utilizados</h3>
                     <span class="text-xs font-normal text-slate-500" id="contador-materiais">0 registros</span>
                 </div>
 
                 <!-- Bloco de Consolidado Geral para Baixa Massiva -->
-                <div class="bg-blue-900 text-white p-4 rounded-xl shadow-sm grid grid-cols-2 sm:grid-cols-6 gap-3 text-center">
-                    <div class="bg-blue-950 p-2.5 rounded-lg border border-blue-800">
-                        <span class="text-[10px] uppercase font-bold text-cyan-300 block">Cabo RL Total</span>
-                        <span class="text-lg font-black" id="total-cabo-rl">0 m</span>
+                <div class="bg-blue-900 text-white p-4 rounded-xl shadow-sm grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 gap-2 text-center text-[10px]">
+                    <div class="bg-blue-950 p-2 rounded-lg border border-blue-800">
+                        <span class="uppercase font-bold text-cyan-300 block">Cabo RL</span>
+                        <span class="text-sm font-black" id="total-cabo-rl">0 m</span>
                     </div>
-                    <div class="bg-blue-950 p-2.5 rounded-lg border border-blue-800">
-                        <span class="text-[10px] uppercase font-bold text-cyan-300 block">Conectores Total</span>
-                        <span class="text-lg font-black" id="total-conectores">0</span>
+                    <div class="bg-blue-950 p-2 rounded-lg border border-blue-800">
+                        <span class="uppercase font-bold text-cyan-300 block">Conectores</span>
+                        <span class="text-sm font-black" id="total-conectores">0</span>
                     </div>
-                    <div class="bg-blue-950 p-2.5 rounded-lg border border-blue-800">
-                        <span class="text-[10px] uppercase font-bold text-cyan-300 block">Cabo Drop Total</span>
-                        <span class="text-lg font-black" id="total-cabo-drop">0 m</span>
+                    <div class="bg-blue-950 p-2 rounded-lg border border-blue-800">
+                        <span class="uppercase font-bold text-cyan-300 block">Cabo Drop</span>
+                        <span class="text-sm font-black" id="total-cabo-drop">0 m</span>
                     </div>
-                    <div class="bg-blue-950 p-2.5 rounded-lg border border-blue-800">
-                        <span class="text-[10px] uppercase font-bold text-cyan-300 block">NAP Total</span>
-                        <span class="text-lg font-black" id="total-nap">0</span>
+                    <div class="bg-blue-950 p-2 rounded-lg border border-blue-800">
+                        <span class="uppercase font-bold text-cyan-300 block">NAP</span>
+                        <span class="text-sm font-black" id="total-nap">0</span>
                     </div>
-                    <div class="bg-blue-950 p-2.5 rounded-lg border border-blue-800">
-                        <span class="text-[10px] uppercase font-bold text-cyan-300 block">DIO Total</span>
-                        <span class="text-lg font-black" id="total-dio">0</span>
+                    <div class="bg-blue-950 p-2 rounded-lg border border-blue-800">
+                        <span class="uppercase font-bold text-cyan-300 block">DIO</span>
+                        <span class="text-sm font-black" id="total-dio">0</span>
                     </div>
-                    <div class="bg-blue-950 p-2.5 rounded-lg border border-blue-800">
-                        <span class="text-[10px] uppercase font-bold text-cyan-300 block">Fusões Total</span>
-                        <span class="text-lg font-black" id="total-fusoes">0</span>
+                    <div class="bg-blue-950 p-2 rounded-lg border border-blue-800">
+                        <span class="uppercase font-bold text-cyan-300 block">Fusões</span>
+                        <span class="text-sm font-black" id="total-fusoes">0</span>
+                    </div>
+                    <div class="bg-blue-950 p-2 rounded-lg border border-blue-800">
+                        <span class="uppercase font-bold text-cyan-300 block">Cx. Sobrepor</span>
+                        <span class="text-sm font-black" id="total-cx-sobrepor">0</span>
+                    </div>
+                    <div class="bg-blue-950 p-2 rounded-lg border border-blue-800">
+                        <span class="uppercase font-bold text-cyan-300 block">Cx. Embutida</span>
+                        <span class="text-sm font-black" id="total-cx-embutida">0</span>
+                    </div>
+                    <div class="bg-blue-950 p-2 rounded-lg border border-blue-800">
+                        <span class="uppercase font-bold text-cyan-300 block">Cx. FOSC</span>
+                        <span class="text-sm font-black" id="total-cx-fosc">0</span>
                     </div>
                 </div>
 
@@ -321,6 +333,9 @@
                                 <th class="p-2.5">Cabo Drop (m)</th>
                                 <th class="p-2.5">NAP</th>
                                 <th class="p-2.5">DIO</th>
+                                <th class="p-2.5">Sobrepor</th>
+                                <th class="p-2.5">Embutida</th>
+                                <th class="p-2.5">FOSC</th>
                                 <th class="p-2.5">Fusões</th>
                             </tr>
                         </thead>
@@ -483,7 +498,7 @@
                             </div>
                         </div>
 
-                        <!-- Bloco de Materiais / Caixas totalmente visível -->
+                        <!-- Bloco de Materiais e Caixas (Incluindo Sobrepor, Embutida e FOSC) -->
                         <div id="bloco-materiais-completo" class="space-y-2 pt-2 border-t border-slate-100">
                             <h4 class="text-[11px] font-bold text-blue-900 uppercase">Materiais e Caixas (Rede MDU)</h4>
                             <div class="grid grid-cols-2 gap-2">
@@ -495,8 +510,13 @@
                                 <div><label class="block text-[10px] font-semibold text-slate-600">Cabo Drop (m)</label><input type="number" id="mat-cabo-drop" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
                             </div>
                             <div class="grid grid-cols-2 gap-2">
-                                <div><label class="block text-[10px] font-semibold text-slate-600">NAP (Caixa)</label><input type="number" id="mat-nap" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                                <div><label class="block text-[10px] font-semibold text-slate-600">DIO (Caixa)</label><input type="number" id="mat-dio" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                                <div><label class="block text-[10px] font-semibold text-slate-600">NAP</label><input type="number" id="mat-nap" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                                <div><label class="block text-[10px] font-semibold text-slate-600">DIO</label><input type="number" id="mat-dio" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
+                                <div><label class="block text-[9px] font-semibold text-slate-600">Cx. Sobrepor</label><input type="number" id="mat-cx-sobrepor" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                                <div><label class="block text-[9px] font-semibold text-slate-600">Cx. Embutida</label><input type="number" id="mat-cx-embutida" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                                <div><label class="block text-[9px] font-semibold text-slate-600">Cx. FOSC</label><input type="number" id="mat-cx-fosc" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
                             </div>
                         </div>
 
@@ -846,7 +866,10 @@
                         caboRL: Number(r.cabo_rl) || 0,
                         caboDrop: Number(r.cabo_drop) || 0,
                         nap: Number(r.nap) || 0,
-                        dio: Number(r.dio) || 0
+                        dio: Number(r.dio) || 0,
+                        cxSobrepor: Number(r.cx_sobrepor) || 0,
+                        cxEmbutida: Number(r.cx_embutida) || 0,
+                        cxFosc: Number(r.cx_fosc) || 0
                     }));
                 }
             } catch (err) {
@@ -943,7 +966,10 @@
                 cabo_rl: Number(document.getElementById('mat-cabo-rl')?.value) || 0,
                 cabo_drop: Number(document.getElementById('mat-cabo-drop')?.value) || 0,
                 nap: Number(document.getElementById('mat-nap')?.value) || 0,
-                dio: Number(document.getElementById('mat-dio')?.value) || 0
+                dio: Number(document.getElementById('mat-dio')?.value) || 0,
+                cx_sobrepor: Number(document.getElementById('mat-cx-sobrepor')?.value) || 0,
+                cx_embutida: Number(document.getElementById('mat-cx-embutida')?.value) || 0,
+                cx_fosc: Number(document.getElementById('mat-cx-fosc')?.value) || 0
             };
 
             const { error } = await supabaseClient.from('registros_producao').insert([novoRegistroDB]);
@@ -1004,8 +1030,10 @@
             document.getElementById('bonif-media-geral').innerText = filtrados.length > 0 ? (concluidasCount / (new Set(filtrados.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0";
             document.getElementById('bonif-malogros').innerText = malogradasCount;
 
-            // Cálculo do Consolidado de Materiais Geral
+            // Cálculo do Consolidado de Materiais Geral (Incluindo as Novas Caixas)
             let sumCaboRL = 0, sumConectores = 0, sumCaboDrop = 0, sumNap = 0, sumDio = 0, sumFusoes = 0;
+            let sumSobrepor = 0, sumEmbutida = 0, sumFosc = 0;
+
             filtrados.forEach(i => {
                 sumCaboRL += Number(i.caboRL) || 0;
                 sumConectores += Number(i.conectores) || 0;
@@ -1013,6 +1041,9 @@
                 sumNap += Number(i.nap) || 0;
                 sumDio += Number(i.dio) || 0;
                 sumFusoes += Number(i.fusoes) || 0;
+                sumSobrepor += Number(i.cxSobrepor) || 0;
+                sumEmbutida += Number(i.cxEmbutida) || 0;
+                sumFosc += Number(i.cxFosc) || 0;
             });
 
             document.getElementById('total-cabo-rl').innerText = sumCaboRL + " m";
@@ -1021,10 +1052,13 @@
             document.getElementById('total-nap').innerText = sumNap;
             document.getElementById('total-dio').innerText = sumDio;
             document.getElementById('total-fusoes').innerText = sumFusoes;
+            document.getElementById('total-cx-sobrepor').innerText = sumSobrepor;
+            document.getElementById('total-cx-embutida').innerText = sumEmbutida;
+            document.getElementById('total-cx-fosc').innerText = sumFosc;
 
             if (filtrados.length === 0) {
                 if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
-                if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
+                if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
                 renderizarGraficos([]);
                 renderizarTabelaConsolidada([]);
                 renderizarRankingsSeparados([]);
@@ -1065,6 +1099,9 @@
                     <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
                     <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
                     <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
+                    <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
+                    <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
+                    <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
                     <td class="p-2.5 font-semibold">${item.fusoes}</td>
                 `;
                 corpoMat.appendChild(trMat);
@@ -1181,7 +1218,7 @@
                 </div>
 
                 <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-200 space-y-1">
-                    <h4 class="font-bold text-emerald-900 text-xs uppercase">📦 Materiais e Rede Utilizados</h4>
+                    <h4 class="font-bold text-emerald-900 text-xs uppercase">📦 Materiais e Caixas Utilizados</h4>
                     <div class="grid grid-cols-3 gap-2 text-xs">
                         <div>Fusões: <b>${item.fusoes}</b></div>
                         <div>Conectores: <b>${item.conectores}</b></div>
@@ -1189,6 +1226,9 @@
                         <div>Cabo Drop: <b>${item.caboDrop}m</b></div>
                         <div>NAP: <b>${item.nap}</b></div>
                         <div>DIO: <b>${item.dio}</b></div>
+                        <div>Sobrepor: <b>${item.cxSobrepor}</b></div>
+                        <div>Embutida: <b>${item.cxEmbutida}</b></div>
+                        <div>FOSC: <b>${item.cxFosc}</b></div>
                     </div>
                 </div>
 
@@ -1248,7 +1288,7 @@
                 "Desfecho", "Ofensores/Malogros", "Motivo Desfecho", "Responsável", "Contato", 
                 "E-mail", "Agendamento", "Andares", "HPs", 
                 "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", 
-                "NAP", "DIO", "Observações Gerais"
+                "NAP", "DIO", "Cx Sobrepor", "Cx Embutida", "Cx FOSC", "Observações Gerais"
             ];
 
             let linhas = registrosSalvos.map(r => [
@@ -1277,6 +1317,9 @@
                 r.caboDrop !== "" ? r.caboDrop : 0,
                 r.nap !== "" ? r.nap : 0,
                 r.dio !== "" ? r.dio : 0,
+                r.cxSobrepor !== "" ? r.cxSobrepor : 0,
+                r.cxEmbutida !== "" ? r.cxEmbutida : 0,
+                r.cxFosc !== "" ? r.cxFosc : 0,
                 r.observacoes || ""
             ]);
 
