@@ -832,7 +832,7 @@
         </div>
     </div>
 
-    <!-- Script Principal Corrigido e Otimizado -->
+    <!-- Script Principal Completo e Corrigido -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1349,69 +1349,63 @@
                 cxEmbutida: sumEmbutida
             });
 
-            if (filtrados.length === 0) {
+            if (filtrados.length > 0) {
+                filtrados.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-blue-50/50 border-b cursor-pointer transition";
+                    tr.title = "Clique para ver todos os detalhes";
+                    tr.onclick = () => abrirDetalhesAtividade(item);
+                    
+                    let botoesAcao = "";
+                    if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
+                        botoesAcao = `
+                            <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 px-2 py-1 rounded mr-1">✏️ Editar</button>
+                            <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
+                        `;
+                    } else {
+                        botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
+                    }
+
+                    tr.innerHTML = `
+                        <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
+                        <td class="p-3"><div class="font-semibold">${item.equipe}</div></td>
+                        <td class="p-3"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span></td>
+                        <td class="p-3"><span class="font-bold px-2 py-0.5 rounded text-[10px] bg-slate-100">${item.desfecho}</span></td>
+                        <td class="p-3">
+                            <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
+                            <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
+                        </td>
+                        <td class="p-3 text-[10px] font-mono text-slate-600">
+                            <div>In: ${item.gpsEntrada}</div>
+                            <div>Out: ${item.gpsSaida}</div>
+                        </td>
+                        <td class="p-3" onclick="event.stopPropagation()">
+                            ${botoesAcao}
+                        </td>
+                    `;
+                    corpoAtiv.appendChild(tr);
+
+                    const trMat = document.createElement('tr');
+                    trMat.className = "hover:bg-slate-50 border-b transition";
+                    trMat.innerHTML = `
+                        <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
+                        <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
+                        <td class="p-2.5 font-semibold">${item.caboRL} m</td>
+                        <td class="p-2.5 font-semibold">${item.conectores}</td>
+                        <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
+                        <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
+                        <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
+                        <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
+                        <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
+                        <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
+                        <td class="p-2.5 font-semibold">${item.fusoes}</td>
+                    `;
+                    corpoMat.appendChild(trMat);
+                });
+            } else {
                 if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
-                renderizarGraficos([]);
-                renderizarTabelaConsolidada([]);
-                renderizarRankingsSeparados([]);
-                renderizarTabelaEquipes();
-                renderizarTabelaAuditoria();
-                return;
             }
-
-            filtrados.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-blue-50/50 border-b cursor-pointer transition";
-                tr.title = "Clique para ver todos os detalhes";
-                tr.onclick = () => abrirDetalhesAtividade(item);
-                
-                let botoesAcao = "";
-                if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
-                    botoesAcao = `
-                        <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 px-2 py-1 rounded mr-1">✏️ Editar</button>
-                        <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
-                    `;
-                } else {
-                    botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
-                }
-
-                tr.innerHTML = `
-                    <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
-                    <td class="p-3"><div class="font-semibold">${item.equipe}</div></td>
-                    <td class="p-3"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span></td>
-                    <td class="p-3"><span class="font-bold px-2 py-0.5 rounded text-[10px] bg-slate-100">${item.desfecho}</span></td>
-                    <td class="p-3">
-                        <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
-                        <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
-                    </td>
-                    <td class="p-3 text-[10px] font-mono text-slate-600">
-                        <div>In: ${item.gpsEntrada}</div>
-                        <div>Out: ${item.gpsSaida}</div>
-                    </td>
-                    <td class="p-3" onclick="event.stopPropagation()">
-                        ${botoesAcao}
-                    </td>
-                `;
-                corpoAtiv.appendChild(tr);
-
-                const trMat = document.createElement('tr');
-                trMat.className = "hover:bg-slate-50 border-b transition";
-                trMat.innerHTML = `
-                    <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
-                    <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
-                    <td class="p-2.5 font-semibold">${item.caboRL} m</td>
-                    <td class="p-2.5 font-semibold">${item.conectores}</td>
-                    <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
-                    <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
-                    <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
-                    <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
-                    <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
-                    <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
-                    <td class="p-2.5 font-semibold">${item.fusoes}</td>
-                `;
-                corpoMat.appendChild(trMat);
-            });
 
             renderizarGraficos(filtrados);
             renderizarTabelaConsolidada(filtrados);
@@ -1620,7 +1614,8 @@
 
             let tiposProjetos = [
                 'VISTORIA', 'ATIVAÇÃO', 'CONSTRUÇÃO', 'CONSTRUÇÃO + ATIVAÇÃO', 
-                'NAP LOTADA ATIVAÇÃO', 'NAP LOTADA CONSTRUÇÃO', 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO'
+                'NAP LOTADA ATIVAÇÃO', 'NAP LOTADA CONSTRUÇÃO', 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO',
+                'IMPREVISTO / ATRASO'
             ];
 
             function preencherTabelaRank(desfechoAlvo, idTabela, idTotal) {
@@ -1778,6 +1773,58 @@
 
         function fecharModalExplosao() {
             document.getElementById('modal-explosao').classList.add('hidden');
+        }
+
+        function renderizarTabelaEquipes() {
+            const corpo = document.getElementById('tabela-equipes-corpo');
+            if (!corpo) return;
+            corpo.innerHTML = "";
+            equipesSistema.forEach(eq => {
+                let acoesEq = nivelUsuarioLogado === 'Master' ? 
+                    `<button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button> <button onclick="excluirEquipe(${eq.id}, '${eq.nome}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>` :
+                    `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
+
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
+                        <td class="p-3">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${eq.status === 'Ativo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
+                                ${eq.status}
+                            </span>
+                        </td>
+                        <td class="p-3 space-x-1">${acoesEq}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderizarTabelaAuditoria() {
+            const corpo = document.getElementById('tabela-auditoria-corpo');
+            if (!corpo) return;
+            corpo.innerHTML = "";
+            if (trilhaAuditoria.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400">Nenhum registo de auditoria recente.</td></tr>`;
+                return;
+            }
+            trilhaAuditoria.forEach(log => {
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b text-xs">
+                        <td class="p-3 font-mono text-slate-500">${log.dataHora}</td>
+                        <td class="p-3 font-bold text-blue-900">${log.usuario}</td>
+                        <td class="p-3"><span class="bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded text-[10px]">${log.acao}</span></td>
+                        <td class="p-3 text-slate-600">${log.detalhes}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function limparLogsAuditoria() {
+            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem limpar os logs."); return; }
+            if (confirm("Deseja limpar o histórico de logs de auditoria?")) {
+                trilhaAuditoria = [];
+                localStorage.removeItem('gpd_trilha_auditoria');
+                renderizarTabelaAuditoria();
+            }
         }
 
         function renderizarGraficos(dados) {
