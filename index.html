@@ -55,22 +55,6 @@
                 </div>
             </div>
 
-            <!-- Gráficos de Indicadores -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                    <h3 class="text-xs font-bold text-slate-700 uppercase mb-3">Distribuição por Tipo de Projeto</h3>
-                    <div class="relative h-60">
-                        <canvas id="graficoProjetos"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                    <h3 class="text-xs font-bold text-slate-700 uppercase mb-3">Desfechos das Atividades</h3>
-                    <div class="relative h-60">
-                        <canvas id="graficoDesfechos"></canvas>
-                    </div>
-                </div>
-            </div>
-
             <!-- KPIs Numéricos Independentes -->
             <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
@@ -103,9 +87,10 @@
                 </div>
             </div>
 
-            <!-- Sub-Abas do Gestor -->
+            <!-- Sub-Abas do Gestor (Com a nova aba Gráficos) -->
             <div class="flex flex-wrap border-b border-slate-200 gap-4">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition">📋 Atividades</button>
+                <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">📊 Gráficos & Indicadores</button>
                 <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">📦 Materiais</button>
                 <button onclick="mudarSubAbaGestor('retornos')" id="subtab-btn-retornos" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">💬 Retornos</button>
                 <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">👥 Usuários</button>
@@ -150,7 +135,7 @@
                 </div>
             </div>
 
-            <!-- Tabelas de Gestão (Atividades com GPS e Clique Extendido) -->
+            <!-- Sub-Aba: Atividades -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
                     <span>Atividades em Campo (Clique na linha para ver todos os detalhes)</span>
@@ -171,6 +156,24 @@
                         </thead>
                         <tbody id="tabela-gestor-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Sub-Aba: Gráficos e Indicadores Visuais (Isolada) -->
+            <div id="subview-graficos" class="space-y-4 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                        <h3 class="text-xs font-bold text-slate-700 uppercase mb-3">Distribuição por Tipo de Projeto</h3>
+                        <div class="relative h-80">
+                            <canvas id="graficoProjetos"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                        <h3 class="text-xs font-bold text-slate-700 uppercase mb-3">Desfechos das Atividades</h3>
+                        <div class="relative h-80">
+                            <canvas id="graficoDesfechos"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -847,15 +850,24 @@
         }
 
         function mudarSubAbaGestor(aba) {
-            const subs = ['atividades', 'materiais', 'retornos', 'usuarios', 'auditoria', 'bonificacao'];
+            const subs = ['atividades', 'graficos', 'materiais', 'retornos', 'usuarios', 'auditoria', 'bonificacao'];
             subs.forEach(s => {
-                document.getElementById(`subview-${s}`).classList.add('hidden');
-                document.getElementById(`subtab-btn-${s}`).className = "pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition";
+                const el = document.getElementById(`subview-${s}`);
+                const btn = document.getElementById(`subtab-btn-${s}`);
+                if (el) el.classList.add('hidden');
+                if (btn) btn.className = "pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition";
             });
-            document.getElementById(`subview-${aba}`).classList.remove('hidden');
-            document.getElementById(`subtab-btn-${aba}`).className = "pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition";
+            
+            const targetView = document.getElementById(`subview-${aba}`);
+            const targetBtn = document.getElementById(`subtab-btn-${aba}`);
+            if (targetView) targetView.classList.remove('hidden');
+            if (targetBtn) targetBtn.className = "pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition";
 
             if (aba === 'usuarios') renderizarTabelaUsuarios();
+            if (aba === 'graficos') {
+                // Força o redesenho dos gráficos ao abrir a aba para ajustar o tamanho no canvas
+                atualizarDashboardGestor();
+            }
         }
     </script>
 </body>
