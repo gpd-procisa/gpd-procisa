@@ -87,7 +87,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Abas do Gestor (Com a nova aba Gráficos) -->
+            <!-- Sub-Abas do Gestor -->
             <div class="flex flex-wrap border-b border-slate-200 gap-4">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition">📋 Atividades</button>
                 <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">📊 Gráficos & Indicadores</button>
@@ -159,7 +159,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos e Indicadores Visuais (Isolada) -->
+            <!-- Sub-Aba: Gráficos e Indicadores Visuais -->
             <div id="subview-graficos" class="space-y-4 hidden">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
@@ -177,19 +177,24 @@
                 </div>
             </div>
 
+            <!-- Sub-Aba: Materiais Sincronizada -->
             <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden">
-                <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais Utilizados</div>
+                <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
+                    <span>📦 Relatório Consolidado de Materiais Utilizados (Sincronizado)</span>
+                    <span class="text-xs font-normal text-slate-500" id="contador-materiais">0 registros</span>
+                </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[9px] tracking-wider border-b">
                                 <th class="p-2.5">Imóvel / Data</th>
                                 <th class="p-2.5">Equipe / Projeto</th>
-                                <th class="p-2.5">Cabo Rise+Low (m)</th>
+                                <th class="p-2.5">Cabo RL (m)</th>
                                 <th class="p-2.5">Conectores</th>
                                 <th class="p-2.5">Cabo Drop (m)</th>
                                 <th class="p-2.5">NAP</th>
                                 <th class="p-2.5">DIO</th>
+                                <th class="p-2.5">Fusões</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-materiais-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -525,12 +530,12 @@
                         andares: r.andares,
                         hps: r.hps,
                         observacoes: r.observacoes,
-                        fusoes: r.fusoes || 0,
-                        conectores: r.conectores || 0,
-                        caboRL: r.cabo_rl || 0,
-                        caboDrop: r.cabo_drop || 0,
-                        nap: r.nap || 0,
-                        dio: r.dio || 0
+                        fusoes: Number(r.fusoes) || 0,
+                        conectores: Number(r.conectores) || 0,
+                        caboRL: Number(r.cabo_rl) || 0,
+                        caboDrop: Number(r.cabo_drop) || 0,
+                        nap: Number(r.nap) || 0,
+                        dio: Number(r.dio) || 0
                     }));
                 }
             } catch (err) {
@@ -628,7 +633,9 @@
             const fProjeto = document.getElementById('gestor-filtro-projeto').value;
 
             const corpoAtiv = document.getElementById('tabela-gestor-corpo');
+            const corpoMat = document.getElementById('tabela-materiais-corpo');
             corpoAtiv.innerHTML = "";
+            corpoMat.innerHTML = "";
 
             let filtrados = registrosSalvos.filter(item => {
                 let mData = fData ? item.dataRegistro === fData : true;
@@ -645,14 +652,17 @@
             document.getElementById('kpi-proj-nap-const').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO').length;
             document.getElementById('kpi-proj-nap-ambos').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO').length;
             document.getElementById('contador-resultados').innerText = filtrados.length + " registros encontrados";
+            document.getElementById('contador-materiais').innerText = filtrados.length + " registros sincronizados";
 
             if (filtrados.length === 0) {
                 corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
+                corpoMat.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
                 renderizarGraficos([]);
                 return;
             }
 
             filtrados.forEach(item => {
+                // Preenche a tabela de Atividades
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-blue-50/50 border-b cursor-pointer transition";
                 tr.title = "Clique para ver todos os detalhes";
@@ -675,6 +685,21 @@
                     </td>
                 `;
                 corpoAtiv.appendChild(tr);
+
+                // Preenche perfeitamente sincronizado a tabela de Materiais
+                const trMat = document.createElement('tr');
+                trMat.className = "hover:bg-slate-50 border-b transition";
+                trMat.innerHTML = `
+                    <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
+                    <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
+                    <td class="p-2.5 font-semibold">${item.caboRL} m</td>
+                    <td class="p-2.5 font-semibold">${item.conectores}</td>
+                    <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
+                    <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
+                    <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
+                    <td class="p-2.5 font-semibold">${item.fusoes}</td>
+                `;
+                corpoMat.appendChild(trMat);
             });
 
             renderizarGraficos(filtrados);
@@ -865,7 +890,6 @@
 
             if (aba === 'usuarios') renderizarTabelaUsuarios();
             if (aba === 'graficos') {
-                // Força o redesenho dos gráficos ao abrir a aba para ajustar o tamanho no canvas
                 atualizarDashboardGestor();
             }
         }
