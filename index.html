@@ -24,35 +24,55 @@
                 </div>
                 <p class="text-xs sm:text-sm text-cyan-200 font-bold mt-1" id="header-subtitle">Setor Construção MDU • PROCISA RJ</p>
             </div>
-            <div class="flex items-center gap-3">
-                <span id="badge-usuario-logado" class="text-xs bg-blue-950 px-3 py-1.5 rounded-lg border border-blue-700 hidden">👤 <span id="txt-email-ativo"></span></span>
-                <div class="flex bg-blue-950 p-1 rounded-xl border border-blue-700">
-                    <button onclick="alternarVisao('campo')" id="btn-modo-campo" class="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-cyan-200 hover:text-white">
-                        📱 Modo Campo
-                    </button>
-                    <button onclick="tentarAcessarGestor()" id="btn-modo-gestor" class="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold">
-                        🔒 Dashboard Gestor
-                    </button>
+            <div class="flex flex-col items-end gap-1.5">
+                <div class="flex items-center gap-3">
+                    <span id="badge-usuario-logado" class="text-xs bg-blue-950 px-3 py-1.5 rounded-lg border border-blue-700 hidden">👤 <span id="txt-email-ativo"></span></span>
+                    <div class="flex bg-blue-950 p-1 rounded-xl border border-blue-700">
+                        <button onclick="alternarVisao('campo')" id="btn-modo-campo" class="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-cyan-200 hover:text-white">
+                            📱 Modo Campo
+                        </button>
+                        <button onclick="tentarAcessarGestor()" id="btn-modo-gestor" class="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold">
+                            🔒 Dashboard Gestor
+                        </button>
+                    </div>
                 </div>
+                <!-- Botão Sair menor abaixo do Dashboard Gestor -->
+                <button onclick="fazerLogoutGestor()" id="btn-sair-gestor" class="bg-red-600 hover:bg-red-700 text-white text-[10px] px-2.5 py-1 rounded-md font-medium shadow-sm transition hidden">
+                    🚪 Sair / Bloquear
+                </button>
             </div>
         </header>
 
         <!-- ================= MODO GESTOR ================= -->
         <main id="view-gestor" class="flex-1 p-4 sm:p-6 bg-slate-50 space-y-6 hidden">
             
-            <!-- Barra de Ações Rápidas e Atualização -->
+            <!-- Abas em Destaque Logo Abaixo do Cabeçalho -->
+            <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center">
+                <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5">
+                    📋 Atividades
+                </button>
+                <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
+                    📊 Gráficos & Indicadores
+                </button>
+                <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
+                    📦 Materiais
+                </button>
+                <button onclick="mudarSubAbaGestor('equipes')" id="subtab-btn-equipes" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
+                    🛠️ Equipes
+                </button>
+                <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
+                    👥 Usuários
+                </button>
+            </div>
+
+            <!-- Barra de Ações Rápidas e Atualização (Botão Verde) -->
             <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Painel Gerencial em Tempo Real</span>
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="fazerLogoutGestor()" class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition">
-                        🚪 Sair / Bloquear
-                    </button>
-                    <button onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-xl font-medium shadow-sm transition flex items-center gap-1.5">
-                        🔄 Atualizar Registros
-                    </button>
-                </div>
+                <button onclick="recarregarDadosGestor()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2 rounded-xl font-medium shadow-sm transition flex items-center gap-1.5">
+                    🔄 Atualizar Registros
+                </button>
             </div>
 
             <!-- KPIs Numéricos Independentes -->
@@ -85,15 +105,6 @@
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lot. Amb</span>
                     <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-nap-ambos">0</span>
                 </div>
-            </div>
-
-            <!-- Sub-Abas do Gestor -->
-            <div class="flex flex-wrap border-b border-slate-200 gap-4">
-                <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition">📋 Atividades</button>
-                <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">📊 Gráficos & Indicadores</button>
-                <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">📦 Materiais</button>
-                <button onclick="mudarSubAbaGestor('equipes')" id="subtab-btn-equipes" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">🛠️ Equipes</button>
-                <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">👥 Usuários</button>
             </div>
 
             <!-- Filtros -->
@@ -188,10 +199,10 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gerenciamento de Equipes (Ativo/Inativo/Exclusão/Inserção) -->
+            <!-- Sub-Aba: Equipes -->
             <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
-                    <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos (Alfabética & Status)</h3>
+                    <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos</h3>
                     <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium">+ Nova Equipe</button>
                 </div>
                 <div class="overflow-x-auto">
@@ -366,7 +377,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE CADASTRO / EDIÇÃO DE EQUIPE -->
+    <!-- MODAL DE EQUIPE -->
     <div id="modal-equipe" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
@@ -425,7 +436,6 @@
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Lista base em ordem alfabética informada pelo usuário
         const listaEquipesInicial = [
             "ANDREO FAGUNDES",
             "BRUNO MARCUS CORREA FERNANDES",
@@ -471,6 +481,7 @@
             popularSelectEquipes();
             if (usuarioLogado) {
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
+                document.getElementById('btn-sair-gestor').classList.remove('hidden');
                 document.getElementById('txt-email-ativo').innerText = usuarioLogado;
                 alternarVisao('gestor');
             } else {
@@ -480,7 +491,6 @@
         };
 
         function popularSelectEquipes() {
-            // Ordena alfabeticamente e filtra apenas equipes ativas para o campo
             equipesSistema.sort((a, b) => a.nome.localeCompare(b.nome));
             
             const selCampo = document.getElementById('sel-equipe');
@@ -516,6 +526,7 @@
                 usuarioLogado = emailInformado;
                 sessionStorage.setItem('gpd_user_logado', usuarioLogado);
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
+                document.getElementById('btn-sair-gestor').classList.remove('hidden');
                 document.getElementById('txt-email-ativo').innerText = usuarioLogado;
                 alternarVisao('gestor');
             } else {
@@ -527,6 +538,7 @@
             sessionStorage.removeItem('gpd_user_logado');
             usuarioLogado = null;
             document.getElementById('badge-usuario-logado').classList.add('hidden');
+            document.getElementById('btn-sair-gestor').classList.add('hidden');
             alternarVisao('campo');
             alert("Sessão encerrada com segurança.");
         }
@@ -815,7 +827,7 @@
 
         function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
 
-        // --- GESTÃO DE EQUIPES (ADICIONAR, EDITAR, ATIVO/INATIVO, EXCLUIR) ---
+        // --- GESTÃO DE EQUIPES ---
         function abrirModalEquipe(id = null) {
             document.getElementById('modal-equipe').classList.remove('hidden');
             if (id) {
@@ -841,22 +853,15 @@
             const nome = document.getElementById('inp-nome-equipe').value.trim().toUpperCase();
             const status = document.getElementById('sel-status-equipe').value;
 
-            if (!nome) {
-                alert("Preencha o nome da equipe ou técnico.");
-                return;
-            }
+            if (!nome) { alert("Preencha o nome da equipe ou técnico."); return; }
 
             if (editId) {
                 let eq = equipesSistema.find(e => e.id == editId);
-                if (eq) {
-                    eq.nome = nome;
-                    eq.status = status;
-                }
+                if (eq) { eq.nome = nome; eq.status = status; }
             } else {
                 equipesSistema.push({ id: Date.now(), nome, status });
             }
 
-            // Ordena alfabeticamente sempre
             equipesSistema.sort((a, b) => a.nome.localeCompare(b.nome));
             localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
             fecharModalEquipe();
@@ -869,21 +874,20 @@
             const corpo = document.getElementById('tabela-equipes-corpo');
             corpo.innerHTML = "";
             equipesSistema.forEach(eq => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 border-b";
-                tr.innerHTML = `
-                    <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
-                    <td class="p-3">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${eq.status === 'Ativo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
-                            ${eq.status}
-                        </span>
-                    </td>
-                    <td class="p-3 space-x-1">
-                        <button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>
-                        <button onclick="excluirEquipe(${eq.id})" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>
-                    </td>
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
+                        <td class="p-3">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${eq.status === 'Ativo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
+                                ${eq.status}
+                            </span>
+                        </td>
+                        <td class="p-3 space-x-1">
+                            <button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>
+                            <button onclick="excluirEquipe(${eq.id})" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>
+                        </td>
+                    </tr>
                 `;
-                corpo.appendChild(tr);
             });
         }
 
@@ -995,13 +999,13 @@
                 const el = document.getElementById(`subview-${s}`);
                 const btn = document.getElementById(`subtab-btn-${s}`);
                 if (el) el.classList.add('hidden');
-                if (btn) btn.className = "pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition";
+                if (btn) btn.className = "px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5";
             });
             
             const targetView = document.getElementById(`subview-${aba}`);
             const targetBtn = document.getElementById(`subtab-btn-${aba}`);
             if (targetView) targetView.classList.remove('hidden');
-            if (targetBtn) targetBtn.className = "pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition";
+            if (targetBtn) targetBtn.className = "px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5";
 
             if (aba === 'usuarios') renderizarTabelaUsuarios();
             if (aba === 'equipes') renderizarTabelaEquipes();
