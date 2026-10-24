@@ -174,7 +174,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos com Modo Explosão, Rankings Separados e Tabela Consolidada -->
+            <!-- Sub-Aba: Gráficos -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
                     <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto ou parte da rosca para abrir o detalhamento por atividades, técnicos e dias.</span>
@@ -197,9 +197,8 @@
                     </div>
                 </div>
 
-                <!-- Rankings Separados por Desfecho (Concluída, Pendente, Malograda) -->
+                <!-- Rankings Separados por Desfecho -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <!-- Ranking Concluída -->
                     <div class="bg-white rounded-xl shadow-sm border border-emerald-200 overflow-hidden">
                         <div class="bg-emerald-50 p-3 border-b border-emerald-200 font-bold text-emerald-900 text-xs flex justify-between items-center">
                             <span>🟢 Ranking: Concluídas</span>
@@ -219,7 +218,6 @@
                         </div>
                     </div>
 
-                    <!-- Ranking Pendente -->
                     <div class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden">
                         <div class="bg-amber-50 p-3 border-b border-amber-200 font-bold text-amber-900 text-xs flex justify-between items-center">
                             <span>🟡 Ranking: Pendentes</span>
@@ -239,7 +237,6 @@
                         </div>
                     </div>
 
-                    <!-- Ranking Malograda -->
                     <div class="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden">
                         <div class="bg-red-50 p-3 border-b border-red-200 font-bold text-red-900 text-xs flex justify-between items-center">
                             <span>🔴 Ranking: Malogradas</span>
@@ -276,36 +273,43 @@
                         </table>
                     </div>
                 </div>
-
-                <!-- Painel de Explosão de Detalhes Executivos -->
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-                    <h3 class="font-bold text-slate-800 text-sm uppercase tracking-wide border-b pb-2">🔍 Indicadores de Desempenho Executivo</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
-                            <span class="font-bold text-slate-700 uppercase text-[10px]">Taxa de Conclusão Direta</span>
-                            <div class="text-2xl font-black text-emerald-600" id="exec-taxa-sucesso">0.0%</div>
-                            <p class="text-[11px] text-slate-500">Atendimentos finalizados com sucesso sem pendências.</p>
-                        </div>
-                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
-                            <span class="font-bold text-slate-700 uppercase text-[10px]">Volume de Pendências</span>
-                            <div class="text-2xl font-black text-amber-600" id="exec-total-pendente">0</div>
-                            <p class="text-[11px] text-slate-500">Atividades aguardando normalização ou retorno.</p>
-                        </div>
-                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
-                            <span class="font-bold text-slate-700 uppercase text-[10px]">Índice de Malogrados</span>
-                            <div class="text-2xl font-black text-red-600" id="exec-total-malogrado">0</div>
-                            <p class="text-[11px] text-slate-500">Impedimentos definitivos registrados em campo.</p>
-                        </div>
-                    </div>
-                </div>
             </div>
 
-            <!-- Sub-Aba: Materiais -->
-            <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden">
-                <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
-                    <span>📦 Relatório Consolidado de Materiais Utilizados</span>
+            <!-- Sub-Aba: Materiais com Consolidado Geral -->
+            <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
+                <div class="flex justify-between items-center border-b pb-3">
+                    <h3 class="font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais Utilizados</h3>
                     <span class="text-xs font-normal text-slate-500" id="contador-materiais">0 registros</span>
                 </div>
+
+                <!-- Bloco de Consolidado Geral para Baixa Massiva -->
+                <div class="bg-blue-900 text-white p-4 rounded-xl shadow-sm grid grid-cols-2 sm:grid-cols-6 gap-3 text-center">
+                    <div class="bg-blue-950 p-2.5 rounded-lg border border-blue-800">
+                        <span class="text-[10px] uppercase font-bold text-cyan-300 block">Cabo RL Total</span>
+                        <span class="text-lg font-black" id="total-cabo-rl">0 m</span>
+                    </div>
+                    <div class="bg-blue-950 p-2.5 rounded-lg border border-blue-800">
+                        <span class="text-[10px] uppercase font-bold text-cyan-300 block">Conectores Total</span>
+                        <span class="text-lg font-black" id="total-conectores">0</span>
+                    </div>
+                    <div class="bg-blue-950 p-2.5 rounded-lg border border-blue-800">
+                        <span class="text-[10px] uppercase font-bold text-cyan-300 block">Cabo Drop Total</span>
+                        <span class="text-lg font-black" id="total-cabo-drop">0 m</span>
+                    </div>
+                    <div class="bg-blue-950 p-2.5 rounded-lg border border-blue-800">
+                        <span class="text-[10px] uppercase font-bold text-cyan-300 block">NAP Total</span>
+                        <span class="text-lg font-black" id="total-nap">0</span>
+                    </div>
+                    <div class="bg-blue-950 p-2.5 rounded-lg border border-blue-800">
+                        <span class="text-[10px] uppercase font-bold text-cyan-300 block">DIO Total</span>
+                        <span class="text-lg font-black" id="total-dio">0</span>
+                    </div>
+                    <div class="bg-blue-950 p-2.5 rounded-lg border border-blue-800">
+                        <span class="text-[10px] uppercase font-bold text-cyan-300 block">Fusões Total</span>
+                        <span class="text-lg font-black" id="total-fusoes">0</span>
+                    </div>
+                </div>
+
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
@@ -549,7 +553,7 @@
 
     </div>
 
-    <!-- MODAL DE EXPLOSÃO DE DETALHES (DRILL-DOWN DOS GRÁFICOS) -->
+    <!-- MODAL DE EXPLOSÃO DE DETALHES -->
     <div id="modal-explosao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
@@ -1001,10 +1005,23 @@
             document.getElementById('bonif-media-geral').innerText = filtrados.length > 0 ? (concluidasCount / (new Set(filtrados.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0";
             document.getElementById('bonif-malogros').innerText = malogradasCount;
 
-            let taxaSucesso = filtrados.length > 0 ? ((concluidasCount / filtrados.length) * 100).toFixed(1) : "0.0";
-            document.getElementById('exec-taxa-sucesso').innerText = taxaSucesso + "%";
-            document.getElementById('exec-total-pendente').innerText = pendentesCount;
-            document.getElementById('exec-total-malogrado').innerText = malogradasCount;
+            // Cálculo do Consolidado de Materiais Geral
+            let sumCaboRL = 0, sumConectores = 0, sumCaboDrop = 0, sumNap = 0, sumDio = 0, sumFusoes = 0;
+            filtrados.forEach(i => {
+                sumCaboRL += Number(i.caboRL) || 0;
+                sumConectores += Number(i.conectores) || 0;
+                sumCaboDrop += Number(i.caboDrop) || 0;
+                sumNap += Number(i.nap) || 0;
+                sumDio += Number(i.dio) || 0;
+                sumFusoes += Number(i.fusoes) || 0;
+            });
+
+            document.getElementById('total-cabo-rl').innerText = sumCaboRL + " m";
+            document.getElementById('total-conectores').innerText = sumConectores;
+            document.getElementById('total-cabo-drop').innerText = sumCaboDrop + " m";
+            document.getElementById('total-nap').innerText = sumNap;
+            document.getElementById('total-dio').innerText = sumDio;
+            document.getElementById('total-fusoes').innerText = sumFusoes;
 
             if (filtrados.length === 0) {
                 if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
@@ -1082,7 +1099,6 @@
                     if (contagemProj[d.projeto] !== undefined) contagemProj[d.projeto]++;
                 });
 
-                // Ordena por quantidade decrescente
                 let ordenados = Object.entries(contagemProj).sort((a, b) => b[1] - a[1]);
 
                 ordenados.forEach(([proj, qtd]) => {
@@ -1183,7 +1199,6 @@
 
         function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
 
-        // --- MODO EXPLOSÃO (DRILL-DOWN DOS GRÁFICOS MOSTRANDO ATIVIDADES, TÉCNICOS E DIAS) ---
         function dispararExplosaoGrafico(filtroTipo, filtroValor) {
             const modal = document.getElementById('modal-explosao');
             const corpo = document.getElementById('tabela-explosao-corpo');
