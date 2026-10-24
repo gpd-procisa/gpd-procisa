@@ -169,7 +169,7 @@
                                 <th class="p-3">Desfecho</th>
                                 <th class="p-3">Horários & Duração</th>
                                 <th class="p-3">GPS (Entrada / Saída)</th>
-                                <th class="p-3" id="th-acao-master-label">Ações Master</th>
+                                <th class="p-3" id="th-acao-master-label">Ações / Gestão</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-gestor-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -562,7 +562,7 @@
                                 <button type="button" onclick="selecionarDesfecho('MALOGRADA')" id="btn-desf-malo" class="bg-red-600 text-white font-bold p-2 rounded-lg text-xs">MALOGRADA</button>
                             </div>
 
-                            <!-- Bloco Concluída contendo a opção "Houve Serviço de Obra? (Sim / Não)" -->
+                            <!-- Bloco Concluida contendo a opção "Houve Serviço de Obra? (Sim / Não)" -->
                             <div id="bloco-concluida" class="space-y-2 hidden bg-emerald-50 p-3 rounded-xl border border-emerald-200">
                                 <label class="block text-[11px] font-bold text-emerald-900">Houve Serviço de Obra?</label>
                                 <select id="sel-servico-obra" class="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white outline-none">
@@ -610,6 +610,64 @@
             </div>
         </main>
 
+    </div>
+
+    <!-- MODAL DE EDIÇÃO DE REGISTRO -->
+    <div id="modal-edicao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm">✏️ Editar Registro de Produção</h3>
+                <button onclick="fecharModalEdicao()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
+                <input type="hidden" id="edit-reg-id">
+                <div>
+                    <label class="block font-semibold mb-1">Cód. Imóvel</label>
+                    <input type="text" id="edit-reg-imovel" class="w-full border rounded-lg p-2 outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold mb-1">Projeto</label>
+                        <select id="edit-reg-projeto" class="w-full border rounded-lg p-2 bg-white outline-none">
+                            <option value="VISTORIA">VISTORIA</option>
+                            <option value="ATIVAÇÃO">ATIVAÇÃO</option>
+                            <option value="CONSTRUÇÃO">CONSTRUÇÃO</option>
+                            <option value="CONSTRUÇÃO + ATIVAÇÃO">CONSTRUÇÃO + ATIVAÇÃO</option>
+                            <option value="NAP LOTADA ATIVAÇÃO">NAP LOTADA ATIVAÇÃO</option>
+                            <option value="NAP LOTADA CONSTRUÇÃO">NAP LOTADA CONSTRUÇÃO</option>
+                            <option value="NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO">NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Desfecho</label>
+                        <select id="edit-reg-desfecho" class="w-full border rounded-lg p-2 bg-white outline-none">
+                            <option value="CONCLUIDA">CONCLUIDA</option>
+                            <option value="PENDENTE">PENDENTE</option>
+                            <option value="MALOGRADA">MALOGRADA</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 border-t pt-2">
+                    <div><label class="block text-[10px] font-semibold">Cabo RL (m)</label><input type="number" id="edit-reg-cabo-rl" class="w-full border rounded p-1"></div>
+                    <div><label class="block text-[10px] font-semibold">Conectores</label><input type="number" id="edit-reg-conectores" class="w-full border rounded p-1"></div>
+                    <div><label class="block text-[10px] font-semibold">Cabo Drop (m)</label><input type="number" id="edit-reg-cabo-drop" class="w-full border rounded p-1"></div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div><label class="block text-[10px] font-semibold">NAP</label><input type="number" id="edit-reg-nap" class="w-full border rounded p-1"></div>
+                    <div><label class="block text-[10px] font-semibold">DIO</label><input type="number" id="edit-reg-dio" class="w-full border rounded p-1"></div>
+                    <div><label class="block text-[10px] font-semibold">Fusões</label><input type="number" id="edit-reg-fusoes" class="w-full border rounded p-1"></div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div><label class="block text-[9px] font-semibold">Cx. Sobrepor</label><input type="number" id="edit-reg-cx-sobrepor" class="w-full border rounded p-1"></div>
+                    <div><label class="block text-[9px] font-semibold">Cx. Embutida</label><input type="number" id="edit-reg-cx-embutida" class="w-full border rounded p-1"></div>
+                    <div><label class="block text-[9px] font-semibold">Cx. FOSC</label><input type="number" id="edit-reg-cx-fosc" class="w-full border rounded p-1"></div>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalEdicao()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="salvarEdicaoRegistro()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar Alterações</button>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL DE EXPLOSÃO DE DETALHES -->
@@ -709,7 +767,7 @@
         </div>
     </div>
 
-    <!-- Script Principal com Controle de Permissões Aplicado -->
+    <!-- Script Principal com Correção de Gráficos e Edição Liberada para Operador/Master -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -759,7 +817,6 @@
         let graficoDesfechosInstancia = null;
         let dadosFiltradosAtuais = [];
 
-        // Tabela de Preços Unitários Baseada na Tabela Fornecida
         const TABELA_PRECOS = {
             "VISTORIA": { codigo: "1.01", desc: "VISTORIA", unidade: "Bloco", valor: 167.52 },
             "PROJETO ÓPTICO": { codigo: "1.02", desc: "PROJETO ÓPTICO", unidade: "Bloco", valor: 159.58 },
@@ -1141,7 +1198,6 @@
             document.getElementById('bonif-media-geral').innerText = filtrados.length > 0 ? (concluidasCount / (new Set(filtrados.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0";
             document.getElementById('bonif-malogros').innerText = malogradasCount;
 
-            // Totais para Materiais e Financeiro
             let sumCaboRL = 0, sumConectores = 0, sumCaboDrop = 0, sumNap = 0, sumDio = 0, sumFusoes = 0;
             let sumSobrepor = 0, sumEmbutida = 0, sumFosc = 0, sumVistorias = 0;
 
@@ -1195,9 +1251,15 @@
                 tr.title = "Clique para ver todos os detalhes";
                 tr.onclick = () => abrirDetalhesAtividade(item);
                 
-                let botaoAcaoMaster = nivelUsuarioLogado !== 'Visualizador' ? 
-                    `<button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>` : 
-                    `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
+                let botoesAcao = "";
+                if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
+                    botoesAcao = `
+                        <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 px-2 py-1 rounded mr-1">✏️ Editar</button>
+                        <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
+                    `;
+                } else {
+                    botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
+                }
 
                 tr.innerHTML = `
                     <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
@@ -1213,7 +1275,7 @@
                         <div>Out: ${item.gpsSaida}</div>
                     </td>
                     <td class="p-3" onclick="event.stopPropagation()">
-                        ${botaoAcaoMaster}
+                        ${botoesAcao}
                     </td>
                 `;
                 corpoAtiv.appendChild(tr);
@@ -1240,6 +1302,82 @@
             renderizarTabelaConsolidada(filtrados);
             renderizarRankingsSeparados(filtrados);
             renderizarTabelaUsuariosPermissao();
+        }
+
+        // Funções de Edição de Registro
+        function abrirModalEdicao(id) {
+            if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
+                alert("⚠️ Acesso restrito para edição.");
+                return;
+            }
+            let reg = registrosSalvos.find(r => r.id === id);
+            if (!reg) return;
+
+            document.getElementById('edit-reg-id').value = reg.id;
+            document.getElementById('edit-reg-imovel').value = reg.imovel;
+            document.getElementById('edit-reg-projeto').value = reg.projeto;
+            document.getElementById('edit-reg-desfecho').value = reg.desfecho;
+            document.getElementById('edit-reg-cabo-rl').value = reg.caboRL;
+            document.getElementById('edit-reg-conectores').value = reg.conectores;
+            document.getElementById('edit-reg-cabo-drop').value = reg.caboDrop;
+            document.getElementById('edit-reg-nap').value = reg.nap;
+            document.getElementById('edit-reg-dio').value = reg.dio;
+            document.getElementById('edit-reg-fusoes').value = reg.fusoes;
+            document.getElementById('edit-reg-cx-sobrepor').value = reg.cxSobrepor;
+            document.getElementById('edit-reg-cx-embutida').value = reg.cxEmbutida;
+            document.getElementById('edit-reg-cx-fosc').value = reg.cxFosc;
+
+            document.getElementById('modal-edicao').classList.remove('hidden');
+        }
+
+        function fecharModalEdicao() {
+            document.getElementById('modal-edicao').classList.add('hidden');
+        }
+
+        async function salvarEdicaoRegistro() {
+            let id = Number(document.getElementById('edit-reg-id').value);
+            let imovel = document.getElementById('edit-reg-imovel').value.trim();
+            let projeto = document.getElementById('edit-reg-projeto').value;
+            let desfecho = document.getElementById('edit-reg-desfecho').value;
+            let cabo_rl = Number(document.getElementById('edit-reg-cabo-rl').value) || 0;
+            let conectores = Number(document.getElementById('edit-reg-conectores').value) || 0;
+            let cabo_drop = Number(document.getElementById('edit-reg-cabo-drop').value) || 0;
+            let nap = Number(document.getElementById('edit-reg-nap').value) || 0;
+            let dio = Number(document.getElementById('edit-reg-dio').value) || 0;
+            let fusoes = Number(document.getElementById('edit-reg-fusoes').value) || 0;
+            let cx_sobrepor = Number(document.getElementById('edit-reg-cx-sobrepor').value) || 0;
+            let cx_embutida = Number(document.getElementById('edit-reg-cx-embutida').value) || 0;
+            let cx_fosc = Number(document.getElementById('edit-reg-cx-fosc').value) || 0;
+
+            let dadosAtualizados = {
+                imovel: imovel,
+                projeto: projeto,
+                desfecho: desfecho,
+                cabo_rl: cabo_rl,
+                conectores: conectores,
+                cabo_drop: cabo_drop,
+                nap: nap,
+                dio: dio,
+                fusoes: fusoes,
+                cx_sobrepor: cx_sobrepor,
+                cx_embutida: cx_embutida,
+                cx_fosc: cx_fosc
+            };
+
+            const { error } = await supabaseClient
+                .from('registros_producao')
+                .update(dadosAtualizados)
+                .eq('id', id);
+
+            if (error) {
+                alert("Erro ao atualizar registro: " + error.message);
+                return;
+            }
+
+            registrarLogAuditoria("EDIÇÃO DE REGISTRO", `Registro ID ${id} (Imóvel: ${imovel}) atualizado.`);
+            alert("Registro atualizado com sucesso!");
+            fecharModalEdicao();
+            await recarregarDadosGestor();
         }
 
         function renderizarTabelaFinanceiro(totais) {
@@ -1628,7 +1766,6 @@
         // Funções de Usuários
         function abrirModalUsuario(id = null) {
             if (nivelUsuarioLogado === 'Visualizador' && id) {
-                // Visualizador só altera a própria senha
                 let uSelf = usuariosSistema.find(u => u.email.toLowerCase() === usuarioLogado.toLowerCase());
                 if (uSelf) id = uSelf.id;
             }
@@ -1680,7 +1817,6 @@
                     if (nivelUsuarioLogado === 'Master') {
                         u.nome = nome; u.email = email; u.senha = senha; u.nivel = nivel; 
                     } else {
-                        // Operador/Visualizador só altera a própria senha
                         u.senha = senha;
                     }
                 }
