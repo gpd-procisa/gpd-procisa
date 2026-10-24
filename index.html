@@ -275,7 +275,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Materiais com Consolidado Geral (Incluindo as Novas Caixas) -->
+            <!-- Sub-Aba: Materiais com Consolidado Geral -->
             <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
                 <div class="flex justify-between items-center border-b pb-3">
                     <h3 class="font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais & Caixas Utilizados</h3>
@@ -469,6 +469,15 @@
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Cód. Imóvel</label>
                         <input type="text" id="inp-imovel" placeholder="Ex: IMO-98421" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none">
+                    </div>
+
+                    <!-- Informação de Serviço de Obra (Sim / Não) -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Houve Serviço de Obra?</label>
+                        <select id="sel-servico-obra" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
+                            <option value="SIM">SIM</option>
+                            <option value="NÃO">NÃO</option>
+                        </select>
                     </div>
 
                     <div class="pt-2">
@@ -860,6 +869,7 @@
                         agendamento: r.agendamento || '',
                         andares: r.andares || '',
                         hps: r.hps || '',
+                        servicoObra: r.servico_obra || 'SIM',
                         observacoes: r.observacoes || '',
                         fusoes: Number(r.fusoes) || 0,
                         conectores: Number(r.conectores) || 0,
@@ -940,6 +950,7 @@
             const equipeNome = document.getElementById('sel-equipe').value;
             const projetoNome = document.getElementById('sel-projeto').value;
             const imovelCod = document.getElementById('inp-imovel').value;
+            const servObraVal = document.getElementById('sel-servico-obra').value;
 
             const novoRegistroDB = {
                 id: Date.now(),
@@ -960,6 +971,7 @@
                 email: document.getElementById('form-email').value || '',
                 andares: Number(document.getElementById('form-andares')?.value) || 0,
                 hps: Number(document.getElementById('form-hps')?.value) || 0,
+                servico_obra: servObraVal,
                 observacoes: document.getElementById('form-observacoes').value || '',
                 fusoes: Number(document.getElementById('mat-fusoes')?.value) || 0,
                 conectores: Number(document.getElementById('mat-conectores')?.value) || 0,
@@ -978,7 +990,7 @@
                 return;
             }
 
-            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome}) [Desfecho: ${dadosAtendimento.desfechoSelecionado}]`);
+            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome}) [Serviço Obra: ${servObraVal}]`);
             alert("Atendimento sincronizado com sucesso!");
             location.reload();
         }
@@ -1030,7 +1042,7 @@
             document.getElementById('bonif-media-geral').innerText = filtrados.length > 0 ? (concluidasCount / (new Set(filtrados.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0";
             document.getElementById('bonif-malogros').innerText = malogradasCount;
 
-            // Cálculo do Consolidado de Materiais Geral (Incluindo as Novas Caixas)
+            // Cálculo do Consolidado de Materiais Geral
             let sumCaboRL = 0, sumConectores = 0, sumCaboDrop = 0, sumNap = 0, sumDio = 0, sumFusoes = 0;
             let sumSobrepor = 0, sumEmbutida = 0, sumFosc = 0;
 
@@ -1203,6 +1215,7 @@
                     <div><strong>Técnico / Equipe:</strong> ${item.equipe}</div>
                     <div><strong>Projeto:</strong> ${item.projeto}</div>
                     <div><strong>Desfecho:</strong> <span class="font-bold text-blue-900">${item.desfecho}</span></div>
+                    <div><strong>Serviço de Obra:</strong> <span class="font-bold">${item.servicoObra || 'SIM'}</span></div>
                     <div><strong>Andares:</strong> ${item.andares || 0}</div>
                     <div><strong>HPs:</strong> ${item.hps || 0}</div>
                     <div><strong>Responsável:</strong> ${item.responsavel || '-'}</div>
@@ -1285,7 +1298,7 @@
             let colunas = [
                 "ID", "Data", "Equipe", "Membros", "Projeto", "Imóvel", 
                 "Hora Entrada", "Hora Saída", "GPS Entrada", "GPS Saída", 
-                "Desfecho", "Ofensores/Malogros", "Motivo Desfecho", "Responsável", "Contato", 
+                "Desfecho", "Serviço Obra", "Ofensores/Malogros", "Motivo Desfecho", "Responsável", "Contato", 
                 "E-mail", "Agendamento", "Andares", "HPs", 
                 "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", 
                 "NAP", "DIO", "Cx Sobrepor", "Cx Embutida", "Cx FOSC", "Observações Gerais"
@@ -1303,6 +1316,7 @@
                 r.gpsEntrada || "",
                 r.gpsSaida || "",
                 r.desfecho || "",
+                r.servicoObra || "SIM",
                 r.malogros ? r.malogros.join(', ') : "",
                 r.motivoDesfecho || "",
                 r.responsavel || "",
