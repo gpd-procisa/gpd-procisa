@@ -10,6 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Chart.js para Gráficos Dinâmicos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (xlsx) para Exportação em Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col items-center justify-start p-2 sm:p-6">
 
@@ -64,14 +66,14 @@
                 </button>
             </div>
 
-            <!-- Barra de Ações Rápidas e Atualização (Botão Verde e Exportar CSV) -->
+            <!-- Barra de Ações Rápidas e Atualização (Botão XLSX e Verde) -->
             <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Painel Gerencial em Tempo Real</span>
                 </div>
                 <div class="flex gap-2 w-full sm:w-auto justify-end">
-                    <button onclick="exportarCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
-                        📥 Baixar Relatório (CSV)
+                    <button onclick="exportarXLSX()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
+                        📥 Baixar Relatório (XLSX)
                     </button>
                     <button onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
                         🔄 Atualizar Registros
@@ -434,7 +436,7 @@
         </div>
     </div>
 
-    <!-- Script Principal -->
+    <!-- Script Principal Completo -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -831,23 +833,32 @@
 
         function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
 
-        function exportarCSV() {
+        function exportarXLSX() {
             if (registrosSalvos.length === 0) {
                 alert("Nenhum registro para exportar.");
                 return;
             }
-            let csvContent = "data:text/csv;charset=utf-8,ID,Data,Equipe,Projeto,Imovel,Desfecho,Responsavel,Contato,Fusões,Conectores,Cabo_RL,Cabo_Drop,NAP,DIO\n";
-            registrosSalvos.forEach(r => {
-                let row = [r.id, r.dataRegistro, `"${r.equipe}"`, `"${r.projeto}"`, `"${r.imovel}"`, r.desfecho, `"${r.responsavel || ''}"`, `"${r.contato || ''}"`, r.fusoes, r.conectores, r.caboRL, r.caboDrop, r.nap, r.dio];
-                csvContent += row.join(",") + "\n";
-            });
-            let encodedUri = encodeURI(csvContent);
-            let link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `relatorio_gpd_procisa_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            let dadosExportacao = registrosSalvos.map(r => ({
+                ID: r.id,
+                Data: r.dataRegistro,
+                Equipe: r.equipe,
+                Projeto: r.projeto,
+                Imóvel: r.imovel,
+                Desfecho: r.desfecho,
+                Responsável: r.responsavel || '',
+                Contato: r.contato || '',
+                Fusões: r.fusoes,
+                Conectores: r.conectores,
+                'Cabo RL (m)': r.caboRL,
+                'Cabo Drop (m)': r.caboDrop,
+                NAP: r.nap,
+                DIO: r.dio
+            }));
+
+            let worksheet = XLSX.utils.json_to_sheet(dadosExportacao);
+            let workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "GPD Produção");
+            XLSX.writeFile(workbook, `relatorio_gpd_procisa_${new Date().toISOString().split('T')[0]}.xlsx`);
         }
 
         // --- GESTÃO DE EQUIPES ---
