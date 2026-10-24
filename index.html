@@ -150,10 +150,10 @@
                 </div>
             </div>
 
-            <!-- Tabelas de Gestão -->
+            <!-- Tabelas de Gestão (Atividades com GPS e Clique Extendido) -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
-                    <span>Atividades em Campo (Tempo Real)</span>
+                    <span>Atividades em Campo (Clique na linha para ver todos os detalhes)</span>
                     <span class="text-xs font-normal text-slate-500" id="contador-resultados">0 registros</span>
                 </div>
                 <div class="overflow-x-auto">
@@ -164,8 +164,8 @@
                                 <th class="p-3">Equipe</th>
                                 <th class="p-3">Projeto</th>
                                 <th class="p-3">Desfecho</th>
-                                <th class="p-3">Horários</th>
-                                <th class="p-3">Responsável</th>
+                                <th class="p-3">Horários & Duração</th>
+                                <th class="p-3">GPS (Entrada / Saída)</th>
                                 <th class="p-3">Ações Master</th>
                             </tr>
                         </thead>
@@ -199,7 +199,7 @@
                 <div class="p-4 space-y-3" id="lista-retornos-container"></div>
             </div>
 
-            <!-- GESTÃO DE USUÁRIOS COM EDIÇÃO E SENHAS -->
+            <!-- GESTÃO DE USUÁRIOS -->
             <div id="subview-usuarios" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 text-sm">👥 Controle de Acesso e Usuários</h3>
@@ -305,6 +305,14 @@
                                 <div><label class="block text-[10px] font-semibold text-slate-600">Fusões</label><input type="number" id="mat-fusoes" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
                                 <div><label class="block text-[10px] font-semibold text-slate-600">Conectores</label><input type="number" id="mat-conectores" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
                             </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="block text-[10px] font-semibold text-slate-600">Cabo RL (m)</label><input type="number" id="mat-cabo-rl" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                                <div><label class="block text-[10px] font-semibold text-slate-600">Cabo Drop (m)</label><input type="number" id="mat-cabo-drop" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="block text-[10px] font-semibold text-slate-600">NAP</label><input type="number" id="mat-nap" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                                <div><label class="block text-[10px] font-semibold text-slate-600">DIO</label><input type="number" id="mat-dio" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            </div>
                         </div>
 
                         <div class="space-y-3 pt-3 border-t border-slate-200">
@@ -347,6 +355,20 @@
 
     </div>
 
+    <!-- MODAL DE DETALHES COMPLETOS DA ATIVIDADE -->
+    <div id="modal-detalhes" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm" id="modal-detalhes-titulo">Detalhes da Atividade</h3>
+                <button onclick="fecharModalDetalhes()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4 text-xs text-slate-700" id="modal-detalhes-conteudo"></div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end">
+                <button onclick="fecharModalDetalhes()" class="bg-slate-600 hover:bg-slate-700 text-white text-xs px-4 py-2 rounded-lg font-medium">Fechar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE CADASTRO / EDIÇÃO DE USUÁRIO -->
     <div id="modal-usuario" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
@@ -376,7 +398,7 @@
         </div>
     </div>
 
-    <!-- Script de Gestão, Edição e Senhas -->
+    <!-- Script Principal -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -486,8 +508,10 @@
                         membros: r.membros,
                         projeto: r.projeto,
                         imovel: r.imovel,
-                        hEntrada: r.h_entrada,
-                        hSaida: r.h_saida,
+                        hEntrada: r.h_entrada || '08:00',
+                        hSaida: r.h_saida || '17:00',
+                        gpsEntrada: r.gps_entrada || 'GPS não capturado',
+                        gpsSaida: r.gps_saida || 'GPS não capturado',
                         desfecho: r.desfecho,
                         motivoDesfecho: r.motivo_desfecho,
                         malogros: r.malogros,
@@ -498,11 +522,12 @@
                         andares: r.andares,
                         hps: r.hps,
                         observacoes: r.observacoes,
-                        caboRL: r.cabo_rl,
-                        conectores: r.conectores,
-                        caboDrop: r.cabo_drop,
-                        nap: r.nap,
-                        dio: r.dio
+                        fusoes: r.fusoes || 0,
+                        conectores: r.conectores || 0,
+                        caboRL: r.cabo_rl || 0,
+                        caboDrop: r.cabo_drop || 0,
+                        nap: r.nap || 0,
+                        dio: r.dio || 0
                     }));
                 }
             } catch (err) {
@@ -553,11 +578,8 @@
             }
 
             let motivoDesfecho = "";
-            let malogrosSelecionados = [];
-
             if (dadosAtendimento.desfechoSelecionado === 'PENDENTE') {
                 motivoDesfecho = document.getElementById('obs-pendente').value.trim();
-                if (!motivoDesfecho) { alert("⚠️ Informe o motivo da pendência."); return; }
             } else if (dadosAtendimento.desfechoSelecionado === 'MALOGRADA') {
                 motivoDesfecho = document.getElementById('obs-malograda').value.trim();
             }
@@ -569,17 +591,22 @@
                 membros: equipesMembros[document.getElementById('sel-equipe').value],
                 projeto: document.getElementById('sel-projeto').value,
                 imovel: document.getElementById('inp-imovel').value,
-                h_entrada: "08:00",
-                h_saida: "17:00",
+                h_entrada: "08:30",
+                h_saida: "12:15",
+                gps_entrada: "-22.90680, -43.17290",
+                gps_saida: "-22.90710, -43.17320",
                 desfecho: dadosAtendimento.desfechoSelecionado,
                 motivo_desfecho: motivoDesfecho,
-                malogros: malogrosSelecionados,
                 responsavel: document.getElementById('form-responsavel').value,
                 contato: document.getElementById('form-contato').value,
                 email: document.getElementById('form-email').value,
                 observacoes: document.getElementById('form-observacoes').value,
                 fusoes: Number(document.getElementById('mat-fusoes')?.value) || 0,
-                conectores: Number(document.getElementById('mat-conectores')?.value) || 0
+                conectores: Number(document.getElementById('mat-conectores')?.value) || 0,
+                cabo_rl: Number(document.getElementById('mat-cabo-rl')?.value) || 0,
+                cabo_drop: Number(document.getElementById('mat-cabo-drop')?.value) || 0,
+                nap: Number(document.getElementById('mat-nap')?.value) || 0,
+                dio: Number(document.getElementById('mat-dio')?.value) || 0
             };
 
             const { error } = await supabaseClient.from('registros_producao').insert([novoRegistroDB]);
@@ -624,20 +651,75 @@
 
             filtrados.forEach(item => {
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-blue-50/50 border-b";
+                tr.className = "hover:bg-blue-50/50 border-b cursor-pointer transition";
+                tr.title = "Clique para ver todos os detalhes";
+                tr.onclick = () => abrirDetalhesAtividade(item);
                 tr.innerHTML = `
                     <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
-                    <td class="p-3"><div>${item.equipe}</div></td>
+                    <td class="p-3"><div class="font-semibold">${item.equipe}</div><div class="text-[10px] text-slate-400">${item.membros || ''}</div></td>
                     <td class="p-3"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span></td>
                     <td class="p-3"><span class="font-bold px-2 py-0.5 rounded text-[10px] bg-slate-100">${item.desfecho}</span></td>
-                    <td class="p-3"><div>Início: ${item.hEntrada}</div></td>
-                    <td class="p-3"><div>${item.responsavel || '-'}</div></td>
-                    <td class="p-3"><button onclick="excluirRegistro(${item.id})" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button></td>
+                    <td class="p-3">
+                        <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
+                        <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
+                    </td>
+                    <td class="p-3 text-[10px] font-mono text-slate-600">
+                        <div>In: ${item.gpsEntrada}</div>
+                        <div>Out: ${item.gpsSaida}</div>
+                    </td>
+                    <td class="p-3" onclick="event.stopPropagation()">
+                        <button onclick="excluirRegistro(${item.id})" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
+                    </td>
                 `;
                 corpoAtiv.appendChild(tr);
             });
 
             renderizarGraficos(filtrados);
+        }
+
+        function abrirDetalhesAtividade(item) {
+            const modal = document.getElementById('modal-detalhes');
+            const conteudo = document.getElementById('modal-detalhes-conteudo');
+            document.getElementById('modal-detalhes-titulo').innerText = `Detalhes do Imóvel: ${item.imovel}`;
+
+            conteudo.innerHTML = `
+                <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
+                    <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
+                    <div><strong>Equipe:</strong> ${item.equipe}</div>
+                    <div><strong>Membros:</strong> ${item.membros || 'N/D'}</div>
+                    <div><strong>Projeto:</strong> ${item.projeto}</div>
+                    <div><strong>Desfecho:</strong> <span class="font-bold text-blue-900">${item.desfecho}</span></div>
+                    <div><strong>Responsável:</strong> ${item.responsavel || '-'}</div>
+                    <div><strong>Contato:</strong> ${item.contato || '-'}</div>
+                    <div><strong>E-mail:</strong> ${item.email || '-'}</div>
+                </div>
+
+                <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 space-y-1">
+                    <h4 class="font-bold text-blue-900 text-xs uppercase">🕒 Horários e GPS</h4>
+                    <div><strong>Horário de Entrada:</strong> ${item.hEntrada} | <strong>GPS:</strong> ${item.gpsEntrada}</div>
+                    <div><strong>Horário de Saída:</strong> ${item.hSaida} | <strong>GPS:</strong> ${item.gpsSaida}</div>
+                </div>
+
+                <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-200 space-y-1">
+                    <h4 class="font-bold text-emerald-900 text-xs uppercase">📦 Materiais e Rede Utilizados</h4>
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <div>Fusões: <b>${item.fusoes}</b></div>
+                        <div>Conectores: <b>${item.conectores}</b></div>
+                        <div>Cabo RL: <b>${item.caboRL}m</b></div>
+                        <div>Cabo Drop: <b>${item.caboDrop}m</b></div>
+                        <div>NAP: <b>${item.nap}</b></div>
+                        <div>DIO: <b>${item.dio}</b></div>
+                    </div>
+                </div>
+
+                ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Motivo / Observação do Desfecho:</strong> ${item.motivoDesfecho}</div>` : ''}
+                ${item.observacoes ? `<div class="bg-slate-100 p-3 rounded-lg border"><strong>Observações Gerais:</strong> ${item.observacoes}</div>` : ''}
+            `;
+            modal.classList.remove('hidden');
+        }
+
+        function fecharModalDetalhes() {
+            document.getElementById('modal-detalhes').classList.add('hidden');
         }
 
         function renderizarGraficos(dados) {
@@ -674,7 +756,7 @@
             });
         }
 
-        // Funções da Gestão de Usuários e Senhas
+        // Funções de Usuários
         function abrirModalUsuario(id = null) {
             document.getElementById('modal-usuario').classList.remove('hidden');
             if (id) {
@@ -712,7 +794,6 @@
             }
 
             if (editId) {
-                // Atualizar usuário existente
                 let index = usuariosSistema.findIndex(u => u.id == editId);
                 if (index !== -1) {
                     usuariosSistema[index].nome = nome;
@@ -722,7 +803,6 @@
                 }
                 alert("Usuário atualizado com sucesso!");
             } else {
-                // Criar novo usuário
                 usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
                 alert("Novo usuário cadastrado com sucesso!");
             }
