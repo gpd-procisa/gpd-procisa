@@ -62,6 +62,9 @@
                 <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
                     👥 Usuários
                 </button>
+                <button onclick="mudarSubAbaGestor('auditoria')" id="subtab-btn-auditoria" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
+                    🛡️ Auditoria (Logs)
+                </button>
             </div>
 
             <!-- Barra de Ações Rápidas e Atualização -->
@@ -140,7 +143,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Atividades -->
+            <!-- Sub-Aba: Atividades (Visível por padrão) -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
                     <span>Atividades em Campo (Clique na linha para ver todos os detalhes)</span>
@@ -240,6 +243,27 @@
                             </tr>
                         </thead>
                         <tbody id="tabela-usuarios-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SUB-ABA: AUDITORIA (LOGS DE REGISTRO) -->
+            <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
+                <div class="border-b pb-2 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria e Logs (Quem fez o quê)</h3>
+                    <button onclick="limparLogsAuditoria()" class="bg-red-50 text-red-600 hover:bg-red-100 text-xs px-3 py-1.5 rounded-lg font-medium">Limpar Logs</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
+                                <th class="p-3">Data / Hora</th>
+                                <th class="p-3">Usuário / Responsável</th>
+                                <th class="p-3">Ação Realizada</th>
+                                <th class="p-3">Detalhes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-auditoria-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
                     </table>
                 </div>
             </div>
@@ -477,6 +501,7 @@
         let usuariosSistema = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [
             { id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", senha: "Leo290301@", nivel: "Master", status: "Ativo" }
         ];
+        let trilhaAuditoria = JSON.parse(localStorage.getItem('gpd_trilha_auditoria')) || [];
         let usuarioLogado = sessionStorage.getItem('gpd_user_logado') || null;
         let graficoProjetosInstancia = null;
         let graficoDesfechosInstancia = null;
@@ -493,6 +518,19 @@
             }
             await carregarRegistrosDaNuvem();
         };
+
+        function registrarLogAuditoria(acao, detalhes) {
+            let userAtivo = usuarioLogado || "Sistema / Campo";
+            let novoLog = {
+                id: Date.now(),
+                dataHora: new Date().toLocaleString('pt-BR'),
+                usuario: userAtivo,
+                acao: acao,
+                detalhes: detalhes
+            };
+            trilhaAuditoria.unshift(novoLog); // Adiciona no início
+            localStorage.setItem('gpd_trilha_auditoria', JSON.stringify(trilhaAuditoria));
+        }
 
         function popularSelectEquipes() {
             equipesSistema.sort((a, b) => a.nome.localeCompare(b.nome));
@@ -534,6 +572,8 @@
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
                 document.getElementById('btn-sair-gestor').classList.remove('hidden');
                 document.getElementById('txt-email-ativo').innerText = usuarioLogado;
+                
+                registrarLogAuditoria("LOGIN NO SISTEMA", `Acesso ao Dashboard Gestor com sucesso.`);
                 alternarVisao('gestor');
             } else {
                 alert("❌ E-mail ou senha incorretos, ou usuário não autorizado.");
@@ -541,6 +581,7 @@
         }
 
         function fazerLogoutGestor() {
+            registrarLogAuditoria("LOGOUT", `Saída do painel gerencial.`);
             sessionStorage.removeItem('gpd_user_logado');
             usuarioLogado = null;
             document.getElementById('badge-usuario-logado').classList.add('hidden');
@@ -674,13 +715,17 @@
                 motivoDesfecho = document.getElementById('obs-malograda').value.trim();
             }
 
+            const equipeNome = document.getElementById('sel-equipe').value;
+            const projetoNome = document.getElementById('sel-projeto').value;
+            const imovelCod = document.getElementById('inp-imovel').value;
+
             const novoRegistroDB = {
                 id: Date.now(),
                 data_registro: new Date().toISOString().split('T')[0],
-                equipe: document.getElementById('sel-equipe').value,
-                membros: document.getElementById('sel-equipe').value,
-                projeto: document.getElementById('sel-projeto').value,
-                imovel: document.getElementById('inp-imovel').value,
+                equipe: equipeNome,
+                membros: equipeNome,
+                projeto: projetoNome,
+                imovel: imovelCod,
                 h_entrada: "08:30",
                 h_saida: "12:15",
                 gps_entrada: "-22.90680, -43.17290",
@@ -705,6 +750,7 @@
                 return;
             }
 
+            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome})`);
             alert("Atendimento sincronizado com sucesso!");
             location.reload();
         }
@@ -762,7 +808,7 @@
                         <div>Out: ${item.gpsSaida}</div>
                     </td>
                     <td class="p-3" onclick="event.stopPropagation()">
-                        <button onclick="excluirRegistro(${item.id})" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
+                        <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
                     </td>
                 `;
                 corpoAtiv.appendChild(tr);
@@ -833,7 +879,6 @@
 
         function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
 
-        // Exportação Nativa em formato .xls (Excel) mantendo todas as colunas
         function exportarExcel() {
             if (registrosSalvos.length === 0) {
                 alert("Nenhum registro para exportar.");
@@ -891,6 +936,8 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
+
+            registrarLogAuditoria("EXPORTAÇÃO DE RELATÓRIO", `Baixado relatório Excel com ${registrosSalvos.length} registros.`);
         }
 
         // --- GESTÃO DE EQUIPES ---
@@ -923,8 +970,13 @@
 
             if (editId) {
                 let eq = equipesSistema.find(e => e.id == editId);
-                if (eq) { eq.nome = nome; eq.status = status; }
+                if (eq) { 
+                    registrarLogAuditoria("EDIÇÃO DE EQUIPE", `Equipe ${eq.nome} alterada para ${nome} (${status})`);
+                    eq.nome = nome; 
+                    eq.status = status; 
+                }
             } else {
+                registrarLogAuditoria("CADASTRO DE EQUIPE", `Nova equipe cadastrada: ${nome} (${status})`);
                 equipesSistema.push({ id: Date.now(), nome, status });
             }
 
@@ -951,15 +1003,16 @@
                         </td>
                         <td class="p-3 space-x-1">
                             <button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>
-                            <button onclick="excluirEquipe(${eq.id})" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>
+                            <button onclick="excluirEquipe(${eq.id}, '${eq.nome}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>
                         </td>
                     </tr>
                 `;
             });
         }
 
-        function excluirEquipe(id) {
-            if (confirm("Deseja realmente excluir esta equipe do sistema?")) {
+        function excluirEquipe(id, nome) {
+            if (confirm(`Deseja realmente excluir a equipe ${nome} do sistema?`)) {
+                registrarLogAuditoria("EXCLUSÃO DE EQUIPE", `Equipe removida: ${nome}`);
                 equipesSistema = equipesSistema.filter(e => e.id !== id);
                 localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
                 popularSelectEquipes();
@@ -1001,8 +1054,12 @@
 
             if (editId) {
                 let u = usuariosSistema.find(user => user.id == editId);
-                if (u) { u.nome = nome; u.email = email; u.senha = senha; u.nivel = nivel; }
+                if (u) { 
+                    registrarLogAuditoria("EDIÇÃO DE USUÁRIO", `Dados alterados para o usuário: ${email}`);
+                    u.nome = nome; u.email = email; u.senha = senha; u.nivel = nivel; 
+                }
             } else {
+                registrarLogAuditoria("NOVO USUÁRIO", `Cadastrado novo usuário: ${email} (${nivel})`);
                 usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
             }
 
@@ -1025,6 +1082,34 @@
                     </tr>
                 `;
             });
+        }
+
+        function renderizarTabelaAuditoria() {
+            const corpo = document.getElementById('tabela-auditoria-corpo');
+            if (!corpo) return;
+            corpo.innerHTML = "";
+            if (trilhaAuditoria.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400">Nenhum registo de auditoria recente.</td></tr>`;
+                return;
+            }
+            trilhaAuditoria.forEach(log => {
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b text-xs">
+                        <td class="p-3 font-mono text-slate-500">${log.dataHora}</td>
+                        <td class="p-3 font-bold text-blue-900">${log.usuario}</td>
+                        <td class="p-3"><span class="bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded text-[10px]">${log.acao}</span></td>
+                        <td class="p-3 text-slate-600">${log.detalhes}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function limparLogsAuditoria() {
+            if (confirm("Deseja limpar o histórico de logs de auditoria?")) {
+                trilhaAuditoria = [];
+                localStorage.removeItem('gpd_trilha_auditoria');
+                renderizarTabelaAuditoria();
+            }
         }
 
         function renderizarGraficos(dados) {
@@ -1058,15 +1143,20 @@
             }
         }
 
-        async function excluirRegistro(id) {
-            if (confirm("Deseja excluir este registro?")) {
-                await supabaseClient.from('registros_producao').delete().eq('id', id);
-                await recarregarDadosGestor();
+        async function excluirRegistro(id, imovelCod) {
+            if (confirm("Deseja excluir este registro de produção?")) {
+                const { error } = await supabaseClient.from('registros_producao').delete().eq('id', id);
+                if (error) {
+                    alert("Erro ao excluir: " + error.message);
+                } else {
+                    registrarLogAuditoria("EXCLUSÃO DE REGISTRO", `Registro do imóvel ${imovelCod} (ID: ${id}) foi apagado.`);
+                    await recarregarDadosGestor();
+                }
             }
         }
 
         function mudarSubAbaGestor(aba) {
-            const subs = ['atividades', 'graficos', 'materiais', 'equipes', 'usuarios'];
+            const subs = ['atividades', 'graficos', 'materiais', 'equipes', 'usuarios', 'auditoria'];
             subs.forEach(s => {
                 const el = document.getElementById(`subview-${s}`);
                 const btn = document.getElementById(`subtab-btn-${s}`);
@@ -1081,6 +1171,7 @@
 
             if (aba === 'usuarios') renderizarTabelaUsuarios();
             if (aba === 'equipes') renderizarTabelaEquipes();
+            if (aba === 'auditoria') renderizarTabelaAuditoria();
             if (aba === 'graficos') atualizarDashboardGestor();
         }
     </script>
