@@ -10,8 +10,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Chart.js para Gráficos Dinâmicos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- SheetJS (xlsx) para Exportação em Excel -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col items-center justify-start p-2 sm:p-6">
 
@@ -72,8 +70,8 @@
                     <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Painel Gerencial em Tempo Real</span>
                 </div>
                 <div class="flex gap-2 w-full sm:w-auto justify-end">
-                    <button onclick="exportarXLSX()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
-                        📥 Baixar Relatório (XLSX)
+                    <button onclick="exportarExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
+                        📥 Baixar Relatório (Excel)
                     </button>
                     <button onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
                         🔄 Atualizar Registros
@@ -502,14 +500,16 @@
             const selCampo = document.getElementById('sel-equipe');
             const selFiltro = document.getElementById('gestor-filtro-equipe');
             
-            selCampo.innerHTML = '<option value="">Selecione a Equipe...</option>';
-            selFiltro.innerHTML = '<option value="">Todas as Equipes</option>';
+            if (selCampo) selCampo.innerHTML = '<option value="">Selecione a Equipe...</option>';
+            if (selFiltro) selFiltro.innerHTML = '<option value="">Todas as Equipes</option>';
 
             equipesSistema.forEach(eq => {
-                if (eq.status === "Ativo") {
+                if (eq.status === "Ativo" && selCampo) {
                     selCampo.innerHTML += `<option value="${eq.nome}">${eq.nome}</option>`;
                 }
-                selFiltro.innerHTML += `<option value="${eq.nome}">${eq.nome} (${eq.status})</option>`;
+                if (selFiltro) {
+                    selFiltro.innerHTML += `<option value="${eq.nome}">${eq.nome} (${eq.status})</option>`;
+                }
             });
         }
 
@@ -716,8 +716,8 @@
 
             const corpoAtiv = document.getElementById('tabela-gestor-corpo');
             const corpoMat = document.getElementById('tabela-materiais-corpo');
-            corpoAtiv.innerHTML = "";
-            corpoMat.innerHTML = "";
+            if (corpoAtiv) corpoAtiv.innerHTML = "";
+            if (corpoMat) corpoMat.innerHTML = "";
 
             let filtrados = registrosSalvos.filter(item => {
                 let mData = fData ? item.dataRegistro === fData : true;
@@ -737,8 +737,8 @@
             document.getElementById('contador-materiais').innerText = filtrados.length + " registros sincronizados";
 
             if (filtrados.length === 0) {
-                corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
-                corpoMat.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
+                if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
+                if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
                 renderizarGraficos([]);
                 return;
             }
@@ -833,44 +833,64 @@
 
         function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
 
-        function exportarXLSX() {
+        // Exportação Nativa em formato .xls (Excel) mantendo todas as colunas
+        function exportarExcel() {
             if (registrosSalvos.length === 0) {
                 alert("Nenhum registro para exportar.");
                 return;
             }
-            // Garante que todas as colunas sejam mantidas, mesmo se vazias (undefined/null viram string vazia)
-            let dadosExportacao = registrosSalvos.map(r => ({
-                ID: r.id || "",
-                Data: r.dataRegistro || "",
-                Equipe: r.equipe || "",
-                Membros: r.membros || "",
-                Projeto: r.projeto || "",
-                Imóvel: r.imovel || "",
-                'Hora Entrada': r.hEntrada || "",
-                'Hora Saída': r.hSaida || "",
-                'GPS Entrada': r.gpsEntrada || "",
-                'GPS Saída': r.gpsSaida || "",
-                Desfecho: r.desfecho || "",
-                'Motivo Desfecho': r.motivoDesfecho || "",
-                Responsável: r.responsavel || "",
-                Contato: r.contato || "",
-                E-mail: r.email || "",
-                Agendamento: r.agendamento || "",
-                Andares: r.andares !== "" ? r.andares : 0,
-                HPs: r.hps !== "" ? r.hps : 0,
-                Fusões: r.fusoes !== "" ? r.fusoes : 0,
-                Conectores: r.conectores !== "" ? r.conectores : 0,
-                'Cabo RL (m)': r.caboRL !== "" ? r.caboRL : 0,
-                'Cabo Drop (m)': r.caboDrop !== "" ? r.caboDrop : 0,
-                NAP: r.nap !== "" ? r.nap : 0,
-                DIO: r.dio !== "" ? r.dio : 0,
-                'Observações Gerais': r.observacoes || ""
-            }));
 
-            let worksheet = XLSX.utils.json_to_sheet(dadosExportacao, { header: Object.keys(dadosExportacao[0]) });
-            let workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "GPD Produção");
-            XLSX.writeFile(workbook, `relatorio_gpd_procisa_${new Date().toISOString().split('T')[0]}.xlsx`);
+            let colunas = [
+                "ID", "Data", "Equipe", "Membros", "Projeto", "Imóvel", 
+                "Hora Entrada", "Hora Saída", "GPS Entrada", "GPS Saída", 
+                "Desfecho", "Motivo Desfecho", "Responsável", "Contato", 
+                "E-mail", "Agendamento", "Andares", "HPs", 
+                "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", 
+                "NAP", "DIO", "Observações Gerais"
+            ];
+
+            let linhas = registrosSalvos.map(r => [
+                r.id || "",
+                r.dataRegistro || "",
+                r.equipe || "",
+                r.membros || "",
+                r.projeto || "",
+                r.imovel || "",
+                r.hEntrada || "",
+                r.hSaida || "",
+                r.gpsEntrada || "",
+                r.gpsSaida || "",
+                r.desfecho || "",
+                r.motivoDesfecho || "",
+                r.responsavel || "",
+                r.contato || "",
+                r.email || "",
+                r.agendamento || "",
+                r.andares !== "" ? r.andares : 0,
+                r.hps !== "" ? r.hps : 0,
+                r.fusoes !== "" ? r.fusoes : 0,
+                r.conectores !== "" ? r.conectores : 0,
+                r.caboRL !== "" ? r.caboRL : 0,
+                r.caboDrop !== "" ? r.caboDrop : 0,
+                r.nap !== "" ? r.nap : 0,
+                r.dio !== "" ? r.dio : 0,
+                r.observacoes || ""
+            ]);
+
+            let tabelaHTML = `<table border="1"><thead><tr>${colunas.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+            linhas.forEach(l => {
+                tabelaHTML += `<tr>${l.map(cel => `<td>${cel}</td>`).join('')}</tr>`;
+            });
+            tabelaHTML += `</tbody></table>`;
+
+            let blob = new Blob(['\ufeff' + tabelaHTML], { type: 'application/vnd.ms-excel' });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement('a');
+            a.href = url;
+            a.download = `relatorio_gpd_procisa_${new Date().toISOString().split('T')[0]}.xls`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         }
 
         // --- GESTÃO DE EQUIPES ---
@@ -918,6 +938,7 @@
 
         function renderizarTabelaEquipes() {
             const corpo = document.getElementById('tabela-equipes-corpo');
+            if (!corpo) return;
             corpo.innerHTML = "";
             equipesSistema.forEach(eq => {
                 corpo.innerHTML += `
@@ -992,6 +1013,7 @@
 
         function renderizarTabelaUsuarios() {
             const corpo = document.getElementById('tabela-usuarios-corpo');
+            if (!corpo) return;
             corpo.innerHTML = "";
             usuariosSistema.forEach(u => {
                 corpo.innerHTML += `
@@ -1015,21 +1037,25 @@
                 if (desfechosCount[d.desfecho] !== undefined) desfechosCount[d.desfecho]++;
             });
 
-            const ctxProj = document.getElementById('graficoProjetos').getContext('2d');
-            if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
-            graficoProjetosInstancia = new Chart(ctxProj, {
-                type: 'bar',
-                data: { labels: Object.keys(projetosCount), datasets: [{ label: 'Qtd', data: Object.values(projetosCount), backgroundColor: '#1e3a8a' }] },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+            const ctxProj = document.getElementById('graficoProjetos')?.getContext('2d');
+            if (ctxProj) {
+                if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
+                graficoProjetosInstancia = new Chart(ctxProj, {
+                    type: 'bar',
+                    data: { labels: Object.keys(projetosCount), datasets: [{ label: 'Qtd', data: Object.values(projetosCount), backgroundColor: '#1e3a8a' }] },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
 
-            const ctxDesf = document.getElementById('graficoDesfechos').getContext('2d');
-            if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
-            graficoDesfechosInstancia = new Chart(ctxDesf, {
-                type: 'doughnut',
-                data: { labels: ['Concluída', 'Pendente', 'Malograda'], datasets: [{ data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']], backgroundColor: ['#059669', '#d97706', '#dc2626'] }] },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+            const ctxDesf = document.getElementById('graficoDesfechos')?.getContext('2d');
+            if (ctxDesf) {
+                if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
+                graficoDesfechosInstancia = new Chart(ctxDesf, {
+                    type: 'doughnut',
+                    data: { labels: ['Concluída', 'Pendente', 'Malograda'], datasets: [{ data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']], backgroundColor: ['#059669', '#d97706', '#dc2626'] }] },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
         }
 
         async function excluirRegistro(id) {
