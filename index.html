@@ -114,21 +114,25 @@
                 </div>
             </div>
 
-            <!-- Filtros -->
+            <!-- Filtros por Período (Múltipla Seleção) -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full sm:w-auto flex-1">
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 w-full sm:w-auto flex-1">
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-1">Filtrar por Data</label>
-                        <input type="date" id="gestor-filtro-data" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 outline-none">
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">📅 Data Inicial</label>
+                        <input type="date" id="gestor-filtro-data-inicio" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 outline-none">
                     </div>
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-1">Filtrar por Equipe</label>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">📅 Data Final</label>
+                        <input type="date" id="gestor-filtro-data-fim" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">👥 Filtrar por Equipe</label>
                         <select id="gestor-filtro-equipe" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
                             <option value="">Todas as Equipes</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-1">Filtrar por Projeto</label>
+                        <label class="block text-[11px] font-bold text-slate-600 mb-1">🏗️ Filtrar por Projeto</label>
                         <select id="gestor-filtro-projeto" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
                             <option value="">Todos os Projetos</option>
                             <option value="VISTORIA">VISTORIA</option>
@@ -247,7 +251,7 @@
                 </div>
             </div>
 
-            <!-- SUB-ABA: AUDITORIA (LOGS DE REGISTRO) -->
+            <!-- SUB-ABA: AUDITORIA -->
             <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria e Logs (Quem fez o quê)</h3>
@@ -528,7 +532,7 @@
                 acao: acao,
                 detalhes: detalhes
             };
-            trilhaAuditoria.unshift(novoLog); // Adiciona no início
+            trilhaAuditoria.unshift(novoLog);
             localStorage.setItem('gpd_trilha_auditoria', JSON.stringify(trilhaAuditoria));
         }
 
@@ -756,7 +760,8 @@
         }
 
         async function atualizarDashboardGestor() {
-            const fData = document.getElementById('gestor-filtro-data').value;
+            const dataInicio = document.getElementById('gestor-filtro-data-inicio').value;
+            const dataFim = document.getElementById('gestor-filtro-data-fim').value;
             const fEquipe = document.getElementById('gestor-filtro-equipe').value;
             const fProjeto = document.getElementById('gestor-filtro-projeto').value;
 
@@ -766,7 +771,15 @@
             if (corpoMat) corpoMat.innerHTML = "";
 
             let filtrados = registrosSalvos.filter(item => {
-                let mData = fData ? item.dataRegistro === fData : true;
+                let mData = true;
+                if (dataInicio && dataFim) {
+                    mData = item.dataRegistro >= dataInicio && item.dataRegistro <= dataFim;
+                } else if (dataInicio) {
+                    mData = item.dataRegistro >= dataInicio;
+                } else if (dataFim) {
+                    mData = item.dataRegistro <= dataFim;
+                }
+
                 let mEquipe = fEquipe ? item.equipe === fEquipe : true;
                 let mProj = fProjeto ? item.projeto === fProjeto : true;
                 return mData && mEquipe && mProj;
@@ -783,7 +796,7 @@
             document.getElementById('contador-materiais').innerText = filtrados.length + " registros sincronizados";
 
             if (filtrados.length === 0) {
-                if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
+                if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
                 renderizarGraficos([]);
                 return;
