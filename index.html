@@ -174,27 +174,49 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos -->
+            <!-- Sub-Aba: Gráficos com Modo Explosão e Consolidado Numérico -->
             <div id="subview-graficos" class="space-y-6 hidden">
+                <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
+                    <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto ou parte da rosca de desfechos para abrir o detalhamento por atividades, técnicos e dias.</span>
+                </div>
+
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase">📊 Distribuição Geral por Tipo de Projeto</h3>
-                            <p class="text-xs text-slate-500 mb-4">Volume absoluto de atendimentos divididos por frentes de trabalho</p>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase">📊 Distribuição por Tipo de Projeto (Clique para Explodir)</h3>
+                            <p class="text-xs text-slate-500 mb-4">Volume de atendimentos divididos por frentes de trabalho</p>
                         </div>
                         <div class="relative h-80"><canvas id="graficoProjetos"></canvas></div>
                     </div>
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase">🎯 Eficácia e Desfechos Técnicos</h3>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase">🎯 Eficácia e Desfechos (Clique para Explodir)</h3>
                             <p class="text-xs text-slate-500 mb-4">Proporção detalhada entre Concluídas, Pendentes e Malogradas</p>
                         </div>
                         <div class="relative h-80"><canvas id="graficoDesfechos"></canvas></div>
                     </div>
                 </div>
 
+                <!-- Tabela Consolidada com Números Reais -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm">📋 Tabela Consolidada de Números Reais (Para a Diretoria)</div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
+                                    <th class="p-3">Categoria / Indicador</th>
+                                    <th class="p-3 text-center">Quantidade Absoluta</th>
+                                    <th class="p-3 text-center">Percentual (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-consolidada-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Painel de Explosão de Detalhes Executivos -->
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
-                    <h3 class="font-bold text-slate-800 text-sm uppercase tracking-wide border-b pb-2">🔍 Detalhamento Executivo para a Diretoria</h3>
+                    <h3 class="font-bold text-slate-800 text-sm uppercase tracking-wide border-b pb-2">🔍 Indicadores de Desempenho Executivo</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-1">
                             <span class="font-bold text-slate-700 uppercase text-[10px]">Taxa de Conclusão Direta</span>
@@ -464,6 +486,35 @@
 
     </div>
 
+    <!-- MODAL DE EXPLOSÃO DE DETALHES (DRILL-DOWN DOS GRÁFICOS) -->
+    <div id="modal-explosao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm" id="modal-explosao-titulo">Detalhamento da Categoria</h3>
+                <button onclick="fecharModalExplosao()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4 text-xs text-slate-700">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
+                                <th class="p-2.5">Data</th>
+                                <th class="p-2.5">Imóvel</th>
+                                <th class="p-2.5">Técnico / Equipe</th>
+                                <th class="p-2.5">Projeto</th>
+                                <th class="p-2.5">Desfecho</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-explosao-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end">
+                <button onclick="fecharModalExplosao()" class="bg-slate-600 hover:bg-slate-700 text-white text-xs px-4 py-2 rounded-lg font-medium">Fechar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE DETALHES -->
     <div id="modal-detalhes" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
@@ -578,6 +629,7 @@
         let usuarioLogado = sessionStorage.getItem('gpd_user_logado') || null;
         let graficoProjetosInstancia = null;
         let graficoDesfechosInstancia = null;
+        let dadosFiltradosAtuais = [];
 
         window.onload = async function() { 
             popularSelectEquipes();
@@ -864,6 +916,8 @@
                 return mData && mEquipe && mProj;
             });
 
+            dadosFiltradosAtuais = filtrados;
+
             document.getElementById('kpi-proj-vistoria').innerText = filtrados.filter(i => i.projeto === 'VISTORIA').length;
             document.getElementById('kpi-proj-ativacao').innerText = filtrados.filter(i => i.projeto === 'ATIVAÇÃO').length;
             document.getElementById('kpi-proj-construcao').innerText = filtrados.filter(i => i.projeto === 'CONSTRUÇÃO').length;
@@ -874,7 +928,6 @@
             document.getElementById('contador-resultados').innerText = filtrados.length + " registros encontrados";
             document.getElementById('contador-materiais').innerText = filtrados.length + " registros sincronizados";
 
-            // Atualização dos dados da aba Bonificação
             let concluidasCount = filtrados.filter(i => i.desfecho === 'CONCLUIDA').length;
             let malogradasCount = filtrados.filter(i => i.desfecho === 'MALOGRADA').length;
             let pendentesCount = filtrados.filter(i => i.desfecho === 'PENDENTE').length;
@@ -884,7 +937,6 @@
             document.getElementById('bonif-media-geral').innerText = filtrados.length > 0 ? (concluidasCount / (new Set(filtrados.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0";
             document.getElementById('bonif-malogros').innerText = malogradasCount;
 
-            // Atualização do Painel Executivo de Gráficos (Explosão de Detalhes)
             let taxaSucesso = filtrados.length > 0 ? ((concluidasCount / filtrados.length) * 100).toFixed(1) : "0.0";
             document.getElementById('exec-taxa-sucesso').innerText = taxaSucesso + "%";
             document.getElementById('exec-total-pendente').innerText = pendentesCount;
@@ -894,6 +946,7 @@
                 if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
                 renderizarGraficos([]);
+                renderizarTabelaConsolidada([]);
                 return;
             }
 
@@ -937,9 +990,40 @@
             });
 
             renderizarGraficos(filtrados);
+            renderizarTabelaConsolidada(filtrados);
         }
 
-        function abrirDetalhesAtividade(item) {
+        function renderizarTabelaConsolidada(dados) {
+            const corpo = document.getElementById('tabela-consolidada-corpo');
+            if (!corpo) return;
+            corpo.innerHTML = "";
+
+            let total = dados.length;
+            let categorias = {};
+
+            dados.forEach(d => {
+                let chave = `${d.projeto} (${d.desfecho})`;
+                categorias[chave] = (categorias[chave] || 0) + 1;
+            });
+
+            if (Object.keys(categorias).length === 0) {
+                corpo.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-400">Nenhum dado consolidado no período.</td></tr>`;
+                return;
+            }
+
+            for (let [cat, qtd] of Object.entries(categorias)) {
+                let perc = total > 0 ? ((qtd / total) * 100).toFixed(1) : 0;
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3 font-semibold text-slate-800">${cat}</td>
+                        <td class="p-3 text-center font-bold text-blue-900">${qtd}</td>
+                        <td class="p-3 text-center text-slate-600">${perc}%</td>
+                    </tr>
+                `;
+            }
+        }
+
+        function abrirModalDetalhes(item) {
             const modal = document.getElementById('modal-detalhes');
             const conteudo = document.getElementById('modal-detalhes-conteudo');
             document.getElementById('modal-detalhes-titulo').innerText = `Detalhes do Imóvel: ${item.imovel}`;
@@ -989,6 +1073,41 @@
         }
 
         function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
+
+        // --- MODO EXPLOSÃO (DRILL-DOWN DOS GRÁFICOS) ---
+        function dispararExplosaoGrafico(filtroTipo, filtroValor) {
+            const modal = document.getElementById('modal-explosao');
+            const corpo = document.getElementById('tabela-explosao-corpo');
+            document.getElementById('modal-explosao-titulo').innerText = `Modo Explosão: ${filtroTipo} -> ${filtroValor}`;
+            corpo.innerHTML = "";
+
+            let subset = dadosFiltradosAtuais.filter(item => {
+                if (filtroTipo === 'projeto') return item.projeto === filtroValor;
+                if (filtroTipo === 'desfecho') return item.desfecho === filtroValor;
+                return false;
+            });
+
+            if (subset.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">Nenhum registro encontrado para esta seleção.</td></tr>`;
+            } else {
+                subset.forEach(item => {
+                    corpo.innerHTML += `
+                        <tr class="hover:bg-slate-50 border-b text-xs">
+                            <td class="p-2.5 font-mono text-slate-500">${item.dataRegistro}</td>
+                            <td class="p-2.5 font-bold text-slate-800">${item.imovel}</td>
+                            <td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td>
+                            <td class="p-2.5">${item.projeto}</td>
+                            <td class="p-2.5 font-bold">${item.desfecho}</td>
+                        </tr>
+                    `;
+                });
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function fecharModalExplosao() {
+            document.getElementById('modal-explosao').classList.add('hidden');
+        }
 
         function exportarExcel() {
             if (registrosSalvos.length === 0) {
@@ -1236,6 +1355,7 @@
             };
 
             let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
+            const labelsDesfechosMap = { 'CONCLUIDA': 'CONCLUIDA', 'PENDENTE': 'PENDENTE', 'MALOGRADA': 'MALOGRADA' };
 
             dados.forEach(d => {
                 if (projetosCount[d.projeto] !== undefined) {
@@ -1260,7 +1380,18 @@
                             borderRadius: 6
                         }]
                     },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                let index = elements[0].index;
+                                let chaveProjeto = Object.keys(projetosCount)[index];
+                                dispararExplosaoGrafico('projeto', chaveProjeto);
+                            }
+                        }
+                    }
                 });
             }
 
@@ -1270,13 +1401,23 @@
                 graficoDesfechosInstancia = new Chart(ctxDesf, {
                     type: 'doughnut',
                     data: {
-                        labels: ['Concluída', 'Pendente', 'Malograda'],
+                        labels: ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'],
                         datasets: [{
                             data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']],
                             backgroundColor: ['#059669', '#d97706', '#dc2626']
                         }]
                     },
-                    options: { responsive: true, maintainAspectRatio: false }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                let index = elements[0].index;
+                                let chaveDesfecho = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'][index];
+                                dispararExplosaoGrafico('desfecho', chaveDesfecho);
+                            }
+                        }
+                    }
                 });
             }
         }
