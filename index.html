@@ -4,15 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GPD - Setor Construção MDU PROCISA RJ</title>
-    <!-- Tailwind CSS para estilização moderna -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col items-center justify-start p-2 sm:p-6">
 
-    <!-- Container Principal Adaptável -->
     <div class="w-full max-w-7xl bg-white shadow-2xl rounded-2xl flex flex-col overflow-hidden border border-slate-200 min-h-[90vh]">
         
-        <!-- Cabeçalho Principal (Sem Imagem) -->
+        <!-- Cabeçalho -->
         <header class="bg-blue-900 text-white p-4 sm:p-6 shadow-md flex flex-col sm:flex-row justify-between items-center gap-4 border-b-4 border-cyan-400">
             <div>
                 <div class="flex items-center gap-2">
@@ -37,7 +38,6 @@
         <!-- ================= MODO GESTOR ================= -->
         <main id="view-gestor" class="flex-1 p-4 sm:p-6 bg-slate-50 space-y-6 hidden">
             
-            <!-- KPIs / Indicadores Independentes por Projeto -->
             <div class="space-y-2">
                 <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Indicadores por Tipo de Projeto (Construção MDU - RJ)</h3>
                 <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
@@ -72,7 +72,6 @@
                 </div>
             </div>
 
-            <!-- Sub-Abas do Gestor -->
             <div class="flex flex-wrap border-b border-slate-200 gap-4">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition">📋 Atividades</button>
                 <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">📦 Materiais</button>
@@ -82,7 +81,7 @@
                 <button onclick="mudarSubAbaGestor('bonificacao')" id="subtab-btn-bonificacao" class="pb-3 text-sm font-medium text-emerald-700 hover:text-emerald-900 transition font-bold">🏆 Bonificação e Metas</button>
             </div>
 
-            <!-- Barra de Filtros e Ações -->
+            <!-- Filtros -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full sm:w-auto flex-1">
                     <div>
@@ -119,10 +118,10 @@
                 </div>
             </div>
 
-            <!-- TABELA ATIVIDADES -->
+            <!-- Tabelas de Gestão -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
-                    <span>Atividades em Campo <span class="text-xs text-slate-400 font-normal">(Duplo clique na linha para detalhes)</span></span>
+                    <span>Atividades em Campo (Tempo Real) <span class="text-xs text-slate-400 font-normal">(Duplo clique na linha para detalhes)</span></span>
                     <span class="text-xs font-normal text-slate-500" id="contador-resultados">0 registros</span>
                 </div>
                 <div class="overflow-x-auto">
@@ -143,7 +142,6 @@
                 </div>
             </div>
 
-            <!-- RELATÓRIO DE MATERIAIS SEPARADOS -->
             <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais Utilizados</div>
                 <div class="overflow-x-auto">
@@ -167,13 +165,11 @@
                 </div>
             </div>
 
-            <!-- RETORNOS TÉCNICOS -->
             <div id="subview-retornos" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm">💬 Retornos e Desfechos Técnicos</div>
                 <div class="p-4 space-y-3" id="lista-retornos-container"></div>
             </div>
 
-            <!-- GESTÃO DE USUÁRIOS -->
             <div id="subview-usuarios" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 text-sm">👥 Controle de Acesso e Usuários</h3>
@@ -194,7 +190,6 @@
                 </div>
             </div>
 
-            <!-- AUDITORIA -->
             <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2">
                     <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria e Rastreio (Logs Permanentes)</h3>
@@ -216,7 +211,6 @@
                 </div>
             </div>
 
-            <!-- BONIFICAÇÃO -->
             <div id="subview-bonificacao" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6 hidden">
                 <div class="border-b pb-3 flex justify-between items-center">
                     <div>
@@ -421,11 +415,10 @@
 
     </div>
 
-    <!-- MODAIS -->
     <div id="modal-detalhes" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-sm" id="modal-titulo">Explosão de Detalhes da Atividade</h3>
+                <h3 class="font-bold text-sm" id="modal-titulo">Detalhes da Atividade</h3>
                 <button onclick="fecharModalDetalhes()" class="text-white hover:text-slate-200 font-bold text-lg">✕</button>
             </div>
             <div class="p-6 overflow-y-auto space-y-4 text-xs text-slate-700" id="modal-conteudo"></div>
@@ -435,57 +428,12 @@
         </div>
     </div>
 
-    <div id="modal-edicao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
-        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
-            <div class="bg-amber-600 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-sm">Editar Registro (Master)</h3>
-                <button onclick="fecharModalEdicao()" class="text-white font-bold text-lg">✕</button>
-            </div>
-            <div class="p-4 overflow-y-auto space-y-3 text-xs">
-                <input type="hidden" id="edit-id">
-                <div>
-                    <label class="block font-semibold text-slate-600 mb-1">Cód. Imóvel</label>
-                    <input type="text" id="edit-imovel" class="w-full border rounded-lg p-2 outline-none">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div><label class="block font-semibold text-slate-600 mb-1">Responsável</label><input type="text" id="edit-responsavel" class="w-full border rounded-lg p-2 outline-none"></div>
-                    <div><label class="block font-semibold text-slate-600 mb-1">Contato</label><input type="text" id="edit-contato" class="w-full border rounded-lg p-2 outline-none"></div>
-                </div>
-                <div><label class="block font-semibold text-slate-600 mb-1">Observações</label><textarea id="edit-observacoes" rows="3" class="w-full border rounded-lg p-2 outline-none"></textarea></div>
-            </div>
-            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
-                <button onclick="fecharModalEdicao()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
-                <button onclick="salvarEdicaoMaster()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-usuario" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
-        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
-            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-sm">Cadastrar Novo Usuário</h3>
-                <button onclick="fecharModalUsuario()" class="text-white font-bold text-lg">✕</button>
-            </div>
-            <div class="p-4 space-y-3 text-xs">
-                <div><label class="block font-semibold text-slate-600 mb-1">Nome Completo</label><input type="text" id="novo-user-nome" class="w-full border rounded-lg p-2 outline-none"></div>
-                <div><label class="block font-semibold text-slate-600 mb-1">E-mail Corporativo</label><input type="email" id="novo-user-email" class="w-full border rounded-lg p-2 outline-none" placeholder="usuario@procisa.com.br"></div>
-                <div>
-                    <label class="block font-semibold text-slate-600 mb-1">Nível de Permissão</label>
-                    <select id="novo-user-nivel" class="w-full border rounded-lg p-2 bg-white outline-none">
-                        <option value="Visualizador">Visualizador</option>
-                        <option value="Operador">Operador</option>
-                        <option value="Gestor Parcial">Gestor Parcial</option>
-                    </select>
-                </div>
-            </div>
-            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
-                <button onclick="fecharModalUsuario()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
-                <button onclick="salvarNovoUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- Script de Integração com Supabase -->
     <script>
+        const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         const equipesMembros = {
             "Equipe Alfa": "João Silva, Carlos Eduardo",
             "Equipe Beta": "Marcos Vinicius, Ana Paula",
@@ -495,14 +443,66 @@
         const causasInternas = ["FROTA", "MATERIAL", "EQUIPAMENTOS"];
 
         let dadosAtendimento = { hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, desfechoSelecionado: null };
-        let registrosSalvos = JSON.parse(localStorage.getItem('registros_producao')) || [];
+        let registrosSalvos = [];
         let usuariosSistema = JSON.parse(localStorage.getItem('usuarios_sistema')) || [
             { id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", nivel: "Master", status: "Ativo" }
         ];
         let trilhaAuditoria = JSON.parse(localStorage.getItem('trilha_auditoria')) || [];
         let usuarioLogado = null;
 
-        window.onload = function() { alternarVisao('campo'); };
+        window.onload = async function() { 
+            alternarVisao('campo'); 
+            await carregarRegistrosDaNuvem();
+        };
+
+        async function carregarRegistrosDaNuvem() {
+            try {
+                let { data, error } = await supabaseClient
+                    .from('registros_producao')
+                    .select('*')
+                    .order('id', { ascending: false });
+                
+                if (error) throw error;
+                
+                if (data) {
+                    registrosSalvos = data.map(r => ({
+                        id: r.id,
+                        dataRegistro: r.data_registro,
+                        equipe: r.equipe,
+                        membros: r.membros,
+                        projeto: r.projeto,
+                        imovel: r.imovel,
+                        hEntrada: r.h_entrada,
+                        hSaida: r.h_saida,
+                        gpsEntrada: r.gps_entrada,
+                        gpsSaida: r.gps_saida,
+                        desfecho: r.desfecho,
+                        motivoDesfecho: r.motivo_desfecho,
+                        malogros: r.malogros,
+                        responsavel: r.responsavel,
+                        contato: r.contato,
+                        email: r.email,
+                        agendamento: r.agendamento,
+                        andares: r.andares,
+                        hps: r.hps,
+                        observacoes: r.observacoes,
+                        fusoes: r.fusoes,
+                        conectores: r.conectores,
+                        caboRL: r.cabo_rl,
+                        caboDrop: r.cabo_drop,
+                        nap: r.nap,
+                        dio: r.dio,
+                        cxSobrepor: r.cx_sobrepor,
+                        cxEmbutida: r.cx_embutida,
+                        cxFosc: r.cx_fosc,
+                        obraRealizada: r.obra_realizada,
+                        detalheObra: r.detalhe_obra
+                    }));
+                }
+            } catch (err) {
+                console.error("Erro ao carregar dados do Supabase:", err);
+            }
+        }
 
         function tentarAcessarGestor() {
             let emailInformado = prompt("🔒 Digite o seu e-mail corporativo para acessar o Dashboard:");
@@ -552,8 +552,6 @@
             document.getElementById(`subview-${aba}`).classList.remove('hidden');
             document.getElementById(`subtab-btn-${aba}`).className = "pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition";
 
-            if (aba === 'usuarios') renderizarTabelaUsuarios();
-            if (aba === 'auditoria') renderizarTabelaAuditoria();
             if (aba === 'bonificacao') calcularBonificacaoAvancada();
         }
 
@@ -637,7 +635,7 @@
 
         async function salvarRegistro() {
             if (!dadosAtendimento.desfechoSelecionado) {
-                alert("⚠️ Selecione o desfecho da atividade (Concluída, Pendente ou Malograda).");
+                alert("⚠️ Selecione o desfecho da atividade.");
                 return;
             }
 
@@ -660,59 +658,69 @@
             }
 
             const horaSaida = await obterHorarioOficial();
-            obterGPS((gpsSaida) => {
+            obterGPS(async (gpsSaida) => {
                 const equipe = document.getElementById('sel-equipe').value;
                 const projeto = document.getElementById('sel-projeto').value;
                 const imovel = document.getElementById('inp-imovel').value;
 
-                const registro = {
+                const novoRegistroDB = {
                     id: Date.now(),
-                    dataRegistro: new Date().toISOString().split('T')[0],
-                    equipe, membros: equipesMembros[equipe], projeto, imovel,
-                    hEntrada: dadosAtendimento.hEntrada, hSaida: horaSaida,
-                    gpsEntrada: dadosAtendimento.gpsEntrada, gpsSaida: gpsSaida,
+                    data_registro: new Date().toISOString().split('T')[0],
+                    equipe,
+                    membros: equipesMembros[equipe],
+                    projeto,
+                    imovel,
+                    h_entrada: dadosAtendimento.hEntrada,
+                    h_saida: horaSaida,
+                    gps_entrada: dadosAtendimento.gpsEntrada,
+                    gps_saida: gpsSaida,
                     desfecho: dadosAtendimento.desfechoSelecionado,
-                    motivoDesfecho: motivoDesfecho,
+                    motivo_desfecho: motivoDesfecho,
                     malogros: malogrosSelecionados,
                     responsavel: document.getElementById('form-responsavel').value,
                     contato: document.getElementById('form-contato').value,
                     email: document.getElementById('form-email').value,
-                    agendamento: document.getElementById('form-agendamento').value,
-                    andares: document.getElementById('form-andares').value,
-                    hps: document.getElementById('form-hps').value,
+                    agendamento: document.getElementById('form-agendamento').value || null,
+                    andares: Number(document.getElementById('form-andares').value) || 0,
+                    hps: Number(document.getElementById('form-hps').value) || 0,
                     observacoes: document.getElementById('form-observacoes').value,
-                    fusoes: document.getElementById('mat-fusoes').value || 0,
-                    conectores: document.getElementById('mat-conectores').value || 0,
-                    caboRL: document.getElementById('mat-cabo-rl').value || 0,
-                    caboDrop: document.getElementById('mat-cabo-drop').value || 0,
-                    nap: document.getElementById('mat-nap').value || 0,
-                    dio: document.getElementById('mat-dio').value || 0,
-                    cxSobrepor: document.getElementById('mat-cx-sobrepor').value || '',
-                    cxEmbutida: document.getElementById('mat-cx-embutida').value || '',
-                    cxFosc: document.getElementById('mat-cx-fosc').value || '',
-                    obraRealizada: document.getElementById('mat-obra-realizada').value,
-                    detalheObra: document.getElementById('mat-detalhe-obra').value || ''
+                    fusoes: Number(document.getElementById('mat-fusoes').value) || 0,
+                    conectores: Number(document.getElementById('mat-conectores').value) || 0,
+                    cabo_rl: Number(document.getElementById('mat-cabo-rl').value) || 0,
+                    cabo_drop: Number(document.getElementById('mat-cabo-drop').value) || 0,
+                    nap: Number(document.getElementById('mat-nap').value) || 0,
+                    dio: Number(document.getElementById('mat-dio').value) || 0,
+                    cx_sobrepor: document.getElementById('mat-cx-sobrepor').value || '',
+                    cx_embutida: document.getElementById('mat-cx-embutida').value || '',
+                    cx_fosc: document.getElementById('mat-cx-fosc').value || '',
+                    obra_realizada: document.getElementById('mat-obra-realizada').value,
+                    detalhe_obra: document.getElementById('mat-detalhe-obra').value || ''
                 };
 
-                registrosSalvos.unshift(registro);
-                localStorage.setItem('registros_producao', JSON.stringify(registrosSalvos));
-                alert("Atendimento finalizado com sucesso!");
+                const { error } = await supabaseClient.from('registros_producao').insert([novoRegistroDB]);
+
+                if (error) {
+                    alert("Erro ao salvar na nuvem: " + error.message);
+                    return;
+                }
+
+                alert("Atendimento finalizado e sincronizado na nuvem com sucesso!");
                 location.reload();
             });
         }
 
-        function atualizarDashboardGestor() {
+        async function atualizarDashboardGestor() {
+            await carregarRegistrosDaNuvem();
+            
             const fData = document.getElementById('gestor-filtro-data').value;
             const fEquipe = document.getElementById('gestor-filtro-equipe').value;
             const fProjeto = document.getElementById('gestor-filtro-projeto').value;
 
             const corpoAtiv = document.getElementById('tabela-gestor-corpo');
             const corpoMat = document.getElementById('tabela-materiais-corpo');
-            const listaRet = document.getElementById('lista-retornos-container');
 
             corpoAtiv.innerHTML = "";
             corpoMat.innerHTML = "";
-            listaRet.innerHTML = "";
 
             let filtrados = registrosSalvos.filter(item => {
                 let mData = fData ? item.dataRegistro === fData : true;
@@ -721,7 +729,6 @@
                 return mData && mEquipe && mProj;
             });
 
-            // Atualização dos Indicadores Independentes por Projeto
             document.getElementById('kpi-proj-vistoria').innerText = filtrados.filter(i => i.projeto === 'VISTORIA').length;
             document.getElementById('kpi-proj-ativacao').innerText = filtrados.filter(i => i.projeto === 'ATIVAÇÃO').length;
             document.getElementById('kpi-proj-construcao').innerText = filtrados.filter(i => i.projeto === 'CONSTRUÇÃO').length;
@@ -735,7 +742,6 @@
             if (filtrados.length === 0) {
                 corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
                 corpoMat.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
-                listaRet.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">Nenhum retorno registrado.</p>`;
                 return;
             }
 
@@ -747,7 +753,6 @@
 
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-blue-50/50 border-b border-slate-100 transition cursor-pointer";
-                tr.ondblclick = () => abrirModalDetalhes(item);
                 tr.innerHTML = `
                     <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
                     <td class="p-3"><div class="font-semibold text-slate-700">${item.equipe}</div><div class="text-[10px] text-slate-400">${item.membros || ''}</div></td>
@@ -756,13 +761,11 @@
                     <td class="p-3"><div>Entrada: ${item.hEntrada}</div><div>Saída: ${item.hSaida}</div></td>
                     <td class="p-3"><div>${item.responsavel || '-'}</div><div class="text-[10px] text-slate-400">${item.contato || '-'}</div></td>
                     <td class="p-3 space-x-1">
-                        <button onclick='abrirModalEdicao(${JSON.stringify(item)})' class="text-amber-600 hover:text-amber-800 font-bold text-[10px] bg-amber-50 px-2 py-1 rounded">Editar</button>
-                        <button onclick="excluirRegistro(${item.id})" class="text-red-500 hover:text-red-700 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
+                        <button onclick="excluirRegistro(${item.id})" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
                     </td>
                 `;
                 corpoAtiv.appendChild(tr);
 
-                // Tabela de Materiais com colunas separadas
                 const trMat = document.createElement('tr');
                 trMat.className = "hover:bg-slate-50 border-b border-slate-100 transition";
                 trMat.innerHTML = `
@@ -778,282 +781,24 @@
                     <td class="p-2.5">${item.cxFosc || '-'}</td>
                 `;
                 corpoMat.appendChild(trMat);
-
-                const divRet = document.createElement('div');
-                divRet.className = "p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2";
-                divRet.innerHTML = `
-                    <div class="flex justify-between items-center border-b pb-1.5">
-                        <span class="font-bold text-slate-800">Imóvel: ${item.imovel} <span class="text-blue-900 font-normal">(${item.projeto})</span></span>
-                        <span class="text-xs ${corDesfecho} px-2 py-0.5 rounded font-bold">Desfecho: ${item.desfecho}</span>
-                    </div>
-                    <div class="text-xs space-y-1">
-                        <p><strong>Motivo / Informação:</strong> ${item.motivoDesfecho || 'Nenhum'}</p>
-                        ${item.malogros && item.malogros.length > 0 ? `<p><strong>Causas Malogradas:</strong> <span class="text-red-600 font-bold">${item.malogros.join(', ')}</span></p>` : ''}
-                        <p><strong>Observações Gerais:</strong> ${item.observacoes || 'Nenhuma'}</p>
-                    </div>
-                `;
-                listaRet.appendChild(divRet);
             });
+        }
+
+        async function excluirRegistro(id) {
+            if (confirm(`Deseja excluir este registro da nuvem?`)) {
+                const { error } = await supabaseClient.from('registros_producao').delete().eq('id', id);
+                if (error) {
+                    alert("Erro ao excluir: " + error.message);
+                } else {
+                    atualizarDashboardGestor();
+                }
+            }
         }
 
         function calcularBonificacaoAvancada() {
-            const corpo = document.getElementById('tabela-bonificacao-corpo');
-            corpo.innerHTML = "";
-
-            let equipesCadastradas = Object.keys(equipesMembros);
-            let estatisticas = {};
-
-            equipesCadastradas.forEach(eq => {
-                estatisticas[eq] = {
-                    diasTrabalhados: new Set(),
-                    totalAtividadesOK: 0,
-                    malogrosInternos: 0,
-                    malogrosExternos: 0,
-                    totalRegistros: 0
-                };
-            });
-
-            registrosSalvos.forEach(item => {
-                if (estatisticas[item.equipe]) {
-                    estatisticas[item.equipe].diasTrabalhados.add(item.dataRegistro);
-                    estatisticas[item.equipe].totalRegistros++;
-                    
-                    if (item.desfecho === 'CONCLUIDA') {
-                        estatisticas[item.equipe].totalAtividadesOK++;
-                    } else if (item.desfecho === 'MALOGRADA' && item.malogros) {
-                        item.malogros.forEach(m => {
-                            if (causasInternas.includes(m)) {
-                                estatisticas[item.equipe].malogrosInternos++;
-                            } else {
-                                estatisticas[item.equipe].malogrosExternos++;
-                            }
-                        });
-                    }
-                }
-            });
-
-            let totalElegiveis = 0;
-            let totalParciais = 0;
-            let somaMedias = 0;
-            let totalMalogrosInternosGeral = 0;
-            let countEquipesAtivas = 0;
-
-            let rankingArray = equipesCadastradas.map(eq => {
-                let dias = estatisticas[eq].diasTrabalhados.size;
-                let ativOK = estatisticas[eq].totalAtividadesOK;
-                let mInternos = estatisticas[eq].malogrosInternos;
-                let mExternos = estatisticas[eq].malogrosExternos;
-                
-                let mediaDia = dias > 0 ? (ativOK / dias).toFixed(2) : 0;
-                
-                countEquipesAtivas++;
-                somaMedias += parseFloat(mediaDia);
-                totalMalogrosInternosGeral += mInternos;
-
-                let assiduidadeOK = dias >= 22;
-                let produtividadeOK = parseFloat(mediaDia) >= 1.4;
-                let qualidadeInternaOK = mInternos <= 2;
-
-                let statusBônus = "Elegível 🏆";
-                let corStatus = "bg-emerald-100 text-emerald-800";
-
-                if (!assiduidadeOK && !produtividadeOK) {
-                    statusBônus = "Não Atingiu Metas ❌";
-                    corStatus = "bg-red-100 text-red-800";
-                    totalParciais++;
-                } else if (!assiduidadeOK || !produtividadeOK || !qualidadeInternaOK) {
-                    statusBônus = "Parcial / Alerta ⚠️";
-                    corStatus = "bg-amber-100 text-amber-800";
-                    totalParciais++;
-                } else {
-                    totalElegiveis++;
-                }
-
-                return {
-                    equipe: eq,
-                    membros: equipesMembros[eq],
-                    dias: dias,
-                    ativOK: ativOK,
-                    mediaDia: mediaDia,
-                    mInternos: mInternos,
-                    mExternos: mExternos,
-                    conformidade: qualidadeInternaOK ? "100% OK" : "Alerta Interno",
-                    statusBônus: statusBônus,
-                    corStatus: corStatus
-                };
-            });
-
-            rankingArray.sort((a, b) => b.mediaDia - a.mediaDia);
-
-            document.getElementById('bonif-elegiveis').innerText = totalElegiveis;
-            document.getElementById('bonif-parciais').innerText = totalParciais;
-            document.getElementById('bonif-media-geral').innerText = countEquipesAtivas > 0 ? (somaMedias / countEquipesAtivas).toFixed(2) : "0.0";
-            document.getElementById('bonif-malogros-internos').innerText = totalMalogrosInternosGeral;
-
-            if (rankingArray.length === 0) {
-                corpo.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhum dado para calcular.</td></tr>`;
-                return;
-            }
-
-            rankingArray.forEach((r, index) => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 border-b";
-                tr.innerHTML = `
-                    <td class="p-3"><div class="font-bold text-slate-800">${index + 1}º - ${r.equipe}</div></td>
-                    <td class="p-3 text-[11px] text-slate-500">${r.membros}</td>
-                    <td class="p-3 text-center font-bold ${r.dias >= 22 ? 'text-emerald-600' : 'text-amber-600'}">${r.dias} / 22 dias</td>
-                    <td class="p-3 text-center font-bold ${parseFloat(r.mediaDia) >= 1.4 ? 'text-emerald-600' : 'text-amber-600'}">${r.ativOK} (${r.mediaDia}/d)</td>
-                    <td class="p-3 text-center font-bold ${r.mInternos <= 2 ? 'text-emerald-600' : 'text-red-600'}">${r.mInternos} falhas</td>
-                    <td class="p-3 text-center text-slate-500">${r.mExternos} ocorrências</td>
-                    <td class="p-3 text-center"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${r.conformidade}</span></td>
-                    <td class="p-3 text-center"><span class="${r.corStatus} font-bold px-2.5 py-1 rounded-full text-[10px]">${r.statusBônus}</span></td>
-                `;
-                corpo.appendChild(tr);
-            });
-        }
-
-        function abrirModalEdicao(item) {
-            document.getElementById('edit-id').value = item.id;
-            document.getElementById('edit-imovel').value = item.imovel;
-            document.getElementById('edit-responsavel').value = item.responsavel || '';
-            document.getElementById('edit-contato').value = item.contato || '';
-            document.getElementById('edit-observacoes').value = item.observacoes || '';
-            document.getElementById('modal-edicao').classList.remove('hidden');
-        }
-        function fecharModalEdicao() { document.getElementById('modal-edicao').classList.add('hidden'); }
-
-        function salvarEdicaoMaster() {
-            const id = Number(document.getElementById('edit-id').value);
-            const index = registrosSalvos.findIndex(r => r.id === id);
-            if (index === -1) return;
-
-            registrosSalvos[index].imovel = document.getElementById('edit-imovel').value;
-            registrosSalvos[index].responsavel = document.getElementById('edit-responsavel').value;
-            registrosSalvos[index].contato = document.getElementById('edit-contato').value;
-            registrosSalvos[index].observacoes = document.getElementById('edit-observacoes').value;
-
-            localStorage.setItem('registros_producao', JSON.stringify(registrosSalvos));
-            registrarLogAuditoria("EDIÇÃO", registrosSalvos[index].imovel, `Imóvel ID ${id} editado pelo Master.`);
-            fecharModalEdicao();
-            alert("Registro atualizado!");
             atualizarDashboardGestor();
-        }
-
-        function excluirRegistro(id) {
-            let reg = registrosSalvos.find(r => r.id === id);
-            if (!reg) return;
-            if (confirm(`Deseja excluir o registro do imóvel ${reg.imovel}?`)) {
-                registrosSalvos = registrosSalvos.filter(i => i.id !== id);
-                localStorage.setItem('registros_producao', JSON.stringify(registrosSalvos));
-                registrarLogAuditoria("EXCLUSÃO", reg.imovel, `Registro do imóvel ${reg.imovel} excluído.`);
-                atualizarDashboardGestor();
-            }
-        }
-
-        function registrarLogAuditoria(acao, imovel, detalhes) {
-            const novoLog = {
-                id: Date.now(),
-                dataHora: new Date().toLocaleString('pt-BR'),
-                usuario: usuarioLogado ? usuarioLogado.email : "lsimoes@procisa.com.br",
-                acao: acao, imovel: imovel, detalhes: detalhes
-            };
-            trilhaAuditoria.unshift(novoLog);
-            localStorage.setItem('trilha_auditoria', JSON.stringify(trilhaAuditoria));
-        }
-
-        function renderizarTabelaAuditoria() {
-            const corpo = document.getElementById('tabela-auditoria-corpo');
-            corpo.innerHTML = "";
-            if (trilhaAuditoria.length === 0) {
-                corpo.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">Nenhum evento registrado.</td></tr>`;
-                return;
-            }
-            trilhaAuditoria.forEach(log => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 border-b";
-                tr.innerHTML = `
-                    <td class="p-3 font-mono text-[11px]">${log.dataHora}</td>
-                    <td class="p-3 font-semibold">${log.usuario}</td>
-                    <td class="p-3"><span class="bg-${log.acao === 'EXCLUSÃO' ? 'red' : 'amber'}-100 text-${log.acao === 'EXCLUSÃO' ? 'red' : 'amber'}-800 font-bold px-2 py-0.5 rounded text-[10px]">${log.acao}</span></td>
-                    <td class="p-3 font-bold">${log.imovel}</td>
-                    <td class="p-3 text-slate-600">${log.detalhes}</td>
-                `;
-                corpo.appendChild(tr);
-            });
-        }
-
-        function renderizarTabelaUsuarios() {
-            const corpo = document.getElementById('tabela-usuarios-corpo');
-            corpo.innerHTML = "";
-            usuariosSistema.forEach(u => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 border-b";
-                tr.innerHTML = `
-                    <td class="p-3"><div class="font-bold">${u.nome}</div><div class="text-[10px] text-slate-400">${u.email}</div></td>
-                    <td class="p-3"><span class="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-[10px]">${u.nivel}</span></td>
-                    <td class="p-3"><span class="text-emerald-600 font-semibold">${u.status}</span></td>
-                    <td class="p-3">${u.email !== 'lsimoes@procisa.com.br' ? `<button onclick="excluirUsuario(${u.id})" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Remover</button>` : '<span class="text-[10px] text-slate-400">Master</span>'}</td>
-                `;
-                corpo.appendChild(tr);
-            });
-        }
-
-        function abrirModalUsuario() { document.getElementById('modal-usuario').classList.remove('hidden'); }
-        function fecharModalUsuario() { document.getElementById('modal-usuario').classList.add('hidden'); }
-        function salvarNovoUsuario() {
-            const nome = document.getElementById('novo-user-nome').value;
-            const email = document.getElementById('novo-user-email').value;
-            const nivel = document.getElementById('novo-user-nivel').value;
-            if (!nome || !email) { alert("Preencha todos os campos."); return; }
-            usuariosSistema.push({ id: Date.now(), nome, email, nivel, status: "Ativo" });
-            localStorage.setItem('usuarios_sistema', JSON.stringify(usuariosSistema));
-            alert("Usuário cadastrado!");
-            fecharModalUsuario();
-            renderizarTabelaUsuarios();
-        }
-        function excluirUsuario(id) {
-            if (confirm("Remover usuário?")) {
-                usuariosSistema = usuariosSistema.filter(u => u.id !== id);
-                localStorage.setItem('usuarios_sistema', JSON.stringify(usuariosSistema));
-                renderizarTabelaUsuarios();
-            }
-        }
-
-        function abrirModalDetalhes(item) {
-            const modal = document.getElementById('modal-detalhes');
-            document.getElementById('modal-titulo').innerText = `Detalhes do Imóvel: ${item.imovel} (${item.projeto})`;
-            document.getElementById('modal-conteudo').innerHTML = `
-                <div class="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-xl border">
-                    <p><strong>Equipe:</strong> ${item.equipe}</p>
-                    <p><strong>Técnicos:</strong> ${item.membros || '-'}</p>
-                    <p><strong>Desfecho:</strong> <span class="font-bold text-blue-900">${item.desfecho}</span></p>
-                    <p><strong>Motivo/Detalhe:</strong> ${item.motivoDesfecho || '-'}</p>
-                    ${item.malogros && item.malogros.length > 0 ? `<p class="col-span-2"><strong>Causas Malogradas:</strong> <span class="text-red-600 font-bold">${item.malogros.join(', ')}</span></p>` : ''}
-                </div>
-            `;
-            modal.classList.remove('hidden');
-        }
-        function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
-
-        function exportarCSV() {
-            if (registrosSalvos.length === 0) { alert("Não há registros."); return; }
-            let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "ID;Data;Equipe;Membros;Projeto;Imóvel;Desfecho;Motivo/Detalhe;Malogros;H.Entrada;H.Saída;Responsável;Contato;Observações\r\n";
-            registrosSalvos.forEach(r => {
-                let row = [
-                    r.id, r.dataRegistro, r.equipe, r.membros, r.projeto, r.imovel,
-                    r.desfecho, r.motivoDesfecho, r.malogros ? r.malogros.join(' | ') : '',
-                    r.hEntrada, r.hSaida, r.responsavel, r.contato, r.observacoes
-                ].map(val => `"${val || ''}"`).join(";");
-                csvContent += row + "\r\n";
-            });
-            const link = document.createElement("a");
-            link.setAttribute("href", encodeURI(csvContent));
-            link.setAttribute("download", `GPD_Construcao_MDU_RJ_${new Date().toISOString().split('T')[0]}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
         }
     </script>
 </body>
 </html>
+     
