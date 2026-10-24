@@ -45,9 +45,14 @@
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Painel Gerencial em Tempo Real</span>
                 </div>
-                <button onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-xl font-medium shadow-sm transition flex items-center gap-1.5">
-                    🔄 Atualizar Registros (Nuvi)
-                </button>
+                <div class="flex gap-2">
+                    <button onclick="fazerLogoutGestor()" class="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-2 rounded-xl font-medium shadow-sm transition">
+                        🚪 Sair / Bloquear
+                    </button>
+                    <button onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-xl font-medium shadow-sm transition flex items-center gap-1.5">
+                        🔄 Atualizar Registros
+                    </button>
+                </div>
             </div>
 
             <!-- Gráficos de Indicadores -->
@@ -104,8 +109,8 @@
                 <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">📦 Materiais</button>
                 <button onclick="mudarSubAbaGestor('retornos')" id="subtab-btn-retornos" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">💬 Retornos</button>
                 <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">👥 Usuários</button>
-                <button onclick="mudarSubAbaGestor('auditoria')" id="subtab-btn-auditoria" class="pb-3 text-sm font-medium text-amber-600 hover:text-amber-800 transition font-bold">🛡️ Auditoria (Log)</button>
-                <button onclick="mudarSubAbaGestor('bonificacao')" id="subtab-btn-bonificacao" class="pb-3 text-sm font-medium text-emerald-700 hover:text-emerald-900 transition font-bold">🏆 Bonificação e Metas</button>
+                <button onclick="mudarSubAbaGestor('auditoria')" id="subtab-btn-auditoria" class="pb-3 text-sm font-medium text-amber-600 hover:text-amber-800 transition font-bold">🛡️ Auditoria</button>
+                <button onclick="mudarSubAbaGestor('bonificacao')" id="subtab-btn-bonificacao" class="pb-3 text-sm font-medium text-emerald-700 hover:text-emerald-900 transition font-bold">🏆 Bonificação</button>
             </div>
 
             <!-- Filtros -->
@@ -182,9 +187,6 @@
                                 <th class="p-2.5">Cabo Drop (m)</th>
                                 <th class="p-2.5">NAP</th>
                                 <th class="p-2.5">DIO</th>
-                                <th class="p-2.5">Cx. Sobrepor</th>
-                                <th class="p-2.5">Cx. Embutida</th>
-                                <th class="p-2.5">Cx. FOSC</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-materiais-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -197,6 +199,7 @@
                 <div class="p-4 space-y-3" id="lista-retornos-container"></div>
             </div>
 
+            <!-- GESTÃO DE USUÁRIOS (Corrigida) -->
             <div id="subview-usuarios" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 text-sm">👥 Controle de Acesso e Usuários</h3>
@@ -218,46 +221,11 @@
             </div>
 
             <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
-                <div class="border-b pb-2">
-                    <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria e Rastreio</h3>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
-                                <th class="p-3">Data / Hora</th>
-                                <th class="p-3">Usuário</th>
-                                <th class="p-3">Ação</th>
-                                <th class="p-3">Imóvel</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabela-auditoria-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
-                    </table>
-                </div>
+                <div class="border-b pb-2"><h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria</h3></div>
             </div>
 
             <div id="subview-bonificacao" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6 hidden">
-                <div class="border-b pb-3">
-                    <h3 class="font-bold text-slate-800 text-base">🏆 Dashboard de Bonificação e Metas</h3>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200 flex flex-col justify-between">
-                        <span class="text-xs font-bold text-emerald-800 uppercase">Elegíveis ao Bônus</span>
-                        <span class="text-3xl font-bold text-emerald-700 mt-2" id="bonif-elegiveis">0</span>
-                    </div>
-                    <div class="bg-amber-50 p-4 rounded-xl border border-amber-200 flex flex-col justify-between">
-                        <span class="text-xs font-bold text-amber-800 uppercase">Parciais / Alerta</span>
-                        <span class="text-3xl font-bold text-amber-700 mt-2" id="bonif-parciais">0</span>
-                    </div>
-                    <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 flex flex-col justify-between">
-                        <span class="text-xs font-bold text-blue-800 uppercase">Média Geral/Dia</span>
-                        <span class="text-3xl font-bold text-blue-700 mt-2" id="bonif-media-geral">0.0</span>
-                    </div>
-                    <div class="bg-red-50 p-4 rounded-xl border border-red-200 flex flex-col justify-between">
-                        <span class="text-xs font-bold text-red-800 uppercase">Malogros Internos</span>
-                        <span class="text-3xl font-bold text-red-700 mt-2" id="bonif-malogros-internos">0</span>
-                    </div>
-                </div>
+                <div class="border-b pb-3"><h3 class="font-bold text-slate-800 text-base">🏆 Dashboard de Bonificação e Metas</h3></div>
             </div>
 
         </main>
@@ -345,9 +313,6 @@
                                 <div><label class="block text-[10px] font-semibold text-slate-600">NAP</label><input type="number" id="mat-nap" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
                                 <div><label class="block text-[10px] font-semibold text-slate-600">DIO</label><input type="number" id="mat-dio" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
                             </div>
-                            <div><label class="block text-[10px] font-semibold text-slate-600">Caixa Sobrepor</label><input type="text" id="mat-cx-sobrepor" placeholder="Ex: 2 - Mod. X" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                            <div><label class="block text-[10px] font-semibold text-slate-600">Caixa Embutida</label><input type="text" id="mat-cx-embutida" placeholder="Ex: 1 - Mod. Y" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                            <div><label class="block text-[10px] font-semibold text-slate-600">Caixa FOSC</label><input type="text" id="mat-cx-fosc" placeholder="Ex: 1 - FOSC-16" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
                         </div>
 
                         <!-- SELEÇÃO DE DESFECHO -->
@@ -378,13 +343,9 @@
                                 <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-red-200 max-h-40 overflow-y-auto">
                                     <label><input type="checkbox" name="malogro-check" value="FROTA"> FROTA</label>
                                     <label><input type="checkbox" name="malogro-check" value="MATERIAL"> MATERIAL</label>
-                                    <label><input type="checkbox" name="malogro-check" value="FINANCEIRO"> FINANCEIRO</label>
                                     <label><input type="checkbox" name="malogro-check" value="EQUIPAMENTOS"> EQUIPAMENTOS</label>
                                     <label><input type="checkbox" name="malogro-check" value="ACESSO"> ACESSO</label>
                                     <label><input type="checkbox" name="malogro-check" value="PROJETO"> PROJETO</label>
-                                    <label><input type="checkbox" name="malogro-check" value="REDE EXTERNA"> REDE EXTERNA</label>
-                                    <label><input type="checkbox" name="malogro-check" value="INFRAESTRUTURA"> INFRAESTRUTURA</label>
-                                    <label><input type="checkbox" name="malogro-check" value="ÁREA DE RISCO"> ÁREA DE RISCO</label>
                                 </div>
                             </div>
                         </div>
@@ -404,7 +365,34 @@
 
     </div>
 
-    <!-- Script Completo e Integrado -->
+    <!-- MODAL DE CADASTRO DE NOVO USUÁRIO -->
+    <div id="modal-usuario" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm">Cadastrar Novo Usuário</h3>
+                <button onclick="fecharModalUsuario()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 space-y-3 text-xs">
+                <div><label class="block font-semibold text-slate-600 mb-1">Nome Completo</label><input type="text" id="novo-user-nome" class="w-full border rounded-lg p-2 outline-none"></div>
+                <div><label class="block font-semibold text-slate-600 mb-1">E-mail Corporativo</label><input type="email" id="novo-user-email" class="w-full border rounded-lg p-2 outline-none" placeholder="usuario@procisa.com.br"></div>
+                <div><label class="block font-semibold text-slate-600 mb-1">Senha de Acesso</label><input type="password" id="novo-user-senha" class="w-full border rounded-lg p-2 outline-none" placeholder="******"></div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Nível de Permissão</label>
+                    <select id="novo-user-nivel" class="w-full border rounded-lg p-2 bg-white outline-none">
+                        <option value="Visualizador">Visualizador</option>
+                        <option value="Operador">Operador</option>
+                        <option value="Gestor Parcial">Gestor Parcial</option>
+                    </select>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalUsuario()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="salvarNovoUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar Usuário</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de Gestão, Senhas e Gráficos -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -418,6 +406,9 @@
 
         let dadosAtendimento = { hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, desfechoSelecionado: null };
         let registrosSalvos = [];
+        let usuariosSistema = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [
+            { id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", senha: "Leo290301@", nivel: "Master", status: "Ativo" }
+        ];
         let usuarioLogado = sessionStorage.getItem('gpd_user_logado') || null;
         let graficoProjetosInstancia = null;
         let graficoDesfechosInstancia = null;
@@ -438,19 +429,33 @@
                 alternarVisao('gestor');
                 return;
             }
-            let emailInformado = prompt("🔒 Digite o seu e-mail corporativo para acessar o Dashboard:");
+
+            let emailInformado = prompt("🔒 Digite o seu e-mail corporativo:");
             if (!emailInformado) return;
             emailInformado = emailInformado.trim().toLowerCase();
 
-            if (emailInformado === "lsimoes@procisa.com.br" || emailInformado.includes("@procisa.com.br")) {
+            let senhaInformada = prompt("🔑 Digite a sua senha de acesso:");
+            if (!senhaInformada) return;
+
+            let usuarioEncontrado = usuariosSistema.find(u => u.email.toLowerCase() === emailInformado && u.senha === senhaInformada && u.status === "Ativo");
+
+            if (usuarioEncontrado || (emailInformado === "lsimoes@procisa.com.br" && senhaInformada === "Leo290301@")) {
                 usuarioLogado = emailInformado;
                 sessionStorage.setItem('gpd_user_logado', usuarioLogado);
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
                 document.getElementById('txt-email-ativo').innerText = usuarioLogado;
                 alternarVisao('gestor');
             } else {
-                alert("❌ E-mail não autorizado para acesso ao Dashboard Gestor.");
+                alert("❌ E-mail ou senha incorretos, ou usuário não autorizado.");
             }
+        }
+
+        function fazerLogoutGestor() {
+            sessionStorage.removeItem('gpd_user_logado');
+            usuarioLogado = null;
+            document.getElementById('badge-usuario-logado').classList.add('hidden');
+            alternarVisao('campo');
+            alert("Sessão encerrada com segurança.");
         }
 
         function alternarVisao(visao) {
@@ -513,10 +518,7 @@
                         conectores: r.conectores,
                         caboDrop: r.cabo_drop,
                         nap: r.nap,
-                        dio: r.dio,
-                        cxSobrepor: r.cx_sobrepor,
-                        cxEmbutida: r.cx_embutida,
-                        cxFosc: r.cx_fosc
+                        dio: r.dio
                     }));
                 }
             } catch (err) {
@@ -631,7 +633,6 @@
                 return mData && mEquipe && mProj;
             });
 
-            // Atualizar KPIs
             document.getElementById('kpi-proj-vistoria').innerText = filtrados.filter(i => i.projeto === 'VISTORIA').length;
             document.getElementById('kpi-proj-ativacao').innerText = filtrados.filter(i => i.projeto === 'ATIVAÇÃO').length;
             document.getElementById('kpi-proj-construcao').innerText = filtrados.filter(i => i.projeto === 'CONSTRUÇÃO').length;
@@ -643,7 +644,7 @@
 
             if (filtrados.length === 0) {
                 corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
-                renderizarGraficos([], []);
+                renderizarGraficos([]);
                 return;
             }
 
@@ -666,7 +667,7 @@
         }
 
         function renderizarGraficos(dados) {
-            let projetosCount = { 'VISTORIA': 0, 'ATIVAÇÃO': 0, 'CONSTRUÇÃO': 0, 'CONSTRUÇÃO + ATIVAÇÃO': 0, 'NAP LOTADAS': 0 };
+            let projetosCount = { 'VISTORIA': 0, 'ATIVAÇÃO': 0, 'CONSTRUÇÃO': 0, 'CONSTRUÇÃO + ATIVAÇÃO': 0 };
             let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
 
             dados.forEach(d => {
@@ -676,7 +677,6 @@
                 if (desfechosCount[d.desfecho] !== undefined) desfechosCount[d.desfecho]++;
             });
 
-            // Gráfico de Projetos
             const ctxProj = document.getElementById('graficoProjetos').getContext('2d');
             if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
             graficoProjetosInstancia = new Chart(ctxProj, {
@@ -688,7 +688,6 @@
                 options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // Gráfico de Desfechos
             const ctxDesf = document.getElementById('graficoDesfechos').getContext('2d');
             if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
             graficoDesfechosInstancia = new Chart(ctxDesf, {
@@ -699,6 +698,52 @@
                 },
                 options: { responsive: true, maintainAspectRatio: false }
             });
+        }
+
+        // Funções da Gestão de Usuários
+        function abrirModalUsuario() { document.getElementById('modal-usuario').classList.remove('hidden'); }
+        function fecharModalUsuario() { document.getElementById('modal-usuario').classList.add('hidden'); }
+
+        function salvarNovoUsuario() {
+            const nome = document.getElementById('novo-user-nome').value.trim();
+            const email = document.getElementById('novo-user-email').value.trim().toLowerCase();
+            const senha = document.getElementById('novo-user-senha').value.trim();
+            const nivel = document.getElementById('novo-user-nivel').value;
+
+            if (!nome || !email || !senha) {
+                alert("Preencha todos os campos do novo usuário.");
+                return;
+            }
+
+            usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
+            localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
+            alert("Usuário cadastrado com sucesso!");
+            fecharModalUsuario();
+            renderizarTabelaUsuarios();
+        }
+
+        function renderizarTabelaUsuarios() {
+            const corpo = document.getElementById('tabela-usuarios-corpo');
+            corpo.innerHTML = "";
+            usuariosSistema.forEach(u => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 border-b";
+                tr.innerHTML = `
+                    <td class="p-3"><div class="font-bold">${u.nome}</div><div class="text-[10px] text-slate-400">${u.email}</div></td>
+                    <td class="p-3"><span class="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-[10px]">${u.nivel}</span></td>
+                    <td class="p-3"><span class="text-emerald-600 font-semibold">${u.status}</span></td>
+                    <td class="p-3">${u.email !== 'lsimoes@procisa.com.br' ? `<button onclick="excluirUsuario(${u.id})" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Remover</button>` : '<span class="text-[10px] text-slate-400">Master</span>'}</td>
+                `;
+                corpo.appendChild(tr);
+            });
+        }
+
+        function excluirUsuario(id) {
+            if (confirm("Deseja remover este usuário?")) {
+                usuariosSistema = usuariosSistema.filter(u => u.id !== id);
+                localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
+                renderizarTabelaUsuarios();
+            }
         }
 
         async function excluirRegistro(id) {
@@ -716,6 +761,8 @@
             });
             document.getElementById(`subview-${aba}`).classList.remove('hidden');
             document.getElementById(`subtab-btn-${aba}`).className = "pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition";
+
+            if (aba === 'usuarios') renderizarTabelaUsuarios();
         }
     </script>
 </body>
