@@ -211,7 +211,7 @@
                     </div>
                 </div>
 
-                <!-- Gráficos de Produtividade por Hora e Dia da Semana (Nova Funcionalidade) -->
+                <!-- Gráficos de Produtividade por Hora e Dia da Semana -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
@@ -535,7 +535,7 @@
 
                     <div class="pt-2">
                         <button onclick="fazerCheckIn()" id="btn-checkin" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
-                            🚀 Iniciar Atividade (GPS Real)
+                            🚀 Iniciar Atividade (Exigir GPS)
                         </button>
                     </div>
                 </div>
@@ -543,7 +543,7 @@
                 <div id="bloco-pos-abertura" class="space-y-3 hidden">
                     <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
                         <p><strong>Entrada:</strong> <span id="lbl-h-entrada">-</span></p>
-                        <p><strong>GPS Inicial:</strong> <span id="lbl-gps-entrada" class="font-mono text-[10px] text-slate-600">-</span></p>
+                        <p><strong>GPS Real Capturado:</strong> <span id="lbl-gps-entrada" class="font-mono text-[10px] text-emerald-700 font-bold">-</span></p>
                     </div>
 
                     <div class="space-y-3 border-t pt-3">
@@ -797,7 +797,7 @@
         </div>
     </div>
 
-    <!-- Script Principal Completo com GPS Real, Produtividade por Hora/Dia e Alertas de Malogros -->
+    <!-- Script Principal Atualizado -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1089,11 +1089,12 @@
             if (tipo === 'MALOGRADA') document.getElementById('bloco-malograda').classList.remove('hidden');
         }
 
-        // Função de Geolocalização Real do Navegador (GPS)
-        async function obterGpsAtual() {
-            return new Promise((resolve) => {
+        // Geolocalização Real OBRIGATÓRIA (Bloqueia se GPS negado)
+        function obterGpsObrigatorio() {
+            return new Promise((resolve, reject) => {
                 if (!navigator.geolocation) {
-                    resolve("-22.90680, -43.17290"); // Fallback RJ se não suportado
+                    alert("⚠️ O seu navegador não suporta geolocalização.");
+                    reject("GPS não suportado");
                     return;
                 }
                 navigator.geolocation.getCurrentPosition(
@@ -1103,10 +1104,10 @@
                         resolve(`${lat}, ${lng}`);
                     },
                     (error) => {
-                        console.warn("Aviso de GPS:", error.message);
-                        resolve("-22.90680, -43.17290"); // Fallback em caso de recusa
+                        alert("❌ PERMISSÃO DE GPS NEGADA! Para iniciar a atividade e garantir a auditoria gerencial, é obrigatório permitir o acesso à localização no seu dispositivo.");
+                        reject(error.message);
                     },
-                    { timeout: 10000, enableHighAccuracy: true }
+                    { timeout: 15000, enableHighAccuracy: true, maximumAge: 0 }
                 );
             });
         }
@@ -1116,14 +1117,18 @@
             const imovel = document.getElementById('inp-imovel').value;
             if (!equipe || !imovel) { alert("⚠️ Selecione a Equipe e informe o Cód. Imóvel."); return; }
 
-            let gpsReal = await obterGpsAtual();
-            dadosAtendimento.gpsEntrada = gpsReal;
+            try {
+                let gpsReal = await obterGpsObrigatorio();
+                dadosAtendimento.gpsEntrada = gpsReal;
 
-            document.getElementById('form-campo-container').classList.add('hidden');
-            document.getElementById('bloco-pos-abertura').classList.remove('hidden');
-            document.getElementById('lbl-h-entrada').innerText = new Date().toLocaleTimeString('pt-BR');
-            document.getElementById('lbl-gps-entrada').innerText = gpsReal;
-            mudarTipoProjeto();
+                document.getElementById('form-campo-container').classList.add('hidden');
+                document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+                document.getElementById('lbl-h-entrada').innerText = new Date().toLocaleTimeString('pt-BR');
+                document.getElementById('lbl-gps-entrada').innerText = gpsReal;
+                mudarTipoProjeto();
+            } catch (err) {
+                console.error("Check-in bloqueado por falta de GPS:", err);
+            }
         }
 
         async function salvarRegistro() {
@@ -1152,7 +1157,13 @@
                 }
             }
 
-            let gpsSaidaReal = await obterGpsAtual();
+            let gpsSaidaReal;
+            try {
+                gpsSaidaReal = await obterGpsObrigatorio();
+            } catch (e) {
+                gpsSaidaReal = dadosAtendimento.gpsEntrada; // Fallback para o de entrada caso ocorra falha momentânea na saída
+            }
+
             const equipeNome = document.getElementById('sel-equipe').value;
             const projetoNome = document.getElementById('sel-projeto').value;
             const imovelCod = document.getElementById('inp-imovel').value;
@@ -1195,7 +1206,7 @@
                 return;
             }
 
-            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome}) [GPS Real Salvo]`);
+            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome}) [GPS Real Validado]`);
             alert("Atendimento sincronizado com sucesso!");
             location.reload();
         }
@@ -1238,7 +1249,7 @@
 
             dadosFiltradosAtuais = filtrados;
 
-            // Alerta de Malogros Críticos (Área de Risco ou Infraestrutura)
+            // Alerta de Malogros Críticos
             let malogrosCriticos = filtrados.filter(i => i.desfecho === 'MALOGRADA' && i.malogros && (i.malogros.includes('ÁREA DE RISCO') || i.malogros.includes('INFRAESTRUTURA')));
             const blocoAlerta = document.getElementById('alerta-malogros-criticos');
             if (malogrosCriticos.length > 0) {
@@ -1679,359 +1690,6 @@
 
         function fecharModalExplosao() {
             document.getElementById('modal-explosao').classList.add('hidden');
-        }
-
-        function renderizarGraficos(dados) {
-            let projetosCount = {
-                'VISTORIA': 0, 'ATIVAÇÃO': 0, 'CONSTRUÇÃO': 0, 'CONSTRUÇÃO + ATIVAÇÃO': 0,
-                'NAP LOTADA ATIVAÇÃO': 0, 'NAP LOTADA CONSTRUÇÃO': 0, 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO': 0
-            };
-            let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
-            
-            // Produtividade por Hora (00h até 23h) e Dias da Semana (Dom a Sáb)
-            let horasCount = new Array(24).fill(0);
-            let diasCount = new Array(7).fill(0);
-
-            dados.forEach(d => {
-                if (projetosCount[d.projeto] !== undefined) projetosCount[d.projeto]++;
-                if (desfechosCount[d.desfecho] !== undefined) desfechosCount[d.desfecho]++;
-
-                if (d.hEntrada && d.hEntrada.includes(':')) {
-                    let h = parseInt(d.hEntrada.split(':')[0]);
-                    if (!isNaN(h) && h >= 0 && h < 24) horasCount[h]++;
-                }
-
-                if (d.dataRegistro) {
-                    let dataObj = new Date(d.dataRegistro + 'T00:00:00');
-                    if (!isNaN(dataObj.getDay())) {
-                        diasCount[dataObj.getDay()]++;
-                    }
-                }
-            });
-
-            // 1. Gráfico de Projetos
-            const ctxProj = document.getElementById('graficoProjetos')?.getContext('2d');
-            if (ctxProj) {
-                if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
-                graficoProjetosInstancia = new Chart(ctxProj, {
-                    type: 'bar',
-                    data: {
-                        labels: Object.keys(projetosCount),
-                        datasets: [{
-                            label: 'Volume de Atendimentos',
-                            data: Object.values(projetosCount),
-                            backgroundColor: ['#1e3a8a', '#2563eb', '#3b82f6', '#60a5fa', '#d97706', '#ea580c', '#059669'],
-                            borderRadius: 6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        onClick: (event, elements) => {
-                            if (elements.length > 0) {
-                                let index = elements[0].index;
-                                dispararExplosaoGrafico('projeto', Object.keys(projetosCount)[index]);
-                            }
-                        }
-                    }
-                });
-            }
-
-            // 2. Gráfico de Desfechos
-            const ctxDesf = document.getElementById('graficoDesfechos')?.getContext('2d');
-            if (ctxDesf) {
-                if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
-                graficoDesfechosInstancia = new Chart(ctxDesf, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'],
-                        datasets: [{
-                            data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']],
-                            backgroundColor: ['#059669', '#d97706', '#dc2626']
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        onClick: (event, elements) => {
-                            if (elements.length > 0) {
-                                let index = elements[0].index;
-                                dispararExplosaoGrafico('desfecho', ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'][index]);
-                            }
-                        }
-                    }
-                });
-            }
-
-            // 3. Gráfico de Horas
-            const ctxHoras = document.getElementById('graficoHoras')?.getContext('2d');
-            if (ctxHoras) {
-                if (graficoHorasInstancia) graficoHorasInstancia.destroy();
-                graficoHorasInstancia = new Chart(ctxHoras, {
-                    type: 'line',
-                    data: {
-                        labels: ['08h', '09h', '10h', '11h', '12h', '13h', '14h', '15h', '16h', '17h', '18h'],
-                        datasets: [{
-                            label: 'Atendimentos',
-                            data: horasCount.slice(8, 19),
-                            borderColor: '#2563eb',
-                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                            fill: true,
-                            tension: 0.3
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-                });
-            }
-
-            // 4. Gráfico de Dias da Semana
-            const ctxDias = document.getElementById('graficoDiasSemana')?.getContext('2d');
-            if (ctxDias) {
-                if (graficoDiasInstancia) graficoDiasInstancia.destroy();
-                graficoDiasInstancia = new Chart(ctxDias, {
-                    type: 'bar',
-                    data: {
-                        labels: ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
-                        datasets: [{
-                            label: 'Entregas',
-                            data: diasCount,
-                            backgroundColor: '#059669',
-                            borderRadius: 6
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-                });
-            }
-        }
-
-        function exportarExcel() {
-            if (registrosSalvos.length === 0) {
-                alert("Nenhum registro para exportar.");
-                return;
-            }
-
-            let colunas = [
-                "ID", "Data", "Equipe", "Membros", "Projeto", "Imóvel", 
-                "Hora Entrada", "Hora Saída", "GPS Entrada", "GPS Saída", 
-                "Desfecho", "Serviço Obra", "Ofensores/Malogros", "Motivo Desfecho", "Responsável", "Contato", 
-                "E-mail", "Agendamento", "Andares", "HPs", 
-                "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", 
-                "NAP", "DIO", "Cx Sobrepor", "Cx Embutida", "Cx FOSC", "Observações Gerais"
-            ];
-
-            let linhas = registrosSalvos.map(r => [
-                r.id || "",
-                r.dataRegistro || "",
-                r.equipe || "",
-                r.membros || "",
-                r.projeto || "",
-                r.imovel || "",
-                r.hEntrada || "",
-                r.hSaida || "",
-                r.gpsEntrada || "",
-                r.gpsSaida || "",
-                r.desfecho || "",
-                r.servicoObra || "SIM",
-                r.malogros ? r.malogros.join(', ') : "",
-                r.motivoDesfecho || "",
-                r.responsavel || "",
-                r.contato || "",
-                r.email || "",
-                r.agendamento || "",
-                r.andares !== "" ? r.andares : 0,
-                r.hps !== "" ? r.hps : 0,
-                r.fusoes !== "" ? r.fusoes : 0,
-                r.conectores !== "" ? r.conectores : 0,
-                r.caboRL !== "" ? r.caboRL : 0,
-                r.caboDrop !== "" ? r.caboDrop : 0,
-                r.nap !== "" ? r.nap : 0,
-                r.dio !== "" ? r.dio : 0,
-                r.cxSobrepor !== "" ? r.cxSobrepor : 0,
-                r.cxEmbutida !== "" ? r.cxEmbutida : 0,
-                r.cxFosc !== "" ? r.cxFosc : 0,
-                r.observacoes || ""
-            ]);
-
-            let tabelaHTML = `<table border="1"><thead><tr>${colunas.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
-            linhas.forEach(l => {
-                tabelaHTML += `<tr>${l.map(cel => `<td>${cel}</td>`).join('')}</tr>`;
-            });
-            tabelaHTML += `</tbody></table>`;
-
-            let blob = new Blob(['\ufeff' + tabelaHTML], { type: 'application/vnd.ms-excel' });
-            let url = URL.createObjectURL(blob);
-            let a = document.createElement('a');
-            a.href = url;
-            a.download = `relatorio_gpd_procisa_${new Date().toISOString().split('T')[0]}.xls`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-
-            registrarLogAuditoria("EXPORTAÇÃO DE RELATÓRIO", `Baixado relatório Excel com ${registrosSalvos.length} registros.`);
-        }
-
-        // --- GESTÃO DE EQUIPES ---
-        function abrirModalEquipe(id = null) {
-            if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Usuários visualizadores não podem gerenciar equipes."); return; }
-            document.getElementById('modal-equipe').classList.remove('hidden');
-            if (id) {
-                document.getElementById('modal-equipe-titulo').innerText = "Editar Equipe";
-                let eq = equipesSistema.find(e => e.id === id);
-                if (eq) {
-                    document.getElementById('edit-equipe-id').value = eq.id;
-                    document.getElementById('inp-nome-equipe').value = eq.nome;
-                    document.getElementById('sel-status-equipe').value = eq.status;
-                }
-            } else {
-                document.getElementById('modal-equipe-titulo').innerText = "Cadastrar Nova Equipe";
-                document.getElementById('edit-equipe-id').value = "";
-                document.getElementById('inp-nome-equipe').value = "";
-                document.getElementById('sel-status-equipe').value = "Ativo";
-            }
-        }
-
-        function fecharModalEquipe() { document.getElementById('modal-equipe').classList.add('hidden'); }
-
-        function salvarOuAtualizarEquipe() {
-            if (nivelUsuarioLogado === 'Visualizador') return;
-            const editId = document.getElementById('edit-equipe-id').value;
-            const nome = document.getElementById('inp-nome-equipe').value.trim().toUpperCase();
-            const status = document.getElementById('sel-status-equipe').value;
-
-            if (!nome) { alert("Preencha o nome da equipe ou técnico."); return; }
-
-            if (editId) {
-                let eq = equipesSistema.find(e => e.id == editId);
-                if (eq) { 
-                    registrarLogAuditoria("EDIÇÃO DE EQUIPE", `Equipe ${eq.nome} alterada para ${nome} (${status})`);
-                    eq.nome = nome; 
-                    eq.status = status; 
-                }
-            } else {
-                registrarLogAuditoria("CADASTRO DE EQUIPE", `Nova equipe cadastrada: ${nome} (${status})`);
-                equipesSistema.push({ id: Date.now(), nome, status });
-            }
-
-            equipesSistema.sort((a, b) => a.nome.localeCompare(b.nome));
-            localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
-            fecharModalEquipe();
-            popularSelectEquipes();
-            renderizarTabelaEquipes();
-            alert("Equipe salva com sucesso!");
-        }
-
-        function renderizarTabelaEquipes() {
-            const corpo = document.getElementById('tabela-equipes-corpo');
-            if (!corpo) return;
-            corpo.innerHTML = "";
-            equipesSistema.forEach(eq => {
-                let acoesEq = nivelUsuarioLogado === 'Master' ? 
-                    `<button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button> <button onclick="excluirEquipe(${eq.id}, '${eq.nome}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>` :
-                    `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
-
-                corpo.innerHTML += `
-                    <tr class="hover:bg-slate-50 border-b">
-                        <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
-                        <td class="p-3">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${eq.status === 'Ativo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
-                                ${eq.status}
-                            </span>
-                        </td>
-                        <td class="p-3 space-x-1">${acoesEq}</td>
-                    </tr>
-                `;
-            });
-        }
-
-        function excluirEquipe(id, nome) {
-            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem excluir equipes."); return; }
-            if (confirm(`Deseja realmente excluir a equipe ${nome} do sistema?`)) {
-                registrarLogAuditoria("EXCLUSÃO DE EQUIPE", `Equipe removida: ${nome}`);
-                equipesSistema = equipesSistema.filter(e => e.id !== id);
-                localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
-                popularSelectEquipes();
-                renderizarTabelaEquipes();
-            }
-        }
-
-        // Funções de Usuários
-        function abrirModalUsuario(id = null) {
-            if (nivelUsuarioLogado === 'Visualizador' && id) {
-                let uSelf = usuariosSistema.find(u => u.email.toLowerCase() === usuarioLogado.toLowerCase());
-                if (uSelf) id = uSelf.id;
-            }
-
-            document.getElementById('modal-usuario').classList.remove('hidden');
-            if (id) {
-                let u = usuariosSistema.find(user => user.id === id);
-                if (u) {
-                    document.getElementById('edit-user-id').value = u.id;
-                    document.getElementById('novo-user-nome').value = u.nome;
-                    document.getElementById('novo-user-email').value = u.email;
-                    document.getElementById('novo-user-senha').value = u.senha;
-                    document.getElementById('novo-user-nivel').value = u.nivel;
-
-                    if (nivelUsuarioLogado !== 'Master') {
-                        document.getElementById('novo-user-nome').disabled = true;
-                        document.getElementById('novo-user-email').disabled = true;
-                        document.getElementById('novo-user-nivel').disabled = true;
-                    }
-                }
-            } else {
-                if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem cadastrar novos usuários."); fecharModalUsuario(); return; }
-                document.getElementById('edit-user-id').value = "";
-                document.getElementById('novo-user-nome').value = "";
-                document.getElementById('novo-user-email').value = "";
-                document.getElementById('novo-user-senha').value = "";
-                document.getElementById('novo-user-nivel').value = "Visualizador";
-                document.getElementById('novo-user-nome').disabled = false;
-                document.getElementById('novo-user-email').disabled = false;
-                document.getElementById('novo-user-nivel').disabled = false;
-            }
-        }
-
-        function fecharModalUsuario() { document.getElementById('modal-usuario').classList.add('hidden'); }
-
-        function salvarOuAtualizarUsuario() {
-            const editId = document.getElementById('edit-user-id').value;
-            const nome = document.getElementById('novo-user-nome').value.trim();
-            const email = document.getElementById('novo-user-email').value.trim().toLowerCase();
-            const senha = document.getElementById('novo-user-senha').value.trim();
-            const nivel = document.getElementById('novo-user-nivel').value;
-
-            if (!nome || !email || !senha) { alert("Preencha todos os campos."); return; }
-
-            if (editId) {
-                let u = usuariosSistema.find(user => user.id == editId);
-                if (u) { 
-                    registrarLogAuditoria("EDIÇÃO DE USUÁRIO", `Senha alterada para o usuário: ${email}`);
-                    if (nivelUsuarioLogado === 'Master') {
-                        u.nome = nome; u.email = email; u.senha = senha; u.nivel = nivel; 
-                    } else {
-                        u.senha = senha;
-                    }
-                }
-            } else {
-                if (nivelUsuarioLogado !== 'Master') { alert("Acesso negado."); return; }
-                registrarLogAuditoria("NOVO USUÁRIO", `Cadastrado novo usuário: ${email} (${nivel})`);
-                usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
-            }
-
-            localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
-            fecharModalUsuario();
-            renderizarTabelaUsuariosPermissao();
-            alert("Dados de usuário salvos com sucesso!");
-        }
-
-        function excluirUsuario(id, email) {
-            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem excluir usuários."); return; }
-            if (confirm(`Deseja realmente remover o acesso de ${email}?`)) {
-                registrarLogAuditoria("EXCLUSÃO DE USUÁRIO", `Removido usuário: ${email}`);
-                usuariosSistema = usuariosSistema.filter(u => u.id !== id);
-                localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
-                renderizarTabelaUsuariosPermissao();
-            }
         }
 
         async function excluirRegistro(id, imovelCod) {
