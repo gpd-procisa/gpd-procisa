@@ -174,10 +174,10 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos com Modo Explosão e Consolidado Numérico -->
+            <!-- Sub-Aba: Gráficos com Modo Explosão, Rankings Separados e Tabela Consolidada -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
-                    <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto ou parte da rosca de desfechos para abrir o detalhamento por atividades, técnicos e dias.</span>
+                    <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto ou parte da rosca para abrir o detalhamento por atividades, técnicos e dias.</span>
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -194,6 +194,69 @@
                             <p class="text-xs text-slate-500 mb-4">Proporção detalhada entre Concluídas, Pendentes e Malogradas</p>
                         </div>
                         <div class="relative h-80"><canvas id="graficoDesfechos"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Rankings Separados por Desfecho (Concluída, Pendente, Malograda) -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Ranking Concluída -->
+                    <div class="bg-white rounded-xl shadow-sm border border-emerald-200 overflow-hidden">
+                        <div class="bg-emerald-50 p-3 border-b border-emerald-200 font-bold text-emerald-900 text-xs flex justify-between items-center">
+                            <span>🟢 Ranking: Concluídas</span>
+                            <span id="rank-conc-total" class="bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded text-[10px]">0 total</span>
+                        </div>
+                        <div class="p-3">
+                            <table class="w-full text-left text-xs">
+                                <thead>
+                                    <tr class="text-[10px] text-slate-400 uppercase border-b">
+                                        <th class="pb-2">Projeto</th>
+                                        <th class="pb-2 text-center">Qtd</th>
+                                        <th class="pb-2 text-right">% Geral</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabela-rank-concluida" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Ranking Pendente -->
+                    <div class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden">
+                        <div class="bg-amber-50 p-3 border-b border-amber-200 font-bold text-amber-900 text-xs flex justify-between items-center">
+                            <span>🟡 Ranking: Pendentes</span>
+                            <span id="rank-pend-total" class="bg-amber-200 text-amber-900 px-2 py-0.5 rounded text-[10px]">0 total</span>
+                        </div>
+                        <div class="p-3">
+                            <table class="w-full text-left text-xs">
+                                <thead>
+                                    <tr class="text-[10px] text-slate-400 uppercase border-b">
+                                        <th class="pb-2">Projeto</th>
+                                        <th class="pb-2 text-center">Qtd</th>
+                                        <th class="pb-2 text-right">% Geral</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabela-rank-pendente" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Ranking Malograda -->
+                    <div class="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden">
+                        <div class="bg-red-50 p-3 border-b border-red-200 font-bold text-red-900 text-xs flex justify-between items-center">
+                            <span>🔴 Ranking: Malogradas</span>
+                            <span id="rank-malo-total" class="bg-red-200 text-red-900 px-2 py-0.5 rounded text-[10px]">0 total</span>
+                        </div>
+                        <div class="p-3">
+                            <table class="w-full text-left text-xs">
+                                <thead>
+                                    <tr class="text-[10px] text-slate-400 uppercase border-b">
+                                        <th class="pb-2">Projeto</th>
+                                        <th class="pb-2 text-center">Qtd</th>
+                                        <th class="pb-2 text-right">% Geral</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabela-rank-malograda" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -488,7 +551,7 @@
 
     <!-- MODAL DE EXPLOSÃO DE DETALHES (DRILL-DOWN DOS GRÁFICOS) -->
     <div id="modal-explosao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
-        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+        <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
                 <h3 class="font-bold text-sm" id="modal-explosao-titulo">Detalhamento da Categoria</h3>
                 <button onclick="fecharModalExplosao()" class="text-white font-bold text-lg">✕</button>
@@ -503,6 +566,7 @@
                                 <th class="p-2.5">Técnico / Equipe</th>
                                 <th class="p-2.5">Projeto</th>
                                 <th class="p-2.5">Desfecho</th>
+                                <th class="p-2.5">Detalhes / Ofensores</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-explosao-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -947,6 +1011,7 @@
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
                 renderizarGraficos([]);
                 renderizarTabelaConsolidada([]);
+                renderizarRankingsSeparados([]);
                 return;
             }
 
@@ -991,6 +1056,50 @@
 
             renderizarGraficos(filtrados);
             renderizarTabelaConsolidada(filtrados);
+            renderizarRankingsSeparados(filtrados);
+        }
+
+        function renderizarRankingsSeparados(dados) {
+            let totalGeral = dados.length;
+
+            let tiposProjetos = [
+                'VISTORIA', 'ATIVAÇÃO', 'CONSTRUÇÃO', 'CONSTRUÇÃO + ATIVAÇÃO', 
+                'NAP LOTADA ATIVAÇÃO', 'NAP LOTADA CONSTRUÇÃO', 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO'
+            ];
+
+            function preencherTabelaRank(desfechoAlvo, idTabela, idTotal) {
+                const tbody = document.getElementById(idTabela);
+                const spanTotal = document.getElementById(idTotal);
+                if (!tbody || !spanTotal) return;
+                tbody.innerHTML = "";
+
+                let subset = dados.filter(d => d.desfecho === desfechoAlvo);
+                spanTotal.innerText = `${subset.length} total`;
+
+                let contagemProj = {};
+                tiposProjetos.forEach(p => contagemProj[p] = 0);
+                subset.forEach(d => {
+                    if (contagemProj[d.projeto] !== undefined) contagemProj[d.projeto]++;
+                });
+
+                // Ordena por quantidade decrescente
+                let ordenados = Object.entries(contagemProj).sort((a, b) => b[1] - a[1]);
+
+                ordenados.forEach(([proj, qtd]) => {
+                    let perc = totalGeral > 0 ? ((qtd / totalGeral) * 100).toFixed(1) : 0;
+                    tbody.innerHTML += `
+                        <tr class="border-b hover:bg-slate-50">
+                            <td class="py-1.5 font-medium text-slate-700 truncate max-w-[120px]">${proj}</td>
+                            <td class="py-1.5 text-center font-bold text-blue-900">${qtd}</td>
+                            <td class="py-1.5 text-right text-slate-500">${perc}%</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            preencherTabelaRank('CONCLUIDA', 'tabela-rank-concluida', 'rank-conc-total');
+            preencherTabelaRank('PENDENTE', 'tabela-rank-pendente', 'rank-pend-total');
+            preencherTabelaRank('MALOGRADA', 'tabela-rank-malograda', 'rank-malo-total');
         }
 
         function renderizarTabelaConsolidada(dados) {
@@ -1023,7 +1132,7 @@
             }
         }
 
-        function abrirModalDetalhes(item) {
+        function abrirDetalhesAtividade(item) {
             const modal = document.getElementById('modal-detalhes');
             const conteudo = document.getElementById('modal-detalhes-conteudo');
             document.getElementById('modal-detalhes-titulo').innerText = `Detalhes do Imóvel: ${item.imovel}`;
@@ -1074,11 +1183,11 @@
 
         function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
 
-        // --- MODO EXPLOSÃO (DRILL-DOWN DOS GRÁFICOS) ---
+        // --- MODO EXPLOSÃO (DRILL-DOWN DOS GRÁFICOS MOSTRANDO ATIVIDADES, TÉCNICOS E DIAS) ---
         function dispararExplosaoGrafico(filtroTipo, filtroValor) {
             const modal = document.getElementById('modal-explosao');
             const corpo = document.getElementById('tabela-explosao-corpo');
-            document.getElementById('modal-explosao-titulo').innerText = `Modo Explosão: ${filtroTipo} -> ${filtroValor}`;
+            document.getElementById('modal-explosao-titulo').innerText = `Modo Explosão Executivo: ${filtroTipo.toUpperCase()} -> ${filtroValor}`;
             corpo.innerHTML = "";
 
             let subset = dadosFiltradosAtuais.filter(item => {
@@ -1088,16 +1197,18 @@
             });
 
             if (subset.length === 0) {
-                corpo.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">Nenhum registro encontrado para esta seleção.</td></tr>`;
+                corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registro encontrado para esta seleção.</td></tr>`;
             } else {
                 subset.forEach(item => {
+                    let detalheInfo = item.malogros && item.malogros.length > 0 ? `Ofensores: ${item.malogros.join(', ')}` : (item.motivoDesfecho || 'Concluído sem pendências');
                     corpo.innerHTML += `
                         <tr class="hover:bg-slate-50 border-b text-xs">
-                            <td class="p-2.5 font-mono text-slate-500">${item.dataRegistro}</td>
+                            <td class="p-2.5 font-mono text-slate-600 font-bold">${item.dataRegistro}</td>
                             <td class="p-2.5 font-bold text-slate-800">${item.imovel}</td>
                             <td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td>
                             <td class="p-2.5">${item.projeto}</td>
-                            <td class="p-2.5 font-bold">${item.desfecho}</td>
+                            <td class="p-2.5 font-bold text-slate-700">${item.desfecho}</td>
+                            <td class="p-2.5 text-slate-500">${detalheInfo}</td>
                         </tr>
                     `;
                 });
@@ -1355,7 +1466,6 @@
             };
 
             let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
-            const labelsDesfechosMap = { 'CONCLUIDA': 'CONCLUIDA', 'PENDENTE': 'PENDENTE', 'MALOGRADA': 'MALOGRADA' };
 
             dados.forEach(d => {
                 if (projetosCount[d.projeto] !== undefined) {
