@@ -406,7 +406,7 @@
         </div>
     </div>
 
-    <!-- Script Principal -->
+    <!-- Script Principal Completo -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -662,7 +662,6 @@
             }
 
             filtrados.forEach(item => {
-                // Preenche a tabela de Atividades
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-blue-50/50 border-b cursor-pointer transition";
                 tr.title = "Clique para ver todos os detalhes";
@@ -686,7 +685,6 @@
                 `;
                 corpoAtiv.appendChild(tr);
 
-                // Preenche perfeitamente sincronizado a tabela de Materiais
                 const trMat = document.createElement('tr');
                 trMat.className = "hover:bg-slate-50 border-b transition";
                 trMat.innerHTML = `
@@ -710,6 +708,12 @@
             const conteudo = document.getElementById('modal-detalhes-conteudo');
             document.getElementById('modal-detalhes-titulo').innerText = `Detalhes do Imóvel: ${item.imovel}`;
 
+            let linkGpsEntrada = item.gpsEntrada && item.gpsEntrada.includes(',') ? 
+                `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsEntrada)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsEntrada} (Abrir no Maps)</a>` : item.gpsEntrada;
+
+            let linkGpsSaida = item.gpsSaida && item.gpsSaida.includes(',') ? 
+                `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsSaida)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsSaida} (Abrir no Maps)</a>` : item.gpsSaida;
+
             conteudo.innerHTML = `
                 <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
                     <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
@@ -724,8 +728,10 @@
 
                 <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 space-y-1">
                     <h4 class="font-bold text-blue-900 text-xs uppercase">🕒 Horários e GPS</h4>
-                    <div><strong>Horário de Entrada:</strong> ${item.hEntrada} | <strong>GPS:</strong> ${item.gpsEntrada}</div>
-                    <div><strong>Horário de Saída:</strong> ${item.hSaida} | <strong>GPS:</strong> ${item.gpsSaida}</div>
+                    <div><strong>Horário de Entrada:</strong> ${item.hEntrada}</div>
+                    <div><strong>GPS Entrada:</strong> ${linkGpsEntrada}</div>
+                    <div class="pt-1"><strong>Horário de Saída:</strong> ${item.hSaida}</div>
+                    <div><strong>GPS Saída:</strong> ${linkGpsSaida}</div>
                 </div>
 
                 <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-200 space-y-1">
