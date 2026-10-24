@@ -199,7 +199,7 @@
                 <div class="p-4 space-y-3" id="lista-retornos-container"></div>
             </div>
 
-            <!-- GESTÃO DE USUÁRIOS (Corrigida) -->
+            <!-- GESTÃO DE USUÁRIOS COM EDIÇÃO E SENHAS -->
             <div id="subview-usuarios" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 text-sm">👥 Controle de Acesso e Usuários</h3>
@@ -212,7 +212,7 @@
                                 <th class="p-3">Nome / E-mail</th>
                                 <th class="p-3">Nível de Permissão</th>
                                 <th class="p-3">Status</th>
-                                <th class="p-3">Ações</th>
+                                <th class="p-3">Ações Admin Master</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-usuarios-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -305,17 +305,8 @@
                                 <div><label class="block text-[10px] font-semibold text-slate-600">Fusões</label><input type="number" id="mat-fusoes" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
                                 <div><label class="block text-[10px] font-semibold text-slate-600">Conectores</label><input type="number" id="mat-conectores" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
                             </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div><label class="block text-[10px] font-semibold text-slate-600">Cabo RL (m)</label><input type="number" id="mat-cabo-rl" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                                <div><label class="block text-[10px] font-semibold text-slate-600">Cabo Drop (m)</label><input type="number" id="mat-cabo-drop" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div><label class="block text-[10px] font-semibold text-slate-600">NAP</label><input type="number" id="mat-nap" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                                <div><label class="block text-[10px] font-semibold text-slate-600">DIO</label><input type="number" id="mat-dio" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                            </div>
                         </div>
 
-                        <!-- SELEÇÃO DE DESFECHO -->
                         <div class="space-y-3 pt-3 border-t border-slate-200">
                             <label class="block text-xs font-bold text-slate-800 uppercase">Selecione o Desfecho da Atividade:</label>
                             
@@ -338,15 +329,6 @@
                             <div id="bloco-malograda" class="space-y-2 hidden bg-red-50 p-3 rounded-xl border border-red-200">
                                 <label class="block text-[11px] font-bold text-red-900">Motivo do Malogro (Obrigatório)*</label>
                                 <textarea id="obs-malograda" rows="2" class="w-full text-xs border border-red-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo..."></textarea>
-                                
-                                <label class="block text-[11px] font-bold text-red-900 mt-2">Selecione o(s) Malogro(s):*</label>
-                                <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-red-200 max-h-40 overflow-y-auto">
-                                    <label><input type="checkbox" name="malogro-check" value="FROTA"> FROTA</label>
-                                    <label><input type="checkbox" name="malogro-check" value="MATERIAL"> MATERIAL</label>
-                                    <label><input type="checkbox" name="malogro-check" value="EQUIPAMENTOS"> EQUIPAMENTOS</label>
-                                    <label><input type="checkbox" name="malogro-check" value="ACESSO"> ACESSO</label>
-                                    <label><input type="checkbox" name="malogro-check" value="PROJETO"> PROJETO</label>
-                                </div>
                             </div>
                         </div>
 
@@ -365,34 +347,36 @@
 
     </div>
 
-    <!-- MODAL DE CADASTRO DE NOVO USUÁRIO -->
+    <!-- MODAL DE CADASTRO / EDIÇÃO DE USUÁRIO -->
     <div id="modal-usuario" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-sm">Cadastrar Novo Usuário</h3>
+                <h3 class="font-bold text-sm" id="modal-user-titulo">Cadastrar Novo Usuário</h3>
                 <button onclick="fecharModalUsuario()" class="text-white font-bold text-lg">✕</button>
             </div>
             <div class="p-4 space-y-3 text-xs">
+                <input type="hidden" id="edit-user-id">
                 <div><label class="block font-semibold text-slate-600 mb-1">Nome Completo</label><input type="text" id="novo-user-nome" class="w-full border rounded-lg p-2 outline-none"></div>
                 <div><label class="block font-semibold text-slate-600 mb-1">E-mail Corporativo</label><input type="email" id="novo-user-email" class="w-full border rounded-lg p-2 outline-none" placeholder="usuario@procisa.com.br"></div>
-                <div><label class="block font-semibold text-slate-600 mb-1">Senha de Acesso</label><input type="password" id="novo-user-senha" class="w-full border rounded-lg p-2 outline-none" placeholder="******"></div>
+                <div><label class="block font-semibold text-slate-600 mb-1">Senha de Acesso</label><input type="text" id="novo-user-senha" class="w-full border rounded-lg p-2 outline-none" placeholder="Digite a nova senha"></div>
                 <div>
                     <label class="block font-semibold text-slate-600 mb-1">Nível de Permissão</label>
                     <select id="novo-user-nivel" class="w-full border rounded-lg p-2 bg-white outline-none">
                         <option value="Visualizador">Visualizador</option>
                         <option value="Operador">Operador</option>
                         <option value="Gestor Parcial">Gestor Parcial</option>
+                        <option value="Master">Master</option>
                     </select>
                 </div>
             </div>
             <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
                 <button onclick="fecharModalUsuario()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
-                <button onclick="salvarNovoUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar Usuário</button>
+                <button onclick="salvarOuAtualizarUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar Alterações</button>
             </div>
         </div>
     </div>
 
-    <!-- Script de Gestão, Senhas e Gráficos -->
+    <!-- Script de Gestão, Edição e Senhas -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -576,12 +560,6 @@
                 if (!motivoDesfecho) { alert("⚠️ Informe o motivo da pendência."); return; }
             } else if (dadosAtendimento.desfechoSelecionado === 'MALOGRADA') {
                 motivoDesfecho = document.getElementById('obs-malograda').value.trim();
-                let checkboxes = document.querySelectorAll('input[name="malogro-check"]:checked');
-                checkboxes.forEach(cb => malogrosSelecionados.push(cb.value));
-                if (!motivoDesfecho || malogrosSelecionados.length === 0) {
-                    alert("⚠️ Informe o motivo e selecione pelo menos um malogro.");
-                    return;
-                }
             }
 
             const novoRegistroDB = {
@@ -601,11 +579,7 @@
                 email: document.getElementById('form-email').value,
                 observacoes: document.getElementById('form-observacoes').value,
                 fusoes: Number(document.getElementById('mat-fusoes')?.value) || 0,
-                conectores: Number(document.getElementById('mat-conectores')?.value) || 0,
-                cabo_rl: Number(document.getElementById('mat-cabo-rl')?.value) || 0,
-                cabo_drop: Number(document.getElementById('mat-cabo-drop')?.value) || 0,
-                nap: Number(document.getElementById('mat-nap')?.value) || 0,
-                dio: Number(document.getElementById('mat-dio')?.value) || 0
+                conectores: Number(document.getElementById('mat-conectores')?.value) || 0
             };
 
             const { error } = await supabaseClient.from('registros_producao').insert([novoRegistroDB]);
@@ -700,24 +674,60 @@
             });
         }
 
-        // Funções da Gestão de Usuários
-        function abrirModalUsuario() { document.getElementById('modal-usuario').classList.remove('hidden'); }
+        // Funções da Gestão de Usuários e Senhas
+        function abrirModalUsuario(id = null) {
+            document.getElementById('modal-usuario').classList.remove('hidden');
+            if (id) {
+                document.getElementById('modal-user-titulo').innerText = "Editar Usuário";
+                let u = usuariosSistema.find(user => user.id === id);
+                if (u) {
+                    document.getElementById('edit-user-id').value = u.id;
+                    document.getElementById('novo-user-nome').value = u.nome;
+                    document.getElementById('novo-user-email').value = u.email;
+                    document.getElementById('novo-user-senha').value = u.senha;
+                    document.getElementById('novo-user-nivel').value = u.nivel;
+                }
+            } else {
+                document.getElementById('modal-user-titulo').innerText = "Cadastrar Novo Usuário";
+                document.getElementById('edit-user-id').value = "";
+                document.getElementById('novo-user-nome').value = "";
+                document.getElementById('novo-user-email').value = "";
+                document.getElementById('novo-user-senha').value = "";
+                document.getElementById('novo-user-nivel').value = "Visualizador";
+            }
+        }
+
         function fecharModalUsuario() { document.getElementById('modal-usuario').classList.add('hidden'); }
 
-        function salvarNovoUsuario() {
+        function salvarOuAtualizarUsuario() {
+            const editId = document.getElementById('edit-user-id').value;
             const nome = document.getElementById('novo-user-nome').value.trim();
             const email = document.getElementById('novo-user-email').value.trim().toLowerCase();
             const senha = document.getElementById('novo-user-senha').value.trim();
             const nivel = document.getElementById('novo-user-nivel').value;
 
             if (!nome || !email || !senha) {
-                alert("Preencha todos os campos do novo usuário.");
+                alert("Preencha todos os campos obrigatórios.");
                 return;
             }
 
-            usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
+            if (editId) {
+                // Atualizar usuário existente
+                let index = usuariosSistema.findIndex(u => u.id == editId);
+                if (index !== -1) {
+                    usuariosSistema[index].nome = nome;
+                    usuariosSistema[index].email = email;
+                    usuariosSistema[index].senha = senha;
+                    usuariosSistema[index].nivel = nivel;
+                }
+                alert("Usuário atualizado com sucesso!");
+            } else {
+                // Criar novo usuário
+                usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
+                alert("Novo usuário cadastrado com sucesso!");
+            }
+
             localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
-            alert("Usuário cadastrado com sucesso!");
             fecharModalUsuario();
             renderizarTabelaUsuarios();
         }
@@ -732,7 +742,10 @@
                     <td class="p-3"><div class="font-bold">${u.nome}</div><div class="text-[10px] text-slate-400">${u.email}</div></td>
                     <td class="p-3"><span class="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-[10px]">${u.nivel}</span></td>
                     <td class="p-3"><span class="text-emerald-600 font-semibold">${u.status}</span></td>
-                    <td class="p-3">${u.email !== 'lsimoes@procisa.com.br' ? `<button onclick="excluirUsuario(${u.id})" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Remover</button>` : '<span class="text-[10px] text-slate-400">Master</span>'}</td>
+                    <td class="p-3 space-x-1">
+                        <button onclick="abrirModalUsuario(${u.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar / Senha</button>
+                        ${u.email !== 'lsimoes@procisa.com.br' ? `<button onclick="excluirUsuario(${u.id})" class="text-red-500 font-bold text-[10px] bg-red-50 px-2.5 py-1 rounded">Remover</button>` : ''}
+                    </td>
                 `;
                 corpo.appendChild(tr);
             });
