@@ -92,10 +92,8 @@
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition">📋 Atividades</button>
                 <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">📊 Gráficos & Indicadores</button>
                 <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">📦 Materiais</button>
-                <button onclick="mudarSubAbaGestor('retornos')" id="subtab-btn-retornos" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">💬 Retornos</button>
+                <button onclick="mudarSubAbaGestor('equipes')" id="subtab-btn-equipes" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">🛠️ Equipes</button>
                 <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="pb-3 text-sm font-medium text-slate-500 hover:text-slate-800 transition">👥 Usuários</button>
-                <button onclick="mudarSubAbaGestor('auditoria')" id="subtab-btn-auditoria" class="pb-3 text-sm font-medium text-amber-600 hover:text-amber-800 transition font-bold">🛡️ Auditoria</button>
-                <button onclick="mudarSubAbaGestor('bonificacao')" id="subtab-btn-bonificacao" class="pb-3 text-sm font-medium text-emerald-700 hover:text-emerald-900 transition font-bold">🏆 Bonificação</button>
             </div>
 
             <!-- Filtros -->
@@ -109,9 +107,6 @@
                         <label class="block text-[11px] font-bold text-slate-600 mb-1">Filtrar por Equipe</label>
                         <select id="gestor-filtro-equipe" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
                             <option value="">Todas as Equipes</option>
-                            <option value="Equipe Alfa">Equipe Alfa</option>
-                            <option value="Equipe Beta">Equipe Beta</option>
-                            <option value="Equipe Gama">Equipe Gama</option>
                         </select>
                     </div>
                     <div>
@@ -128,11 +123,6 @@
                         </select>
                     </div>
                 </div>
-                <div class="flex gap-2 w-full sm:w-auto justify-end">
-                    <button onclick="exportarCSV()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
-                        📥 Baixar Relatório (CSV)
-                    </button>
-                </div>
             </div>
 
             <!-- Sub-Aba: Atividades -->
@@ -146,7 +136,7 @@
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
                                 <th class="p-3">Data / Imóvel</th>
-                                <th class="p-3">Equipe</th>
+                                <th class="p-3">Equipe / Técnico</th>
                                 <th class="p-3">Projeto</th>
                                 <th class="p-3">Desfecho</th>
                                 <th class="p-3">Horários & Duração</th>
@@ -159,28 +149,24 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos e Indicadores Visuais -->
+            <!-- Sub-Aba: Gráficos -->
             <div id="subview-graficos" class="space-y-4 hidden">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                         <h3 class="text-xs font-bold text-slate-700 uppercase mb-3">Distribuição por Tipo de Projeto</h3>
-                        <div class="relative h-80">
-                            <canvas id="graficoProjetos"></canvas>
-                        </div>
+                        <div class="relative h-80"><canvas id="graficoProjetos"></canvas></div>
                     </div>
                     <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                         <h3 class="text-xs font-bold text-slate-700 uppercase mb-3">Desfechos das Atividades</h3>
-                        <div class="relative h-80">
-                            <canvas id="graficoDesfechos"></canvas>
-                        </div>
+                        <div class="relative h-80"><canvas id="graficoDesfechos"></canvas></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Sub-Aba: Materiais Sincronizada -->
+            <!-- Sub-Aba: Materiais -->
             <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
-                    <span>📦 Relatório Consolidado de Materiais Utilizados (Sincronizado)</span>
+                    <span>📦 Relatório Consolidado de Materiais Utilizados</span>
                     <span class="text-xs font-normal text-slate-500" id="contador-materiais">0 registros</span>
                 </div>
                 <div class="overflow-x-auto">
@@ -188,7 +174,7 @@
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[9px] tracking-wider border-b">
                                 <th class="p-2.5">Imóvel / Data</th>
-                                <th class="p-2.5">Equipe / Projeto</th>
+                                <th class="p-2.5">Técnico / Projeto</th>
                                 <th class="p-2.5">Cabo RL (m)</th>
                                 <th class="p-2.5">Conectores</th>
                                 <th class="p-2.5">Cabo Drop (m)</th>
@@ -202,9 +188,24 @@
                 </div>
             </div>
 
-            <div id="subview-retornos" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden">
-                <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm">💬 Retornos e Desfechos Técnicos</div>
-                <div class="p-4 space-y-3" id="lista-retornos-container"></div>
+            <!-- Sub-Aba: Gerenciamento de Equipes (Ativo/Inativo/Exclusão/Inserção) -->
+            <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
+                <div class="border-b pb-2 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos (Alfabética & Status)</h3>
+                    <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium">+ Nova Equipe</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
+                                <th class="p-3">Nome do Técnico / Equipe</th>
+                                <th class="p-3">Status (Ativo / Inativo)</th>
+                                <th class="p-3">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-equipes-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- GESTÃO DE USUÁRIOS -->
@@ -220,20 +221,12 @@
                                 <th class="p-3">Nome / E-mail</th>
                                 <th class="p-3">Nível de Permissão</th>
                                 <th class="p-3">Status</th>
-                                <th class="p-3">Ações Admin Master</th>
+                                <th class="p-3">Ações Master</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-usuarios-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
                     </table>
                 </div>
-            </div>
-
-            <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
-                <div class="border-b pb-2"><h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria</h3></div>
-            </div>
-
-            <div id="subview-bonificacao" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6 hidden">
-                <div class="border-b pb-3"><h3 class="font-bold text-slate-800 text-base">🏆 Dashboard de Bonificação e Metas</h3></div>
             </div>
 
         </main>
@@ -251,14 +244,10 @@
 
                 <div id="form-campo-container" class="space-y-3">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Equipe</label>
-                        <select id="sel-equipe" onchange="atualizarMembrosEquipe()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Equipe / Técnico</label>
+                        <select id="sel-equipe" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
                             <option value="">Selecione a Equipe...</option>
-                            <option value="Equipe Alfa">Equipe Alfa (João, Carlos)</option>
-                            <option value="Equipe Beta">Equipe Beta (Marcos, Ana)</option>
-                            <option value="Equipe Gama">Equipe Gama (Pedro, Lucas)</option>
                         </select>
-                        <p class="text-[11px] text-slate-500 mt-1" id="txt-membros">Membros: -</p>
                     </div>
 
                     <div>
@@ -363,7 +352,7 @@
 
     </div>
 
-    <!-- MODAL DE DETALHES COMPLETOS DA ATIVIDADE -->
+    <!-- MODAL DE DETALHES -->
     <div id="modal-detalhes" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
@@ -377,7 +366,32 @@
         </div>
     </div>
 
-    <!-- MODAL DE CADASTRO / EDIÇÃO DE USUÁRIO -->
+    <!-- MODAL DE CADASTRO / EDIÇÃO DE EQUIPE -->
+    <div id="modal-equipe" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm" id="modal-equipe-titulo">Cadastrar Nova Equipe</h3>
+                <button onclick="fecharModalEquipe()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 space-y-3 text-xs">
+                <input type="hidden" id="edit-equipe-id">
+                <div><label class="block font-semibold text-slate-600 mb-1">Nome do Técnico / Equipe</label><input type="text" id="inp-nome-equipe" class="w-full border rounded-lg p-2 outline-none uppercase" placeholder="NOME COMPLETO"></div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Status (Ativo / Inativo)</label>
+                    <select id="sel-status-equipe" class="w-full border rounded-lg p-2 bg-white outline-none">
+                        <option value="Ativo">Ativo</option>
+                        <option value="Inativo">Inativo</option>
+                    </select>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalEquipe()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="salvarOuAtualizarEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE USUÁRIO -->
     <div id="modal-usuario" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
@@ -394,29 +408,55 @@
                     <select id="novo-user-nivel" class="w-full border rounded-lg p-2 bg-white outline-none">
                         <option value="Visualizador">Visualizador</option>
                         <option value="Operador">Operador</option>
-                        <option value="Gestor Parcial">Gestor Parcial</option>
                         <option value="Master">Master</option>
                     </select>
                 </div>
             </div>
             <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
                 <button onclick="fecharModalUsuario()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
-                <button onclick="salvarOuAtualizarUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar Alterações</button>
+                <button onclick="salvarOuAtualizarUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar</button>
             </div>
         </div>
     </div>
 
-    <!-- Script Principal Completo -->
+    <!-- Script Principal -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const equipesMembros = {
-            "Equipe Alfa": "João Silva, Carlos Eduardo",
-            "Equipe Beta": "Marcos Vinicius, Ana Paula",
-            "Equipe Gama": "Pedro Henrique, Lucas Gabriel"
-        };
+        // Lista base em ordem alfabética informada pelo usuário
+        const listaEquipesInicial = [
+            "ANDREO FAGUNDES",
+            "BRUNO MARCUS CORREA FERNANDES",
+            "BRUNO SOARES DA SILVA",
+            "CESAR SALES ROSA",
+            "DIEGO LEMOS RIBEIRO",
+            "ELDER DE OLIVEIRA MARTINS",
+            "EWERTON LOPES DA SILVA",
+            "FELIPE BAPTISTA FERREIRA",
+            "HEVERTON ALESSANDRO RODRIGUES GUSMAO",
+            "IGOR DA SILVA ALVES JANUARIO",
+            "LEONARDO LISBOA BANDEIRA",
+            "LUCIANO SANTOS FERREIRA",
+            "MAICON LUIZ DE OLIVEIRA COSTA",
+            "MARCIO VIEIRA PINTO",
+            "MARCOS VINICIUS CARDOSO DE ARAUJO",
+            "MARCOS VINICIUS SANTOS DA SILVA",
+            "MATHEUS FRANCINI ALMEIDA",
+            "MATHEUS MAGNO FERREIRA DA ROCHA",
+            "PAULO CESAR FERNANDES JUNIOR",
+            "PAULO RICARDO MATOLLA DE FIGUEIREDO SOARES",
+            "TIAGO SILVA DE PAULA",
+            "WEVERTON OTACILIO DA SILVA VERAS",
+            "WILSON JOSÉ DE SOUSA JUNIOR"
+        ];
+
+        let equipesSistema = JSON.parse(localStorage.getItem('gpd_equipes_cadastradas')) || listaEquipesInicial.map((nome, index) => ({
+            id: index + 1,
+            nome: nome,
+            status: "Ativo"
+        }));
 
         let dadosAtendimento = { hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, desfechoSelecionado: null };
         let registrosSalvos = [];
@@ -428,6 +468,7 @@
         let graficoDesfechosInstancia = null;
 
         window.onload = async function() { 
+            popularSelectEquipes();
             if (usuarioLogado) {
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
                 document.getElementById('txt-email-ativo').innerText = usuarioLogado;
@@ -437,6 +478,24 @@
             }
             await carregarRegistrosDaNuvem();
         };
+
+        function popularSelectEquipes() {
+            // Ordena alfabeticamente e filtra apenas equipes ativas para o campo
+            equipesSistema.sort((a, b) => a.nome.localeCompare(b.nome));
+            
+            const selCampo = document.getElementById('sel-equipe');
+            const selFiltro = document.getElementById('gestor-filtro-equipe');
+            
+            selCampo.innerHTML = '<option value="">Selecione a Equipe...</option>';
+            selFiltro.innerHTML = '<option value="">Todas as Equipes</option>';
+
+            equipesSistema.forEach(eq => {
+                if (eq.status === "Ativo") {
+                    selCampo.innerHTML += `<option value="${eq.nome}">${eq.nome}</option>`;
+                }
+                selFiltro.innerHTML += `<option value="${eq.nome}">${eq.nome} (${eq.status})</option>`;
+            });
+        }
 
         function tentarAcessarGestor() {
             if (usuarioLogado) {
@@ -513,7 +572,7 @@
                         id: r.id,
                         dataRegistro: r.data_registro,
                         equipe: r.equipe,
-                        membros: r.membros,
+                        membros: r.membros || '-',
                         projeto: r.projeto,
                         imovel: r.imovel,
                         hEntrada: r.h_entrada || '08:00',
@@ -549,12 +608,6 @@
             alert("🔄 Dados atualizados com sucesso da nuvem!");
         }
 
-        function atualizarMembrosEquipe() {
-            const equipe = document.getElementById('sel-equipe').value;
-            document.getElementById('current-user-team').innerText = equipe || "Selecione Equipe";
-            document.getElementById('txt-membros').innerText = "Membros: " + (equipesMembros[equipe] || "-");
-        }
-
         function mudarTipoProjeto() {
             const projeto = document.getElementById('sel-projeto').value;
             const titulo = document.getElementById('titulo-form-dinamico');
@@ -579,6 +632,17 @@
             if (tipo === 'MALOGRADA') document.getElementById('bloco-malograda').classList.remove('hidden');
         }
 
+        async function fazerCheckIn() {
+            const equipe = document.getElementById('sel-equipe').value;
+            const imovel = document.getElementById('inp-imovel').value;
+            if (!equipe || !imovel) { alert("⚠️ Selecione a Equipe e informe o Cód. Imóvel."); return; }
+
+            document.getElementById('form-campo-container').classList.add('hidden');
+            document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+            document.getElementById('lbl-h-entrada').innerText = new Date().toLocaleTimeString('pt-BR');
+            mudarTipoProjeto();
+        }
+
         async function salvarRegistro() {
             if (!dadosAtendimento.desfechoSelecionado) {
                 alert("⚠️ Selecione o desfecho da atividade.");
@@ -596,7 +660,7 @@
                 id: Date.now(),
                 data_registro: new Date().toISOString().split('T')[0],
                 equipe: document.getElementById('sel-equipe').value,
-                membros: equipesMembros[document.getElementById('sel-equipe').value],
+                membros: document.getElementById('sel-equipe').value,
                 projeto: document.getElementById('sel-projeto').value,
                 imovel: document.getElementById('inp-imovel').value,
                 h_entrada: "08:30",
@@ -668,7 +732,7 @@
                 tr.onclick = () => abrirDetalhesAtividade(item);
                 tr.innerHTML = `
                     <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
-                    <td class="p-3"><div class="font-semibold">${item.equipe}</div><div class="text-[10px] text-slate-400">${item.membros || ''}</div></td>
+                    <td class="p-3"><div class="font-semibold">${item.equipe}</div></td>
                     <td class="p-3"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span></td>
                     <td class="p-3"><span class="font-bold px-2 py-0.5 rounded text-[10px] bg-slate-100">${item.desfecho}</span></td>
                     <td class="p-3">
@@ -717,13 +781,11 @@
             conteudo.innerHTML = `
                 <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
                     <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
-                    <div><strong>Equipe:</strong> ${item.equipe}</div>
-                    <div><strong>Membros:</strong> ${item.membros || 'N/D'}</div>
+                    <div><strong>Técnico / Equipe:</strong> ${item.equipe}</div>
                     <div><strong>Projeto:</strong> ${item.projeto}</div>
                     <div><strong>Desfecho:</strong> <span class="font-bold text-blue-900">${item.desfecho}</span></div>
                     <div><strong>Responsável:</strong> ${item.responsavel || '-'}</div>
                     <div><strong>Contato:</strong> ${item.contato || '-'}</div>
-                    <div><strong>E-mail:</strong> ${item.email || '-'}</div>
                 </div>
 
                 <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 space-y-1">
@@ -746,55 +808,98 @@
                     </div>
                 </div>
 
-                ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Motivo / Observação do Desfecho:</strong> ${item.motivoDesfecho}</div>` : ''}
-                ${item.observacoes ? `<div class="bg-slate-100 p-3 rounded-lg border"><strong>Observações Gerais:</strong> ${item.observacoes}</div>` : ''}
+                ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Motivo / Observação:</strong> ${item.motivoDesfecho}</div>` : ''}
             `;
             modal.classList.remove('hidden');
         }
 
-        function fecharModalDetalhes() {
-            document.getElementById('modal-detalhes').classList.add('hidden');
+        function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
+
+        // --- GESTÃO DE EQUIPES (ADICIONAR, EDITAR, ATIVO/INATIVO, EXCLUIR) ---
+        function abrirModalEquipe(id = null) {
+            document.getElementById('modal-equipe').classList.remove('hidden');
+            if (id) {
+                document.getElementById('modal-equipe-titulo').innerText = "Editar Equipe";
+                let eq = equipesSistema.find(e => e.id === id);
+                if (eq) {
+                    document.getElementById('edit-equipe-id').value = eq.id;
+                    document.getElementById('inp-nome-equipe').value = eq.nome;
+                    document.getElementById('sel-status-equipe').value = eq.status;
+                }
+            } else {
+                document.getElementById('modal-equipe-titulo').innerText = "Cadastrar Nova Equipe";
+                document.getElementById('edit-equipe-id').value = "";
+                document.getElementById('inp-nome-equipe').value = "";
+                document.getElementById('sel-status-equipe').value = "Ativo";
+            }
         }
 
-        function renderizarGraficos(dados) {
-            let projetosCount = { 'VISTORIA': 0, 'ATIVAÇÃO': 0, 'CONSTRUÇÃO': 0, 'CONSTRUÇÃO + ATIVAÇÃO': 0 };
-            let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
+        function fecharModalEquipe() { document.getElementById('modal-equipe').classList.add('hidden'); }
 
-            dados.forEach(d => {
-                if (projetosCount[d.projeto] !== undefined) projetosCount[d.projeto]++;
-                else projetosCount['CONSTRUÇÃO']++;
+        function salvarOuAtualizarEquipe() {
+            const editId = document.getElementById('edit-equipe-id').value;
+            const nome = document.getElementById('inp-nome-equipe').value.trim().toUpperCase();
+            const status = document.getElementById('sel-status-equipe').value;
 
-                if (desfechosCount[d.desfecho] !== undefined) desfechosCount[d.desfecho]++;
+            if (!nome) {
+                alert("Preencha o nome da equipe ou técnico.");
+                return;
+            }
+
+            if (editId) {
+                let eq = equipesSistema.find(e => e.id == editId);
+                if (eq) {
+                    eq.nome = nome;
+                    eq.status = status;
+                }
+            } else {
+                equipesSistema.push({ id: Date.now(), nome, status });
+            }
+
+            // Ordena alfabeticamente sempre
+            equipesSistema.sort((a, b) => a.nome.localeCompare(b.nome));
+            localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
+            fecharModalEquipe();
+            popularSelectEquipes();
+            renderizarTabelaEquipes();
+            alert("Equipe salva com sucesso!");
+        }
+
+        function renderizarTabelaEquipes() {
+            const corpo = document.getElementById('tabela-equipes-corpo');
+            corpo.innerHTML = "";
+            equipesSistema.forEach(eq => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 border-b";
+                tr.innerHTML = `
+                    <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
+                    <td class="p-3">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${eq.status === 'Ativo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
+                            ${eq.status}
+                        </span>
+                    </td>
+                    <td class="p-3 space-x-1">
+                        <button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>
+                        <button onclick="excluirEquipe(${eq.id})" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>
+                    </td>
+                `;
+                corpo.appendChild(tr);
             });
+        }
 
-            const ctxProj = document.getElementById('graficoProjetos').getContext('2d');
-            if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
-            graficoProjetosInstancia = new Chart(ctxProj, {
-                type: 'bar',
-                data: {
-                    labels: Object.keys(projetosCount),
-                    datasets: [{ label: 'Qtd Projetos', data: Object.values(projetosCount), backgroundColor: '#1e3a8a' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
-
-            const ctxDesf = document.getElementById('graficoDesfechos').getContext('2d');
-            if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
-            graficoDesfechosInstancia = new Chart(ctxDesf, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Concluída', 'Pendente', 'Malograda'],
-                    datasets: [{ data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']], backgroundColor: ['#059669', '#d97706', '#dc2626'] }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+        function excluirEquipe(id) {
+            if (confirm("Deseja realmente excluir esta equipe do sistema?")) {
+                equipesSistema = equipesSistema.filter(e => e.id !== id);
+                localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
+                popularSelectEquipes();
+                renderizarTabelaEquipes();
+            }
         }
 
         // Funções de Usuários
         function abrirModalUsuario(id = null) {
             document.getElementById('modal-usuario').classList.remove('hidden');
             if (id) {
-                document.getElementById('modal-user-titulo').innerText = "Editar Usuário";
                 let u = usuariosSistema.find(user => user.id === id);
                 if (u) {
                     document.getElementById('edit-user-id').value = u.id;
@@ -804,7 +909,6 @@
                     document.getElementById('novo-user-nivel').value = u.nivel;
                 }
             } else {
-                document.getElementById('modal-user-titulo').innerText = "Cadastrar Novo Usuário";
                 document.getElementById('edit-user-id').value = "";
                 document.getElementById('novo-user-nome').value = "";
                 document.getElementById('novo-user-email').value = "";
@@ -822,23 +926,13 @@
             const senha = document.getElementById('novo-user-senha').value.trim();
             const nivel = document.getElementById('novo-user-nivel').value;
 
-            if (!nome || !email || !senha) {
-                alert("Preencha todos os campos obrigatórios.");
-                return;
-            }
+            if (!nome || !email || !senha) { alert("Preencha todos os campos."); return; }
 
             if (editId) {
-                let index = usuariosSistema.findIndex(u => u.id == editId);
-                if (index !== -1) {
-                    usuariosSistema[index].nome = nome;
-                    usuariosSistema[index].email = email;
-                    usuariosSistema[index].senha = senha;
-                    usuariosSistema[index].nivel = nivel;
-                }
-                alert("Usuário atualizado com sucesso!");
+                let u = usuariosSistema.find(user => user.id == editId);
+                if (u) { u.nome = nome; u.email = email; u.senha = senha; u.nivel = nivel; }
             } else {
                 usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
-                alert("Novo usuário cadastrado com sucesso!");
             }
 
             localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
@@ -850,27 +944,42 @@
             const corpo = document.getElementById('tabela-usuarios-corpo');
             corpo.innerHTML = "";
             usuariosSistema.forEach(u => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 border-b";
-                tr.innerHTML = `
-                    <td class="p-3"><div class="font-bold">${u.nome}</div><div class="text-[10px] text-slate-400">${u.email}</div></td>
-                    <td class="p-3"><span class="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-[10px]">${u.nivel}</span></td>
-                    <td class="p-3"><span class="text-emerald-600 font-semibold">${u.status}</span></td>
-                    <td class="p-3 space-x-1">
-                        <button onclick="abrirModalUsuario(${u.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar / Senha</button>
-                        ${u.email !== 'lsimoes@procisa.com.br' ? `<button onclick="excluirUsuario(${u.id})" class="text-red-500 font-bold text-[10px] bg-red-50 px-2.5 py-1 rounded">Remover</button>` : ''}
-                    </td>
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3"><div class="font-bold">${u.nome}</div><div class="text-[10px] text-slate-400">${u.email}</div></td>
+                        <td class="p-3"><span class="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-[10px]">${u.nivel}</span></td>
+                        <td class="p-3"><span class="text-emerald-600 font-semibold">${u.status}</span></td>
+                        <td class="p-3"><button onclick="abrirModalUsuario(${u.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button></td>
+                    </tr>
                 `;
-                corpo.appendChild(tr);
             });
         }
 
-        function excluirUsuario(id) {
-            if (confirm("Deseja remover este usuário?")) {
-                usuariosSistema = usuariosSistema.filter(u => u.id !== id);
-                localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
-                renderizarTabelaUsuarios();
-            }
+        function renderizarGraficos(dados) {
+            let projetosCount = { 'VISTORIA': 0, 'ATIVAÇÃO': 0, 'CONSTRUÇÃO': 0, 'CONSTRUÇÃO + ATIVAÇÃO': 0 };
+            let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
+
+            dados.forEach(d => {
+                if (projetosCount[d.projeto] !== undefined) projetosCount[d.projeto]++;
+                else projetosCount['CONSTRUÇÃO']++;
+                if (desfechosCount[d.desfecho] !== undefined) desfechosCount[d.desfecho]++;
+            });
+
+            const ctxProj = document.getElementById('graficoProjetos').getContext('2d');
+            if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
+            graficoProjetosInstancia = new Chart(ctxProj, {
+                type: 'bar',
+                data: { labels: Object.keys(projetosCount), datasets: [{ label: 'Qtd', data: Object.values(projetosCount), backgroundColor: '#1e3a8a' }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            const ctxDesf = document.getElementById('graficoDesfechos').getContext('2d');
+            if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
+            graficoDesfechosInstancia = new Chart(ctxDesf, {
+                type: 'doughnut',
+                data: { labels: ['Concluída', 'Pendente', 'Malograda'], datasets: [{ data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']], backgroundColor: ['#059669', '#d97706', '#dc2626'] }] },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
         }
 
         async function excluirRegistro(id) {
@@ -881,7 +990,7 @@
         }
 
         function mudarSubAbaGestor(aba) {
-            const subs = ['atividades', 'graficos', 'materiais', 'retornos', 'usuarios', 'auditoria', 'bonificacao'];
+            const subs = ['atividades', 'graficos', 'materiais', 'equipes', 'usuarios'];
             subs.forEach(s => {
                 const el = document.getElementById(`subview-${s}`);
                 const btn = document.getElementById(`subtab-btn-${s}`);
@@ -895,9 +1004,8 @@
             if (targetBtn) targetBtn.className = "pb-3 text-sm font-bold text-blue-900 border-b-2 border-blue-900 transition";
 
             if (aba === 'usuarios') renderizarTabelaUsuarios();
-            if (aba === 'graficos') {
-                atualizarDashboardGestor();
-            }
+            if (aba === 'equipes') renderizarTabelaEquipes();
+            if (aba === 'graficos') atualizarDashboardGestor();
         }
     </script>
 </body>
