@@ -64,14 +64,19 @@
                 </button>
             </div>
 
-            <!-- Barra de Ações Rápidas e Atualização (Botão Verde) -->
-            <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <!-- Barra de Ações Rápidas e Atualização (Botão Verde e Exportar CSV) -->
+            <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Painel Gerencial em Tempo Real</span>
                 </div>
-                <button onclick="recarregarDadosGestor()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2 rounded-xl font-medium shadow-sm transition flex items-center gap-1.5">
-                    🔄 Atualizar Registros
-                </button>
+                <div class="flex gap-2 w-full sm:w-auto justify-end">
+                    <button onclick="exportarCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
+                        📥 Baixar Relatório (CSV)
+                    </button>
+                    <button onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
+                        🔄 Atualizar Registros
+                    </button>
+                </div>
             </div>
 
             <!-- KPIs Numéricos Independentes -->
@@ -825,6 +830,25 @@
         }
 
         function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
+
+        function exportarCSV() {
+            if (registrosSalvos.length === 0) {
+                alert("Nenhum registro para exportar.");
+                return;
+            }
+            let csvContent = "data:text/csv;charset=utf-8,ID,Data,Equipe,Projeto,Imovel,Desfecho,Responsavel,Contato,Fusões,Conectores,Cabo_RL,Cabo_Drop,NAP,DIO\n";
+            registrosSalvos.forEach(r => {
+                let row = [r.id, r.dataRegistro, `"${r.equipe}"`, `"${r.projeto}"`, `"${r.imovel}"`, r.desfecho, `"${r.responsavel || ''}"`, `"${r.contato || ''}"`, r.fusoes, r.conectores, r.caboRL, r.caboDrop, r.nap, r.dio];
+                csvContent += row.join(",") + "\n";
+            });
+            let encodedUri = encodeURI(csvContent);
+            let link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `relatorio_gpd_procisa_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
 
         // --- GESTÃO DE EQUIPES ---
         function abrirModalEquipe(id = null) {
