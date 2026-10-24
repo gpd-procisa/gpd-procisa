@@ -62,8 +62,11 @@
                 <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
                     👥 Usuários
                 </button>
+                <button onclick="mudarSubAbaGestor('bonificacao')" id="subtab-btn-bonificacao" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
+                    🏆 Bonificação
+                </button>
                 <button onclick="mudarSubAbaGestor('auditoria')" id="subtab-btn-auditoria" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
-                    🛡️ Auditoria (Logs)
+                    🛡️ Auditoria
                 </button>
             </div>
 
@@ -147,7 +150,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Atividades (Visível por padrão) -->
+            <!-- Sub-Aba: Atividades -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
                     <span>Atividades em Campo (Clique na linha para ver todos os detalhes)</span>
@@ -248,6 +251,32 @@
                         </thead>
                         <tbody id="tabela-usuarios-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- SUB-ABA: BONIFICAÇÃO E METAS -->
+            <div id="subview-bonificacao" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6 hidden">
+                <div class="border-b pb-3 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800 text-base">🏆 Dashboard de Bonificação e Metas</h3>
+                    <span class="text-xs text-slate-500">Cálculo baseado nas entregas do período filtrado</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-200 flex flex-col justify-between">
+                        <span class="text-xs font-bold text-emerald-800 uppercase">Elegíveis ao Bônus</span>
+                        <span class="text-3xl font-bold text-emerald-700 mt-2" id="bonif-elegiveis">0</span>
+                    </div>
+                    <div class="bg-amber-50 p-4 rounded-xl border border-amber-200 flex flex-col justify-between">
+                        <span class="text-xs font-bold text-amber-800 uppercase">Parciais / Alerta</span>
+                        <span class="text-3xl font-bold text-amber-700 mt-2" id="bonif-parciais">0</span>
+                    </div>
+                    <div class="bg-blue-50 p-4 rounded-xl border border-blue-200 flex flex-col justify-between">
+                        <span class="text-xs font-bold text-blue-800 uppercase">Média Geral/Dia</span>
+                        <span class="text-3xl font-bold text-blue-700 mt-2" id="bonif-media-geral">0.0</span>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-xl border border-red-200 flex flex-col justify-between">
+                        <span class="text-xs font-bold text-red-800 uppercase">Malogros Registrados</span>
+                        <span class="text-3xl font-bold text-red-700 mt-2" id="bonif-malogros">0</span>
+                    </div>
                 </div>
             </div>
 
@@ -795,6 +824,16 @@
             document.getElementById('contador-resultados').innerText = filtrados.length + " registros encontrados";
             document.getElementById('contador-materiais').innerText = filtrados.length + " registros sincronizados";
 
+            // Atualização dos dados da aba Bonificação
+            let concluidasCount = filtrados.filter(i => i.desfecho === 'CONCLUIDA').length;
+            let malogradasCount = filtrados.filter(i => i.desfecho === 'MALOGRADA').length;
+            let pendentesCount = filtrados.filter(i => i.desfecho === 'PENDENTE').length;
+
+            document.getElementById('bonif-elegiveis').innerText = concluidasCount;
+            document.getElementById('bonif-parciais').innerText = pendentesCount;
+            document.getElementById('bonif-media-geral').innerText = filtrados.length > 0 ? (concluidasCount / (new Set(filtrados.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0";
+            document.getElementById('bonif-malogros').innerText = malogradasCount;
+
             if (filtrados.length === 0) {
                 if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
@@ -1169,7 +1208,7 @@
         }
 
         function mudarSubAbaGestor(aba) {
-            const subs = ['atividades', 'graficos', 'materiais', 'equipes', 'usuarios', 'auditoria'];
+            const subs = ['atividades', 'graficos', 'materiais', 'equipes', 'usuarios', 'bonificacao', 'auditoria'];
             subs.forEach(s => {
                 const el = document.getElementById(`subview-${s}`);
                 const btn = document.getElementById(`subtab-btn-${s}`);
