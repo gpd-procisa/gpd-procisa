@@ -471,15 +471,6 @@
                         <input type="text" id="inp-imovel" placeholder="Ex: IMO-98421" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none">
                     </div>
 
-                    <!-- Informação de Serviço de Obra (Sim / Não) -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Houve Serviço de Obra?</label>
-                        <select id="sel-servico-obra" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
-                            <option value="SIM">SIM</option>
-                            <option value="NÃO">NÃO</option>
-                        </select>
-                    </div>
-
                     <div class="pt-2">
                         <button onclick="fazerCheckIn()" id="btn-checkin" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
                             🚀 Iniciar Atividade
@@ -507,7 +498,7 @@
                             </div>
                         </div>
 
-                        <!-- Bloco de Materiais e Caixas (Incluindo Sobrepor, Embutida e FOSC) -->
+                        <!-- Bloco de Materiais e Caixas (Com Sobrepor, Embutida e FOSC) -->
                         <div id="bloco-materiais-completo" class="space-y-2 pt-2 border-t border-slate-100">
                             <h4 class="text-[11px] font-bold text-blue-900 uppercase">Materiais e Caixas (Rede MDU)</h4>
                             <div class="grid grid-cols-2 gap-2">
@@ -538,8 +529,14 @@
                                 <button type="button" onclick="selecionarDesfecho('MALOGRADA')" id="btn-desf-malo" class="bg-red-600 text-white font-bold p-2 rounded-lg text-xs">MALOGRADA</button>
                             </div>
 
+                            <!-- Bloco Concluída contendo a opção "Houve Serviço de Obra? (Sim / Não)" -->
                             <div id="bloco-concluida" class="space-y-2 hidden bg-emerald-50 p-3 rounded-xl border border-emerald-200">
-                                <label class="block text-[11px] font-semibold text-emerald-900">Informação Complementar (Opcional)</label>
+                                <label class="block text-[11px] font-bold text-emerald-900">Houve Serviço de Obra?</label>
+                                <select id="sel-servico-obra" class="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white outline-none">
+                                    <option value="SIM">SIM</option>
+                                    <option value="NÃO">NÃO</option>
+                                </select>
+                                <label class="block text-[11px] font-semibold text-emerald-900 mt-2">Informação Complementar (Opcional)</label>
                                 <input type="text" id="obs-concluida" class="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white" placeholder="Detalhe opcional...">
                             </div>
 
@@ -933,8 +930,12 @@
 
             let motivoDesfecho = "";
             let malogrosSelecionados = [];
+            let servObraVal = "SIM";
 
-            if (dadosAtendimento.desfechoSelecionado === 'PENDENTE') {
+            if (dadosAtendimento.desfechoSelecionado === 'CONCLUIDA') {
+                servObraVal = document.getElementById('sel-servico-obra').value;
+                motivoDesfecho = document.getElementById('obs-concluida').value.trim();
+            } else if (dadosAtendimento.desfechoSelecionado === 'PENDENTE') {
                 motivoDesfecho = document.getElementById('obs-pendente').value.trim();
                 if (!motivoDesfecho) { alert("⚠️ Informe o motivo da pendência."); return; }
             } else if (dadosAtendimento.desfechoSelecionado === 'MALOGRADA') {
@@ -950,7 +951,6 @@
             const equipeNome = document.getElementById('sel-equipe').value;
             const projetoNome = document.getElementById('sel-projeto').value;
             const imovelCod = document.getElementById('inp-imovel').value;
-            const servObraVal = document.getElementById('sel-servico-obra').value;
 
             const novoRegistroDB = {
                 id: Date.now(),
