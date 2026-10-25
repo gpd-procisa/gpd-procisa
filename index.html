@@ -196,7 +196,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos & Produtividade por Hora/Dia -->
+            <!-- Sub-Aba: Gráficos & Indicadores -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
                     <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto ou parte da rosca para abrir o detalhamento por atividades, técnicos e dias.</span>
@@ -642,7 +642,7 @@
                                 <textarea id="obs-pendente" rows="2" class="w-full text-xs border border-amber-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo..."></textarea>
                             </div>
 
-                            <!-- Bloco Malogrado Exclusivo para Retorno de Atividades Abertas (Sem Imprevistos) -->
+                            <!-- Bloco Malogrado Exclusivo para Retorno de Atividades Abertas -->
                             <div id="bloco-malograda" class="space-y-2 hidden bg-red-50 p-3 rounded-xl border border-red-200">
                                 <label class="block text-[11px] font-bold text-red-900">Motivo do Malogro (Obrigatório)*</label>
                                 <textarea id="obs-malograda" rows="2" class="w-full text-xs border border-red-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo..."></textarea>
@@ -863,7 +863,7 @@
         </div>
     </div>
 
-    <!-- Script Principal Completo e Otimizado -->
+    <!-- Script Principal Robusto e Otimizado -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -943,7 +943,7 @@
             }
             await carregarRegistrosDaNuvem();
 
-            // Rotina de Atualização Automática a cada 60 segundos (Polling)
+            // Atualização automática em segundo plano (Polling a cada 60s)
             setInterval(async () => {
                 if (usuarioLogado) {
                     await carregarRegistrosDaNuvem();
