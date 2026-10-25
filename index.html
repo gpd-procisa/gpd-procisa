@@ -45,6 +45,18 @@
         <!-- ================= MODO GESTOR ================= -->
         <main id="view-gestor" class="flex-1 p-4 sm:p-6 bg-slate-50 space-y-6 hidden">
             
+            <!-- Alerta Inteligente de Malogros Críticos -->
+            <div id="alerta-malogros-criticos" class="bg-red-50 border-l-4 border-red-600 p-4 rounded-xl shadow-sm hidden flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">⚠️</span>
+                    <div>
+                        <h4 class="font-bold text-red-900 text-xs uppercase">Alerta de Supervisão: Ocorrências / Imprevistos Detetados!</h4>
+                        <p class="text-xs text-red-700" id="txt-alerta-malogros">Existem ocorrências críticas ou imprevistos registados no período filtrado.</p>
+                    </div>
+                </div>
+                <button onclick="fecharAlertaSupervisao()" class="text-red-700 font-bold hover:text-red-900 text-sm px-2 py-1">✕ Fechar</button>
+            </div>
+
             <!-- Abas em Destaque Logo Abaixo do Cabeçalho -->
             <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5">
@@ -89,7 +101,7 @@
             </div>
 
             <!-- KPIs Numéricos Independentes -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Vistoria</span>
                     <span class="text-xl font-bold text-slate-800 mt-1" id="kpi-proj-vistoria">0</span>
@@ -117,6 +129,10 @@
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lot. Amb</span>
                     <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-nap-ambos">0</span>
+                </div>
+                <div class="bg-amber-50 p-3 rounded-xl shadow-sm border border-amber-200 flex flex-col justify-between">
+                    <span class="text-[10px] font-bold text-amber-800 uppercase">⚠️ Imprevistos</span>
+                    <span class="text-xl font-bold text-amber-700 mt-1" id="kpi-proj-imprevistos">0</span>
                 </div>
             </div>
 
@@ -148,6 +164,7 @@
                             <option value="NAP LOTADA ATIVAÇÃO">NAP LOTADA ATIVAÇÃO</option>
                             <option value="NAP LOTADA CONSTRUÇÃO">NAP LOTADA CONSTRUÇÃO</option>
                             <option value="NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO">NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO</option>
+                            <option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>
                         </select>
                     </div>
                 </div>
@@ -177,7 +194,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos -->
+            <!-- Sub-Aba: Gráficos & Produtividade por Hora/Dia -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
                     <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto ou parte da rosca para abrir o detalhamento por atividades, técnicos e dias.</span>
@@ -197,6 +214,24 @@
                             <p class="text-xs text-slate-500 mb-4">Proporção detalhada entre Concluídas, Pendentes e Malogradas</p>
                         </div>
                         <div class="relative h-80"><canvas id="graficoDesfechos"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Gráficos de Produtividade por Hora e Dia da Semana -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase">⏰ Produtividade por Horário (Picos de Atendimento)</h3>
+                            <p class="text-xs text-slate-500 mb-4">Distribuição de atendimentos ao longo das horas do dia</p>
+                        </div>
+                        <div class="relative h-72"><canvas id="graficoHoras"></canvas></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase">📅 Produtividade por Dia da Semana</h3>
+                            <p class="text-xs text-slate-500 mb-4">Volume de entregas concentradas por dia útil/fim de semana</p>
+                        </div>
+                        <div class="relative h-72"><canvas id="graficoDiasSemana"></canvas></div>
                     </div>
                 </div>
 
@@ -504,9 +539,12 @@
                         <input type="text" id="inp-imovel" placeholder="Ex: IMO-98421" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none">
                     </div>
 
-                    <div class="pt-2">
+                    <div class="pt-2 flex flex-col gap-2">
                         <button onclick="fazerCheckIn()" id="btn-checkin" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
-                            🚀 Iniciar Atividade
+                            🚀 Iniciar Atividade (Exigir GPS)
+                        </button>
+                        <button onclick="abrirModalImprevisto()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-2.5 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2">
+                            ⚠️ Imprevisto / Atraso (Sem Atividade)
                         </button>
                     </div>
                 </div>
@@ -514,6 +552,7 @@
                 <div id="bloco-pos-abertura" class="space-y-3 hidden">
                     <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
                         <p><strong>Entrada:</strong> <span id="lbl-h-entrada">-</span></p>
+                        <p><strong>GPS Real Capturado:</strong> <span id="lbl-gps-entrada" class="font-mono text-[10px] text-emerald-700 font-bold">-</span></p>
                     </div>
 
                     <div class="space-y-3 border-t pt-3">
@@ -593,6 +632,7 @@
                                     <label><input type="checkbox" name="malogro-check" value="REDE EXTERNA"> REDE EXTERNA</label>
                                     <label><input type="checkbox" name="malogro-check" value="INFRAESTRUTURA"> INFRAESTRUTURA</label>
                                     <label><input type="checkbox" name="malogro-check" value="ÁREA DE RISCO"> ÁREA DE RISCO</label>
+                                    <label><input type="checkbox" name="malogro-check" value="SEM TEMPO HÁBIL"> SEM TEMPO HÁBIL</label>
                                 </div>
                             </div>
                         </div>
@@ -610,6 +650,36 @@
             </div>
         </main>
 
+    </div>
+
+    <!-- MODAL DE IMPREVISTO / ATRASO -->
+    <div id="modal-imprevisto" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div class="bg-amber-600 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm">⚠️ Registar Imprevisto / Atraso</h3>
+                <button onclick="fecharModalImprevisto()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Selecione o Motivo do Atraso / Problema:</label>
+                    <select id="sel-motivo-imprevisto" class="w-full border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
+                        <option value="CARRO COM DEFEITO">Carro com Defeito</option>
+                        <option value="FALTA DE MATERIAL">Falta de Material</option>
+                        <option value="FALTA DE EQUIPAMENTO">Falta de Equipamento</option>
+                        <option value="SEM ATIVIDADE PROGRAMADA">Sem Atividade Programada</option>
+                        <option value="SEM TEMPO HÁBIL">Sem Tempo Hábil</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Detalhes Adicionais (Opcional)</label>
+                    <textarea id="inp-detalhe-imprevisto" rows="2" class="w-full border border-slate-300 rounded-lg p-2 outline-none" placeholder="Explique brevemente..."></textarea>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalImprevisto()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="enviarImprevisto()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs px-4 py-2 rounded-lg font-medium">Registar Imprevisto</button>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL DE EDIÇÃO DE REGISTRO -->
@@ -636,6 +706,7 @@
                             <option value="NAP LOTADA ATIVAÇÃO">NAP LOTADA ATIVAÇÃO</option>
                             <option value="NAP LOTADA CONSTRUÇÃO">NAP LOTADA CONSTRUÇÃO</option>
                             <option value="NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO">NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO</option>
+                            <option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>
                         </select>
                     </div>
                     <div>
@@ -767,7 +838,7 @@
         </div>
     </div>
 
-    <!-- Script Principal Estável -->
+    <!-- Script Principal Completo e Otimizado -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -815,6 +886,8 @@
         let nivelUsuarioLogado = "Visualizador";
         let graficoProjetosInstancia = null;
         let graficoDesfechosInstancia = null;
+        let graficoHorasInstancia = null;
+        let graficoDiasInstancia = null;
         let dadosFiltradosAtuais = [];
 
         const TABELA_PRECOS = {
@@ -844,6 +917,14 @@
                 alternarVisao('campo');
             }
             await carregarRegistrosDaNuvem();
+
+            // Rotina de Atualização Automática a cada 60 segundos (Polling)
+            setInterval(async () => {
+                if (usuarioLogado) {
+                    await carregarRegistrosDaNuvem();
+                    atualizarDashboardGestor();
+                }
+            }, 60000);
         };
 
         function verificarPermissoesSessao() {
@@ -869,6 +950,7 @@
             };
             trilhaAuditoria.unshift(novoLog);
             localStorage.setItem('gpd_trilha_auditoria', JSON.stringify(trilhaAuditoria));
+            renderizarTabelaAuditoria();
         }
 
         function popularSelectEquipes() {
@@ -1057,15 +1139,45 @@
             if (tipo === 'MALOGRADA') document.getElementById('bloco-malograda').classList.remove('hidden');
         }
 
+        function obterGpsObrigatorio() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    alert("⚠️ O seu navegador não suporta geolocalização.");
+                    reject("GPS não suportado");
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        let lat = position.coords.latitude.toFixed(5);
+                        let lng = position.coords.longitude.toFixed(5);
+                        resolve(`${lat}, ${lng}`);
+                    },
+                    (error) => {
+                        alert("❌ PERMISSÃO DE GPS NEGADA! Para iniciar a atividade e garantir a auditoria gerencial, é obrigatório permitir o acesso à localização no seu dispositivo.");
+                        reject(error.message);
+                    },
+                    { timeout: 15000, enableHighAccuracy: true, maximumAge: 0 }
+                );
+            });
+        }
+
         async function fazerCheckIn() {
             const equipe = document.getElementById('sel-equipe').value;
             const imovel = document.getElementById('inp-imovel').value;
             if (!equipe || !imovel) { alert("⚠️ Selecione a Equipe e informe o Cód. Imóvel."); return; }
 
-            document.getElementById('form-campo-container').classList.add('hidden');
-            document.getElementById('bloco-pos-abertura').classList.remove('hidden');
-            document.getElementById('lbl-h-entrada').innerText = new Date().toLocaleTimeString('pt-BR');
-            mudarTipoProjeto();
+            try {
+                let gpsReal = await obterGpsObrigatorio();
+                dadosAtendimento.gpsEntrada = gpsReal;
+
+                document.getElementById('form-campo-container').classList.add('hidden');
+                document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+                document.getElementById('lbl-h-entrada').innerText = new Date().toLocaleTimeString('pt-BR');
+                document.getElementById('lbl-gps-entrada').innerText = gpsReal;
+                mudarTipoProjeto();
+            } catch (err) {
+                console.error("Check-in bloqueado por falta de GPS:", err);
+            }
         }
 
         async function salvarRegistro() {
@@ -1094,22 +1206,28 @@
                 }
             }
 
+            let gpsSaidaReal;
+            try {
+                gpsSaidaReal = await obterGpsObrigatorio();
+            } catch (e) {
+                gpsSaidaReal = dadosAtendimento.gpsEntrada;
+            }
+
             const equipeNome = document.getElementById('sel-equipe').value;
             const projetoNome = document.getElementById('sel-projeto').value;
             const imovelCod = document.getElementById('inp-imovel').value;
-            const dataLocalCorreta = new Date().toLocaleDateString('en-CA');
 
             const novoRegistroDB = {
                 id: Date.now(),
-                data_registro: dataLocalCorreta,
+                data_registro: new Date().toISOString().split('T')[0],
                 equipe: equipeNome,
                 membros: equipeNome,
                 projeto: projetoNome,
                 imovel: imovelCod,
                 h_entrada: document.getElementById('lbl-h-entrada').innerText || "08:30",
                 h_saida: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
-                gps_entrada: "-22.90680, -43.17290",
-                gps_saida: "-22.90710, -43.17320",
+                gps_entrada: dadosAtendimento.gpsEntrada,
+                gps_saida: gpsSaidaReal,
                 desfecho: dadosAtendimento.desfechoSelecionado,
                 motivo_desfecho: motivoDesfecho,
                 malogros: malogrosSelecionados,
@@ -1137,7 +1255,7 @@
                 return;
             }
 
-            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome})`);
+            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome}) [GPS Real Validado]`);
             alert("Atendimento sincronizado com sucesso!");
             location.reload();
         }
@@ -1180,6 +1298,18 @@
 
             dadosFiltradosAtuais = filtrados;
 
+            let imprevistosCount = filtrados.filter(i => i.projeto === 'IMPREVISTO / ATRASO').length;
+            document.getElementById('kpi-proj-imprevistos').innerText = imprevistosCount;
+
+            let imprevistosCriticos = filtrados.filter(i => i.projeto === 'IMPREVISTO / ATRASO' || (i.desfecho === 'MALOGRADA' && i.malogros && (i.malogros.includes('ÁREA DE RISCO') || i.malogros.includes('INFRAESTRUTURA'))));
+            const blocoAlerta = document.getElementById('alerta-malogros-criticos');
+            if (imprevistosCriticos.length > 0 && blocoAlerta.dataset.fechado !== "true") {
+                blocoAlerta.classList.remove('hidden');
+                document.getElementById('txt-alerta-malogros').innerText = `Atenção: Foram detetadas ${imprevistosCriticos.length} ocorrências críticas / imprevistos de campo no período!`;
+            } else {
+                blocoAlerta.classList.add('hidden');
+            }
+
             document.getElementById('kpi-proj-vistoria').innerText = filtrados.filter(i => i.projeto === 'VISTORIA').length;
             document.getElementById('kpi-proj-ativacao').innerText = filtrados.filter(i => i.projeto === 'ATIVAÇÃO').length;
             document.getElementById('kpi-proj-construcao').innerText = filtrados.filter(i => i.projeto === 'CONSTRUÇÃO').length;
@@ -1190,9 +1320,9 @@
             document.getElementById('contador-resultados').innerText = filtrados.length + " registros encontrados";
             document.getElementById('contador-materiais').innerText = filtrados.length + " registros sincronizados";
 
-            let concluidasCount = filtrados.filter(i => i.desfecho === 'CONCLUIDA').length;
-            let malogradasCount = filtrados.filter(i => i.desfecho === 'MALOGRADA').length;
-            let pendentesCount = filtrados.filter(i => i.desfecho === 'PENDENTE').length;
+            let concluidasCount = filtrados.filter(i => i.desfecho === 'CONCLUIDA' && i.projeto !== 'IMPREVISTO / ATRASO').length;
+            let malogradasCount = filtrados.filter(i => i.desfecho === 'MALOGRADA' && i.projeto !== 'IMPREVISTO / ATRASO').length;
+            let pendentesCount = filtrados.filter(i => i.desfecho === 'PENDENTE' && i.projeto !== 'IMPREVISTO / ATRASO').length;
 
             document.getElementById('bonif-elegiveis').innerText = concluidasCount;
             document.getElementById('bonif-parciais').innerText = pendentesCount;
@@ -1237,72 +1367,127 @@
                 cxEmbutida: sumEmbutida
             });
 
-            if (filtrados.length === 0) {
+            if (filtrados.length > 0) {
+                filtrados.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-blue-50/50 border-b cursor-pointer transition";
+                    tr.title = "Clique para ver todos os detalhes";
+                    tr.onclick = () => abrirDetalhesAtividade(item);
+                    
+                    let botoesAcao = "";
+                    if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
+                        botoesAcao = `
+                            <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 px-2 py-1 rounded mr-1">✏️ Editar</button>
+                            <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
+                        `;
+                    } else {
+                        botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
+                    }
+
+                    tr.innerHTML = `
+                        <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
+                        <td class="p-3"><div class="font-semibold">${item.equipe}</div></td>
+                        <td class="p-3"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span></td>
+                        <td class="p-3"><span class="font-bold px-2 py-0.5 rounded text-[10px] bg-slate-100">${item.desfecho}</span></td>
+                        <td class="p-3">
+                            <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
+                            <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
+                        </td>
+                        <td class="p-3 text-[10px] font-mono text-slate-600">
+                            <div>In: ${item.gpsEntrada}</div>
+                            <div>Out: ${item.gpsSaida}</div>
+                        </td>
+                        <td class="p-3" onclick="event.stopPropagation()">
+                            ${botoesAcao}
+                        </td>
+                    `;
+                    corpoAtiv.appendChild(tr);
+
+                    const trMat = document.createElement('tr');
+                    trMat.className = "hover:bg-slate-50 border-b transition";
+                    trMat.innerHTML = `
+                        <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
+                        <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
+                        <td class="p-2.5 font-semibold">${item.caboRL} m</td>
+                        <td class="p-2.5 font-semibold">${item.conectores}</td>
+                        <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
+                        <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
+                        <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
+                        <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
+                        <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
+                        <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
+                        <td class="p-2.5 font-semibold">${item.fusoes}</td>
+                    `;
+                    corpoMat.appendChild(trMat);
+                });
+            } else {
                 if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
-                renderizarGraficos([]);
-                renderizarTabelaConsolidada([]);
-                renderizarRankingsSeparados([]);
-                return;
             }
-
-            filtrados.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-blue-50/50 border-b cursor-pointer transition";
-                tr.title = "Clique para ver todos os detalhes";
-                tr.onclick = () => abrirDetalhesAtividade(item);
-                
-                let botoesAcao = "";
-                if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
-                    botoesAcao = `
-                        <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 px-2 py-1 rounded mr-1">✏️ Editar</button>
-                        <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
-                    `;
-                } else {
-                    botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
-                }
-
-                tr.innerHTML = `
-                    <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
-                    <td class="p-3"><div class="font-semibold">${item.equipe}</div></td>
-                    <td class="p-3"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span></td>
-                    <td class="p-3"><span class="font-bold px-2 py-0.5 rounded text-[10px] bg-slate-100">${item.desfecho}</span></td>
-                    <td class="p-3">
-                        <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
-                        <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
-                    </td>
-                    <td class="p-3 text-[10px] font-mono text-slate-600">
-                        <div>In: ${item.gpsEntrada}</div>
-                        <div>Out: ${item.gpsSaida}</div>
-                    </td>
-                    <td class="p-3" onclick="event.stopPropagation()">
-                        ${botoesAcao}
-                    </td>
-                `;
-                corpoAtiv.appendChild(tr);
-
-                const trMat = document.createElement('tr');
-                trMat.className = "hover:bg-slate-50 border-b transition";
-                trMat.innerHTML = `
-                    <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
-                    <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
-                    <td class="p-2.5 font-semibold">${item.caboRL} m</td>
-                    <td class="p-2.5 font-semibold">${item.conectores}</td>
-                    <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
-                    <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
-                    <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
-                    <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
-                    <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
-                    <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
-                    <td class="p-2.5 font-semibold">${item.fusoes}</td>
-                `;
-                corpoMat.appendChild(trMat);
-            });
 
             renderizarGraficos(filtrados);
             renderizarTabelaConsolidada(filtrados);
             renderizarRankingsSeparados(filtrados);
             renderizarTabelaUsuariosPermissao();
+            renderizarTabelaEquipes();
+            renderizarTabelaAuditoria();
+        }
+
+        function fecharAlertaSupervisao() {
+            const blocoAlerta = document.getElementById('alerta-malogros-criticos');
+            blocoAlerta.classList.add('hidden');
+            blocoAlerta.dataset.fechado = "true";
+        }
+
+        // Funções para o Modal de Imprevisto / Atraso
+        function abrirModalImprevisto() {
+            const equipe = document.getElementById('sel-equipe').value;
+            if (!equipe) { alert("⚠️ Selecione a sua Equipe / Técnico primeiro."); return; }
+            document.getElementById('modal-imprevisto').classList.remove('hidden');
+        }
+
+        function fecharModalImprevisto() {
+            document.getElementById('modal-imprevisto').classList.add('hidden');
+        }
+
+        async function enviarImprevisto() {
+            const equipe = document.getElementById('sel-equipe').value;
+            const motivo = document.getElementById('sel-motivo-imprevisto').value;
+            const detalhe = document.getElementById('inp-detalhe-imprevisto').value.trim();
+
+            let gpsReal = "-22.90680, -43.17290";
+            try {
+                gpsReal = await obterGpsObrigatorio();
+            } catch(e) {}
+
+            let imprevistoDB = {
+                id: Date.now(),
+                data_registro: new Date().toISOString().split('T')[0],
+                equipe: equipe,
+                membros: equipe,
+                projeto: "IMPREVISTO / ATRASO",
+                imovel: "N/A (Imprevisto)",
+                h_entrada: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
+                h_saida: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
+                gps_entrada: gpsReal,
+                gps_saida: gpsReal,
+                desfecho: "MALOGRADA",
+                motivo_desfecho: `IMPREVISTO: ${motivo} - ${detalhe}`,
+                malogros: [motivo],
+                servico_obra: "NÃO",
+                observacoes: detalhe
+            };
+
+            const { error } = await supabaseClient.from('registros_producao').insert([imprevistoDB]);
+            if (error) {
+                alert("Erro ao registar imprevisto: " + error.message);
+                return;
+            }
+
+            registrarLogAuditoria("IMPREVISTO REGISTADO", `Equipe: ${equipe} | Motivo: ${motivo}`);
+            alert("⚠️ Imprevisto registado com sucesso e enviado à supervisão!");
+            fecharModalImprevisto();
+            location.reload();
         }
 
         function abrirModalEdicao(id) {
@@ -1449,7 +1634,8 @@
         }
 
         function renderizarRankingsSeparados(dados) {
-            let totalGeral = dados.length;
+            let validos = dados.filter(d => d.projeto !== 'IMPREVISTO / ATRASO');
+            let totalGeral = validos.length;
 
             let tiposProjetos = [
                 'VISTORIA', 'ATIVAÇÃO', 'CONSTRUÇÃO', 'CONSTRUÇÃO + ATIVAÇÃO', 
@@ -1462,7 +1648,7 @@
                 if (!tbody || !spanTotal) return;
                 tbody.innerHTML = "";
 
-                let subset = dados.filter(d => d.desfecho === desfechoAlvo);
+                let subset = validos.filter(d => d.desfecho === desfechoAlvo);
                 spanTotal.innerText = `${subset.length} total`;
 
                 let contagemProj = {};
@@ -1495,10 +1681,11 @@
             if (!corpo) return;
             corpo.innerHTML = "";
 
-            let total = dados.length;
+            let validos = dados.filter(d => d.projeto !== 'IMPREVISTO / ATRASO');
+            let total = validos.length;
             let categorias = {};
 
-            dados.forEach(d => {
+            validos.forEach(d => {
                 let chave = `${d.projeto} (${d.desfecho})`;
                 categorias[chave] = (categorias[chave] || 0) + 1;
             });
@@ -1615,31 +1802,36 @@
 
         function renderizarGraficos(dados) {
             let projetosCount = {
-                'VISTORIA': 0,
-                'ATIVAÇÃO': 0,
-                'CONSTRUÇÃO': 0,
-                'CONSTRUÇÃO + ATIVAÇÃO': 0,
-                'NAP LOTADA ATIVAÇÃO': 0,
-                'NAP LOTADA CONSTRUÇÃO': 0,
-                'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO': 0
+                'VISTORIA': 0, 'ATIVAÇÃO': 0, 'CONSTRUÇÃO': 0, 'CONSTRUÇÃO + ATIVAÇÃO': 0,
+                'NAP LOTADA ATIVAÇÃO': 0, 'NAP LOTADA CONSTRUÇÃO': 0, 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO': 0
             };
-
             let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
+            
+            let horasCount = new Array(24).fill(0);
+            let diasCount = new Array(7).fill(0);
 
             dados.forEach(d => {
-                if (projetosCount[d.projeto] !== undefined) {
-                    projetosCount[d.projeto]++;
+                if (d.projeto !== 'IMPREVISTO / ATRASO') {
+                    if (projetosCount[d.projeto] !== undefined) projetosCount[d.projeto]++;
+                    if (desfechosCount[d.desfecho] !== undefined) desfechosCount[d.desfecho]++;
                 }
-                if (desfechosCount[d.desfecho] !== undefined) {
-                    desfechosCount[d.desfecho]++;
+
+                if (d.hEntrada && d.hEntrada.includes(':')) {
+                    let h = parseInt(d.hEntrada.split(':')[0]);
+                    if (!isNaN(h) && h >= 0 && h < 24) horasCount[h]++;
+                }
+
+                if (d.dataRegistro) {
+                    let dataObj = new Date(d.dataRegistro + 'T00:00:00');
+                    if (!isNaN(dataObj.getDay())) {
+                        diasCount[dataObj.getDay()]++;
+                    }
                 }
             });
 
             const ctxProj = document.getElementById('graficoProjetos')?.getContext('2d');
             if (ctxProj) {
-                if (graficoProjetosInstancia) {
-                    graficoProjetosInstancia.destroy();
-                }
+                if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
                 graficoProjetosInstancia = new Chart(ctxProj, {
                     type: 'bar',
                     data: {
@@ -1658,8 +1850,7 @@
                         onClick: (event, elements) => {
                             if (elements.length > 0) {
                                 let index = elements[0].index;
-                                let chaveProjeto = Object.keys(projetosCount)[index];
-                                dispararExplosaoGrafico('projeto', chaveProjeto);
+                                dispararExplosaoGrafico('projeto', Object.keys(projetosCount)[index]);
                             }
                         }
                     }
@@ -1668,9 +1859,7 @@
 
             const ctxDesf = document.getElementById('graficoDesfechos')?.getContext('2d');
             if (ctxDesf) {
-                if (graficoDesfechosInstancia) {
-                    graficoDesfechosInstancia.destroy();
-                }
+                if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
                 graficoDesfechosInstancia = new Chart(ctxDesf, {
                     type: 'doughnut',
                     data: {
@@ -1686,125 +1875,65 @@
                         onClick: (event, elements) => {
                             if (elements.length > 0) {
                                 let index = elements[0].index;
-                                let chaveDesfecho = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'][index];
-                                dispararExplosaoGrafico('desfecho', chaveDesfecho);
+                                dispararExplosaoGrafico('desfecho', ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'][index]);
                             }
                         }
                     }
                 });
             }
-        }
 
-        // --- GESTÃO DE EQUIPES ---
-        function abrirModalEquipe(id = null) {
-            if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Usuários visualizadores não podem gerenciar equipes."); return; }
-            document.getElementById('modal-equipe').classList.remove('hidden');
-            if (id) {
-                document.getElementById('modal-equipe-titulo').innerText = "Editar Equipe";
-                let eq = equipesSistema.find(e => e.id === id);
-                if (eq) {
-                    document.getElementById('edit-equipe-id').value = eq.id;
-                    document.getElementById('inp-nome-equipe').value = eq.nome;
-                    document.getElementById('sel-status-equipe').value = eq.status;
-                }
-            } else {
-                document.getElementById('modal-equipe-titulo').innerText = "Cadastrar Nova Equipe";
-                document.getElementById('edit-equipe-id').value = "";
-                document.getElementById('inp-nome-equipe').value = "";
-                document.getElementById('sel-status-equipe').value = "Ativo";
+            const ctxHoras = document.getElementById('graficoHoras')?.getContext('2d');
+            if (ctxHoras) {
+                if (graficoHorasInstancia) graficoHorasInstancia.destroy();
+                graficoHorasInstancia = new Chart(ctxHoras, {
+                    type: 'line',
+                    data: {
+                        labels: ['08h', '09h', '10h', '11h', '12h', '13h', '14h', '15h', '16h', '17h', '18h'],
+                        datasets: [{
+                            label: 'Atendimentos',
+                            data: horasCount.slice(8, 19),
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+            }
+
+            const ctxDias = document.getElementById('graficoDiasSemana')?.getContext('2d');
+            if (ctxDias) {
+                if (graficoDiasInstancia) graficoDiasInstancia.destroy();
+                graficoDiasInstancia = new Chart(ctxDias, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
+                        datasets: [{
+                            label: 'Entregas',
+                            data: diasCount,
+                            backgroundColor: '#059669',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
             }
         }
 
-        function fecharModalEquipe() { document.getElementById('modal-equipe').classList.add('hidden'); }
-
-        function salvarOuAtualizarEquipe() {
-            if (nivelUsuarioLogado === 'Visualizador') return;
-            const editId = document.getElementById('edit-equipe-id').value;
-            const nome = document.getElementById('inp-nome-equipe').value.trim().toUpperCase();
-            const status = document.getElementById('sel-status-equipe').value;
-
-            if (!nome) { alert("Preencha o nome da equipe ou técnico."); return; }
-
-            if (editId) {
-                let eq = equipesSistema.find(e => e.id == editId);
-                if (eq) { 
-                    registrarLogAuditoria("EDIÇÃO DE EQUIPE", `Equipe ${eq.nome} alterada para ${nome} (${status})`);
-                    eq.nome = nome; 
-                    eq.status = status; 
-                }
-            } else {
-                registrarLogAuditoria("CADASTRO DE EQUIPE", `Nova equipe cadastrada: ${nome} (${status})`);
-                equipesSistema.push({ id: Date.now(), nome, status });
-            }
-
-            equipesSistema.sort((a, b) => a.nome.localeCompare(b.nome));
-            localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
-            fecharModalEquipe();
-            popularSelectEquipes();
-            renderizarTabelaEquipes();
-            alert("Equipe salva com sucesso!");
-        }
-
-        function renderizarTabelaEquipes() {
-            const corpo = document.getElementById('tabela-equipes-corpo');
-            if (!corpo) return;
-            corpo.innerHTML = "";
-            equipesSistema.forEach(eq => {
-                let acoesEq = nivelUsuarioLogado === 'Master' ? 
-                    `<button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button> <button onclick="excluirEquipe(${eq.id}, '${eq.nome}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>` :
-                    `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
-
-                corpo.innerHTML += `
-                    <tr class="hover:bg-slate-50 border-b">
-                        <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
-                        <td class="p-3">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${eq.status === 'Ativo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
-                                ${eq.status}
-                            </span>
-                        </td>
-                        <td class="p-3 space-x-1">${acoesEq}</td>
-                    </tr>
-                `;
-            });
-        }
-
-        function excluirEquipe(id, nome) {
-            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem excluir equipes."); return; }
-            if (confirm(`Deseja realmente excluir a equipe ${nome} do sistema?`)) {
-                registrarLogAuditoria("EXCLUSÃO DE EQUIPE", `Equipe removida: ${nome}`);
-                equipesSistema = equipesSistema.filter(e => e.id !== id);
-                localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
-                popularSelectEquipes();
-                renderizarTabelaEquipes();
-            }
-        }
-
-        function renderizarTabelaAuditoria() {
-            const corpo = document.getElementById('tabela-auditoria-corpo');
-            if (!corpo) return;
-            corpo.innerHTML = "";
-            if (trilhaAuditoria.length === 0) {
-                corpo.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400">Nenhum registo de auditoria recente.</td></tr>`;
+        async function excluirRegistro(id, imovelCod) {
+            if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
+                alert("⚠️ Acesso restrito para exclusão.");
                 return;
             }
-            trilhaAuditoria.forEach(log => {
-                corpo.innerHTML += `
-                    <tr class="hover:bg-slate-50 border-b text-xs">
-                        <td class="p-3 font-mono text-slate-500">${log.dataHora}</td>
-                        <td class="p-3 font-bold text-blue-900">${log.usuario}</td>
-                        <td class="p-3"><span class="bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded text-[10px]">${log.acao}</span></td>
-                        <td class="p-3 text-slate-600">${log.detalhes}</td>
-                    </tr>
-                `;
-            });
-        }
-
-        function limparLogsAuditoria() {
-            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem limpar os logs."); return; }
-            if (confirm("Deseja limpar o histórico de logs de auditoria?")) {
-                trilhaAuditoria = [];
-                localStorage.removeItem('gpd_trilha_auditoria');
-                renderizarTabelaAuditoria();
+            if (confirm("Deseja excluir este registro de produção?")) {
+                const { error } = await supabaseClient.from('registros_producao').delete().eq('id', id);
+                if (error) {
+                    alert("Erro ao excluir: " + error.message);
+                } else {
+                    registrarLogAuditoria("EXCLUSÃO DE REGISTRO", `Registro do imóvel ${imovelCod} (ID: ${id}) foi apagado.`);
+                    await recarregarDadosGestor();
+                }
             }
         }
 
