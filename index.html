@@ -45,6 +45,18 @@
         <!-- ================= MODO GESTOR ================= -->
         <main id="view-gestor" class="flex-1 p-4 sm:p-6 bg-slate-50 space-y-6 hidden">
             
+            <!-- Alerta Inteligente de Malogros Críticos -->
+            <div id="alerta-malogros-criticos" class="bg-red-50 border-l-4 border-red-600 p-4 rounded-xl shadow-sm hidden flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">⚠️</span>
+                    <div>
+                        <h4 class="font-bold text-red-900 text-xs uppercase">Alerta de Supervisão: Ocorrências / Imprevistos Detetados!</h4>
+                        <p class="text-xs text-red-700" id="txt-alerta-malogros">Existem ocorrências críticas ou imprevistos registados no período filtrado.</p>
+                    </div>
+                </div>
+                <button onclick="fecharAlertaSupervisao()" class="text-red-700 font-bold hover:text-red-900 text-sm px-2 py-1">✕ Fechar</button>
+            </div>
+
             <!-- Abas em Destaque Logo Abaixo do Cabeçalho -->
             <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5">
@@ -1058,128 +1070,447 @@
             if (tipo === 'MALOGRADA') document.getElementById('bloco-malograda').classList.remove('hidden');
         }
 
-        async function carregarRegistrosDaNuvem() {
-            try {
-                let { data, error } = await supabaseClient
-                    .from('registros_producao')
-                    .select('*')
-                    .order('id', { ascending: false });
-                
-                if (error) throw error;
-                
-                if (data) {
-                    registrosSalvos = data.map(r => ({
-                        id: r.id,
-                        dataRegistro: r.data_registro || '',
-                        equipe: r.equipe || '',
-                        membros: r.membros || '',
-                        projeto: r.projeto || '',
-                        imovel: r.imovel || '',
-                        hEntrada: r.h_entrada || '',
-                        hSaida: r.h_saida || '',
-                        gpsEntrada: r.gps_entrada || '',
-                        gpsSaida: r.gps_saida || '',
-                        desfecho: r.desfecho || '',
-                        motivoDesfecho: r.motivo_desfecho || '',
-                        malogros: r.malogros || [],
-                        responsavel: r.responsavel || '',
-                        contato: r.contato || '',
-                        email: r.email || '',
-                        agendamento: r.agendamento || '',
-                        andares: r.andares || '',
-                        hps: r.hps || '',
-                        servicoObra: r.servico_obra || 'SIM',
-                        observacoes: r.observacoes || '',
-                        fusoes: Number(r.fusoes) || 0,
-                        conectores: Number(r.conectores) || 0,
-                        caboRL: Number(r.cabo_rl) || 0,
-                        caboDrop: Number(r.cabo_drop) || 0,
-                        nap: Number(r.nap) || 0,
-                        dio: Number(r.dio) || 0,
-                        cxSobrepor: Number(r.cx_sobrepor) || 0,
-                        cxEmbutida: Number(r.cx_embutida) || 0,
-                        cxFosc: Number(r.cx_fosc) || 0
-                    }));
+        async function atualizarDashboardGestor() {
+            const dataInicio = document.getElementById('gestor-filtro-data-inicio').value;
+            const dataFim = document.getElementById('gestor-filtro-data-fim').value;
+            const fEquipe = document.getElementById('gestor-filtro-equipe').value;
+            const fProjeto = document.getElementById('gestor-filtro-projeto').value;
+            const termoBusca = document.getElementById('inp-busca-global')?.value.toLowerCase().trim() || "";
+
+            const corpoAtiv = document.getElementById('tabela-gestor-corpo');
+            const corpoMat = document.getElementById('tabela-materiais-corpo');
+            if (corpoAtiv) corpoAtiv.innerHTML = "";
+            if (corpoMat) corpoMat.innerHTML = "";
+
+            let filtrados = registrosSalvos.filter(item => {
+                let mData = true;
+                if (dataInicio && dataFim) {
+                    mData = item.dataRegistro >= dataInicio && item.dataRegistro <= dataFim;
+                } else if (dataInicio) {
+                    mData = item.dataRegistro >= dataInicio;
+                } else if (dataFim) {
+                    mData = item.dataRegistro <= dataFim;
                 }
-            } catch (err) {
-                console.error("Erro ao carregar dados do Supabase:", err);
+
+                let mEquipe = fEquipe ? item.equipe === fEquipe : true;
+                let mProj = fProjeto ? item.projeto === fProjeto : true;
+
+                let mBusca = true;
+                if (termoBusca) {
+                    mBusca = (item.imovel && item.imovel.toLowerCase().includes(termoBusca)) ||
+                             (item.equipe && item.equipe.toLowerCase().includes(termoBusca)) ||
+                             (item.projeto && item.projeto.toLowerCase().includes(termoBusca)) ||
+                             (item.desfecho && item.desfecho.toLowerCase().includes(termoBusca));
+                }
+
+                return mData && mEquipe && mProj && mBusca;
+            });
+
+            dadosFiltradosAtuais = filtrados;
+
+            document.getElementById('kpi-proj-vistoria').innerText = filtrados.filter(i => i.projeto === 'VISTORIA').length;
+            document.getElementById('kpi-proj-ativacao').innerText = filtrados.filter(i => i.projeto === 'ATIVAÇÃO').length;
+            document.getElementById('kpi-proj-construcao').innerText = filtrados.filter(i => i.projeto === 'CONSTRUÇÃO').length;
+            document.getElementById('kpi-proj-const-ativ').innerText = filtrados.filter(i => i.projeto === 'CONSTRUÇÃO + ATIVAÇÃO').length;
+            document.getElementById('kpi-proj-nap-ativ').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA ATIVAÇÃO').length;
+            document.getElementById('kpi-proj-nap-const').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO').length;
+            document.getElementById('kpi-proj-nap-ambos').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO').length;
+            document.getElementById('contador-resultados').innerText = filtrados.length + " registros encontrados";
+            document.getElementById('contador-materiais').innerText = filtrados.length + " registros sincronizados";
+
+            let concluidasCount = filtrados.filter(i => i.desfecho === 'CONCLUIDA').length;
+            let malogradasCount = filtrados.filter(i => i.desfecho === 'MALOGRADA').length;
+            let pendentesCount = filtrados.filter(i => i.desfecho === 'PENDENTE').length;
+
+            document.getElementById('bonif-elegiveis').innerText = concluidasCount;
+            document.getElementById('bonif-parciais').innerText = pendentesCount;
+            document.getElementById('bonif-media-geral').innerText = filtrados.length > 0 ? (concluidasCount / (new Set(filtrados.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0";
+            document.getElementById('bonif-malogros').innerText = malogradasCount;
+
+            let sumCaboRL = 0, sumConectores = 0, sumCaboDrop = 0, sumNap = 0, sumDio = 0, sumFusoes = 0;
+            let sumSobrepor = 0, sumEmbutida = 0, sumFosc = 0, sumVistorias = 0;
+
+            filtrados.forEach(i => {
+                if (i.projeto === 'VISTORIA' && i.desfecho === 'CONCLUIDA') sumVistorias++;
+                sumCaboRL += Number(i.caboRL) || 0;
+                sumConectores += Number(i.conectores) || 0;
+                sumCaboDrop += Number(i.caboDrop) || 0;
+                sumNap += Number(i.nap) || 0;
+                sumDio += Number(i.dio) || 0;
+                sumFusoes += Number(i.fusoes) || 0;
+                sumSobrepor += Number(i.cxSobrepor) || 0;
+                sumEmbutida += Number(i.cxEmbutida) || 0;
+                sumFosc += Number(i.cxFosc) || 0;
+            });
+
+            document.getElementById('total-cabo-rl').innerText = sumCaboRL + " m";
+            document.getElementById('total-conectores').innerText = sumConectores;
+            document.getElementById('total-cabo-drop').innerText = sumCaboDrop + " m";
+            document.getElementById('total-nap').innerText = sumNap;
+            document.getElementById('total-dio').innerText = sumDio;
+            document.getElementById('total-fusoes').innerText = sumFusoes;
+            document.getElementById('total-cx-sobrepor').innerText = sumSobrepor;
+            document.getElementById('total-cx-embutida').innerText = sumEmbutida;
+            document.getElementById('total-cx-fosc').innerText = sumFosc;
+
+            renderizarTabelaFinanceiro({
+                vistorias: sumVistorias,
+                caboRL: sumCaboRL,
+                conectores: sumConectores,
+                fusoes: sumFusoes,
+                caboDrop: sumCaboDrop,
+                nap: sumNap,
+                dio: sumDio,
+                cxSobrepor: sumSobrepor,
+                cxEmbutida: sumEmbutida
+            });
+
+            if (filtrados.length === 0) {
+                if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
+                if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
+                renderizarGraficos([]);
+                renderizarTabelaConsolidada([]);
+                renderizarRankingsSeparados([]);
+                return;
+            }
+
+            filtrados.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-blue-50/50 border-b cursor-pointer transition";
+                tr.title = "Clique para ver todos os detalhes";
+                tr.onclick = () => abrirDetalhesAtividade(item);
+                
+                let botoesAcao = "";
+                if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
+                    botoesAcao = `
+                        <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 px-2 py-1 rounded mr-1">✏️ Editar</button>
+                        <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
+                    `;
+                } else {
+                    botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
+                    <td class="p-3"><div class="font-semibold">${item.equipe}</div></td>
+                    <td class="p-3"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span></td>
+                    <td class="p-3"><span class="font-bold px-2 py-0.5 rounded text-[10px] bg-slate-100">${item.desfecho}</span></td>
+                    <td class="p-3">
+                        <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
+                        <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
+                    </td>
+                    <td class="p-3 text-[10px] font-mono text-slate-600">
+                        <div>In: ${item.gpsEntrada}</div>
+                        <div>Out: ${item.gpsSaida}</div>
+                    </td>
+                    <td class="p-3" onclick="event.stopPropagation()">
+                        ${botoesAcao}
+                    </td>
+                `;
+                corpoAtiv.appendChild(tr);
+
+                const trMat = document.createElement('tr');
+                trMat.className = "hover:bg-slate-50 border-b transition";
+                trMat.innerHTML = `
+                    <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
+                    <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
+                    <td class="p-2.5 font-semibold">${item.caboRL} m</td>
+                    <td class="p-2.5 font-semibold">${item.conectores}</td>
+                    <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
+                    <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
+                    <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
+                    <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
+                    <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
+                    <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
+                    <td class="p-2.5 font-semibold">${item.fusoes}</td>
+                `;
+                corpoMat.appendChild(trMat);
+            });
+
+            renderizarGraficos(filtrados);
+            renderizarTabelaConsolidada(filtrados);
+            renderizarRankingsSeparados(filtrados);
+            renderizarTabelaUsuariosPermissao();
+        }
+
+        function abrirModalEdicao(id) {
+            if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
+                alert("⚠️ Acesso restrito para edição.");
+                return;
+            }
+            let reg = registrosSalvos.find(r => r.id === id);
+            if (!reg) return;
+
+            document.getElementById('edit-reg-id').value = reg.id;
+            document.getElementById('edit-reg-imovel').value = reg.imovel;
+            document.getElementById('edit-reg-projeto').value = reg.projeto;
+            document.getElementById('edit-reg-desfecho').value = reg.desfecho;
+            document.getElementById('edit-reg-cabo-rl').value = reg.caboRL;
+            document.getElementById('edit-reg-conectores').value = reg.conectores;
+            document.getElementById('edit-reg-cabo-drop').value = reg.caboDrop;
+            document.getElementById('edit-reg-nap').value = reg.nap;
+            document.getElementById('edit-reg-dio').value = reg.dio;
+            document.getElementById('edit-reg-fusoes').value = reg.fusoes;
+            document.getElementById('edit-reg-cx-sobrepor').value = reg.cxSobrepor;
+            document.getElementById('edit-reg-cx-embutida').value = reg.cxEmbutida;
+            document.getElementById('edit-reg-cx-fosc').value = reg.cxFosc;
+
+            document.getElementById('modal-edicao').classList.remove('hidden');
+        }
+
+        function fecharModalEdicao() {
+            document.getElementById('modal-edicao').classList.add('hidden');
+        }
+
+        async function salvarEdicaoRegistro() {
+            let id = Number(document.getElementById('edit-reg-id').value);
+            let imovel = document.getElementById('edit-reg-imovel').value.trim();
+            let projeto = document.getElementById('edit-reg-projeto').value;
+            let desfecho = document.getElementById('edit-reg-desfecho').value;
+            let cabo_rl = Number(document.getElementById('edit-reg-cabo-rl').value) || 0;
+            let conectores = Number(document.getElementById('edit-reg-conectores').value) || 0;
+            let cabo_drop = Number(document.getElementById('edit-reg-cabo-drop').value) || 0;
+            let nap = Number(document.getElementById('edit-reg-nap').value) || 0;
+            let dio = Number(document.getElementById('edit-reg-dio').value) || 0;
+            let fusoes = Number(document.getElementById('edit-reg-fusoes').value) || 0;
+            let cx_sobrepor = Number(document.getElementById('edit-reg-cx-sobrepor').value) || 0;
+            let cx_embutida = Number(document.getElementById('edit-reg-cx-embutida').value) || 0;
+            let cx_fosc = Number(document.getElementById('edit-reg-cx-fosc').value) || 0;
+
+            let dadosAtualizados = {
+                imovel: imovel,
+                projeto: projeto,
+                desfecho: desfecho,
+                cabo_rl: cabo_rl,
+                conectores: conectores,
+                cabo_drop: cabo_drop,
+                nap: nap,
+                dio: dio,
+                fusoes: fusoes,
+                cx_sobrepor: cx_sobrepor,
+                cx_embutida: cx_embutida,
+                cx_fosc: cx_fosc
+            };
+
+            const { error } = await supabaseClient
+                .from('registros_producao')
+                .update(dadosAtualizados)
+                .eq('id', id);
+
+            if (error) {
+                alert("Erro ao atualizar registro: " + error.message);
+                return;
+            }
+
+            registrarLogAuditoria("EDIÇÃO DE REGISTRO", `Registro ID ${id} (Imóvel: ${imovel}) atualizado.`);
+            alert("Registro atualizado com sucesso!");
+            fecharModalEdicao();
+            await recarregarDadosGestor();
+        }
+
+        function renderizarTabelaFinanceiro(totais) {
+            const corpo = document.getElementById('tabela-financeiro-corpo');
+            const spanTotalGeral = document.getElementById('fin-total-geral');
+            if (!corpo) return;
+            corpo.innerHTML = "";
+
+            let itensMedicao = [
+                { chave: "VISTORIA", qtd: totais.vistorias },
+                { chave: "CABO RL", qtd: totais.caboRL },
+                { chave: "CONECTORES", qtd: totais.conectores },
+                { chave: "FUSÕES", qtd: totais.fusoes },
+                { chave: "CABO DROP", qtd: totais.caboDrop },
+                { chave: "NAP", qtd: totais.nap },
+                { chave: "DIO", qtd: totais.dio },
+                { chave: "CX SOBREPOR", qtd: totais.cxSobrepor },
+                { chave: "CX EMBUTIDA", qtd: totais.cxEmbutida }
+            ];
+
+            let valorGeralAcumulado = 0;
+
+            itensMedicao.forEach(item => {
+                let cfg = TABELA_PRECOS[item.chave];
+                let qtd = item.qtd;
+                let totalItem = qtd * cfg.valor;
+                valorGeralAcumulado += totalItem;
+
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3 font-mono font-bold text-slate-700">${cfg.codigo}</td>
+                        <td class="p-3 font-semibold text-slate-800">${cfg.desc}</td>
+                        <td class="p-3 text-slate-600">${cfg.unidade}</td>
+                        <td class="p-3 text-center font-bold text-blue-900">${qtd.toLocaleString('pt-BR')}</td>
+                        <td class="p-3 text-right text-slate-600">R$ ${cfg.valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                        <td class="p-3 text-right font-black text-emerald-700">R$ ${totalItem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    </tr>
+                `;
+            });
+
+            spanTotalGeral.innerText = `R$ ${valorGeralAcumulado.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        }
+
+        function renderizarTabelaUsuariosPermissao() {
+            const corpo = document.getElementById('tabela-usuarios-corpo');
+            if (!corpo) return;
+            corpo.innerHTML = "";
+
+            let listaVisivel = usuariosSistema;
+            if (nivelUsuarioLogado === 'Visualizador' || nivelUsuarioLogado === 'Operador') {
+                listaVisivel = usuariosSistema.filter(u => u.email.toLowerCase() === usuarioLogado.toLowerCase());
+            }
+
+            listaVisivel.forEach(u => {
+                let acoesHtml = `<button onclick="abrirModalUsuario(${u.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Alterar Senha</button>`;
+                if (nivelUsuarioLogado === 'Master') {
+                    acoesHtml += ` <button onclick="excluirUsuario(${u.id}, '${u.email}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>`;
+                }
+
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3"><div class="font-bold">${u.nome}</div><div class="text-[10px] text-slate-400">${u.email}</div></td>
+                        <td class="p-3"><span class="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-[10px]">${u.nivel}</span></td>
+                        <td class="p-3"><span class="text-emerald-600 font-semibold">${u.status}</span></td>
+                        <td class="p-3">${acoesHtml}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- GESTÃO DE EQUIPES ---
+        function abrirModalEquipe(id = null) {
+            if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Usuários visualizadores não podem gerenciar equipes."); return; }
+            document.getElementById('modal-equipe').classList.remove('hidden');
+            if (id) {
+                document.getElementById('modal-equipe-titulo').innerText = "Editar Equipe";
+                let eq = equipesSistema.find(e => e.id === id);
+                if (eq) {
+                    document.getElementById('edit-equipe-id').value = eq.id;
+                    document.getElementById('inp-nome-equipe').value = eq.nome;
+                    document.getElementById('sel-status-equipe').value = eq.status;
+                }
+            } else {
+                document.getElementById('modal-equipe-titulo').innerText = "Cadastrar Nova Equipe";
+                document.getElementById('edit-equipe-id').value = "";
+                document.getElementById('inp-nome-equipe').value = "";
+                document.getElementById('sel-status-equipe').value = "Ativo";
             }
         }
 
-        async function salvarRegistro() {
-            if (!dadosAtendimento.desfechoSelecionado) {
-                alert("⚠️ Selecione o desfecho da atividade.");
-                return;
-            }
+        function fecharModalEquipe() { document.getElementById('modal-equipe').classList.add('hidden'); }
 
-            let motivoDesfecho = "";
-            let malogrosSelecionados = [];
-            let servObraVal = "SIM";
+        function salvarOuAtualizarEquipe() {
+            if (nivelUsuarioLogado === 'Visualizador') return;
+            const editId = document.getElementById('edit-equipe-id').value;
+            const nome = document.getElementById('inp-nome-equipe').value.trim().toUpperCase();
+            const status = document.getElementById('sel-status-equipe').value;
 
-            if (dadosAtendimento.desfechoSelecionado === 'CONCLUIDA') {
-                servObraVal = document.getElementById('sel-servico-obra').value;
-                motivoDesfecho = document.getElementById('obs-concluida').value.trim();
-            } else if (dadosAtendimento.desfechoSelecionado === 'PENDENTE') {
-                motivoDesfecho = document.getElementById('obs-pendente').value.trim();
-                if (!motivoDesfecho) { alert("⚠️ Informe o motivo da pendência."); return; }
-            } else if (dadosAtendimento.desfechoSelecionado === 'MALOGRADA') {
-                motivoDesfecho = document.getElementById('obs-malograda').value.trim();
-                let checkboxes = document.querySelectorAll('input[name="malogro-check"]:checked');
-                checkboxes.forEach(cb => malogrosSelecionados.push(cb.value));
-                if (!motivoDesfecho || malogrosSelecionados.length === 0) {
-                    alert("⚠️ Informe o motivo e selecione pelo menos um ofensor/malogro.");
-                    return;
+            if (!nome) { alert("Preencha o nome da equipe ou técnico."); return; }
+
+            if (editId) {
+                let eq = equipesSistema.find(e => e.id == editId);
+                if (eq) { 
+                    registrarLogAuditoria("EDIÇÃO DE EQUIPE", `Equipe ${eq.nome} alterada para ${nome} (${status})`);
+                    eq.nome = nome; 
+                    eq.status = status; 
                 }
+            } else {
+                registrarLogAuditoria("CADASTRO DE EQUIPE", `Nova equipe cadastrada: ${nome} (${status})`);
+                equipesSistema.push({ id: Date.now(), nome, status });
             }
 
-            const equipeNome = document.getElementById('sel-equipe').value;
-            const projetoNome = document.getElementById('sel-projeto').value;
-            const imovelCod = document.getElementById('inp-imovel').value;
-            
-            // Garantir a data local correta sem fuso
-            const dataLocalCorreta = new Date().toLocaleDateString('en-CA');
+            equipesSistema.sort((a, b) => a.nome.localeCompare(b.nome));
+            localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
+            fecharModalEquipe();
+            popularSelectEquipes();
+            renderizarTabelaEquipes();
+            alert("Equipe salva com sucesso!");
+        }
 
-            const novoRegistroDB = {
-                id: Date.now(),
-                data_registro: dataLocalCorreta,
-                equipe: equipeNome,
-                membros: equipeNome,
-                projeto: projetoNome,
-                imovel: imovelCod,
-                h_entrada: document.getElementById('lbl-h-entrada').innerText || "08:30",
-                h_saida: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
-                gps_entrada: "-22.90680, -43.17290",
-                gps_saida: "-22.90710, -43.17320",
-                desfecho: dadosAtendimento.desfechoSelecionado,
-                motivo_desfecho: motivoDesfecho,
-                malogros: malogrosSelecionados,
-                responsavel: document.getElementById('form-responsavel').value || '',
-                contato: document.getElementById('form-contato').value || '',
-                email: document.getElementById('form-email').value || '',
-                andares: Number(document.getElementById('form-andares')?.value) || 0,
-                hps: Number(document.getElementById('form-hps')?.value) || 0,
-                servico_obra: servObraVal,
-                observacoes: document.getElementById('form-observacoes').value || '',
-                fusoes: Number(document.getElementById('mat-fusoes')?.value) || 0,
-                conectores: Number(document.getElementById('mat-conectores')?.value) || 0,
-                cabo_rl: Number(document.getElementById('mat-cabo-rl')?.value) || 0,
-                cabo_drop: Number(document.getElementById('mat-cabo-drop')?.value) || 0,
-                nap: Number(document.getElementById('mat-nap')?.value) || 0,
-                dio: Number(document.getElementById('mat-dio')?.value) || 0,
-                cx_sobrepor: Number(document.getElementById('mat-cx-sobrepor')?.value) || 0,
-                cx_embutida: Number(document.getElementById('mat-cx-embutida')?.value) || 0,
-                cx_fosc: Number(document.getElementById('mat-cx-fosc')?.value) || 0
-            };
+        function renderizarTabelaEquipes() {
+            const corpo = document.getElementById('tabela-equipes-corpo');
+            if (!corpo) return;
+            corpo.innerHTML = "";
+            equipesSistema.forEach(eq => {
+                let acoesEq = nivelUsuarioLogado === 'Master' ? 
+                    `<button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button> <button onclick="excluirEquipe(${eq.id}, '${eq.nome}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>` :
+                    `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
 
-            const { error } = await supabaseClient.from('registros_producao').insert([novoRegistroDB]);
-            if (error) {
-                alert("Erro ao salvar: " + error.message);
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
+                        <td class="p-3">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${eq.status === 'Ativo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
+                                ${eq.status}
+                            </span>
+                        </td>
+                        <td class="p-3 space-x-1">${acoesEq}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function excluirEquipe(id, nome) {
+            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem excluir equipes."); return; }
+            if (confirm(`Deseja realmente excluir a equipe ${nome} do sistema?`)) {
+                registrarLogAuditoria("EXCLUSÃO DE EQUIPE", `Equipe removida: ${nome}`);
+                equipesSistema = equipesSistema.filter(e => e.id !== id);
+                localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
+                popularSelectEquipes();
+                renderizarTabelaEquipes();
+            }
+        }
+
+        function renderizarTabelaAuditoria() {
+            const corpo = document.getElementById('tabela-auditoria-corpo');
+            if (!corpo) return;
+            corpo.innerHTML = "";
+            if (trilhaAuditoria.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400">Nenhum registo de auditoria recente.</td></tr>`;
                 return;
             }
+            trilhaAuditoria.forEach(log => {
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b text-xs">
+                        <td class="p-3 font-mono text-slate-500">${log.dataHora}</td>
+                        <td class="p-3 font-bold text-blue-900">${log.usuario}</td>
+                        <td class="p-3"><span class="bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded text-[10px]">${log.acao}</span></td>
+                        <td class="p-3 text-slate-600">${log.detalhes}</td>
+                    </tr>
+                `;
+            });
+        }
 
-            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome})`);
-            alert("Atendimento sincronizado com sucesso!");
-            location.reload();
+        function limparLogsAuditoria() {
+            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem limpar os logs."); return; }
+            if (confirm("Deseja limpar o histórico de logs de auditoria?")) {
+                trilhaAuditoria = [];
+                localStorage.removeItem('gpd_trilha_auditoria');
+                renderizarTabelaAuditoria();
+            }
+        }
+
+        function mudarSubAbaGestor(aba) {
+            const subs = ['atividades', 'graficos', 'materiais', 'financeiro', 'equipes', 'usuarios', 'bonificacao', 'auditoria'];
+            subs.forEach(s => {
+                const el = document.getElementById(`subview-${s}`);
+                const btn = document.getElementById(`subtab-btn-${s}`);
+                if (el) el.classList.add('hidden');
+                if (btn) btn.className = "px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5";
+            });
+            
+            const targetView = document.getElementById(`subview-${aba}`);
+            const targetBtn = document.getElementById(`subtab-btn-${aba}`);
+            if (targetView) targetView.classList.remove('hidden');
+            if (targetBtn) targetBtn.className = "px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5";
+
+            if (aba === 'usuarios') renderizarTabelaUsuariosPermissao();
+            if (aba === 'equipes') renderizarTabelaEquipes();
+            if (aba === 'auditoria') renderizarTabelaAuditoria();
+            if (aba === 'graficos') atualizarDashboardGestor();
+            if (aba === 'bonificacao') atualizarDashboardGestor();
+            if (aba === 'financeiro') atualizarDashboardGestor();
+            if (aba === 'materiais') atualizarDashboardGestor();
+            if (aba === 'atividades') atualizarDashboardGestor();
         }
     </script>
 </body>
