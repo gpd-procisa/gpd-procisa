@@ -45,18 +45,6 @@
         <!-- ================= MODO GESTOR ================= -->
         <main id="view-gestor" class="flex-1 p-4 sm:p-6 bg-slate-50 space-y-6 hidden">
             
-            <!-- Alerta Inteligente de Malogros Críticos -->
-            <div id="alerta-malogros-criticos" class="bg-red-50 border-l-4 border-red-600 p-4 rounded-xl shadow-sm hidden flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <span class="text-2xl">⚠️</span>
-                    <div>
-                        <h4 class="font-bold text-red-900 text-xs uppercase">Alerta de Supervisão: Ocorrências / Imprevistos Detetados!</h4>
-                        <p class="text-xs text-red-700" id="txt-alerta-malogros">Existem ocorrências críticas ou imprevistos registados no período filtrado.</p>
-                    </div>
-                </div>
-                <button onclick="fecharAlertaSupervisao()" class="text-red-700 font-bold hover:text-red-900 text-sm px-2 py-1">✕ Fechar</button>
-            </div>
-
             <!-- Abas em Destaque Logo Abaixo do Cabeçalho -->
             <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5">
@@ -101,7 +89,7 @@
             </div>
 
             <!-- KPIs Numéricos Independentes -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Vistoria</span>
                     <span class="text-xl font-bold text-slate-800 mt-1" id="kpi-proj-vistoria">0</span>
@@ -129,10 +117,6 @@
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lot. Amb</span>
                     <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-nap-ambos">0</span>
-                </div>
-                <div class="bg-amber-50 p-3 rounded-xl shadow-sm border border-amber-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-amber-800 uppercase">⚠️ Imprevistos</span>
-                    <span class="text-xl font-bold text-amber-700 mt-1" id="kpi-proj-imprevistos">0</span>
                 </div>
             </div>
 
@@ -164,7 +148,6 @@
                             <option value="NAP LOTADA ATIVAÇÃO">NAP LOTADA ATIVAÇÃO</option>
                             <option value="NAP LOTADA CONSTRUÇÃO">NAP LOTADA CONSTRUÇÃO</option>
                             <option value="NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO">NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO</option>
-                            <option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>
                         </select>
                     </div>
                 </div>
@@ -194,7 +177,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos & Produtividade por Hora/Dia -->
+            <!-- Sub-Aba: Gráficos -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
                     <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto ou parte da rosca para abrir o detalhamento por atividades, técnicos e dias.</span>
@@ -214,24 +197,6 @@
                             <p class="text-xs text-slate-500 mb-4">Proporção detalhada entre Concluídas, Pendentes e Malogradas</p>
                         </div>
                         <div class="relative h-80"><canvas id="graficoDesfechos"></canvas></div>
-                    </div>
-                </div>
-
-                <!-- Gráficos de Produtividade por Hora e Dia da Semana -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase">⏰ Produtividade por Horário (Picos de Atendimento)</h3>
-                            <p class="text-xs text-slate-500 mb-4">Distribuição de atendimentos ao longo das horas do dia</p>
-                        </div>
-                        <div class="relative h-72"><canvas id="graficoHoras"></canvas></div>
-                    </div>
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase">📅 Produtividade por Dia da Semana</h3>
-                            <p class="text-xs text-slate-500 mb-4">Volume de entregas concentradas por dia útil/fim de semana</p>
-                        </div>
-                        <div class="relative h-72"><canvas id="graficoDiasSemana"></canvas></div>
                     </div>
                 </div>
 
@@ -802,7 +767,7 @@
         </div>
     </div>
 
-    <!-- Script Principal com Feedback Visual Imediato no Modo Campo -->
+    <!-- Script Principal com Gráficos Corrigidos e Edição por Operador/Master -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -840,7 +805,7 @@
             status: "Ativo"
         }));
 
-        let dadosAtendimento = { hEntrada: null, hSaida: null, gpsEntrada: "-22.90680, -43.17290", gpsSaida: "-22.90710, -43.17320", desfechoSelecionado: null };
+        let dadosAtendimento = { hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, desfechoSelecionado: null };
         let registrosSalvos = [];
         let usuariosSistema = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [
             { id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", senha: "Leo290301@", nivel: "Master", status: "Ativo" }
@@ -1077,7 +1042,7 @@
             if (projeto === 'VISTORIA') {
                 titulo.innerText = "Dados da Vistoria";
             } else {
-                titulo.innerText = "Dados de Execução e Materiais";
+                titulo.innerText = "Dados de Execução e Materiais (" + projeto + ")";
             }
         }
 
@@ -1132,17 +1097,16 @@
             const equipeNome = document.getElementById('sel-equipe').value;
             const projetoNome = document.getElementById('sel-projeto').value;
             const imovelCod = document.getElementById('inp-imovel').value;
-            const dataLocalCorreta = new Date().toLocaleDateString('en-CA');
 
             const novoRegistroDB = {
                 id: Date.now(),
-                data_registro: dataLocalCorreta,
+                data_registro: new Date().toISOString().split('T')[0],
                 equipe: equipeNome,
                 membros: equipeNome,
                 projeto: projetoNome,
                 imovel: imovelCod,
-                h_entrada: document.getElementById('lbl-h-entrada').innerText || "08:30",
-                h_saida: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
+                h_entrada: "08:30",
+                h_saida: "12:15",
                 gps_entrada: "-22.90680, -43.17290",
                 gps_saida: "-22.90710, -43.17320",
                 desfecho: dadosAtendimento.desfechoSelecionado,
@@ -1157,8 +1121,8 @@
                 observacoes: document.getElementById('form-observacoes').value || '',
                 fusoes: Number(document.getElementById('mat-fusoes')?.value) || 0,
                 conectores: Number(document.getElementById('mat-conectores')?.value) || 0,
-                caboRL: Number(document.getElementById('mat-cabo-rl')?.value) || 0,
-                caboDrop: Number(document.getElementById('mat-cabo-drop')?.value) || 0,
+                cabo_rl: Number(document.getElementById('mat-cabo-rl')?.value) || 0,
+                cabo_drop: Number(document.getElementById('mat-cabo-drop')?.value) || 0,
                 nap: Number(document.getElementById('mat-nap')?.value) || 0,
                 dio: Number(document.getElementById('mat-dio')?.value) || 0,
                 cx_sobrepor: Number(document.getElementById('mat-cx-sobrepor')?.value) || 0,
@@ -1172,8 +1136,8 @@
                 return;
             }
 
-            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome})`);
-            alert("✅ Atendimento finalizado e sincronizado com sucesso!");
+            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome}) [Serviço Obra: ${servObraVal}]`);
+            alert("Atendimento sincronizado com sucesso!");
             location.reload();
         }
 
@@ -1483,6 +1447,319 @@
             });
         }
 
+        function renderizarRankingsSeparados(dados) {
+            let totalGeral = dados.length;
+
+            let tiposProjetos = [
+                'VISTORIA', 'ATIVAÇÃO', 'CONSTRUÇÃO', 'CONSTRUÇÃO + ATIVAÇÃO', 
+                'NAP LOTADA ATIVAÇÃO', 'NAP LOTADA CONSTRUÇÃO', 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO'
+            ];
+
+            function preencherTabelaRank(desfechoAlvo, idTabela, idTotal) {
+                const tbody = document.getElementById(idTabela);
+                const spanTotal = document.getElementById(idTotal);
+                if (!tbody || !spanTotal) return;
+                tbody.innerHTML = "";
+
+                let subset = dados.filter(d => d.desfecho === desfechoAlvo);
+                spanTotal.innerText = `${subset.length} total`;
+
+                let contagemProj = {};
+                tiposProjetos.forEach(p => contagemProj[p] = 0);
+                subset.forEach(d => {
+                    if (contagemProj[d.projeto] !== undefined) contagemProj[d.projeto]++;
+                });
+
+                let ordenados = Object.entries(contagemProj).sort((a, b) => b[1] - a[1]);
+
+                ordenados.forEach(([proj, qtd]) => {
+                    let perc = totalGeral > 0 ? ((qtd / totalGeral) * 100).toFixed(1) : 0;
+                    tbody.innerHTML += `
+                        <tr class="border-b hover:bg-slate-50">
+                            <td class="py-1.5 font-medium text-slate-700 truncate max-w-[120px]">${proj}</td>
+                            <td class="py-1.5 text-center font-bold text-blue-900">${qtd}</td>
+                            <td class="py-1.5 text-right text-slate-500">${perc}%</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            preencherTabelaRank('CONCLUIDA', 'tabela-rank-concluida', 'rank-conc-total');
+            preencherTabelaRank('PENDENTE', 'tabela-rank-pendente', 'rank-pend-total');
+            preencherTabelaRank('MALOGRADA', 'tabela-rank-malograda', 'rank-malo-total');
+        }
+
+        function renderizarTabelaConsolidada(dados) {
+            const corpo = document.getElementById('tabela-consolidada-corpo');
+            if (!corpo) return;
+            corpo.innerHTML = "";
+
+            let total = dados.length;
+            let categorias = {};
+
+            dados.forEach(d => {
+                let chave = `${d.projeto} (${d.desfecho})`;
+                categorias[chave] = (categorias[chave] || 0) + 1;
+            });
+
+            if (Object.keys(categorias).length === 0) {
+                corpo.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-400">Nenhum dado consolidado no período.</td></tr>`;
+                return;
+            }
+
+            for (let [cat, qtd] of Object.entries(categorias)) {
+                let perc = total > 0 ? ((qtd / total) * 100).toFixed(1) : 0;
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3 font-semibold text-slate-800">${cat}</td>
+                        <td class="p-3 text-center font-bold text-blue-900">${qtd}</td>
+                        <td class="p-3 text-center text-slate-600">${perc}%</td>
+                    </tr>
+                `;
+            }
+        }
+
+        function abrirDetalhesAtividade(item) {
+            const modal = document.getElementById('modal-detalhes');
+            const conteudo = document.getElementById('modal-detalhes-conteudo');
+            document.getElementById('modal-detalhes-titulo').innerText = `Detalhes do Imóvel: ${item.imovel}`;
+
+            let linkGpsEntrada = item.gpsEntrada && item.gpsEntrada.includes(',') ? 
+                `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsEntrada)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsEntrada} (Abrir no Maps)</a>` : item.gpsEntrada;
+
+            let linkGpsSaida = item.gpsSaida && item.gpsSaida.includes(',') ? 
+                `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsSaida)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsSaida} (Abrir no Maps)</a>` : item.gpsSaida;
+
+            let malogrosStr = item.malogros && item.malogros.length > 0 ? item.malogros.join(', ') : 'Nenhum';
+
+            conteudo.innerHTML = `
+                <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
+                    <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
+                    <div><strong>Técnico / Equipe:</strong> ${item.equipe}</div>
+                    <div><strong>Projeto:</strong> ${item.projeto}</div>
+                    <div><strong>Desfecho:</strong> <span class="font-bold text-blue-900">${item.desfecho}</span></div>
+                    <div><strong>Serviço de Obra:</strong> <span class="font-bold">${item.servicoObra || 'SIM'}</span></div>
+                    <div><strong>Andares:</strong> ${item.andares || 0}</div>
+                    <div><strong>HPs:</strong> ${item.hps || 0}</div>
+                    <div><strong>Responsável:</strong> ${item.responsavel || '-'}</div>
+                    <div><strong>Contato:</strong> ${item.contato || '-'}</div>
+                </div>
+
+                <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 space-y-1">
+                    <h4 class="font-bold text-blue-900 text-xs uppercase">🕒 Horários e GPS</h4>
+                    <div><strong>Horário de Entrada:</strong> ${item.hEntrada}</div>
+                    <div><strong>GPS Entrada:</strong> ${linkGpsEntrada}</div>
+                    <div class="pt-1"><strong>Horário de Saída:</strong> ${item.hSaida}</div>
+                    <div><strong>GPS Saída:</strong> ${linkGpsSaida}</div>
+                </div>
+
+                <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-200 space-y-1">
+                    <h4 class="font-bold text-emerald-900 text-xs uppercase">📦 Materiais e Caixas Utilizados</h4>
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <div>Fusões: <b>${item.fusoes}</b></div>
+                        <div>Conectores: <b>${item.conectores}</b></div>
+                        <div>Cabo RL: <b>${item.caboRL}m</b></div>
+                        <div>Cabo Drop: <b>${item.caboDrop}m</b></div>
+                        <div>NAP: <b>${item.nap}</b></div>
+                        <div>DIO: <b>${item.dio}</b></div>
+                        <div>Sobrepor: <b>${item.cxSobrepor}</b></div>
+                        <div>Embutida: <b>${item.cxEmbutida}</b></div>
+                        <div>FOSC: <b>${item.cxFosc}</b></div>
+                    </div>
+                </div>
+
+                ${item.desfecho === 'MALOGRADA' ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Ofensores/Malogros:</strong> ${malogrosStr}</div>` : ''}
+                ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Motivo / Observação:</strong> ${item.motivoDesfecho}</div>` : ''}
+            `;
+            modal.classList.remove('hidden');
+        }
+
+        function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
+
+        function dispararExplosaoGrafico(filtroTipo, filtroValor) {
+            const modal = document.getElementById('modal-explosao');
+            const corpo = document.getElementById('tabela-explosao-corpo');
+            document.getElementById('modal-explosao-titulo').innerText = `Modo Explosão Executivo: ${filtroTipo.toUpperCase()} -> ${filtroValor}`;
+            corpo.innerHTML = "";
+
+            let subset = dadosFiltradosAtuais.filter(item => {
+                if (filtroTipo === 'projeto') return item.projeto === filtroValor;
+                if (filtroTipo === 'desfecho') return item.desfecho === filtroValor;
+                return false;
+            });
+
+            if (subset.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registro encontrado para esta seleção.</td></tr>`;
+            } else {
+                subset.forEach(item => {
+                    let detalheInfo = item.malogros && item.malogros.length > 0 ? `Ofensores: ${item.malogros.join(', ')}` : (item.motivoDesfecho || 'Concluído sem pendências');
+                    corpo.innerHTML += `
+                        <tr class="hover:bg-slate-50 border-b text-xs">
+                            <td class="p-2.5 font-mono text-slate-600 font-bold">${item.dataRegistro}</td>
+                            <td class="p-2.5 font-bold text-slate-800">${item.imovel}</td>
+                            <td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td>
+                            <td class="p-2.5">${item.projeto}</td>
+                            <td class="p-2.5 font-bold text-slate-700">${item.desfecho}</td>
+                            <td class="p-2.5 text-slate-500">${detalheInfo}</td>
+                        </tr>
+                    `;
+                });
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function fecharModalExplosao() {
+            document.getElementById('modal-explosao').classList.add('hidden');
+        }
+
+        function renderizarGraficos(dados) {
+            let projetosCount = {
+                'VISTORIA': 0,
+                'ATIVAÇÃO': 0,
+                'CONSTRUÇÃO': 0,
+                'CONSTRUÇÃO + ATIVAÇÃO': 0,
+                'NAP LOTADA ATIVAÇÃO': 0,
+                'NAP LOTADA CONSTRUÇÃO': 0,
+                'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO': 0
+            };
+
+            let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
+
+            dados.forEach(d => {
+                if (projetosCount[d.projeto] !== undefined) {
+                    projetosCount[d.projeto]++;
+                }
+                if (desfechosCount[d.desfecho] !== undefined) {
+                    desfechosCount[d.desfecho]++;
+                }
+            });
+
+            const ctxProj = document.getElementById('graficoProjetos')?.getContext('2d');
+            if (ctxProj) {
+                if (graficoProjetosInstancia) {
+                    graficoProjetosInstancia.destroy();
+                }
+                graficoProjetosInstancia = new Chart(ctxProj, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(projetosCount),
+                        datasets: [{
+                            label: 'Volume de Atendimentos',
+                            data: Object.values(projetosCount),
+                            backgroundColor: ['#1e3a8a', '#2563eb', '#3b82f6', '#60a5fa', '#d97706', '#ea580c', '#059669'],
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                let index = elements[0].index;
+                                let chaveProjeto = Object.keys(projetosCount)[index];
+                                dispararExplosaoGrafico('projeto', chaveProjeto);
+                            }
+                        }
+                    }
+                });
+            }
+
+            const ctxDesf = document.getElementById('graficoDesfechos')?.getContext('2d');
+            if (ctxDesf) {
+                if (graficoDesfechosInstancia) {
+                    graficoDesfechosInstancia.destroy();
+                }
+                graficoDesfechosInstancia = new Chart(ctxDesf, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'],
+                        datasets: [{
+                            data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']],
+                            backgroundColor: ['#059669', '#d97706', '#dc2626']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                let index = elements[0].index;
+                                let chaveDesfecho = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'][index];
+                                dispararExplosaoGrafico('desfecho', chaveDesfecho);
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function exportarExcel() {
+            if (registrosSalvos.length === 0) {
+                alert("Nenhum registro para exportar.");
+                return;
+            }
+
+            let colunas = [
+                "ID", "Data", "Equipe", "Membros", "Projeto", "Imóvel", 
+                "Hora Entrada", "Hora Saída", "GPS Entrada", "GPS Saída", 
+                "Desfecho", "Serviço Obra", "Ofensores/Malogros", "Motivo Desfecho", "Responsável", "Contato", 
+                "E-mail", "Agendamento", "Andares", "HPs", 
+                "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", 
+                "NAP", "DIO", "Cx Sobrepor", "Cx Embutida", "Cx FOSC", "Observações Gerais"
+            ];
+
+            let linhas = registrosSalvos.map(r => [
+                r.id || "",
+                r.dataRegistro || "",
+                r.equipe || "",
+                r.membros || "",
+                r.projeto || "",
+                r.imovel || "",
+                r.hEntrada || "",
+                r.hSaida || "",
+                r.gpsEntrada || "",
+                r.gpsSaida || "",
+                r.desfecho || "",
+                r.servicoObra || "SIM",
+                r.malogros ? r.malogros.join(', ') : "",
+                r.motivoDesfecho || "",
+                r.responsavel || "",
+                r.contato || "",
+                r.email || "",
+                r.agendamento || "",
+                r.andares !== "" ? r.andares : 0,
+                r.hps !== "" ? r.hps : 0,
+                r.fusoes !== "" ? r.fusoes : 0,
+                r.conectores !== "" ? r.conectores : 0,
+                r.caboRL !== "" ? r.caboRL : 0,
+                r.caboDrop !== "" ? r.caboDrop : 0,
+                r.nap !== "" ? r.nap : 0,
+                r.dio !== "" ? r.dio : 0,
+                r.cxSobrepor !== "" ? r.cxSobrepor : 0,
+                r.cxEmbutida !== "" ? r.cxEmbutida : 0,
+                r.cxFosc !== "" ? r.cxFosc : 0,
+                r.observacoes || ""
+            ]);
+
+            let tabelaHTML = `<table border="1"><thead><tr>${colunas.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+            linhas.forEach(l => {
+                tabelaHTML += `<tr>${l.map(cel => `<td>${cel}</td>`).join('')}</tr>`;
+            });
+            tabelaHTML += `</tbody></table>`;
+
+            let blob = new Blob(['\ufeff' + tabelaHTML], { type: 'application/vnd.ms-excel' });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement('a');
+            a.href = url;
+            a.download = `relatorio_gpd_procisa_${new Date().toISOString().split('T')[0]}.xls`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            registrarLogAuditoria("EXPORTAÇÃO DE RELATÓRIO", `Baixado relatório Excel com ${registrosSalvos.length} registros.`);
+        }
+
         // --- GESTÃO DE EQUIPES ---
         function abrirModalEquipe(id = null) {
             if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Usuários visualizadores não podem gerenciar equipes."); return; }
@@ -1567,32 +1844,82 @@
             }
         }
 
-        function renderizarTabelaAuditoria() {
-            const corpo = document.getElementById('tabela-auditoria-corpo');
-            if (!corpo) return;
-            corpo.innerHTML = "";
-            if (trilhaAuditoria.length === 0) {
-                corpo.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400">Nenhum registo de auditoria recente.</td></tr>`;
-                return;
+        // Funções de Usuários
+        function abrirModalUsuario(id = null) {
+            if (nivelUsuarioLogado === 'Visualizador' && id) {
+                let uSelf = usuariosSistema.find(u => u.email.toLowerCase() === usuarioLogado.toLowerCase());
+                if (uSelf) id = uSelf.id;
             }
-            trilhaAuditoria.forEach(log => {
-                corpo.innerHTML += `
-                    <tr class="hover:bg-slate-50 border-b text-xs">
-                        <td class="p-3 font-mono text-slate-500">${log.dataHora}</td>
-                        <td class="p-3 font-bold text-blue-900">${log.usuario}</td>
-                        <td class="p-3"><span class="bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded text-[10px]">${log.acao}</span></td>
-                        <td class="p-3 text-slate-600">${log.detalhes}</td>
-                    </tr>
-                `;
-            });
+
+            document.getElementById('modal-usuario').classList.remove('hidden');
+            if (id) {
+                let u = usuariosSistema.find(user => user.id === id);
+                if (u) {
+                    document.getElementById('edit-user-id').value = u.id;
+                    document.getElementById('novo-user-nome').value = u.nome;
+                    document.getElementById('novo-user-email').value = u.email;
+                    document.getElementById('novo-user-senha').value = u.senha;
+                    document.getElementById('novo-user-nivel').value = u.nivel;
+
+                    if (nivelUsuarioLogado !== 'Master') {
+                        document.getElementById('novo-user-nome').disabled = true;
+                        document.getElementById('novo-user-email').disabled = true;
+                        document.getElementById('novo-user-nivel').disabled = true;
+                    }
+                }
+            } else {
+                if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem cadastrar novos usuários."); fecharModalUsuario(); return; }
+                document.getElementById('edit-user-id').value = "";
+                document.getElementById('novo-user-nome').value = "";
+                document.getElementById('novo-user-email').value = "";
+                document.getElementById('novo-user-senha').value = "";
+                document.getElementById('novo-user-nivel').value = "Visualizador";
+                document.getElementById('novo-user-nome').disabled = false;
+                document.getElementById('novo-user-email').disabled = false;
+                document.getElementById('novo-user-nivel').disabled = false;
+            }
         }
 
-        function limparLogsAuditoria() {
-            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem limpar os logs."); return; }
-            if (confirm("Deseja limpar o histórico de logs de auditoria?")) {
-                trilhaAuditoria = [];
-                localStorage.removeItem('gpd_trilha_auditoria');
-                renderizarTabelaAuditoria();
+        function fecharModalUsuario() { document.getElementById('modal-usuario').classList.add('hidden'); }
+
+        function salvarOuAtualizarUsuario() {
+            const editId = document.getElementById('edit-user-id').value;
+            const nome = document.getElementById('novo-user-nome').value.trim();
+            const email = document.getElementById('novo-user-email').value.trim().toLowerCase();
+            const senha = document.getElementById('novo-user-senha').value.trim();
+            const nivel = document.getElementById('novo-user-nivel').value;
+
+            if (!nome || !email || !senha) { alert("Preencha todos os campos."); return; }
+
+            if (editId) {
+                let u = usuariosSistema.find(user => user.id == editId);
+                if (u) { 
+                    registrarLogAuditoria("EDIÇÃO DE USUÁRIO", `Senha alterada para o usuário: ${email}`);
+                    if (nivelUsuarioLogado === 'Master') {
+                        u.nome = nome; u.email = email; u.senha = senha; u.nivel = nivel; 
+                    } else {
+                        u.senha = senha;
+                    }
+                }
+            } else {
+                if (nivelUsuarioLogado !== 'Master') { alert("Acesso negado."); return; }
+                registrarLogAuditoria("NOVO USUÁRIO", `Cadastrado novo usuário: ${email} (${nivel})`);
+                usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
+            }
+
+            localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
+            fecharModalUsuario();
+            renderizarTabelaUsuariosPermissao();
+            alert("Dados de usuário salvos com sucesso!");
+        }
+
+        function excluirUsuario(id, email) {
+            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem excluir usuários."); return; }
+            if (confirm(`Deseja realmente remover o acesso de ${email}?`)) {
+                registrarLogAuditoria("EXCLUSÃO DE USUÁRIO", `Removido usuário: ${email}`);
+                usuariosSistema = usuariosSistema.filter(u => u.id !== id);
+                localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
+                renderizarTabelaUsuariosPermissao();
             }
         }
 
@@ -1616,8 +1943,6 @@
             if (aba === 'graficos') atualizarDashboardGestor();
             if (aba === 'bonificacao') atualizarDashboardGestor();
             if (aba === 'financeiro') atualizarDashboardGestor();
-            if (aba === 'materiais') atualizarDashboardGestor();
-            if (aba === 'atividades') atualizarDashboardGestor();
         }
     </script>
 </body>
