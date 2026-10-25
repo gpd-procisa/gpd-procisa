@@ -45,18 +45,6 @@
         <!-- ================= MODO GESTOR ================= -->
         <main id="view-gestor" class="flex-1 p-4 sm:p-6 bg-slate-50 space-y-6 hidden">
             
-            <!-- Alerta Inteligente de Supervisão com botão para fechar -->
-            <div id="alerta-malogros-criticos" class="bg-red-50 border-l-4 border-red-600 p-4 rounded-xl shadow-sm hidden flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <span class="text-2xl">⚠️</span>
-                    <div>
-                        <h4 class="font-bold text-red-900 text-xs uppercase">Alerta de Supervisão: Ocorrências / Imprevistos Detetados!</h4>
-                        <p class="text-xs text-red-700" id="txt-alerta-malogros">Existem ocorrências críticas ou imprevistos registados no período filtrado.</p>
-                    </div>
-                </div>
-                <button onclick="fecharAlertaSupervisao()" class="text-red-700 font-bold hover:text-red-900 text-sm px-2 py-1">✕ Fechar</button>
-            </div>
-
             <!-- Abas em Destaque Logo Abaixo do Cabeçalho -->
             <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5">
@@ -70,9 +58,6 @@
                 </button>
                 <button onclick="mudarSubAbaGestor('financeiro')" id="subtab-btn-financeiro" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
                     💰 Medição Financeira
-                </button>
-                <button onclick="mudarSubAbaGestor('imprevistos')" id="subtab-btn-imprevistos" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
-                    ⚠️ Imprevistos (Apartados)
                 </button>
                 <button onclick="mudarSubAbaGestor('equipes')" id="subtab-btn-equipes" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
                     🛠️ Equipes
@@ -104,7 +89,7 @@
             </div>
 
             <!-- KPIs Numéricos Independentes -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Vistoria</span>
                     <span class="text-xl font-bold text-slate-800 mt-1" id="kpi-proj-vistoria">0</span>
@@ -132,10 +117,6 @@
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lot. Amb</span>
                     <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-nap-ambos">0</span>
-                </div>
-                <div class="bg-amber-50 p-3 rounded-xl shadow-sm border border-amber-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-amber-800 uppercase">⚠️ Imprevistos</span>
-                    <span class="text-xl font-bold text-amber-700 mt-1" id="kpi-proj-imprevistos">0</span>
                 </div>
             </div>
 
@@ -172,7 +153,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Atividades (Exclui Imprevistos) -->
+            <!-- Sub-Aba: Atividades -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
                     <span>Atividades em Campo (Clique na linha para ver todos os detalhes)</span>
@@ -196,7 +177,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos & Indicadores -->
+            <!-- Sub-Aba: Gráficos -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
                     <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto ou parte da rosca para abrir o detalhamento por atividades, técnicos e dias.</span>
@@ -216,24 +197,6 @@
                             <p class="text-xs text-slate-500 mb-4">Proporção detalhada entre Concluídas, Pendentes e Malogradas</p>
                         </div>
                         <div class="relative h-80"><canvas id="graficoDesfechos"></canvas></div>
-                    </div>
-                </div>
-
-                <!-- Gráficos de Produtividade por Hora e Dia da Semana -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase">⏰ Produtividade por Horário (Picos de Atendimento)</h3>
-                            <p class="text-xs text-slate-500 mb-4">Distribuição de atendimentos ao longo das horas do dia</p>
-                        </div>
-                        <div class="relative h-72"><canvas id="graficoHoras"></canvas></div>
-                    </div>
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase">📅 Produtividade por Dia da Semana</h3>
-                            <p class="text-xs text-slate-500 mb-4">Volume de entregas concentradas por dia útil/fim de semana</p>
-                        </div>
-                        <div class="relative h-72"><canvas id="graficoDiasSemana"></canvas></div>
                     </div>
                 </div>
 
@@ -414,29 +377,6 @@
                 </div>
             </div>
 
-            <!-- SUB-ABA: IMPREVISTOS (APARTADA) -->
-            <div id="subview-imprevistos" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
-                <div class="flex justify-between items-center border-b pb-3">
-                    <h3 class="font-bold text-slate-800 text-sm">⚠️ Registo de Imprevistos e Atrasos em Campo (Apartado)</h3>
-                    <span class="text-xs font-normal text-slate-500" id="contador-imprevistos">0 imprevistos</span>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
-                                <th class="p-3">Data / Hora</th>
-                                <th class="p-3">Equipe / Técnico</th>
-                                <th class="p-3">Motivo do Imprevisto</th>
-                                <th class="p-3">Detalhes / Observação</th>
-                                <th class="p-3">GPS (Localização Real)</th>
-                                <th class="p-3">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabela-imprevistos-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
-                    </table>
-                </div>
-            </div>
-
             <!-- Sub-Aba: Equipes -->
             <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
@@ -564,12 +504,9 @@
                         <input type="text" id="inp-imovel" placeholder="Ex: IMO-98421" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none">
                     </div>
 
-                    <div class="pt-2 flex flex-col gap-2">
+                    <div class="pt-2">
                         <button onclick="fazerCheckIn()" id="btn-checkin" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
-                            🚀 Iniciar Atividade (Exigir GPS)
-                        </button>
-                        <button onclick="abrirModalImprevisto()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-2.5 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2">
-                            ⚠️ Imprevisto / Atraso (Sem Atividade)
+                            🚀 Iniciar Atividade
                         </button>
                     </div>
                 </div>
@@ -577,7 +514,6 @@
                 <div id="bloco-pos-abertura" class="space-y-3 hidden">
                     <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
                         <p><strong>Entrada:</strong> <span id="lbl-h-entrada">-</span></p>
-                        <p><strong>GPS Real Capturado:</strong> <span id="lbl-gps-entrada" class="font-mono text-[10px] text-emerald-700 font-bold">-</span></p>
                     </div>
 
                     <div class="space-y-3 border-t pt-3">
@@ -642,7 +578,6 @@
                                 <textarea id="obs-pendente" rows="2" class="w-full text-xs border border-amber-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo..."></textarea>
                             </div>
 
-                            <!-- Bloco Malogrado Exclusivo para Retorno de Atividades Abertas -->
                             <div id="bloco-malograda" class="space-y-2 hidden bg-red-50 p-3 rounded-xl border border-red-200">
                                 <label class="block text-[11px] font-bold text-red-900">Motivo do Malogro (Obrigatório)*</label>
                                 <textarea id="obs-malograda" rows="2" class="w-full text-xs border border-red-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo..."></textarea>
@@ -677,36 +612,6 @@
 
     </div>
 
-    <!-- MODAL DE IMPREVISTO / ATRASO -->
-    <div id="modal-imprevisto" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
-        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
-            <div class="bg-amber-600 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-sm">⚠️ Registar Imprevisto / Atraso</h3>
-                <button onclick="fecharModalImprevisto()" class="text-white font-bold text-lg">✕</button>
-            </div>
-            <div class="p-4 space-y-3 text-xs">
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Selecione o Motivo do Atraso / Problema:</label>
-                    <select id="sel-motivo-imprevisto" class="w-full border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
-                        <option value="CARRO COM DEFEITO">Carro com Defeito</option>
-                        <option value="FALTA DE MATERIAL">Falta de Material</option>
-                        <option value="FALTA DE EQUIPAMENTO">Falta de Equipamento</option>
-                        <option value="SEM ATIVIDADE PROGRAMADA">Sem Atividade Programada</option>
-                        <option value="SEM TEMPO HÁBIL">Sem Tempo Hábil</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block font-semibold text-slate-700 mb-1">Detalhes Adicionais (Opcional)</label>
-                    <textarea id="inp-detalhe-imprevisto" rows="2" class="w-full border border-slate-300 rounded-lg p-2 outline-none" placeholder="Explique brevemente..."></textarea>
-                </div>
-            </div>
-            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
-                <button onclick="fecharModalImprevisto()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
-                <button onclick="enviarImprevisto()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs px-4 py-2 rounded-lg font-medium">Registar Imprevisto</button>
-            </div>
-        </div>
-    </div>
-
     <!-- MODAL DE EDIÇÃO DE REGISTRO -->
     <div id="modal-edicao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
@@ -731,7 +636,6 @@
                             <option value="NAP LOTADA ATIVAÇÃO">NAP LOTADA ATIVAÇÃO</option>
                             <option value="NAP LOTADA CONSTRUÇÃO">NAP LOTADA CONSTRUÇÃO</option>
                             <option value="NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO">NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO</option>
-                            <option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>
                         </select>
                     </div>
                     <div>
@@ -863,7 +767,7 @@
         </div>
     </div>
 
-    <!-- Script Principal Completo e Otimizado -->
+    <!-- Script Principal Estável -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -911,8 +815,6 @@
         let nivelUsuarioLogado = "Visualizador";
         let graficoProjetosInstancia = null;
         let graficoDesfechosInstancia = null;
-        let graficoHorasInstancia = null;
-        let graficoDiasInstancia = null;
         let dadosFiltradosAtuais = [];
 
         const TABELA_PRECOS = {
@@ -932,8 +834,6 @@
         window.onload = async function() { 
             popularSelectEquipes();
             verificarPermissoesSessao();
-            await carregarRegistrosDaNuvem();
-            
             if (usuarioLogado) {
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
                 document.getElementById('btn-sair-gestor').classList.remove('hidden');
@@ -943,14 +843,7 @@
             } else {
                 alternarVisao('campo');
             }
-
-            // Atualização automática em segundo plano (Polling a cada 60s)
-            setInterval(async () => {
-                if (usuarioLogado) {
-                    await carregarRegistrosDaNuvem();
-                    atualizarDashboardGestor();
-                }
-            }, 60000);
+            await carregarRegistrosDaNuvem();
         };
 
         function verificarPermissoesSessao() {
@@ -976,7 +869,6 @@
             };
             trilhaAuditoria.unshift(novoLog);
             localStorage.setItem('gpd_trilha_auditoria', JSON.stringify(trilhaAuditoria));
-            renderizarTabelaAuditoria();
         }
 
         function popularSelectEquipes() {
@@ -1165,45 +1057,15 @@
             if (tipo === 'MALOGRADA') document.getElementById('bloco-malograda').classList.remove('hidden');
         }
 
-        function obterGpsObrigatorio() {
-            return new Promise((resolve, reject) => {
-                if (!navigator.geolocation) {
-                    alert("⚠️ O seu navegador não suporta geolocalização.");
-                    reject("GPS não suportado");
-                    return;
-                }
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        let lat = position.coords.latitude.toFixed(5);
-                        let lng = position.coords.longitude.toFixed(5);
-                        resolve(`${lat}, ${lng}`);
-                    },
-                    (error) => {
-                        alert("❌ PERMISSÃO DE GPS NEGADA! Para iniciar a atividade e garantir a auditoria gerencial, é obrigatório permitir o acesso à localização no seu dispositivo.");
-                        reject(error.message);
-                    },
-                    { timeout: 15000, enableHighAccuracy: true, maximumAge: 0 }
-                );
-            });
-        }
-
         async function fazerCheckIn() {
             const equipe = document.getElementById('sel-equipe').value;
             const imovel = document.getElementById('inp-imovel').value;
             if (!equipe || !imovel) { alert("⚠️ Selecione a Equipe e informe o Cód. Imóvel."); return; }
 
-            try {
-                let gpsReal = await obterGpsObrigatorio();
-                dadosAtendimento.gpsEntrada = gpsReal;
-
-                document.getElementById('form-campo-container').classList.add('hidden');
-                document.getElementById('bloco-pos-abertura').classList.remove('hidden');
-                document.getElementById('lbl-h-entrada').innerText = new Date().toLocaleTimeString('pt-BR');
-                document.getElementById('lbl-gps-entrada').innerText = gpsReal;
-                mudarTipoProjeto();
-            } catch (err) {
-                console.error("Check-in bloqueado por falta de GPS:", err);
-            }
+            document.getElementById('form-campo-container').classList.add('hidden');
+            document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+            document.getElementById('lbl-h-entrada').innerText = new Date().toLocaleTimeString('pt-BR');
+            mudarTipoProjeto();
         }
 
         async function salvarRegistro() {
@@ -1232,13 +1094,6 @@
                 }
             }
 
-            let gpsSaidaReal;
-            try {
-                gpsSaidaReal = await obterGpsObrigatorio();
-            } catch (e) {
-                gpsSaidaReal = dadosAtendimento.gpsEntrada;
-            }
-
             const equipeNome = document.getElementById('sel-equipe').value;
             const projetoNome = document.getElementById('sel-projeto').value;
             const imovelCod = document.getElementById('inp-imovel').value;
@@ -1253,8 +1108,8 @@
                 imovel: imovelCod,
                 h_entrada: document.getElementById('lbl-h-entrada').innerText || "08:30",
                 h_saida: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
-                gps_entrada: dadosAtendimento.gpsEntrada,
-                gps_saida: gpsSaidaReal,
+                gps_entrada: "-22.90680, -43.17290",
+                gps_saida: "-22.90710, -43.17320",
                 desfecho: dadosAtendimento.desfechoSelecionado,
                 motivo_desfecho: motivoDesfecho,
                 malogros: malogrosSelecionados,
@@ -1282,7 +1137,7 @@
                 return;
             }
 
-            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome}) [GPS Real Validado]`);
+            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome})`);
             alert("Atendimento sincronizado com sucesso!");
             location.reload();
         }
@@ -1296,10 +1151,8 @@
 
             const corpoAtiv = document.getElementById('tabela-gestor-corpo');
             const corpoMat = document.getElementById('tabela-materiais-corpo');
-            const corpoImprevistos = document.getElementById('tabela-imprevistos-corpo');
             if (corpoAtiv) corpoAtiv.innerHTML = "";
             if (corpoMat) corpoMat.innerHTML = "";
-            if (corpoImprevistos) corpoImprevistos.innerHTML = "";
 
             let filtrados = registrosSalvos.filter(item => {
                 let mData = true;
@@ -1327,43 +1180,29 @@
 
             dadosFiltradosAtuais = filtrados;
 
-            let listaImprevistos = filtrados.filter(i => i.projeto === 'IMPREVISTO / ATRASO');
-            let listaAtividadesComuns = filtrados.filter(i => i.projeto !== 'IMPREVISTO / ATRASO');
+            document.getElementById('kpi-proj-vistoria').innerText = filtrados.filter(i => i.projeto === 'VISTORIA').length;
+            document.getElementById('kpi-proj-ativacao').innerText = filtrados.filter(i => i.projeto === 'ATIVAÇÃO').length;
+            document.getElementById('kpi-proj-construcao').innerText = filtrados.filter(i => i.projeto === 'CONSTRUÇÃO').length;
+            document.getElementById('kpi-proj-const-ativ').innerText = filtrados.filter(i => i.projeto === 'CONSTRUÇÃO + ATIVAÇÃO').length;
+            document.getElementById('kpi-proj-nap-ativ').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA ATIVAÇÃO').length;
+            document.getElementById('kpi-proj-nap-const').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO').length;
+            document.getElementById('kpi-proj-nap-ambos').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO').length;
+            document.getElementById('contador-resultados').innerText = filtrados.length + " registros encontrados";
+            document.getElementById('contador-materiais').innerText = filtrados.length + " registros sincronizados";
 
-            document.getElementById('kpi-proj-imprevistos').innerText = listaImprevistos.length;
-            document.getElementById('contador-imprevistos').innerText = listaImprevistos.length + " imprevistos";
-
-            const blocoAlerta = document.getElementById('alerta-malogros-criticos');
-            if (listaImprevistos.length > 0 && blocoAlerta.dataset.fechado !== "true") {
-                blocoAlerta.classList.remove('hidden');
-                document.getElementById('txt-alerta-malogros').innerText = `Atenção: Foram registados ${listaImprevistos.length} imprevisto(s) de campo no período filtrado!`;
-            } else {
-                blocoAlerta.classList.add('hidden');
-            }
-
-            document.getElementById('kpi-proj-vistoria').innerText = listaAtividadesComuns.filter(i => i.projeto === 'VISTORIA').length;
-            document.getElementById('kpi-proj-ativacao').innerText = listaAtividadesComuns.filter(i => i.projeto === 'ATIVAÇÃO').length;
-            document.getElementById('kpi-proj-construcao').innerText = listaAtividadesComuns.filter(i => i.projeto === 'CONSTRUÇÃO').length;
-            document.getElementById('kpi-proj-const-ativ').innerText = listaAtividadesComuns.filter(i => i.projeto === 'CONSTRUÇÃO + ATIVAÇÃO').length;
-            document.getElementById('kpi-proj-nap-ativ').innerText = listaAtividadesComuns.filter(i => i.projeto === 'NAP LOTADA ATIVAÇÃO').length;
-            document.getElementById('kpi-proj-nap-const').innerText = listaAtividadesComuns.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO').length;
-            document.getElementById('kpi-proj-nap-ambos').innerText = listaAtividadesComuns.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO').length;
-            document.getElementById('contador-resultados').innerText = listaAtividadesComuns.length + " registros encontrados";
-            document.getElementById('contador-materiais').innerText = listaAtividadesComuns.length + " registros sincronizados";
-
-            let concluidasCount = listaAtividadesComuns.filter(i => i.desfecho === 'CONCLUIDA').length;
-            let malogradasCount = listaAtividadesComuns.filter(i => i.desfecho === 'MALOGRADA').length;
-            let pendentesCount = listaAtividadesComuns.filter(i => i.desfecho === 'PENDENTE').length;
+            let concluidasCount = filtrados.filter(i => i.desfecho === 'CONCLUIDA').length;
+            let malogradasCount = filtrados.filter(i => i.desfecho === 'MALOGRADA').length;
+            let pendentesCount = filtrados.filter(i => i.desfecho === 'PENDENTE').length;
 
             document.getElementById('bonif-elegiveis').innerText = concluidasCount;
             document.getElementById('bonif-parciais').innerText = pendentesCount;
-            document.getElementById('bonif-media-geral').innerText = listaAtividadesComuns.length > 0 ? (concluidasCount / (new Set(listaAtividadesComuns.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0";
+            document.getElementById('bonif-media-geral').innerText = filtrados.length > 0 ? (concluidasCount / (new Set(filtrados.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0";
             document.getElementById('bonif-malogros').innerText = malogradasCount;
 
             let sumCaboRL = 0, sumConectores = 0, sumCaboDrop = 0, sumNap = 0, sumDio = 0, sumFusoes = 0;
             let sumSobrepor = 0, sumEmbutida = 0, sumFosc = 0, sumVistorias = 0;
 
-            listaAtividadesComuns.forEach(i => {
+            filtrados.forEach(i => {
                 if (i.projeto === 'VISTORIA' && i.desfecho === 'CONCLUIDA') sumVistorias++;
                 sumCaboRL += Number(i.caboRL) || 0;
                 sumConectores += Number(i.conectores) || 0;
@@ -1398,154 +1237,72 @@
                 cxEmbutida: sumEmbutida
             });
 
-            if (listaAtividadesComuns.length > 0) {
-                listaAtividadesComuns.forEach(item => {
-                    const tr = document.createElement('tr');
-                    tr.className = "hover:bg-blue-50/50 border-b cursor-pointer transition";
-                    tr.title = "Clique para ver todos os detalhes";
-                    tr.onclick = () => abrirDetalhesAtividade(item);
-                    
-                    let botoesAcao = "";
-                    if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
-                        botoesAcao = `
-                            <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 px-2 py-1 rounded mr-1">✏️ Editar</button>
-                            <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
-                        `;
-                    } else {
-                        botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
-                    }
-
-                    tr.innerHTML = `
-                        <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
-                        <td class="p-3"><div class="font-semibold">${item.equipe}</div></td>
-                        <td class="p-3"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span></td>
-                        <td class="p-3"><span class="font-bold px-2 py-0.5 rounded text-[10px] bg-slate-100">${item.desfecho}</span></td>
-                        <td class="p-3">
-                            <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
-                            <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
-                        </td>
-                        <td class="p-3 text-[10px] font-mono text-slate-600">
-                            <div>In: ${item.gpsEntrada}</div>
-                            <div>Out: ${item.gpsSaida}</div>
-                        </td>
-                        <td class="p-3" onclick="event.stopPropagation()">
-                            ${botoesAcao}
-                        </td>
-                    `;
-                    corpoAtiv.appendChild(tr);
-
-                    const trMat = document.createElement('tr');
-                    trMat.className = "hover:bg-slate-50 border-b transition";
-                    trMat.innerHTML = `
-                        <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
-                        <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
-                        <td class="p-2.5 font-semibold">${item.caboRL} m</td>
-                        <td class="p-2.5 font-semibold">${item.conectores}</td>
-                        <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
-                        <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
-                        <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
-                        <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
-                        <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
-                        <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
-                        <td class="p-2.5 font-semibold">${item.fusoes}</td>
-                    `;
-                    corpoMat.appendChild(trMat);
-                });
-            } else {
+            if (filtrados.length === 0) {
                 if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
-            }
-
-            if (corpoImprevistos) {
-                if (listaImprevistos.length > 0) {
-                    listaImprevistos.forEach(imp => {
-                        let acaoImp = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') ? 
-                            `<button onclick="excluirRegistro(${imp.id}, 'IMPREVISTO')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>` : 
-                            `-`;
-
-                        let linkGpsImprevisto = imp.gpsEntrada && imp.gpsEntrada.includes(',') ? 
-                            `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(imp.gpsEntrada)}" target="_blank" class="text-blue-600 underline font-bold">🗺️ ${imp.gpsEntrada}</a>` : imp.gpsEntrada;
-
-                        corpoImprevistos.innerHTML += `
-                            <tr class="hover:bg-slate-50 border-b text-xs">
-                                <td class="p-3 font-mono text-slate-500">${imp.dataRegistro} ${imp.hEntrada}</td>
-                                <td class="p-3 font-bold text-slate-800">${imp.equipe}</td>
-                                <td class="p-3"><span class="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded text-[10px]">${imp.malogros[0] || 'IMPREVISTO'}</span></td>
-                                <td class="p-3 text-slate-600">${imp.motivoDesfecho}</td>
-                                <td class="p-3 font-mono text-[10px]">${linkGpsImprevisto}</td>
-                                <td class="p-3">${acaoImp}</td>
-                            </tr>
-                        `;
-                    });
-                } else {
-                    corpoImprevistos.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum imprevisto registado no período.</td></tr>`;
-                }
-            }
-
-            renderizarGraficos(listaAtividadesComuns);
-            renderizarTabelaConsolidada(listaAtividadesComuns);
-            renderizarRankingsSeparados(listaAtividadesComuns);
-            renderizarTabelaUsuariosPermissao();
-            renderizarTabelaEquipes();
-            renderizarTabelaAuditoria();
-        }
-
-        function fecharAlertaSupervisao() {
-            const blocoAlerta = document.getElementById('alerta-malogros-criticos');
-            blocoAlerta.classList.add('hidden');
-            blocoAlerta.dataset.fechado = "true";
-        }
-
-        function abrirModalImprevisto() {
-            const equipe = document.getElementById('sel-equipe').value;
-            if (!equipe) { alert("⚠️ Selecione a sua Equipe / Técnico primeiro."); return; }
-            document.getElementById('modal-imprevisto').classList.remove('hidden');
-        }
-
-        function fecharModalImprevisto() {
-            document.getElementById('modal-imprevisto').classList.add('hidden');
-        }
-
-        async function enviarImprevisto() {
-            const equipe = document.getElementById('sel-equipe').value;
-            const motivo = document.getElementById('sel-motivo-imprevisto').value;
-            const detalhe = document.getElementById('inp-detalhe-imprevisto').value.trim();
-
-            let gpsReal = "-22.90680, -43.17290";
-            try {
-                gpsReal = await obterGpsObrigatorio();
-            } catch(e) {}
-
-            let dataLocalCorreta = new Date().toLocaleDateString('en-CA');
-
-            let imprevistoDB = {
-                id: Date.now(),
-                data_registro: dataLocalCorreta,
-                equipe: equipe,
-                membros: equipe,
-                projeto: "IMPREVISTO / ATRASO",
-                imovel: "N/A (Imprevisto)",
-                h_entrada: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
-                h_saida: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
-                gps_entrada: gpsReal,
-                gps_saida: gpsReal,
-                desfecho: "MALOGRADA",
-                motivo_desfecho: detalhe ? `${motivo} - ${detalhe}` : motivo,
-                malogros: [motivo],
-                servico_obra: "NÃO",
-                observacoes: detalhe
-            };
-
-            const { error } = await supabaseClient.from('registros_producao').insert([imprevistoDB]);
-            if (error) {
-                alert("Erro ao registar imprevisto: " + error.message);
+                renderizarGraficos([]);
+                renderizarTabelaConsolidada([]);
+                renderizarRankingsSeparados([]);
                 return;
             }
 
-            registrarLogAuditoria("IMPREVISTO REGISTADO", `Equipe: ${equipe} | Motivo: ${motivo}`);
-            alert("⚠️ Imprevisto registado com sucesso e enviado à supervisão!");
-            fecharModalImprevisto();
-            location.reload();
+            filtrados.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-blue-50/50 border-b cursor-pointer transition";
+                tr.title = "Clique para ver todos os detalhes";
+                tr.onclick = () => abrirDetalhesAtividade(item);
+                
+                let botoesAcao = "";
+                if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
+                    botoesAcao = `
+                        <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 px-2 py-1 rounded mr-1">✏️ Editar</button>
+                        <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
+                    `;
+                } else {
+                    botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
+                    <td class="p-3"><div class="font-semibold">${item.equipe}</div></td>
+                    <td class="p-3"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span></td>
+                    <td class="p-3"><span class="font-bold px-2 py-0.5 rounded text-[10px] bg-slate-100">${item.desfecho}</span></td>
+                    <td class="p-3">
+                        <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
+                        <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
+                    </td>
+                    <td class="p-3 text-[10px] font-mono text-slate-600">
+                        <div>In: ${item.gpsEntrada}</div>
+                        <div>Out: ${item.gpsSaida}</div>
+                    </td>
+                    <td class="p-3" onclick="event.stopPropagation()">
+                        ${botoesAcao}
+                    </td>
+                `;
+                corpoAtiv.appendChild(tr);
+
+                const trMat = document.createElement('tr');
+                trMat.className = "hover:bg-slate-50 border-b transition";
+                trMat.innerHTML = `
+                    <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
+                    <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
+                    <td class="p-2.5 font-semibold">${item.caboRL} m</td>
+                    <td class="p-2.5 font-semibold">${item.conectores}</td>
+                    <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
+                    <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
+                    <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
+                    <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
+                    <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
+                    <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
+                    <td class="p-2.5 font-semibold">${item.fusoes}</td>
+                `;
+                corpoMat.appendChild(trMat);
+            });
+
+            renderizarGraficos(filtrados);
+            renderizarTabelaConsolidada(filtrados);
+            renderizarRankingsSeparados(filtrados);
+            renderizarTabelaUsuariosPermissao();
         }
 
         function abrirModalEdicao(id) {
@@ -1691,6 +1448,253 @@
             });
         }
 
+        function renderizarRankingsSeparados(dados) {
+            let totalGeral = dados.length;
+
+            let tiposProjetos = [
+                'VISTORIA', 'ATIVAÇÃO', 'CONSTRUÇÃO', 'CONSTRUÇÃO + ATIVAÇÃO', 
+                'NAP LOTADA ATIVAÇÃO', 'NAP LOTADA CONSTRUÇÃO', 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO'
+            ];
+
+            function preencherTabelaRank(desfechoAlvo, idTabela, idTotal) {
+                const tbody = document.getElementById(idTabela);
+                const spanTotal = document.getElementById(idTotal);
+                if (!tbody || !spanTotal) return;
+                tbody.innerHTML = "";
+
+                let subset = dados.filter(d => d.desfecho === desfechoAlvo);
+                spanTotal.innerText = `${subset.length} total`;
+
+                let contagemProj = {};
+                tiposProjetos.forEach(p => contagemProj[p] = 0);
+                subset.forEach(d => {
+                    if (contagemProj[d.projeto] !== undefined) contagemProj[d.projeto]++;
+                });
+
+                let ordenados = Object.entries(contagemProj).sort((a, b) => b[1] - a[1]);
+
+                ordenados.forEach(([proj, qtd]) => {
+                    let perc = totalGeral > 0 ? ((qtd / totalGeral) * 100).toFixed(1) : 0;
+                    tbody.innerHTML += `
+                        <tr class="border-b hover:bg-slate-50">
+                            <td class="py-1.5 font-medium text-slate-700 truncate max-w-[120px]">${proj}</td>
+                            <td class="py-1.5 text-center font-bold text-blue-900">${qtd}</td>
+                            <td class="py-1.5 text-right text-slate-500">${perc}%</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            preencherTabelaRank('CONCLUIDA', 'tabela-rank-concluida', 'rank-conc-total');
+            preencherTabelaRank('PENDENTE', 'tabela-rank-pendente', 'rank-pend-total');
+            preencherTabelaRank('MALOGRADA', 'tabela-rank-malograda', 'rank-malo-total');
+        }
+
+        function renderizarTabelaConsolidada(dados) {
+            const corpo = document.getElementById('tabela-consolidada-corpo');
+            if (!corpo) return;
+            corpo.innerHTML = "";
+
+            let total = dados.length;
+            let categorias = {};
+
+            dados.forEach(d => {
+                let chave = `${d.projeto} (${d.desfecho})`;
+                categorias[chave] = (categorias[chave] || 0) + 1;
+            });
+
+            if (Object.keys(categorias).length === 0) {
+                corpo.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-400">Nenhum dado consolidado no período.</td></tr>`;
+                return;
+            }
+
+            for (let [cat, qtd] of Object.entries(categorias)) {
+                let perc = total > 0 ? ((qtd / total) * 100).toFixed(1) : 0;
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3 font-semibold text-slate-800">${cat}</td>
+                        <td class="p-3 text-center font-bold text-blue-900">${qtd}</td>
+                        <td class="p-3 text-center text-slate-600">${perc}%</td>
+                    </tr>
+                `;
+            }
+        }
+
+        function abrirDetalhesAtividade(item) {
+            const modal = document.getElementById('modal-detalhes');
+            const conteudo = document.getElementById('modal-detalhes-conteudo');
+            document.getElementById('modal-detalhes-titulo').innerText = `Detalhes do Imóvel: ${item.imovel}`;
+
+            let linkGpsEntrada = item.gpsEntrada && item.gpsEntrada.includes(',') ? 
+                `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsEntrada)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsEntrada} (Abrir no Maps)</a>` : item.gpsEntrada;
+
+            let linkGpsSaida = item.gpsSaida && item.gpsSaida.includes(',') ? 
+                `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsSaida)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsSaida} (Abrir no Maps)</a>` : item.gpsSaida;
+
+            let malogrosStr = item.malogros && item.malogros.length > 0 ? item.malogros.join(', ') : 'Nenhum';
+
+            conteudo.innerHTML = `
+                <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
+                    <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
+                    <div><strong>Técnico / Equipe:</strong> ${item.equipe}</div>
+                    <div><strong>Projeto:</strong> ${item.projeto}</div>
+                    <div><strong>Desfecho:</strong> <span class="font-bold text-blue-900">${item.desfecho}</span></div>
+                    <div><strong>Serviço de Obra:</strong> <span class="font-bold">${item.servicoObra || 'SIM'}</span></div>
+                    <div><strong>Andares:</strong> ${item.andares || 0}</div>
+                    <div><strong>HPs:</strong> ${item.hps || 0}</div>
+                    <div><strong>Responsável:</strong> ${item.responsavel || '-'}</div>
+                    <div><strong>Contato:</strong> ${item.contato || '-'}</div>
+                </div>
+
+                <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 space-y-1">
+                    <h4 class="font-bold text-blue-900 text-xs uppercase">🕒 Horários e GPS</h4>
+                    <div><strong>Horário de Entrada:</strong> ${item.hEntrada}</div>
+                    <div><strong>GPS Entrada:</strong> ${linkGpsEntrada}</div>
+                    <div class="pt-1"><strong>Horário de Saída:</strong> ${item.hSaida}</div>
+                    <div><strong>GPS Saída:</strong> ${linkGpsSaida}</div>
+                </div>
+
+                <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-200 space-y-1">
+                    <h4 class="font-bold text-emerald-900 text-xs uppercase">📦 Materiais e Caixas Utilizados</h4>
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <div>Fusões: <b>${item.fusoes}</b></div>
+                        <div>Conectores: <b>${item.conectores}</b></div>
+                        <div>Cabo RL: <b>${item.caboRL}m</b></div>
+                        <div>Cabo Drop: <b>${item.caboDrop}m</b></div>
+                        <div>NAP: <b>${item.nap}</b></div>
+                        <div>DIO: <b>${item.dio}</b></div>
+                        <div>Sobrepor: <b>${item.cxSobrepor}</b></div>
+                        <div>Embutida: <b>${item.cxEmbutida}</b></div>
+                        <div>FOSC: <b>${item.cxFosc}</b></div>
+                    </div>
+                </div>
+
+                ${item.desfecho === 'MALOGRADA' ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Ofensores/Malogros:</strong> ${malogrosStr}</div>` : ''}
+                ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Motivo / Observação:</strong> ${item.motivoDesfecho}</div>` : ''}
+            `;
+            modal.classList.remove('hidden');
+        }
+
+        function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
+
+        function dispararExplosaoGrafico(filtroTipo, filtroValor) {
+            const modal = document.getElementById('modal-explosao');
+            const corpo = document.getElementById('tabela-explosao-corpo');
+            document.getElementById('modal-explosao-titulo').innerText = `Modo Explosão Executivo: ${filtroTipo.toUpperCase()} -> ${filtroValor}`;
+            corpo.innerHTML = "";
+
+            let subset = dadosFiltradosAtuais.filter(item => {
+                if (filtroTipo === 'projeto') return item.projeto === filtroValor;
+                if (filtroTipo === 'desfecho') return item.desfecho === filtroValor;
+                return false;
+            });
+
+            if (subset.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registro encontrado para esta seleção.</td></tr>`;
+            } else {
+                subset.forEach(item => {
+                    let detalheInfo = item.malogros && item.malogros.length > 0 ? `Ofensores: ${item.malogros.join(', ')}` : (item.motivoDesfecho || 'Concluído sem pendências');
+                    corpo.innerHTML += `
+                        <tr class="hover:bg-slate-50 border-b text-xs">
+                            <td class="p-2.5 font-mono text-slate-600 font-bold">${item.dataRegistro}</td>
+                            <td class="p-2.5 font-bold text-slate-800">${item.imovel}</td>
+                            <td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td>
+                            <td class="p-2.5">${item.projeto}</td>
+                            <td class="p-2.5 font-bold text-slate-700">${item.desfecho}</td>
+                            <td class="p-2.5 text-slate-500">${detalheInfo}</td>
+                        </tr>
+                    `;
+                });
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function fecharModalExplosao() {
+            document.getElementById('modal-explosao').classList.add('hidden');
+        }
+
+        function renderizarGraficos(dados) {
+            let projetosCount = {
+                'VISTORIA': 0,
+                'ATIVAÇÃO': 0,
+                'CONSTRUÇÃO': 0,
+                'CONSTRUÇÃO + ATIVAÇÃO': 0,
+                'NAP LOTADA ATIVAÇÃO': 0,
+                'NAP LOTADA CONSTRUÇÃO': 0,
+                'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO': 0
+            };
+
+            let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
+
+            dados.forEach(d => {
+                if (projetosCount[d.projeto] !== undefined) {
+                    projetosCount[d.projeto]++;
+                }
+                if (desfechosCount[d.desfecho] !== undefined) {
+                    desfechosCount[d.desfecho]++;
+                }
+            });
+
+            const ctxProj = document.getElementById('graficoProjetos')?.getContext('2d');
+            if (ctxProj) {
+                if (graficoProjetosInstancia) {
+                    graficoProjetosInstancia.destroy();
+                }
+                graficoProjetosInstancia = new Chart(ctxProj, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(projetosCount),
+                        datasets: [{
+                            label: 'Volume de Atendimentos',
+                            data: Object.values(projetosCount),
+                            backgroundColor: ['#1e3a8a', '#2563eb', '#3b82f6', '#60a5fa', '#d97706', '#ea580c', '#059669'],
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                let index = elements[0].index;
+                                let chaveProjeto = Object.keys(projetosCount)[index];
+                                dispararExplosaoGrafico('projeto', chaveProjeto);
+                            }
+                        }
+                    }
+                });
+            }
+
+            const ctxDesf = document.getElementById('graficoDesfechos')?.getContext('2d');
+            if (ctxDesf) {
+                if (graficoDesfechosInstancia) {
+                    graficoDesfechosInstancia.destroy();
+                }
+                graficoDesfechosInstancia = new Chart(ctxDesf, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'],
+                        datasets: [{
+                            data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']],
+                            backgroundColor: ['#059669', '#d97706', '#dc2626']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                let index = elements[0].index;
+                                let chaveDesfecho = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'][index];
+                                dispararExplosaoGrafico('desfecho', chaveDesfecho);
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
         // --- GESTÃO DE EQUIPES ---
         function abrirModalEquipe(id = null) {
             if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Usuários visualizadores não podem gerenciar equipes."); return; }
@@ -1804,87 +1808,8 @@
             }
         }
 
-        // Funções de Usuários
-        function abrirModalUsuario(id = null) {
-            if (nivelUsuarioLogado === 'Visualizador' && id) {
-                let uSelf = usuariosSistema.find(u => u.email.toLowerCase() === usuarioLogado.toLowerCase());
-                if (uSelf) id = uSelf.id;
-            }
-
-            document.getElementById('modal-usuario').classList.remove('hidden');
-            if (id) {
-                let u = usuariosSistema.find(user => user.id === id);
-                if (u) {
-                    document.getElementById('edit-user-id').value = u.id;
-                    document.getElementById('novo-user-nome').value = u.nome;
-                    document.getElementById('novo-user-email').value = u.email;
-                    document.getElementById('novo-user-senha').value = u.senha;
-                    document.getElementById('novo-user-nivel').value = u.nivel;
-
-                    if (nivelUsuarioLogado !== 'Master') {
-                        document.getElementById('novo-user-nome').disabled = true;
-                        document.getElementById('novo-user-email').disabled = true;
-                        document.getElementById('novo-user-nivel').disabled = true;
-                    }
-                }
-            } else {
-                if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem cadastrar novos usuários."); fecharModalUsuario(); return; }
-                document.getElementById('edit-user-id').value = "";
-                document.getElementById('novo-user-nome').value = "";
-                document.getElementById('novo-user-email').value = "";
-                document.getElementById('novo-user-senha').value = "";
-                document.getElementById('novo-user-nivel').value = "Visualizador";
-                document.getElementById('novo-user-nome').disabled = false;
-                document.getElementById('novo-user-email').disabled = false;
-                document.getElementById('novo-user-nivel').disabled = false;
-            }
-        }
-
-        function fecharModalUsuario() { document.getElementById('modal-usuario').classList.add('hidden'); }
-
-        function salvarOuAtualizarUsuario() {
-            const editId = document.getElementById('edit-user-id').value;
-            const nome = document.getElementById('novo-user-nome').value.trim();
-            const email = document.getElementById('novo-user-email').value.trim().toLowerCase();
-            const senha = document.getElementById('novo-user-senha').value.trim();
-            const nivel = document.getElementById('novo-user-nivel').value;
-
-            if (!nome || !email || !senha) { alert("Preencha todos os campos."); return; }
-
-            if (editId) {
-                let u = usuariosSistema.find(user => user.id == editId);
-                if (u) { 
-                    registrarLogAuditoria("EDIÇÃO DE USUÁRIO", `Senha alterada para o usuário: ${email}`);
-                    if (nivelUsuarioLogado === 'Master') {
-                        u.nome = nome; u.email = email; u.senha = senha; u.nivel = nivel; 
-                    } else {
-                        u.senha = senha;
-                    }
-                }
-            } else {
-                if (nivelUsuarioLogado !== 'Master') { alert("Acesso negado."); return; }
-                registrarLogAuditoria("NOVO USUÁRIO", `Cadastrado novo usuário: ${email} (${nivel})`);
-                usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
-            }
-
-            localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
-            fecharModalUsuario();
-            renderizarTabelaUsuariosPermissao();
-            alert("Dados de usuário salvos com sucesso!");
-        }
-
-        function excluirUsuario(id, email) {
-            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem excluir usuários."); return; }
-            if (confirm(`Deseja realmente remover o acesso de ${email}?`)) {
-                registrarLogAuditoria("EXCLUSÃO DE USUÁRIO", `Removido usuário: ${email}`);
-                usuariosSistema = usuariosSistema.filter(u => u.id !== id);
-                localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
-                renderizarTabelaUsuariosPermissao();
-            }
-        }
-
         function mudarSubAbaGestor(aba) {
-            const subs = ['atividades', 'graficos', 'materiais', 'financeiro', 'imprevistos', 'equipes', 'usuarios', 'bonificacao', 'auditoria'];
+            const subs = ['atividades', 'graficos', 'materiais', 'financeiro', 'equipes', 'usuarios', 'bonificacao', 'auditoria'];
             subs.forEach(s => {
                 const el = document.getElementById(`subview-${s}`);
                 const btn = document.getElementById(`subtab-btn-${s}`);
@@ -1905,7 +1830,6 @@
             if (aba === 'financeiro') atualizarDashboardGestor();
             if (aba === 'materiais') atualizarDashboardGestor();
             if (aba === 'atividades') atualizarDashboardGestor();
-            if (aba === 'imprevistos') atualizarDashboardGestor();
         }
     </script>
 </body>
