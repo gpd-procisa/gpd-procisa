@@ -73,12 +73,15 @@
                 </button>
             </div>
 
-            <!-- Barra de Ações Rápidas, Busca e Atualização -->
+            <!-- Barra de Ações Rápidas, Busca e Atualização (Com Status de Auto-Sync 180s) -->
             <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
                 <div class="flex items-center gap-2 w-full sm:w-80">
                     <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, equipe, projeto..." class="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-none bg-slate-50 focus:bg-white transition">
                 </div>
-                <div class="flex gap-2 w-full sm:w-auto justify-end">
+                <div class="flex flex-wrap gap-2 w-full sm:w-auto justify-end items-center">
+                    <span id="lbl-status-autosync" class="text-[11px] bg-slate-100 text-slate-600 px-3 py-2 rounded-xl border border-slate-200 font-mono">
+                        ⏱️ Auto-Sync (180s): <b id="txt-hora-sync" class="text-blue-900">Ativo</b>
+                    </span>
                     <button onclick="exportarExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
                         📥 Baixar Relatório (Excel)
                     </button>
@@ -180,7 +183,7 @@
             <!-- Sub-Aba: Gráficos & Indicadores Operacionais -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
-                    <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto, fatia de desfecho ou técnico no ranking para abrir o detalhamento.</span>
+                    <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto, fatia de desfecho, técnico ou ofensor de malogro para abrir o detalhamento.</span>
                 </div>
 
                 <!-- CARDS: Indicadores de Tempo, Abertura, Fechamento e Pico -->
@@ -258,7 +261,43 @@
                     </div>
                 </div>
 
-                <!-- NOVA TABELA: Ranking de Produtividade e Tempo Médio por Técnico / Equipe -->
+                <!-- NOVO BLOCO: Ranking e Gráfico de Ofensores / Motivos de Malogro -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-red-200 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-sm font-bold text-red-900 uppercase">🚨 Gráfico de Ofensores de Malogro (Clique para Explodir)</h3>
+                                <span id="badge-total-ocorrencias-malogro" class="bg-red-100 text-red-800 text-[10px] font-bold px-2.5 py-0.5 rounded">0 ocorrências</span>
+                            </div>
+                            <p class="text-xs text-slate-500 mb-4">Incidência acumulada por tipo de impedimento relatado em campo</p>
+                        </div>
+                        <div class="relative h-72"><canvas id="graficoOfensoresMalogro"></canvas></div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden flex flex-col">
+                        <div class="bg-red-50 p-4 border-b border-red-200 flex justify-between items-center">
+                            <div>
+                                <h3 class="font-bold text-red-900 text-sm">🛑 Ranking Detalhado dos Ofensores de Malogro</h3>
+                                <p class="text-[11px] text-red-700">Clique sobre qualquer ofensor para listar os imóveis afetados</p>
+                            </div>
+                        </div>
+                        <div class="p-3 overflow-y-auto max-h-72 flex-1">
+                            <table class="w-full text-left text-xs">
+                                <thead>
+                                    <tr class="text-[10px] text-slate-500 uppercase border-b">
+                                        <th class="pb-2">#</th>
+                                        <th class="pb-2">Ofensor / Impedimento</th>
+                                        <th class="pb-2 text-center">Ocorrências</th>
+                                        <th class="pb-2 text-right">Impacto (%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabela-ofensores-malogro-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABELA: Ranking de Produtividade e Tempo Médio por Técnico / Equipe -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50">
                         <div>
@@ -906,6 +945,7 @@
         let graficoDesfechosInstancia = null;
         let graficoHorasPicoInstancia = null;
         let graficoTempoProjetoInstancia = null;
+        let graficoOfensoresMalogroInstancia = null;
         let dadosFiltradosAtuais = [];
 
         const TABELA_PRECOS = {
@@ -935,6 +975,24 @@
             } else {
                 alternarVisao('campo');
             }
+
+            // Rotina de Atualização Automática a cada 180 segundos (180000 ms)
+            setInterval(async () => {
+                const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
+                const algumModalAberto = 
+                    !document.getElementById('modal-edicao').classList.contains('hidden') ||
+                    !document.getElementById('modal-explosao').classList.contains('hidden') ||
+                    !document.getElementById('modal-detalhes').classList.contains('hidden') ||
+                    !document.getElementById('modal-equipe').classList.contains('hidden') ||
+                    !document.getElementById('modal-usuario').classList.contains('hidden');
+
+                if (usuarioLogado && viewGestorAtiva && !algumModalAberto) {
+                    await carregarRegistrosDaNuvem();
+                    atualizarDashboardGestor();
+                    const lblHora = document.getElementById('txt-hora-sync');
+                    if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
+                }
+            }, 180000);
         };
 
         function verificarPermissoesSessao() {
@@ -1124,6 +1182,8 @@
         async function recarregarDadosGestor() {
             await carregarRegistrosDaNuvem();
             atualizarDashboardGestor();
+            const lblHora = document.getElementById('txt-hora-sync');
+            if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
             alert("🔄 Dados atualizados com sucesso da nuvem!");
         }
 
@@ -1454,6 +1514,7 @@
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
                 renderizarGraficos([]);
                 renderizarRankingTecnicos([]);
+                renderizarOfensoresMalogro([]);
                 renderizarTabelaConsolidada([]);
                 renderizarRankingsSeparados([]);
                 return;
@@ -1519,9 +1580,100 @@
 
             renderizarGraficos(filtrados);
             renderizarRankingTecnicos(filtrados);
+            renderizarOfensoresMalogro(filtrados);
             renderizarTabelaConsolidada(filtrados);
             renderizarRankingsSeparados(filtrados);
             renderizarTabelaUsuariosPermissao();
+        }
+
+        // Função para renderizar o Gráfico e Ranking de Ofensores de Malogro
+        function renderizarOfensoresMalogro(dados) {
+            const tbody = document.getElementById('tabela-ofensores-malogro-corpo');
+            const badgeTotal = document.getElementById('badge-total-ocorrencias-malogro');
+            if (!tbody) return;
+            tbody.innerHTML = "";
+
+            const padraoOfensores = [
+                "FROTA", "MATERIAL", "FINANCEIRO", "EQUIPAMENTOS", 
+                "ACESSO", "PROJETO", "REDE EXTERNA", "INFRAESTRUTURA", "ÁREA DE RISCO"
+            ];
+
+            const contagemOfensores = {};
+            padraoOfensores.forEach(o => contagemOfensores[o] = 0);
+
+            let totalOcorrenciasMalogro = 0;
+
+            dados.forEach(d => {
+                if (d.desfecho === 'MALOGRADA' && Array.isArray(d.malogros)) {
+                    d.malogros.forEach(m => {
+                        const chave = m.trim().toUpperCase();
+                        contagemOfensores[chave] = (contagemOfensores[chave] || 0) + 1;
+                        totalOcorrenciasMalogro++;
+                    });
+                }
+            });
+
+            if (badgeTotal) {
+                badgeTotal.innerText = `${totalOcorrenciasMalogro} ocorrência(s)`;
+            }
+
+            const ordenados = Object.entries(contagemOfensores).sort((a, b) => b[1] - a[1]);
+
+            ordenados.forEach(([ofensor, qtd], idx) => {
+                const perc = totalOcorrenciasMalogro > 0 ? ((qtd / totalOcorrenciasMalogro) * 100).toFixed(1) : "0.0";
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-red-50/60 border-b cursor-pointer transition";
+                tr.title = `Clique para ver os imóveis afetados por ${ofensor}`;
+                tr.onclick = () => dispararExplosaoGrafico('ofensor', ofensor);
+
+                tr.innerHTML = `
+                    <td class="py-2 font-bold text-slate-400">${idx + 1}º</td>
+                    <td class="py-2 font-bold text-red-900 underline decoration-dotted">${ofensor}</td>
+                    <td class="py-2 text-center font-black text-slate-800">${qtd}</td>
+                    <td class="py-2 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <div class="w-16 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                <div class="bg-red-600 h-1.5" style="width: ${perc}%"></div>
+                            </div>
+                            <span class="text-[10px] font-bold text-slate-600 w-9">${perc}%</span>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const ctxOfensores = document.getElementById('graficoOfensoresMalogro')?.getContext('2d');
+            if (ctxOfensores) {
+                if (graficoOfensoresMalogroInstancia) graficoOfensoresMalogroInstancia.destroy();
+                const labelsOfensores = ordenados.map(item => item[0]);
+                const valoresOfensores = ordenados.map(item => item[1]);
+
+                graficoOfensoresMalogroInstancia = new Chart(ctxOfensores, {
+                    type: 'bar',
+                    data: {
+                        labels: labelsOfensores,
+                        datasets: [{
+                            label: 'Ocorrências de Malogro',
+                            data: valoresOfensores,
+                            backgroundColor: '#dc2626',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const index = elements[0].index;
+                                dispararExplosaoGrafico('ofensor', labelsOfensores[index]);
+                            }
+                        }
+                    }
+                });
+            }
         }
 
         // Função para renderizar o Ranking de Produtividade e Tempo Médio por Técnico
@@ -1847,6 +1999,7 @@
         }
 
         function abrirDetalhesAtividade(item) {
+            if (!item) return;
             const modal = document.getElementById('modal-detalhes');
             const conteudo = document.getElementById('modal-detalhes-conteudo');
             document.getElementById('modal-detalhes-titulo').innerText = `Detalhes do Imóvel: ${item.imovel}`;
@@ -1918,6 +2071,7 @@
                 if (filtroTipo === 'projeto') return item.projeto === filtroValor;
                 if (filtroTipo === 'desfecho') return item.desfecho === filtroValor;
                 if (filtroTipo === 'equipe') return item.equipe === filtroValor;
+                if (filtroTipo === 'ofensor') return item.desfecho === 'MALOGRADA' && Array.isArray(item.malogros) && item.malogros.map(m => m.trim().toUpperCase()).includes(filtroValor.toUpperCase());
                 return false;
             });
 
