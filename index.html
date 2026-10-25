@@ -863,7 +863,7 @@
         </div>
     </div>
 
-    <!-- Script Principal Completo, Robusto e Validado -->
+    <!-- Script Principal Completo e Otimizado -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1325,14 +1325,12 @@
 
             dadosFiltradosAtuais = filtrados;
 
-            // Separar Imprevistos das Atividades Comuns
             let listaImprevistos = filtrados.filter(i => i.projeto === 'IMPREVISTO / ATRASO');
             let listaAtividadesComuns = filtrados.filter(i => i.projeto !== 'IMPREVISTO / ATRASO');
 
             document.getElementById('kpi-proj-imprevistos').innerText = listaImprevistos.length;
             document.getElementById('contador-imprevistos').innerText = listaImprevistos.length + " imprevistos";
 
-            // Alerta de supervisão para imprevistos críticos
             const blocoAlerta = document.getElementById('alerta-malogros-criticos');
             if (listaImprevistos.length > 0 && blocoAlerta.dataset.fechado !== "true") {
                 blocoAlerta.classList.remove('hidden');
@@ -1398,7 +1396,6 @@
                 cxEmbutida: sumEmbutida
             });
 
-            // Preencher Tabela Atividades Comuns
             if (listaAtividadesComuns.length > 0) {
                 listaAtividadesComuns.forEach(item => {
                     const tr = document.createElement('tr');
@@ -1457,7 +1454,6 @@
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
             }
 
-            // Preencher Tabela Imprevistos Apartada
             if (corpoImprevistos) {
                 if (listaImprevistos.length > 0) {
                     listaImprevistos.forEach(imp => {
@@ -1495,7 +1491,6 @@
             blocoAlerta.dataset.fechado = "true";
         }
 
-        // Funções para o Modal de Imprevisto / Atraso
         function abrirModalImprevisto() {
             const equipe = document.getElementById('sel-equipe').value;
             if (!equipe) { alert("⚠️ Selecione a sua Equipe / Técnico primeiro."); return; }
@@ -1770,6 +1765,35 @@
                 localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
                 popularSelectEquipes();
                 renderizarTabelaEquipes();
+            }
+        }
+
+        function renderizarTabelaAuditoria() {
+            const corpo = document.getElementById('tabela-auditoria-corpo');
+            if (!corpo) return;
+            corpo.innerHTML = "";
+            if (trilhaAuditoria.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400">Nenhum registo de auditoria recente.</td></tr>`;
+                return;
+            }
+            trilhaAuditoria.forEach(log => {
+                corpo.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b text-xs">
+                        <td class="p-3 font-mono text-slate-500">${log.dataHora}</td>
+                        <td class="p-3 font-bold text-blue-900">${log.usuario}</td>
+                        <td class="p-3"><span class="bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded text-[10px]">${log.acao}</span></td>
+                        <td class="p-3 text-slate-600">${log.detalhes}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function limparLogsAuditoria() {
+            if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem limpar os logs."); return; }
+            if (confirm("Deseja limpar o histórico de logs de auditoria?")) {
+                trilhaAuditoria = [];
+                localStorage.removeItem('gpd_trilha_auditoria');
+                renderizarTabelaAuditoria();
             }
         }
 
