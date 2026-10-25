@@ -177,12 +177,52 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos -->
+            <!-- Sub-Aba: Gráficos & Indicadores Operacionais -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
-                    <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto ou parte da rosca para abrir o detalhamento por atividades, técnicos e dias.</span>
+                    <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto, fatia de desfecho ou técnico no ranking para abrir o detalhamento.</span>
                 </div>
 
+                <!-- CARDS: Indicadores de Tempo, Abertura, Fechamento e Pico -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-600 flex flex-col justify-between">
+                        <div class="flex justify-between items-start">
+                            <span class="text-[11px] font-bold text-slate-500 uppercase">🟢 Média de Abertura</span>
+                            <span class="text-xs bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded">Início Campo</span>
+                        </div>
+                        <span class="text-2xl font-black text-blue-900 mt-2" id="ind-media-abertura">--:--</span>
+                        <span class="text-[10px] text-slate-400 mt-1" id="ind-detalhe-abertura">Primeiro check-in: --:--</span>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-indigo-600 flex flex-col justify-between">
+                        <div class="flex justify-between items-start">
+                            <span class="text-[11px] font-bold text-slate-500 uppercase">🔴 Média de Fechamento</span>
+                            <span class="text-xs bg-indigo-50 text-indigo-800 font-bold px-2 py-0.5 rounded">Término Campo</span>
+                        </div>
+                        <span class="text-2xl font-black text-indigo-900 mt-2" id="ind-media-fechamento">--:--</span>
+                        <span class="text-[10px] text-slate-400 mt-1" id="ind-detalhe-fechamento">Último check-out: --:--</span>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-emerald-600 flex flex-col justify-between">
+                        <div class="flex justify-between items-start">
+                            <span class="text-[11px] font-bold text-slate-500 uppercase">⏱️ Tempo Médio (TMA)</span>
+                            <span class="text-xs bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded">Duração / Imóvel</span>
+                        </div>
+                        <span class="text-2xl font-black text-emerald-700 mt-2" id="ind-tempo-medio">--h --m</span>
+                        <span class="text-[10px] text-slate-400 mt-1" id="ind-detalhe-tma">Min: -- | Máx: --</span>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-amber-500 flex flex-col justify-between">
+                        <div class="flex justify-between items-start">
+                            <span class="text-[11px] font-bold text-slate-500 uppercase">🔥 Horário de Pico</span>
+                            <span class="text-xs bg-amber-50 text-amber-800 font-bold px-2 py-0.5 rounded">Maior Demanda</span>
+                        </div>
+                        <span class="text-2xl font-black text-amber-600 mt-2" id="ind-horario-pico">--:--</span>
+                        <span class="text-[10px] text-slate-400 mt-1" id="ind-detalhe-pico">0 atividades iniciadas na faixa</span>
+                    </div>
+                </div>
+
+                <!-- Gráficos Principais (Com Modo Explosão) -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
@@ -197,6 +237,54 @@
                             <p class="text-xs text-slate-500 mb-4">Proporção detalhada entre Concluídas, Pendentes e Malogradas</p>
                         </div>
                         <div class="relative h-80"><canvas id="graficoDesfechos"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- GRÁFICOS: Curva de Picos Horários e Tempo Médio por Projeto -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase">⏰ Curva de Picos por Horário (Abertura vs. Fechamento)</h3>
+                            <p class="text-xs text-slate-500 mb-4">Concentração de início e término de atividades ao longo das horas do dia</p>
+                        </div>
+                        <div class="relative h-72"><canvas id="graficoHorasPico"></canvas></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase">⏳ Tempo Médio de Execução por Tipo de Projeto (Minutos)</h3>
+                            <p class="text-xs text-slate-500 mb-4">Duração média cronometrada entre o check-in e o check-out de cada frente</p>
+                        </div>
+                        <div class="relative h-72"><canvas id="graficoTempoProjeto"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- NOVA TABELA: Ranking de Produtividade e Tempo Médio por Técnico / Equipe -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-sm">⏱️ Ranking de Produtividade e Tempo Médio por Técnico / Equipe</h3>
+                            <p class="text-[11px] text-slate-500">Clique na linha de qualquer técnico para explodir as atividades realizadas por ele no período</p>
+                        </div>
+                        <span id="contador-tecnicos-ativos" class="bg-blue-100 text-blue-900 font-bold px-3 py-1 rounded-lg text-xs">0 técnicos acionados</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
+                                    <th class="p-3 text-center">#</th>
+                                    <th class="p-3">Técnico / Equipe</th>
+                                    <th class="p-3 text-center">Total</th>
+                                    <th class="p-3 text-center text-emerald-700">Concluídas</th>
+                                    <th class="p-3 text-center text-amber-600">Pendentes</th>
+                                    <th class="p-3 text-center text-red-600">Malogradas</th>
+                                    <th class="p-3 text-center">Média Abertura</th>
+                                    <th class="p-3 text-center">Média Fechamento</th>
+                                    <th class="p-3 text-center">Tempo Médio (TMA)</th>
+                                    <th class="p-3 text-right">Eficácia (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-ranking-tecnicos-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -816,6 +904,8 @@
         let nivelUsuarioLogado = "Visualizador";
         let graficoProjetosInstancia = null;
         let graficoDesfechosInstancia = null;
+        let graficoHorasPicoInstancia = null;
+        let graficoTempoProjetoInstancia = null;
         let dadosFiltradosAtuais = [];
 
         const TABELA_PRECOS = {
@@ -1176,7 +1266,6 @@
                 btnSalvar.innerText = "⏳ Capturando GPS de saída e salvando...";
             }
 
-            // Captura o GPS real de saída (espera até 4s; se estiver sem sinal no interior do prédio, usa o GPS real da entrada)
             let gpsSaidaFinal = dadosAtendimento.gpsEntrada || "Não capturado";
             try {
                 gpsSaidaFinal = await capturarGpsReal(4000);
@@ -1239,6 +1328,30 @@
             alert("✅ Atendimento finalizado e sincronizado com sucesso!");
             resetarFormularioCampo();
             await carregarRegistrosDaNuvem();
+        }
+
+        // Funções utilitárias de cálculo de horários e duração
+        function converterHorarioParaMinutos(strHora) {
+            if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
+            const partes = strHora.trim().split(':');
+            const h = parseInt(partes[0], 10);
+            const m = parseInt(partes[1], 10);
+            if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+            return (h * 60) + m;
+        }
+
+        function formatarMinutosParaHHMM(totalMinutos) {
+            if (totalMinutos === null || isNaN(totalMinutos) || totalMinutos < 0) return "--:--";
+            const h = Math.floor(totalMinutos / 60);
+            const m = Math.round(totalMinutos % 60);
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
+
+        function formatarDuracaoTexto(totalMinutos) {
+            if (totalMinutos === null || isNaN(totalMinutos) || totalMinutos <= 0) return "--h --m";
+            const h = Math.floor(totalMinutos / 60);
+            const m = Math.round(totalMinutos % 60);
+            return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
         }
 
         async function atualizarDashboardGestor() {
@@ -1340,6 +1453,7 @@
                 if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
                 renderizarGraficos([]);
+                renderizarRankingTecnicos([]);
                 renderizarTabelaConsolidada([]);
                 renderizarRankingsSeparados([]);
                 return;
@@ -1361,6 +1475,10 @@
                     botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
                 }
 
+                const minIn = converterHorarioParaMinutos(item.hEntrada);
+                const minOut = converterHorarioParaMinutos(item.hSaida);
+                const duracaoStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(minOut - minIn) : "-";
+
                 tr.innerHTML = `
                     <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
                     <td class="p-3"><div class="font-semibold">${item.equipe}</div></td>
@@ -1369,6 +1487,7 @@
                     <td class="p-3">
                         <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
                         <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
+                        <div class="text-[10px] text-emerald-700 font-bold mt-0.5">⏱️ Duração: ${duracaoStr}</div>
                     </td>
                     <td class="p-3 text-[10px] font-mono text-slate-600">
                         <div>In: ${item.gpsEntrada}</div>
@@ -1399,9 +1518,101 @@
             });
 
             renderizarGraficos(filtrados);
+            renderizarRankingTecnicos(filtrados);
             renderizarTabelaConsolidada(filtrados);
             renderizarRankingsSeparados(filtrados);
             renderizarTabelaUsuariosPermissao();
+        }
+
+        // Função para renderizar o Ranking de Produtividade e Tempo Médio por Técnico
+        function renderizarRankingTecnicos(dados) {
+            const tbody = document.getElementById('tabela-ranking-tecnicos-corpo');
+            const badgeContador = document.getElementById('contador-tecnicos-ativos');
+            if (!tbody) return;
+            tbody.innerHTML = "";
+
+            const mapaTecnicos = {};
+
+            dados.forEach(d => {
+                const nome = d.equipe || "NÃO IDENTIFICADO";
+                if (!mapaTecnicos[nome]) {
+                    mapaTecnicos[nome] = {
+                        equipe: nome,
+                        total: 0,
+                        concluidas: 0,
+                        pendentes: 0,
+                        malogradas: 0,
+                        entradas: [],
+                        saidas: [],
+                        duracoes: []
+                    };
+                }
+
+                const t = mapaTecnicos[nome];
+                t.total++;
+                if (d.desfecho === 'CONCLUIDA') t.concluidas++;
+                else if (d.desfecho === 'PENDENTE') t.pendentes++;
+                else if (d.desfecho === 'MALOGRADA') t.malogradas++;
+
+                const minIn = converterHorarioParaMinutos(d.hEntrada);
+                const minOut = converterHorarioParaMinutos(d.hSaida);
+
+                if (minIn !== null) t.entradas.push(minIn);
+                if (minOut !== null) t.saidas.push(minOut);
+                if (minIn !== null && minOut !== null && minOut >= minIn) {
+                    const dur = minOut - minIn;
+                    if (dur > 0 && dur <= 840) t.duracoes.push(dur);
+                }
+            });
+
+            const listaOrdenada = Object.values(mapaTecnicos).sort((a, b) => {
+                if (b.concluidas !== a.concluidas) return b.concluidas - a.concluidas;
+                return b.total - a.total;
+            });
+
+            if (badgeContador) {
+                badgeContador.innerText = `${listaOrdenada.length} técnico(s) acionado(s)`;
+            }
+
+            if (listaOrdenada.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400">Nenhuma atividade registrada para compor o ranking de técnicos no período.</td></tr>`;
+                return;
+            }
+
+            listaOrdenada.forEach((t, index) => {
+                const mediaIn = t.entradas.length > 0 ? formatarMinutosParaHHMM(t.entradas.reduce((a, b) => a + b, 0) / t.entradas.length) : "--:--";
+                const mediaOut = t.saidas.length > 0 ? formatarMinutosParaHHMM(t.saidas.reduce((a, b) => a + b, 0) / t.saidas.length) : "--:--";
+                const tma = t.duracoes.length > 0 ? formatarDuracaoTexto(t.duracoes.reduce((a, b) => a + b, 0) / t.duracoes.length) : "--h --m";
+                const eficacia = t.total > 0 ? ((t.concluidas / t.total) * 100).toFixed(1) : "0.0";
+
+                let corEficacia = "bg-emerald-100 text-emerald-800";
+                if (eficacia < 50) corEficacia = "bg-red-100 text-red-800";
+                else if (eficacia < 80) corEficacia = "bg-amber-100 text-amber-800";
+
+                let medalha = `${index + 1}º`;
+                if (index === 0) medalha = "🥇 1º";
+                else if (index === 1) medalha = "🥈 2º";
+                else if (index === 2) medalha = "🥉 3º";
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-blue-50/60 border-b cursor-pointer transition";
+                tr.title = `Clique para ver todas as atividades de ${t.equipe}`;
+                tr.onclick = () => dispararExplosaoGrafico('equipe', t.equipe);
+
+                tr.innerHTML = `
+                    <td class="p-3 text-center font-bold text-slate-700">${medalha}</td>
+                    <td class="p-3 font-bold text-blue-900 underline decoration-dotted">${t.equipe}</td>
+                    <td class="p-3 text-center font-bold text-slate-800">${t.total}</td>
+                    <td class="p-3 text-center font-bold text-emerald-700 bg-emerald-50/40">${t.concluidas}</td>
+                    <td class="p-3 text-center font-semibold text-amber-600">${t.pendentes}</td>
+                    <td class="p-3 text-center font-semibold text-red-600">${t.malogradas}</td>
+                    <td class="p-3 text-center font-mono text-slate-600">${mediaIn}</td>
+                    <td class="p-3 text-center font-mono text-slate-600">${mediaOut}</td>
+                    <td class="p-3 text-center font-bold text-indigo-900 bg-indigo-50/40">${tma}</td>
+                    <td class="p-3 text-right"><span class="px-2 py-0.5 rounded font-bold text-[10px] ${corEficacia}">${eficacia}%</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
 
         function abrirModalEdicao(id) {
@@ -1648,6 +1859,10 @@
 
             let malogrosStr = item.malogros && item.malogros.length > 0 ? item.malogros.join(', ') : 'Nenhum';
 
+            const minIn = converterHorarioParaMinutos(item.hEntrada);
+            const minOut = converterHorarioParaMinutos(item.hSaida);
+            const duracaoStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(minOut - minIn) : "-";
+
             conteudo.innerHTML = `
                 <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
                     <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
@@ -1662,11 +1877,12 @@
                 </div>
 
                 <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 space-y-1">
-                    <h4 class="font-bold text-blue-900 text-xs uppercase">🕒 Horários e GPS</h4>
+                    <h4 class="font-bold text-blue-900 text-xs uppercase">🕒 Horários, Duração e GPS</h4>
                     <div><strong>Horário de Entrada:</strong> ${item.hEntrada}</div>
                     <div><strong>GPS Entrada:</strong> ${linkGpsEntrada}</div>
                     <div class="pt-1"><strong>Horário de Saída:</strong> ${item.hSaida}</div>
                     <div><strong>GPS Saída:</strong> ${linkGpsSaida}</div>
+                    <div class="pt-1 text-emerald-800 font-bold"><strong>⏱️ Tempo de Atividade:</strong> ${duracaoStr}</div>
                 </div>
 
                 <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-200 space-y-1">
@@ -1701,6 +1917,7 @@
             let subset = dadosFiltradosAtuais.filter(item => {
                 if (filtroTipo === 'projeto') return item.projeto === filtroValor;
                 if (filtroTipo === 'desfecho') return item.desfecho === filtroValor;
+                if (filtroTipo === 'equipe') return item.equipe === filtroValor;
                 return false;
             });
 
@@ -1710,7 +1927,7 @@
                 subset.forEach(item => {
                     let detalheInfo = item.malogros && item.malogros.length > 0 ? `Ofensores: ${item.malogros.join(', ')}` : (item.motivoDesfecho || 'Concluído sem pendências');
                     corpo.innerHTML += `
-                        <tr class="hover:bg-slate-50 border-b text-xs">
+                        <tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))">
                             <td class="p-2.5 font-mono text-slate-600 font-bold">${item.dataRegistro}</td>
                             <td class="p-2.5 font-bold text-slate-800">${item.imovel}</td>
                             <td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td>
@@ -1741,6 +1958,14 @@
 
             let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
 
+            let listaMinutosEntrada = [];
+            let listaMinutosSaida = [];
+            let listaDuracoes = [];
+            let aberturasPorHora = new Array(24).fill(0);
+            let fechamentosPorHora = new Array(24).fill(0);
+            let duracaoPorProjeto = {};
+            Object.keys(projetosCount).forEach(k => duracaoPorProjeto[k] = []);
+
             dados.forEach(d => {
                 if (projetosCount[d.projeto] !== undefined) {
                     projetosCount[d.projeto]++;
@@ -1748,13 +1973,91 @@
                 if (desfechosCount[d.desfecho] !== undefined) {
                     desfechosCount[d.desfecho]++;
                 }
+
+                const minIn = converterHorarioParaMinutos(d.hEntrada);
+                const minOut = converterHorarioParaMinutos(d.hSaida);
+
+                if (minIn !== null) {
+                    listaMinutosEntrada.push(minIn);
+                    const horaIn = Math.floor(minIn / 60);
+                    if (horaIn >= 0 && horaIn < 24) aberturasPorHora[horaIn]++;
+                }
+
+                if (minOut !== null) {
+                    listaMinutosSaida.push(minOut);
+                    const horaOut = Math.floor(minOut / 60);
+                    if (horaOut >= 0 && horaOut < 24) fechamentosPorHora[horaOut]++;
+                }
+
+                if (minIn !== null && minOut !== null && minOut >= minIn) {
+                    const dur = minOut - minIn;
+                    if (dur > 0 && dur <= 840) {
+                        listaDuracoes.push(dur);
+                        if (duracaoPorProjeto[d.projeto]) {
+                            duracaoPorProjeto[d.projeto].push(dur);
+                        }
+                    }
+                }
             });
 
+            // 1. Preencher Card: Média de Abertura
+            if (listaMinutosEntrada.length > 0) {
+                const somaIn = listaMinutosEntrada.reduce((a, b) => a + b, 0);
+                const mediaIn = somaIn / listaMinutosEntrada.length;
+                const menorIn = Math.min(...listaMinutosEntrada);
+                document.getElementById('ind-media-abertura').innerText = formatarMinutosParaHHMM(mediaIn);
+                document.getElementById('ind-detalhe-abertura').innerText = `Primeiro check-in às ${formatarMinutosParaHHMM(menorIn)}`;
+            } else {
+                document.getElementById('ind-media-abertura').innerText = "--:--";
+                document.getElementById('ind-detalhe-abertura').innerText = "Sem dados no período";
+            }
+
+            // 2. Preencher Card: Média de Fechamento
+            if (listaMinutosSaida.length > 0) {
+                const somaOut = listaMinutosSaida.reduce((a, b) => a + b, 0);
+                const mediaOut = somaOut / listaMinutosSaida.length;
+                const maiorOut = Math.max(...listaMinutosSaida);
+                document.getElementById('ind-media-fechamento').innerText = formatarMinutosParaHHMM(mediaOut);
+                document.getElementById('ind-detalhe-fechamento').innerText = `Último check-out às ${formatarMinutosParaHHMM(maiorOut)}`;
+            } else {
+                document.getElementById('ind-media-fechamento').innerText = "--:--";
+                document.getElementById('ind-detalhe-fechamento').innerText = "Sem dados no período";
+            }
+
+            // 3. Preencher Card: Tempo Médio de Atividade (TMA)
+            if (listaDuracoes.length > 0) {
+                const somaDur = listaDuracoes.reduce((a, b) => a + b, 0);
+                const mediaDur = somaDur / listaDuracoes.length;
+                const minDur = Math.min(...listaDuracoes);
+                const maxDur = Math.max(...listaDuracoes);
+                document.getElementById('ind-tempo-medio').innerText = formatarDuracaoTexto(mediaDur);
+                document.getElementById('ind-detalhe-tma').innerText = `Mín: ${formatarDuracaoTexto(minDur)} | Máx: ${formatarDuracaoTexto(maxDur)}`;
+            } else {
+                document.getElementById('ind-tempo-medio').innerText = "--h --m";
+                document.getElementById('ind-detalhe-tma').innerText = "Aguardando durações válidas";
+            }
+
+            // 4. Preencher Card: Horário de Pico
+            let maxAtivHora = 0;
+            let horaPico = null;
+            for (let h = 0; h < 24; h++) {
+                if (aberturasPorHora[h] > maxAtivHora) {
+                    maxAtivHora = aberturasPorHora[h];
+                    horaPico = h;
+                }
+            }
+            if (horaPico !== null && maxAtivHora > 0) {
+                document.getElementById('ind-horario-pico').innerText = `${String(horaPico).padStart(2, '0')}h às ${String(horaPico + 1).padStart(2, '0')}h`;
+                document.getElementById('ind-detalhe-pico').innerText = `${maxAtivHora} atividade(s) iniciada(s) na faixa`;
+            } else {
+                document.getElementById('ind-horario-pico').innerText = "--:--";
+                document.getElementById('ind-detalhe-pico').innerText = "Sem picos registrados";
+            }
+
+            // Gráfico 1: Barras por Tipo de Projeto
             const ctxProj = document.getElementById('graficoProjetos')?.getContext('2d');
             if (ctxProj) {
-                if (graficoProjetosInstancia) {
-                    graficoProjetosInstancia.destroy();
-                }
+                if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
                 graficoProjetosInstancia = new Chart(ctxProj, {
                     type: 'bar',
                     data: {
@@ -1781,11 +2084,10 @@
                 });
             }
 
+            // Gráfico 2: Rosca de Eficácia e Desfechos
             const ctxDesf = document.getElementById('graficoDesfechos')?.getContext('2d');
             if (ctxDesf) {
-                if (graficoDesfechosInstancia) {
-                    graficoDesfechosInstancia.destroy();
-                }
+                if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
                 graficoDesfechosInstancia = new Chart(ctxDesf, {
                     type: 'doughnut',
                     data: {
@@ -1805,6 +2107,83 @@
                                 dispararExplosaoGrafico('desfecho', chaveDesfecho);
                             }
                         }
+                    }
+                });
+            }
+
+            // Gráfico 3: Curva de Picos Horários (06h às 20h) - Abertura vs Fechamento
+            const ctxHoras = document.getElementById('graficoHorasPico')?.getContext('2d');
+            if (ctxHoras) {
+                if (graficoHorasPicoInstancia) graficoHorasPicoInstancia.destroy();
+                const labelsHoras = [];
+                const dadosAberturaSlice = [];
+                const dadosFechamentoSlice = [];
+                for (let h = 6; h <= 20; h++) {
+                    labelsHoras.push(`${String(h).padStart(2, '0')}h`);
+                    dadosAberturaSlice.push(aberturasPorHora[h]);
+                    dadosFechamentoSlice.push(fechamentosPorHora[h]);
+                }
+                graficoHorasPicoInstancia = new Chart(ctxHoras, {
+                    type: 'line',
+                    data: {
+                        labels: labelsHoras,
+                        datasets: [
+                            {
+                                label: '🟢 Aberturas (Check-in)',
+                                data: dadosAberturaSlice,
+                                borderColor: '#2563eb',
+                                backgroundColor: 'rgba(37, 99, 235, 0.15)',
+                                fill: true,
+                                tension: 0.35
+                            },
+                            {
+                                label: '🔴 Fechamentos (Check-out)',
+                                data: dadosFechamentoSlice,
+                                borderColor: '#059669',
+                                backgroundColor: 'rgba(5, 150, 105, 0.12)',
+                                fill: true,
+                                tension: 0.35
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: true, position: 'top' } },
+                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                    }
+                });
+            }
+
+            // Gráfico 4: Tempo Médio por Tipo de Projeto (em minutos)
+            const ctxTempoProj = document.getElementById('graficoTempoProjeto')?.getContext('2d');
+            if (ctxTempoProj) {
+                if (graficoTempoProjetoInstancia) graficoTempoProjetoInstancia.destroy();
+                const labelsProj = Object.keys(projetosCount);
+                const mediasMinutosProj = labelsProj.map(proj => {
+                    const arr = duracaoPorProjeto[proj] || [];
+                    if (arr.length === 0) return 0;
+                    const soma = arr.reduce((a, b) => a + b, 0);
+                    return Math.round(soma / arr.length);
+                });
+
+                graficoTempoProjetoInstancia = new Chart(ctxTempoProj, {
+                    type: 'bar',
+                    data: {
+                        labels: labelsProj,
+                        datasets: [{
+                            label: 'Tempo Médio (Minutos)',
+                            data: mediasMinutosProj,
+                            backgroundColor: '#0d9488',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { beginAtZero: true } }
                     }
                 });
             }
