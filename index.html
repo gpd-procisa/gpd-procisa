@@ -932,6 +932,8 @@
         window.onload = async function() { 
             popularSelectEquipes();
             verificarPermissoesSessao();
+            await carregarRegistrosDaNuvem(); // Carregar dados PRIMEIRO para evitar race conditions
+            
             if (usuarioLogado) {
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
                 document.getElementById('btn-sair-gestor').classList.remove('hidden');
@@ -941,9 +943,8 @@
             } else {
                 alternarVisao('campo');
             }
-            await carregarRegistrosDaNuvem();
 
-            // Atualização automática em segundo plano (Polling a cada 60s)
+            // Polling automático a cada 60 segundos
             setInterval(async () => {
                 if (usuarioLogado) {
                     await carregarRegistrosDaNuvem();
@@ -1241,10 +1242,11 @@
             const equipeNome = document.getElementById('sel-equipe').value;
             const projetoNome = document.getElementById('sel-projeto').value;
             const imovelCod = document.getElementById('inp-imovel').value;
+            const dataLocalCorreta = new Date().toLocaleDateString('en-CA'); // Data local exata YYYY-MM-DD
 
             const novoRegistroDB = {
                 id: Date.now(),
-                data_registro: new Date().toISOString().split('T')[0],
+                data_registro: dataLocalCorreta,
                 equipe: equipeNome,
                 membros: equipeNome,
                 projeto: projetoNome,
@@ -1511,9 +1513,11 @@
                 gpsReal = await obterGpsObrigatorio();
             } catch(e) {}
 
+            let dataLocalCorreta = new Date().toLocaleDateString('en-CA');
+
             let imprevistoDB = {
                 id: Date.now(),
-                data_registro: new Date().toISOString().split('T')[0],
+                data_registro: dataLocalCorreta,
                 equipe: equipe,
                 membros: equipe,
                 projeto: "IMPREVISTO / ATRASO",
