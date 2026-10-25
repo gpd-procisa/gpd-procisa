@@ -101,7 +101,7 @@
             </div>
 
             <!-- KPIs Numéricos Independentes -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Vistoria</span>
                     <span class="text-xl font-bold text-slate-800 mt-1" id="kpi-proj-vistoria">0</span>
@@ -129,6 +129,10 @@
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lot. Amb</span>
                     <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-nap-ambos">0</span>
+                </div>
+                <div class="bg-amber-50 p-3 rounded-xl shadow-sm border border-amber-200 flex flex-col justify-between">
+                    <span class="text-[10px] font-bold text-amber-800 uppercase">⚠️ Imprevistos</span>
+                    <span class="text-xl font-bold text-amber-700 mt-1" id="kpi-proj-imprevistos">0</span>
                 </div>
             </div>
 
@@ -160,6 +164,7 @@
                             <option value="NAP LOTADA ATIVAÇÃO">NAP LOTADA ATIVAÇÃO</option>
                             <option value="NAP LOTADA CONSTRUÇÃO">NAP LOTADA CONSTRUÇÃO</option>
                             <option value="NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO">NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO</option>
+                            <option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>
                         </select>
                     </div>
                 </div>
@@ -189,7 +194,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos -->
+            <!-- Sub-Aba: Gráficos & Produtividade por Hora/Dia -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
                     <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto ou parte da rosca para abrir o detalhamento por atividades, técnicos e dias.</span>
@@ -209,6 +214,24 @@
                             <p class="text-xs text-slate-500 mb-4">Proporção detalhada entre Concluídas, Pendentes e Malogradas</p>
                         </div>
                         <div class="relative h-80"><canvas id="graficoDesfechos"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Gráficos de Produtividade por Hora e Dia da Semana -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase">⏰ Produtividade por Horário (Picos de Atendimento)</h3>
+                            <p class="text-xs text-slate-500 mb-4">Distribuição de atendimentos ao longo das horas do dia</p>
+                        </div>
+                        <div class="relative h-72"><canvas id="graficoHoras"></canvas></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase">📅 Produtividade por Dia da Semana</h3>
+                            <p class="text-xs text-slate-500 mb-4">Volume de entregas concentradas por dia útil/fim de semana</p>
+                        </div>
+                        <div class="relative h-72"><canvas id="graficoDiasSemana"></canvas></div>
                     </div>
                 </div>
 
@@ -605,7 +628,6 @@
                                     <label><input type="checkbox" name="malogro-check" value="REDE EXTERNA"> REDE EXTERNA</label>
                                     <label><input type="checkbox" name="malogro-check" value="INFRAESTRUTURA"> INFRAESTRUTURA</label>
                                     <label><input type="checkbox" name="malogro-check" value="ÁREA DE RISCO"> ÁREA DE RISCO</label>
-                                    <label><input type="checkbox" name="malogro-check" value="SEM TEMPO HÁBIL"> SEM TEMPO HÁBIL</label>
                                 </div>
                             </div>
                         </div>
@@ -780,7 +802,7 @@
         </div>
     </div>
 
-    <!-- Script Principal Estável -->
+    <!-- Script Principal com Feedback Visual Imediato no Modo Campo -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1068,6 +1090,91 @@
             if (tipo === 'CONCLUIDA') document.getElementById('bloco-concluida').classList.remove('hidden');
             if (tipo === 'PENDENTE') document.getElementById('bloco-pendente').classList.remove('hidden');
             if (tipo === 'MALOGRADA') document.getElementById('bloco-malograda').classList.remove('hidden');
+        }
+
+        async function fazerCheckIn() {
+            const equipe = document.getElementById('sel-equipe').value;
+            const imovel = document.getElementById('inp-imovel').value;
+            if (!equipe || !imovel) { alert("⚠️ Selecione a Equipe e informe o Cód. Imóvel."); return; }
+
+            document.getElementById('form-campo-container').classList.add('hidden');
+            document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+            document.getElementById('lbl-h-entrada').innerText = new Date().toLocaleTimeString('pt-BR');
+            mudarTipoProjeto();
+        }
+
+        async function salvarRegistro() {
+            if (!dadosAtendimento.desfechoSelecionado) {
+                alert("⚠️ Selecione o desfecho da atividade.");
+                return;
+            }
+
+            let motivoDesfecho = "";
+            let malogrosSelecionados = [];
+            let servObraVal = "SIM";
+
+            if (dadosAtendimento.desfechoSelecionado === 'CONCLUIDA') {
+                servObraVal = document.getElementById('sel-servico-obra').value;
+                motivoDesfecho = document.getElementById('obs-concluida').value.trim();
+            } else if (dadosAtendimento.desfechoSelecionado === 'PENDENTE') {
+                motivoDesfecho = document.getElementById('obs-pendente').value.trim();
+                if (!motivoDesfecho) { alert("⚠️ Informe o motivo da pendência."); return; }
+            } else if (dadosAtendimento.desfechoSelecionado === 'MALOGRADA') {
+                motivoDesfecho = document.getElementById('obs-malograda').value.trim();
+                let checkboxes = document.querySelectorAll('input[name="malogro-check"]:checked');
+                checkboxes.forEach(cb => malogrosSelecionados.push(cb.value));
+                if (!motivoDesfecho || malogrosSelecionados.length === 0) {
+                    alert("⚠️ Informe o motivo e selecione pelo menos um ofensor/malogro.");
+                    return;
+                }
+            }
+
+            const equipeNome = document.getElementById('sel-equipe').value;
+            const projetoNome = document.getElementById('sel-projeto').value;
+            const imovelCod = document.getElementById('inp-imovel').value;
+            const dataLocalCorreta = new Date().toLocaleDateString('en-CA');
+
+            const novoRegistroDB = {
+                id: Date.now(),
+                data_registro: dataLocalCorreta,
+                equipe: equipeNome,
+                membros: equipeNome,
+                projeto: projetoNome,
+                imovel: imovelCod,
+                h_entrada: document.getElementById('lbl-h-entrada').innerText || "08:30",
+                h_saida: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
+                gps_entrada: "-22.90680, -43.17290",
+                gps_saida: "-22.90710, -43.17320",
+                desfecho: dadosAtendimento.desfechoSelecionado,
+                motivo_desfecho: motivoDesfecho,
+                malogros: malogrosSelecionados,
+                responsavel: document.getElementById('form-responsavel').value || '',
+                contato: document.getElementById('form-contato').value || '',
+                email: document.getElementById('form-email').value || '',
+                andares: Number(document.getElementById('form-andares')?.value) || 0,
+                hps: Number(document.getElementById('form-hps')?.value) || 0,
+                servico_obra: servObraVal,
+                observacoes: document.getElementById('form-observacoes').value || '',
+                fusoes: Number(document.getElementById('mat-fusoes')?.value) || 0,
+                conectores: Number(document.getElementById('mat-conectores')?.value) || 0,
+                caboRL: Number(document.getElementById('mat-cabo-rl')?.value) || 0,
+                caboDrop: Number(document.getElementById('mat-cabo-drop')?.value) || 0,
+                nap: Number(document.getElementById('mat-nap')?.value) || 0,
+                dio: Number(document.getElementById('mat-dio')?.value) || 0,
+                cx_sobrepor: Number(document.getElementById('mat-cx-sobrepor')?.value) || 0,
+                cx_embutida: Number(document.getElementById('mat-cx-embutida')?.value) || 0,
+                cx_fosc: Number(document.getElementById('mat-cx-fosc')?.value) || 0
+            };
+
+            const { error } = await supabaseClient.from('registros_producao').insert([novoRegistroDB]);
+            if (error) {
+                alert("Erro ao salvar: " + error.message);
+                return;
+            }
+
+            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome})`);
+            alert("✅ Atendimento finalizado e sincronizado com sucesso!");
+            location.reload();
         }
 
         async function atualizarDashboardGestor() {
