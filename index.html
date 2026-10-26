@@ -577,7 +577,7 @@
             <!-- Sub-Aba: Equipes -->
             <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
-                    <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos</h3>
+                    <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos (Sincronizado na Nuvem)</h3>
                     <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-nova-equipe">+ Nova Equipe</button>
                 </div>
                 <div class="overflow-x-auto">
@@ -597,7 +597,10 @@
             <!-- GESTÃO DE USUÁRIOS -->
             <div id="subview-usuarios" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
-                    <h3 class="font-bold text-slate-800 text-sm">👥 Controle de Acesso e Usuários</h3>
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm">👥 Controle de Acesso e Usuários (Sincronizado na Nuvem)</h3>
+                        <p class="text-[11px] text-emerald-700 font-medium">☁️ Os usuários cadastrados aqui funcionam automaticamente em todos os notebooks e celulares.</p>
+                    </div>
                     <button onclick="abrirModalUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-novo-usuario">+ Novo Usuário</button>
                 </div>
                 <div class="overflow-x-auto">
@@ -1024,11 +1027,15 @@
         </div>
     </div>
 
-    <!-- Script Principal Completo e Revisado -->
+    <!-- Script Principal Completo com Sincronização de Usuários e Equipes na Nuvem -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // IDs fixos reservados na tabela para guardar a configuração global de Usuários e Equipes na nuvem
+        const ID_NUVEM_USUARIOS = 999999001;
+        const ID_NUVEM_EQUIPES  = 999999002;
 
         const listaEquipesInicial = [
             "ANDREO FAGUNDES",
@@ -1095,6 +1102,66 @@
             "CX EMBUTIDA": { codigo: "1.11", desc: "INSTALAÇÃO DE CAIXA - EMBUTIDA", unidade: "Unidade", valor: 150.76 }
         };
 
+        // --- FUNÇÕES DE SINCRONIZAÇÃO DE USUÁRIOS E EQUIPES NA NUVEM (SUPABASE) ---
+        async function sincronizarUsuariosNaNuvem() {
+            try {
+                // Garante que o usuário Master principal sempre exista na lista
+                if (!usuariosSistema.some(u => u.email.toLowerCase() === "lsimoes@procisa.com.br")) {
+                    usuariosSistema.unshift({ id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", senha: "Leo290301@", nivel: "Master", status: "Ativo" });
+                }
+                localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
+
+                const payloadConfig = {
+                    id: ID_NUVEM_USUARIOS,
+                    data_registro: "2000-01-01",
+                    equipe: "__CONFIG_SISTEMA__",
+                    membros: "__CONFIG_SISTEMA__",
+                    projeto: "__CONFIG_USUARIOS__",
+                    imovel: "__CONFIG_USUARIOS__",
+                    h_entrada: "00:00",
+                    h_saida: "00:00",
+                    gps_entrada: "",
+                    gps_saida: "",
+                    desfecho: "CONFIG",
+                    motivo_desfecho: "",
+                    malogros: [],
+                    observacoes: JSON.stringify(usuariosSistema)
+                };
+
+                await supabaseClient.from('registros_producao').upsert([payloadConfig], { onConflict: 'id' });
+            } catch (e) {
+                console.warn("Aviso ao sincronizar usuários na nuvem:", e);
+            }
+        }
+
+        async function sincronizarEquipesNaNuvem() {
+            try {
+                equipesSistema.sort((a, b) => a.nome.localeCompare(b.nome));
+                localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
+
+                const payloadConfig = {
+                    id: ID_NUVEM_EQUIPES,
+                    data_registro: "2000-01-01",
+                    equipe: "__CONFIG_SISTEMA__",
+                    membros: "__CONFIG_SISTEMA__",
+                    projeto: "__CONFIG_EQUIPES__",
+                    imovel: "__CONFIG_EQUIPES__",
+                    h_entrada: "00:00",
+                    h_saida: "00:00",
+                    gps_entrada: "",
+                    gps_saida: "",
+                    desfecho: "CONFIG",
+                    motivo_desfecho: "",
+                    malogros: [],
+                    observacoes: JSON.stringify(equipesSistema)
+                };
+
+                await supabaseClient.from('registros_producao').upsert([payloadConfig], { onConflict: 'id' });
+            } catch (e) {
+                console.warn("Aviso ao sincronizar equipes na nuvem:", e);
+            }
+        }
+
         // Função auxiliar para retornar a classe de cores do Desfecho (Verde, Amarelo, Vermelho)
         function obterClasseCorDesfecho(desfecho) {
             const d = (desfecho || '').toUpperCase().trim();
@@ -1115,10 +1182,10 @@
         }
 
         window.onload = async function() { 
+            await carregarRegistrosDaNuvem(); // Carrega primeiro da nuvem (incluindo usuários e equipes globais)
             popularSelectEquipes();
             verificarPermissoesSessao();
-            await carregarRegistrosDaNuvem();
-            restaurarRascunhoCampo(); // Recupera atividade em andamento caso o celular tenha fechado o navegador
+            restaurarRascunhoCampo();
 
             if (usuarioLogado) {
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
@@ -1405,11 +1472,14 @@
             });
         }
 
-        function tentarAcessarGestor() {
+        async function tentarAcessarGestor() {
             if (usuarioLogado) {
                 alternarVisao('gestor');
                 return;
             }
+
+            // Garante que a lista de usuários mais recente da nuvem seja carregada antes de validar a senha
+            await carregarRegistrosDaNuvem();
 
             let emailInformado = prompt("🔒 Digite o seu e-mail corporativo:");
             if (!emailInformado) return;
@@ -1417,8 +1487,13 @@
 
             let senhaInformada = prompt("🔑 Digite a sua senha de acesso:");
             if (!senhaInformada) return;
+            senhaInformada = senhaInformada.trim();
 
-            let usuarioEncontrado = usuariosSistema.find(u => u.email.toLowerCase() === emailInformado && u.senha === senhaInformada && u.status === "Ativo");
+            let usuarioEncontrado = usuariosSistema.find(u => 
+                u.email && u.email.trim().toLowerCase() === emailInformado && 
+                u.senha && u.senha.trim() === senhaInformada && 
+                u.status === "Ativo"
+            );
 
             if (usuarioEncontrado || (emailInformado === "lsimoes@procisa.com.br" && senhaInformada === "Leo290301@")) {
                 usuarioLogado = emailInformado;
@@ -1507,7 +1582,57 @@
                 if (error) throw error;
                 
                 if (data) {
-                    registrosSalvos = data.map(r => ({
+                    // 1. Extrai e sincroniza a lista global de Usuários da nuvem
+                    const rowUsuarios = data.find(r => r.id === ID_NUVEM_USUARIOS || r.projeto === '__CONFIG_USUARIOS__');
+                    if (rowUsuarios && rowUsuarios.observacoes) {
+                        try {
+                            const nuvemUsers = JSON.parse(rowUsuarios.observacoes);
+                            if (Array.isArray(nuvemUsers) && nuvemUsers.length > 0) {
+                                // Mescla usuários locais (ex: do seu notebook) que ainda não estavam na nuvem
+                                const locais = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [];
+                                let houveAdicaoLocal = false;
+                                locais.forEach(uLocal => {
+                                    if (uLocal.email && !nuvemUsers.some(uNuvem => uNuvem.email.toLowerCase() === uLocal.email.toLowerCase())) {
+                                        nuvemUsers.push(uLocal);
+                                        houveAdicaoLocal = true;
+                                    }
+                                });
+                                usuariosSistema = nuvemUsers;
+                                localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
+                                if (houveAdicaoLocal) {
+                                    await sincronizarUsuariosNaNuvem();
+                                }
+                            }
+                        } catch (e) { console.warn("Erro ao ler JSON de usuários da nuvem:", e); }
+                    } else {
+                        // Se ainda não existe registro de usuários na nuvem, sobe a lista atual (do seu notebook)
+                        await sincronizarUsuariosNaNuvem();
+                    }
+
+                    // 2. Extrai e sincroniza a lista global de Equipes da nuvem
+                    const rowEquipes = data.find(r => r.id === ID_NUVEM_EQUIPES || r.projeto === '__CONFIG_EQUIPES__');
+                    if (rowEquipes && rowEquipes.observacoes) {
+                        try {
+                            const nuvemEq = JSON.parse(rowEquipes.observacoes);
+                            if (Array.isArray(nuvemEq) && nuvemEq.length > 0) {
+                                equipesSistema = nuvemEq;
+                                localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
+                            }
+                        } catch (e) { console.warn("Erro ao ler JSON de equipes da nuvem:", e); }
+                    } else if (equipesSistema.length > 0) {
+                        await sincronizarEquipesNaNuvem();
+                    }
+
+                    // 3. Filtra apenas os registros reais de campo/imprevistos (esconde os registros técnicos de configuração)
+                    const registrosReais = data.filter(r => 
+                        r.id !== ID_NUVEM_USUARIOS && 
+                        r.id !== ID_NUVEM_EQUIPES && 
+                        r.equipe !== '__CONFIG_SISTEMA__' &&
+                        r.projeto !== '__CONFIG_USUARIOS__' &&
+                        r.projeto !== '__CONFIG_EQUIPES__'
+                    );
+
+                    registrosSalvos = registrosReais.map(r => ({
                         id: r.id,
                         dataRegistro: r.data_registro || '',
                         equipe: r.equipe || '',
@@ -1547,10 +1672,11 @@
 
         async function recarregarDadosGestor() {
             await carregarRegistrosDaNuvem();
+            popularSelectEquipes();
             atualizarDashboardGestor();
             const lblHora = document.getElementById('txt-hora-sync');
             if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
-            alert("🔄 Dados atualizados com sucesso da nuvem!");
+            alert("🔄 Dados e acessos atualizados com sucesso da nuvem!");
         }
 
         function mudarTipoProjeto() {
@@ -2093,6 +2219,7 @@
                 renderizarOfensoresMalogro([]);
                 renderizarTabelaConsolidada([]);
                 renderizarRankingsSeparados([]);
+                renderizarTabelaUsuariosPermissao();
                 return;
             }
 
@@ -3050,7 +3177,7 @@
             registrarLogAuditoria("EXPORTAÇÃO FINANCEIRA", `Baixada planilha de Medição Financeira (Total: R$ ${valorGeral.toFixed(2)}).`);
         }
 
-        // --- GESTÃO DE EQUIPES ---
+        // --- GESTÃO DE EQUIPES (SINCRONIZADO NA NUVEM) ---
         function abrirModalEquipe(id = null) {
             if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Usuários visualizadores não podem gerenciar equipes."); return; }
             document.getElementById('modal-equipe').classList.remove('hidden');
@@ -3072,7 +3199,7 @@
 
         function fecharModalEquipe() { document.getElementById('modal-equipe').classList.add('hidden'); }
 
-        function salvarOuAtualizarEquipe() {
+        async function salvarOuAtualizarEquipe() {
             if (nivelUsuarioLogado === 'Visualizador') return;
             const editId = document.getElementById('edit-equipe-id').value;
             const nome = document.getElementById('inp-nome-equipe').value.trim().toUpperCase();
@@ -3092,12 +3219,11 @@
                 equipesSistema.push({ id: Date.now(), nome, status });
             }
 
-            equipesSistema.sort((a, b) => a.nome.localeCompare(b.nome));
-            localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
+            await sincronizarEquipesNaNuvem();
             fecharModalEquipe();
             popularSelectEquipes();
             renderizarTabelaEquipes();
-            alert("Equipe salva com sucesso!");
+            alert("☁️ Equipe salva e sincronizada na nuvem com sucesso!");
         }
 
         function renderizarTabelaEquipes() {
@@ -3123,18 +3249,18 @@
             });
         }
 
-        function excluirEquipe(id, nome) {
+        async function excluirEquipe(id, nome) {
             if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem excluir equipes."); return; }
             if (confirm(`Deseja realmente excluir a equipe ${nome} do sistema?`)) {
                 registrarLogAuditoria("EXCLUSÃO DE EQUIPE", `Equipe removida: ${nome}`);
                 equipesSistema = equipesSistema.filter(e => e.id !== id);
-                localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
+                await sincronizarEquipesNaNuvem();
                 popularSelectEquipes();
                 renderizarTabelaEquipes();
             }
         }
 
-        // Funções de Usuários
+        // --- GESTÃO DE USUÁRIOS (SINCRONIZADO NA NUVEM) ---
         function abrirModalUsuario(id = null) {
             if (nivelUsuarioLogado === 'Visualizador' && id) {
                 let uSelf = usuariosSistema.find(u => u.email.toLowerCase() === usuarioLogado.toLowerCase());
@@ -3155,6 +3281,10 @@
                         document.getElementById('novo-user-nome').disabled = true;
                         document.getElementById('novo-user-email').disabled = true;
                         document.getElementById('novo-user-nivel').disabled = true;
+                    } else {
+                        document.getElementById('novo-user-nome').disabled = false;
+                        document.getElementById('novo-user-email').disabled = false;
+                        document.getElementById('novo-user-nivel').disabled = false;
                     }
                 }
             } else {
@@ -3172,7 +3302,7 @@
 
         function fecharModalUsuario() { document.getElementById('modal-usuario').classList.add('hidden'); }
 
-        function salvarOuAtualizarUsuario() {
+        async function salvarOuAtualizarUsuario() {
             const editId = document.getElementById('edit-user-id').value;
             const nome = document.getElementById('novo-user-nome').value.trim();
             const email = document.getElementById('novo-user-email').value.trim().toLowerCase();
@@ -3184,7 +3314,7 @@
             if (editId) {
                 let u = usuariosSistema.find(user => user.id == editId);
                 if (u) { 
-                    registrarLogAuditoria("EDIÇÃO DE USUÁRIO", `Senha alterada para o usuário: ${email}`);
+                    registrarLogAuditoria("EDIÇÃO DE USUÁRIO", `Dados/senha atualizados para o usuário: ${email}`);
                     if (nivelUsuarioLogado === 'Master') {
                         u.nome = nome; u.email = email; u.senha = senha; u.nivel = nivel; 
                     } else {
@@ -3193,22 +3323,35 @@
                 }
             } else {
                 if (nivelUsuarioLogado !== 'Master') { alert("Acesso negado."); return; }
-                registrarLogAuditoria("NOVO USUÁRIO", `Cadastrado novo usuário: ${email} (${nivel})`);
-                usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
+                // Evita duplicidade de e-mail
+                let jaExiste = usuariosSistema.find(u => u.email.toLowerCase() === email);
+                if (jaExiste) {
+                    jaExiste.nome = nome;
+                    jaExiste.senha = senha;
+                    jaExiste.nivel = nivel;
+                    jaExiste.status = "Ativo";
+                } else {
+                    usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
+                }
+                registrarLogAuditoria("NOVO USUÁRIO", `Cadastrado novo usuário na nuvem: ${email} (${nivel})`);
             }
 
-            localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
+            await sincronizarUsuariosNaNuvem();
             fecharModalUsuario();
             renderizarTabelaUsuariosPermissao();
-            alert("Dados de usuário salvos com sucesso!");
+            alert("☁️ Usuário salvo e sincronizado na nuvem! Já pode acessar de qualquer computador ou celular.");
         }
 
-        function excluirUsuario(id, email) {
+        async function excluirUsuario(id, email) {
             if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem excluir usuários."); return; }
-            if (confirm(`Deseja realmente remover o acesso de ${email}?`)) {
+            if (email.toLowerCase() === "lsimoes@procisa.com.br") {
+                alert("⚠️ O usuário Master principal não pode ser removido.");
+                return;
+            }
+            if (confirm(`Deseja realmente remover o acesso de ${email} em todos os dispositivos?`)) {
                 registrarLogAuditoria("EXCLUSÃO DE USUÁRIO", `Removido usuário: ${email}`);
                 usuariosSistema = usuariosSistema.filter(u => u.id !== id);
-                localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
+                await sincronizarUsuariosNaNuvem();
                 renderizarTabelaUsuariosPermissao();
             }
         }
