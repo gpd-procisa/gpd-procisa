@@ -45,7 +45,7 @@
         <!-- ================= MODO GESTOR ================= -->
         <main id="view-gestor" class="flex-1 p-4 sm:p-6 bg-slate-50 space-y-6 hidden">
             
-            <!-- Alerta Inteligente de Supervisão (Imprevistos) -->
+            <!-- Alerta de Imprevistos -->
             <div id="alerta-imprevistos-supervisao" class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-sm hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <span class="text-2xl">⚠️</span>
@@ -67,7 +67,7 @@
                 </div>
             </div>
 
-            <!-- Abas do Gestor -->
+            <!-- Menu de Abas do Gestor (Com a nova guia ⚙️ Opções) -->
             <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5">
                     📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
@@ -90,6 +90,9 @@
                 <button onclick="mudarSubAbaGestor('equipes')" id="subtab-btn-equipes" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
                     🛠️ Equipes
                 </button>
+                <button onclick="mudarSubAbaGestor('opcoes')" id="subtab-btn-opcoes" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
+                    ⚙️ Opções
+                </button>
                 <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
                     👥 Usuários
                 </button>
@@ -101,7 +104,7 @@
                 </button>
             </div>
 
-            <!-- Barra de Ações Rápidas, Busca, Boletim WhatsApp e Atualização -->
+            <!-- Barra de Ações Rápidas -->
             <div class="flex flex-col lg:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
                 <div class="flex items-center gap-2 w-full lg:w-80">
                     <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, endereço, equipe..." class="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-none bg-slate-50 focus:bg-white transition">
@@ -162,7 +165,7 @@
                 </div>
             </div>
 
-            <!-- Filtros por Período + Botões de Atalho Rápido -->
+            <!-- Filtros por Período -->
             <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <span class="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">⚡ Atalhos Rápidos de Período:</span>
@@ -229,7 +232,7 @@
                 </div>
             </div>
 
-            <!-- SUB-ABA: DISPONIBILIDADE DOS TÉCNICOS EM TEMPO REAL -->
+            <!-- Sub-Aba: Disponibilidade -->
             <div id="subview-disponibilidade" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden p-4 space-y-4">
                 <div class="border-b pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -279,7 +282,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Imprevistos Apartados -->
+            <!-- Sub-Aba: Imprevistos -->
             <div id="subview-imprevistos" class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden hidden">
                 <div class="p-4 border-b border-amber-200 bg-amber-50/60 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -306,7 +309,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos & Indicadores Operacionais -->
+            <!-- Sub-Aba: Gráficos -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
                     <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto, fatia de desfecho, técnico ou ofensor de malogro para abrir o detalhamento.</span>
@@ -524,7 +527,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Materiais com Consolidado Geral -->
+            <!-- Sub-Aba: Materiais -->
             <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
                 <div class="flex justify-between items-center border-b pb-3">
                     <h3 class="font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais & Caixas Utilizados</h3>
@@ -592,7 +595,7 @@
                 </div>
             </div>
 
-            <!-- SUB-ABA: MEDIÇÃO FINANCEIRA -->
+            <!-- Sub-Aba: Financeiro -->
             <div id="subview-financeiro" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
                 <div class="flex flex-col sm:flex-row justify-between items-center border-b pb-3 gap-3">
                     <div>
@@ -651,7 +654,43 @@
                 </div>
             </div>
 
-            <!-- GESTÃO DE USUÁRIOS -->
+            <!-- SUB-ABA (ITEM 02): GERENCIADOR DE OPÇÕES PRÉ-DEFINIDAS -->
+            <div id="subview-opcoes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
+                <div class="border-b pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm">⚙️ Gestão de Opções Pré-Definidas (Sincronizado na Nuvem)</h3>
+                        <p class="text-[11px] text-emerald-700 font-medium">☁️ Adicione, renomeie ou remova opções de Pendência, Malogro e Imprevistos em tempo real para todas as equipes.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="border border-amber-200 rounded-xl overflow-hidden flex flex-col">
+                        <div class="bg-amber-50 p-3 border-b border-amber-200 flex justify-between items-center">
+                            <span class="font-bold text-amber-950 text-xs">🟡 Opções de Pendência</span>
+                            <button onclick="adicionarNovaOpcaoSistema('pendencia')" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Nova</button>
+                        </div>
+                        <div id="lista-gestao-pendencia" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-96 overflow-y-auto"></div>
+                    </div>
+
+                    <div class="border border-red-200 rounded-xl overflow-hidden flex flex-col">
+                        <div class="bg-red-50 p-3 border-b border-red-200 flex justify-between items-center">
+                            <span class="font-bold text-red-950 text-xs">🔴 Ofensores de Malogro</span>
+                            <button onclick="adicionarNovaOpcaoSistema('malogro')" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Novo</button>
+                        </div>
+                        <div id="lista-gestao-malogro" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-96 overflow-y-auto"></div>
+                    </div>
+
+                    <div class="border border-blue-200 rounded-xl overflow-hidden flex flex-col">
+                        <div class="bg-blue-50 p-3 border-b border-blue-200 flex justify-between items-center">
+                            <span class="font-bold text-blue-950 text-xs">⚠️ Motivos de Imprevisto</span>
+                            <button onclick="adicionarNovaOpcaoSistema('imprevisto')" class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Novo</button>
+                        </div>
+                        <div id="lista-gestao-imprevisto" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-96 overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub-Aba: Usuários -->
             <div id="subview-usuarios" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
@@ -675,7 +714,7 @@
                 </div>
             </div>
 
-            <!-- SUB-ABA: BONIFICAÇÃO -->
+            <!-- Sub-Aba: Bonificação -->
             <div id="subview-bonificacao" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6 hidden">
                 <div class="border-b pb-3 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 text-base">🏆 Dashboard de Bonificação e Metas</h3>
@@ -701,7 +740,7 @@
                 </div>
             </div>
 
-            <!-- SUB-ABA: AUDITORIA -->
+            <!-- Sub-Aba: Auditoria -->
             <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria e Logs (Quem fez o quê)</h3>
@@ -724,7 +763,7 @@
 
         </main>
 
-        <!-- ================= MODO CAMPO (SMARTPHONE) ================= -->
+        <!-- ================= MODO CAMPO ================= -->
         <main id="view-campo" class="flex-1 p-4 bg-slate-50 flex justify-center items-center">
             <div class="w-full max-w-md bg-white shadow-lg rounded-2xl p-4 space-y-4 border border-slate-200 max-h-[92vh] overflow-y-auto">
                 <div class="flex justify-between items-center border-b pb-2">
@@ -735,7 +774,6 @@
                     <span class="text-[11px] bg-blue-50 text-blue-900 px-2.5 py-1 rounded-lg font-bold" id="current-user-team">Selecione Equipe</span>
                 </div>
 
-                <!-- Banner de Imprevisto Ativo no Celular -->
                 <div id="box-imprevisto-ativo-campo" class="bg-amber-50 border-2 border-amber-400 p-3.5 rounded-xl space-y-2.5 hidden shadow-sm">
                     <div class="flex items-start gap-2">
                         <span class="text-lg">⚠️</span>
@@ -749,7 +787,6 @@
                     </button>
                 </div>
 
-                <!-- Banner de Último Atendimento Finalizado -->
                 <div id="box-ultimo-resumo-whats" class="bg-emerald-50 border border-emerald-300 p-3 rounded-xl space-y-2 hidden">
                     <div class="flex justify-between items-center">
                         <span class="text-[11px] font-bold text-emerald-900">✅ Atendimento Salvo com Sucesso!</span>
@@ -796,7 +833,6 @@
                     </div>
                 </div>
 
-                <!-- BLOCO PÓS-ABERTURA -->
                 <div id="bloco-pos-abertura" oninput="salvarRascunhoCampo()" onchange="salvarRascunhoCampo()" class="space-y-3 hidden">
                     <div class="bg-blue-50 p-3 rounded-xl border border-blue-200 text-xs space-y-1 flex justify-between items-start">
                         <div>
@@ -851,7 +887,7 @@
 
     </div>
 
-    <!-- MODAL DE IMPREVISTO / ATRASO -->
+    <!-- Modais -->
     <div id="modal-imprevisto" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
             <div class="bg-amber-500 text-white p-4 flex justify-between items-center">
@@ -864,14 +900,7 @@
                 </p>
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Motivo do Imprevisto / Atraso:*</label>
-                    <select id="sel-motivo-imprevisto" class="w-full border border-slate-300 rounded-lg p-2.5 bg-white outline-none font-semibold text-slate-800">
-                        <option value="CARRO COM DEFEITO">🚗 Carro com Defeito / Manutenção</option>
-                        <option value="FALTA DE MATERIAL">📦 Falta de Material (Almoxarifado)</option>
-                        <option value="FALTA DE EQUIPAMENTO">🛠️ Falta de Equipamento / Ferramental</option>
-                        <option value="SEM ATIVIDADE PROGRAMADA">📋 Sem Atividade Programada</option>
-                        <option value="SEM TEMPO HÁBIL">⏰ Sem Tempo Hábil para Deslocamento</option>
-                        <option value="AGUARDANDO LIBERAÇÃO / BASE">🏢 Aguardando Liberação na Base</option>
-                    </select>
+                    <select id="sel-motivo-imprevisto" class="w-full border border-slate-300 rounded-lg p-2.5 bg-white outline-none font-semibold text-slate-800"></select>
                 </div>
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1">Observações / Detalhes Adicionais:</label>
@@ -885,7 +914,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE EDIÇÃO DE REGISTRO -->
+    <!-- MODAL DE EDIÇÃO -->
     <div id="modal-edicao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
@@ -957,7 +986,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE EXPLOSÃO DE DETALHES -->
+    <!-- MODAL DE EXPLOSÃO -->
     <div id="modal-explosao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
@@ -1073,8 +1102,7 @@
             </div>
         </div>
     </div>
-
-    <!-- Script Principal Completo -->
+    <!-- Script Principal - Parte 1 de 2 -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1082,8 +1110,9 @@
 
         const ID_NUVEM_USUARIOS = 999999001;
         const ID_NUVEM_EQUIPES  = 999999002;
+        const ID_NUVEM_OPCOES   = 999999003;
 
-        const OPCOES_PENDENCIA_PADRAO = [
+        let OPCOES_PENDENCIA_PADRAO = JSON.parse(localStorage.getItem('gpd_opcoes_pendencia')) || [
             "REDE CORRETIVA",
             "ACESSO PARCIAL",
             "AGUARDANDO SÍNDICO / CLIENTE",
@@ -1092,7 +1121,7 @@
             "OUTROS"
         ];
 
-        const OPCOES_MALOGRO_PADRAO = [
+        let OPCOES_MALOGRO_PADRAO = JSON.parse(localStorage.getItem('gpd_opcoes_malogro')) || [
             "REDE CORRETIVA",
             "FROTA",
             "MATERIAL",
@@ -1103,6 +1132,15 @@
             "REDE EXTERNA",
             "INFRAESTRUTURA",
             "ÁREA DE RISCO"
+        ];
+
+        let OPCOES_IMPREVISTO_PADRAO = JSON.parse(localStorage.getItem('gpd_opcoes_imprevisto')) || [
+            "CARRO COM DEFEITO",
+            "FALTA DE MATERIAL",
+            "FALTA DE EQUIPAMENTO",
+            "SEM ATIVIDADE PROGRAMADA",
+            "SEM TEMPO HÁBIL",
+            "AGUARDANDO LIBERAÇÃO / BASE"
         ];
 
         const listaEquipesInicial = [
@@ -1236,6 +1274,119 @@
             }
         }
 
+        async function sincronizarOpcoesNaNuvem() {
+            try {
+                localStorage.setItem('gpd_opcoes_pendencia', JSON.stringify(OPCOES_PENDENCIA_PADRAO));
+                localStorage.setItem('gpd_opcoes_malogro', JSON.stringify(OPCOES_MALOGRO_PADRAO));
+                localStorage.setItem('gpd_opcoes_imprevisto', JSON.stringify(OPCOES_IMPREVISTO_PADRAO));
+
+                const pacoteOpcoes = {
+                    pendencia: OPCOES_PENDENCIA_PADRAO,
+                    malogro: OPCOES_MALOGRO_PADRAO,
+                    imprevisto: OPCOES_IMPREVISTO_PADRAO
+                };
+
+                const payloadConfig = {
+                    id: ID_NUVEM_OPCOES,
+                    data_registro: "2000-01-01",
+                    equipe: "__CONFIG_SISTEMA__",
+                    membros: "__CONFIG_SISTEMA__",
+                    projeto: "__CONFIG_OPCOES__",
+                    imovel: "__CONFIG_OPCOES__",
+                    h_entrada: "00:00",
+                    h_saida: "00:00",
+                    gps_entrada: "",
+                    gps_saida: "",
+                    desfecho: "CONFIG",
+                    motivo_desfecho: "",
+                    malogros: [],
+                    agendamento: null,
+                    observacoes: JSON.stringify(pacoteOpcoes)
+                };
+
+                await supabaseClient.from('registros_producao').upsert([payloadConfig], { onConflict: 'id' });
+                popularSelectImprevistos();
+            } catch (e) {
+                console.warn("Aviso ao sincronizar opções na nuvem:", e);
+            }
+        }
+
+        function popularSelectImprevistos() {
+            const sel = document.getElementById('sel-motivo-imprevisto');
+            if (!sel) return;
+            sel.innerHTML = OPCOES_IMPREVISTO_PADRAO.map(op => `<option value="${op}">⚠️ ${op}</option>`).join('');
+        }
+
+        function renderizarPainelOpcoesSistema() {
+            const desenharLista = (arrayOpcoes, tipo, idContainer) => {
+                const container = document.getElementById(idContainer);
+                if (!container) return;
+                container.innerHTML = "";
+                arrayOpcoes.forEach((op, idx) => {
+                    const botoes = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador')
+                        ? `<div class="flex gap-1">
+                             <button onclick="editarOpcaoSistema('${tipo}', ${idx})" class="text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px]">✏️ Editar</button>
+                             <button onclick="excluirOpcaoSistema('${tipo}', ${idx})" class="text-red-600 hover:bg-red-50 px-2 py-0.5 rounded font-bold text-[10px]">🗑️</button>
+                           </div>`
+                        : `<span class="text-slate-400 text-[10px]">Leitura</span>`;
+
+                    container.innerHTML += `
+                        <div class="py-2 flex justify-between items-center hover:bg-slate-50 px-1 rounded">
+                            <span class="font-bold text-slate-700">${op}</span>
+                            ${botoes}
+                        </div>
+                    `;
+                });
+            };
+
+            desenharLista(OPCOES_PENDENCIA_PADRAO, 'pendencia', 'lista-gestao-pendencia');
+            desenharLista(OPCOES_MALOGRO_PADRAO, 'malogro', 'lista-gestao-malogro');
+            desenharLista(OPCOES_IMPREVISTO_PADRAO, 'imprevisto', 'lista-gestao-imprevisto');
+            popularSelectImprevistos();
+        }
+
+        async function adicionarNovaOpcaoSistema(tipo) {
+            if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+            const nome = prompt("Digite o nome da nova opção:")?.trim().toUpperCase();
+            if (!nome) return;
+
+            if (tipo === 'pendencia' && !OPCOES_PENDENCIA_PADRAO.includes(nome)) OPCOES_PENDENCIA_PADRAO.push(nome);
+            if (tipo === 'malogro' && !OPCOES_MALOGRO_PADRAO.includes(nome)) OPCOES_MALOGRO_PADRAO.push(nome);
+            if (tipo === 'imprevisto' && !OPCOES_IMPREVISTO_PADRAO.includes(nome)) OPCOES_IMPREVISTO_PADRAO.push(nome);
+
+            registrarLogAuditoria("NOVA OPÇÃO CADASTRADA", `Adicionada opção '${nome}' em ${tipo.toUpperCase()}`);
+            await sincronizarOpcoesNaNuvem();
+            renderizarPainelOpcoesSistema();
+            renderizarBlocosCampo();
+        }
+
+        async function editarOpcaoSistema(tipo, index) {
+            if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+            let lista = tipo === 'pendencia' ? OPCOES_PENDENCIA_PADRAO : (tipo === 'malogro' ? OPCOES_MALOGRO_PADRAO : OPCOES_IMPREVISTO_PADRAO);
+            const atual = lista[index];
+            const novo = prompt(`Renomear a opção "${atual}" para:`, atual)?.trim().toUpperCase();
+            if (!novo || novo === atual) return;
+
+            lista[index] = novo;
+            registrarLogAuditoria("EDIÇÃO DE OPÇÃO", `Opção '${atual}' alterada para '${novo}' (${tipo.toUpperCase()})`);
+            await sincronizarOpcoesNaNuvem();
+            renderizarPainelOpcoesSistema();
+            renderizarBlocosCampo();
+        }
+
+        async function excluirOpcaoSistema(tipo, index) {
+            if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+            let lista = tipo === 'pendencia' ? OPCOES_PENDENCIA_PADRAO : (tipo === 'malogro' ? OPCOES_MALOGRO_PADRAO : OPCOES_IMPREVISTO_PADRAO);
+            const alvo = lista[index];
+            if (!confirm(`Deseja realmente excluir a opção "${alvo}"?`)) return;
+
+            lista.splice(index, 1);
+            registrarLogAuditoria("EXCLUSÃO DE OPÇÃO", `Opção '${alvo}' removida de ${tipo.toUpperCase()}`);
+            await sincronizarOpcoesNaNuvem();
+            renderizarPainelOpcoesSistema();
+            renderizarBlocosCampo();
+        }
+
         function obterClasseCorDesfecho(desfecho) {
             const d = (desfecho || '').toUpperCase().trim();
             if (d === 'EM ANDAMENTO') {
@@ -1258,6 +1409,7 @@
         }
 
         window.onload = async function() { 
+            popularSelectImprevistos();
             await carregarRegistrosDaNuvem();
             popularSelectEquipes();
             verificarPermissoesSessao();
@@ -1962,15 +2114,29 @@
                         await sincronizarEquipesNaNuvem();
                     }
 
+                    const rowOpcoes = data.find(r => r.id === ID_NUVEM_OPCOES || r.projeto === '__CONFIG_OPCOES__');
+                    if (rowOpcoes && rowOpcoes.observacoes) {
+                        try {
+                            const nuvemOpc = JSON.parse(rowOpcoes.observacoes);
+                            if (nuvemOpc.pendencia) OPCOES_PENDENCIA_PADRAO = nuvemOpc.pendencia;
+                            if (nuvemOpc.malogro) OPCOES_MALOGRO_PADRAO = nuvemOpc.malogro;
+                            if (nuvemOpc.imprevisto) OPCOES_IMPREVISTO_PADRAO = nuvemOpc.imprevisto;
+                            popularSelectImprevistos();
+                        } catch (e) { console.warn("Erro ao ler JSON de opções da nuvem:", e); }
+                    } else {
+                        await sincronizarOpcoesNaNuvem();
+                    }
+
                     const registrosReais = data.filter(r => 
                         r.id !== ID_NUVEM_USUARIOS && 
                         r.id !== ID_NUVEM_EQUIPES && 
+                        r.id !== ID_NUVEM_OPCOES &&
                         r.equipe !== '__CONFIG_SISTEMA__' &&
                         r.projeto !== '__CONFIG_USUARIOS__' &&
-                        r.projeto !== '__CONFIG_EQUIPES__'
+                        r.projeto !== '__CONFIG_EQUIPES__' &&
+                        r.projeto !== '__CONFIG_OPCOES__'
                     );
 
-                    // Extrai o endereço salvo com segurança na tag [END: ...] dentro de observacoes
                     registrosSalvos = registrosReais.map(r => {
                         let obsBruta = r.observacoes || '';
                         let endExtraido = '';
@@ -2027,7 +2193,7 @@
             atualizarDashboardGestor();
             const lblHora = document.getElementById('txt-hora-sync');
             if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
-            alert("🔄 Dados, status em andamento e disponibilidade atualizados da nuvem!");
+            alert("🔄 Dados, opções e disponibilidade atualizados da nuvem!");
         }
 
         function mudarTipoProjeto() {
@@ -2434,7 +2600,7 @@
             resetarFormularioCampo();
             await carregarRegistrosDaNuvem();
         }
-
+        // Script Principal - Parte 2 de 2 (Continuação até o fechamento)
         function converterHorarioParaMinutos(strHora) {
             if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
             const partes = strHora.trim().split(':');
@@ -3939,7 +4105,7 @@
         }
 
         function mudarSubAbaGestor(aba) {
-            const subs = ['atividades', 'disponibilidade', 'graficos', 'imprevistos', 'materiais', 'financeiro', 'equipes', 'usuarios', 'bonificacao', 'auditoria'];
+            const subs = ['atividades', 'disponibilidade', 'graficos', 'imprevistos', 'materiais', 'financeiro', 'equipes', 'opcoes', 'usuarios', 'bonificacao', 'auditoria'];
             subs.forEach(s => {
                 const el = document.getElementById(`subview-${s}`);
                 const btn = document.getElementById(`subtab-btn-${s}`);
@@ -3954,6 +4120,7 @@
 
             if (aba === 'usuarios') renderizarTabelaUsuariosPermissao();
             if (aba === 'equipes') renderizarTabelaEquipes();
+            if (aba === 'opcoes') renderizarPainelOpcoesSistema();
             if (aba === 'auditoria') renderizarTabelaAuditoria();
             if (aba === 'disponibilidade') renderizarPainelDisponibilidade();
             if (aba === 'graficos') atualizarDashboardGestor();
