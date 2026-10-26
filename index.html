@@ -55,6 +55,9 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2 self-end sm:self-center">
+                    <button onclick="mudarSubAbaGestor('disponibilidade')" class="bg-blue-800 hover:bg-blue-900 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition shadow-sm">
+                        📡 Ver Disponibilidade
+                    </button>
                     <button onclick="mudarSubAbaGestor('imprevistos')" class="bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition shadow-sm">
                         👁️ Ver Imprevistos
                     </button>
@@ -67,7 +70,10 @@
             <!-- Abas em Destaque Logo Abaixo do Cabeçalho -->
             <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5">
-                    📋 Atividades
+                    📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
+                </button>
+                <button onclick="mudarSubAbaGestor('disponibilidade')" id="subtab-btn-disponibilidade" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
+                    📡 Disponibilidade (<span id="badge-aba-indisp" class="text-red-600 font-black">0 indisp.</span>)
                 </button>
                 <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
                     📊 Gráficos & Indicadores
@@ -98,7 +104,7 @@
             <!-- Barra de Ações Rápidas, Busca, Boletim WhatsApp e Atualização -->
             <div class="flex flex-col lg:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
                 <div class="flex items-center gap-2 w-full lg:w-80">
-                    <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, equipe, projeto..." class="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-none bg-slate-50 focus:bg-white transition">
+                    <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, endereço, equipe..." class="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-none bg-slate-50 focus:bg-white transition">
                 </div>
                 <div class="flex flex-wrap gap-2 w-full lg:w-auto justify-end items-center">
                     <span id="lbl-status-autosync" class="text-[11px] bg-slate-100 text-slate-600 px-3 py-2 rounded-xl border border-slate-200 font-mono">
@@ -116,8 +122,12 @@
                 </div>
             </div>
 
-            <!-- KPIs Numéricos Independentes (7 Projetos + 1 Imprevistos Apartados) -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            <!-- KPIs Numéricos Independentes (7 Projetos + Em Andamento + Imprevistos) -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
+                <div class="bg-blue-50 p-3 rounded-xl shadow-sm border border-blue-300 flex flex-col justify-between">
+                    <span class="text-[10px] font-bold text-blue-900 uppercase">🔵 Em Andamento</span>
+                    <span class="text-xl font-black text-blue-700 mt-1" id="kpi-proj-andamento">0</span>
+                </div>
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Vistoria</span>
                     <span class="text-xl font-bold text-slate-800 mt-1" id="kpi-proj-vistoria">0</span>
@@ -195,20 +205,20 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Atividades (Exclusivo para Atividades de Obra/Campo) -->
+            <!-- Sub-Aba: Atividades (Exclusivo para Atividades de Obra/Campo + Em Andamento) -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
-                    <span>Atividades em Campo (Clique na linha para ver todos os detalhes)</span>
+                    <span>Atividades em Campo e Em Andamento (Clique na linha para ver todos os detalhes)</span>
                     <span class="text-xs font-normal text-slate-500" id="contador-resultados">0 registros</span>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
-                                <th class="p-3">Data / Imóvel</th>
-                                <th class="p-3">Equipe / Técnico</th>
-                                <th class="p-3">Projeto</th>
-                                <th class="p-3">Desfecho</th>
+                                <th class="p-3">Data / Imóvel / Endereço</th>
+                                <th class="p-3">Equipe / Setor</th>
+                                <th class="p-3">Projeto / Andares & HPs</th>
+                                <th class="p-3">Status / Desfecho</th>
                                 <th class="p-3">Horários & Duração</th>
                                 <th class="p-3">GPS (Entrada / Saída)</th>
                                 <th class="p-3" id="th-acao-master-label">Ações / Gestão</th>
@@ -219,12 +229,63 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Imprevistos Apartados (Nova Aba Isolada) -->
+            <!-- NOVA SUB-ABA (ITEM 05): DISPONIBILIDADE DOS TÉCNICOS EM TEMPO REAL -->
+            <div id="subview-disponibilidade" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden p-4 space-y-4">
+                <div class="border-b pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base">📡 Painel de Disponibilidade das Equipes (Tempo Real - Hoje)</h3>
+                        <p class="text-xs text-slate-500">Monitoramento automático baseado nos check-ins em andamento e imprevistos ativos não finalizados hoje</p>
+                    </div>
+                </div>
+
+                <!-- 3 Cards de Resumo de Disponibilidade -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-emerald-900 uppercase block">🟢 Técnicos Disponíveis</span>
+                            <span class="text-[11px] text-emerald-700">Sem imprevisto ou obra aberta agora</span>
+                        </div>
+                        <span class="text-3xl font-black text-emerald-700" id="disp-card-disponiveis">0</span>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-blue-900 uppercase block">🔵 Em Atendimento (Em Campo)</span>
+                            <span class="text-[11px] text-blue-700">Com atividade "Em Andamento" iniciada</span>
+                        </div>
+                        <span class="text-3xl font-black text-blue-700" id="disp-card-atendimento">0</span>
+                    </div>
+                    <div class="bg-red-50 border border-red-200 p-4 rounded-xl flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-red-900 uppercase block">🔴 Indisponíveis (Imprevisto Ativo)</span>
+                            <span class="text-[11px] text-red-700">Parados aguardando resolução</span>
+                        </div>
+                        <span class="text-3xl font-black text-red-700" id="disp-card-indisponiveis">0</span>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
+                                <th class="p-3">Técnico / Equipe</th>
+                                <th class="p-3">Setor de Atuação</th>
+                                <th class="p-3">Status Atual</th>
+                                <th class="p-3">Detalhe da Ocupação / Imprevisto Atual</th>
+                                <th class="p-3">Último GPS Conhecido</th>
+                                <th class="p-3">Ação Rápida</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-disponibilidade-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Sub-Aba: Imprevistos Apartados (Com Status Em Aberto vs Resolvido) -->
             <div id="subview-imprevistos" class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden hidden">
                 <div class="p-4 border-b border-amber-200 bg-amber-50/60 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <h3 class="font-bold text-amber-950 text-sm">⚠️ Relatório de Imprevistos e Atrasos Operacionais (Apartado das Obras)</h3>
-                        <p class="text-[11px] text-amber-800">Estes registros não somam como malogro de imóvel nem afetam a eficácia das construções. Clique na linha para explodir detalhes.</p>
+                        <p class="text-[11px] text-amber-800">Quando o técnico resolve a pendência, o status muda para "RESOLVIDO" e ele volta a ficar disponível automaticamente.</p>
                     </div>
                     <span class="text-xs font-bold bg-amber-200 text-amber-950 px-3 py-1 rounded-lg" id="contador-imprevistos">0 imprevistos</span>
                 </div>
@@ -232,11 +293,12 @@
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
-                                <th class="p-3">Data / Horário</th>
+                                <th class="p-3">Data / Horários</th>
                                 <th class="p-3">Equipe / Técnico</th>
                                 <th class="p-3">Motivo do Imprevisto</th>
+                                <th class="p-3">Situação Atual</th>
                                 <th class="p-3">Observações / Detalhes</th>
-                                <th class="p-3">Localização GPS (Maps)</th>
+                                <th class="p-3">Localização GPS</th>
                                 <th class="p-3">Ações</th>
                             </tr>
                         </thead>
@@ -539,7 +601,7 @@
                 </div>
             </div>
 
-            <!-- SUB-ABA: MEDIÇÃO FINANCEIRA (Com Botão de Exportar Excel Financeiro) -->
+            <!-- SUB-ABA: MEDIÇÃO FINANCEIRA -->
             <div id="subview-financeiro" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
                 <div class="flex flex-col sm:flex-row justify-between items-center border-b pb-3 gap-3">
                     <div>
@@ -574,10 +636,13 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Equipes -->
+            <!-- Sub-Aba: Equipes (ITEM 03: Com Coluna de Setor Vistoriador / Instalador) -->
             <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
-                    <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos (Sincronizado na Nuvem)</h3>
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos e Setor de Atuação</h3>
+                        <p class="text-[11px] text-slate-500">Defina se o técnico atua como Vistoriador ou Instalador na chave seletora</p>
+                    </div>
                     <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-nova-equipe">+ Nova Equipe</button>
                 </div>
                 <div class="overflow-x-auto">
@@ -585,6 +650,7 @@
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
                                 <th class="p-3">Nome do Técnico / Equipe</th>
+                                <th class="p-3">Setor de Atuação</th>
                                 <th class="p-3">Status (Ativo / Inativo)</th>
                                 <th class="p-3" id="th-equipe-acoes">Ações</th>
                             </tr>
@@ -669,13 +735,27 @@
 
         <!-- ================= MODO CAMPO (SMARTPHONE) ================= -->
         <main id="view-campo" class="flex-1 p-4 bg-slate-50 flex justify-center items-center">
-            <div class="w-full max-w-md bg-white shadow-lg rounded-2xl p-4 space-y-4 border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div class="w-full max-w-md bg-white shadow-lg rounded-2xl p-4 space-y-4 border border-slate-200 max-h-[92vh] overflow-y-auto">
                 <div class="flex justify-between items-center border-b pb-2">
                     <div>
                         <h2 class="font-bold text-slate-800 text-sm">GPD - Lançamento de Campo</h2>
                         <p class="text-[10px] text-blue-900 font-bold">Construção MDU - PROCISA RJ</p>
                     </div>
-                    <span class="text-xs text-blue-900 font-medium" id="current-user-team">Selecione Equipe</span>
+                    <span class="text-[11px] bg-blue-50 text-blue-900 px-2.5 py-1 rounded-lg font-bold" id="current-user-team">Selecione Equipe</span>
+                </div>
+
+                <!-- ITEM 04: Banner de Imprevisto Ativo no Celular (Permite ao técnico finalizar o imprevisto e voltar a ficar disponível) -->
+                <div id="box-imprevisto-ativo-campo" class="bg-amber-50 border-2 border-amber-400 p-3.5 rounded-xl space-y-2.5 hidden shadow-sm">
+                    <div class="flex items-start gap-2">
+                        <span class="text-lg">⚠️</span>
+                        <div>
+                            <h4 class="text-xs font-black text-amber-950 uppercase">Você está com Imprevisto em Aberto!</h4>
+                            <p class="text-[11px] text-amber-800 mt-0.5" id="lbl-info-imprevisto-ativo">Motivo: -</p>
+                        </div>
+                    </div>
+                    <button onclick="finalizarImprevistoCampo()" id="btn-finalizar-imprevisto-campo" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-1.5">
+                        ✅ Resolver Imprevisto e Ficar Disponível
+                    </button>
                 </div>
 
                 <!-- Banner de Último Atendimento Finalizado (Para copiar para o WhatsApp) -->
@@ -692,7 +772,7 @@
                 <div id="form-campo-container" class="space-y-3">
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Equipe / Técnico</label>
-                        <select id="sel-equipe" onchange="salvarRascunhoCampo()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
+                        <select id="sel-equipe" onchange="aoSelecionarEquipeCampo()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
                             <option value="">Selecione a Equipe...</option>
                         </select>
                     </div>
@@ -717,7 +797,7 @@
 
                     <div class="pt-2 flex flex-col gap-2.5">
                         <button onclick="fazerCheckIn()" id="btn-checkin" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
-                            🚀 Iniciar Atividade (Capturar GPS)
+                            🚀 Iniciar Atividade (Status: Em Andamento)
                         </button>
                         <button onclick="abrirModalImprevisto()" type="button" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2">
                             ⚠️ Informar Imprevisto / Atraso (Sem Atividade)
@@ -725,103 +805,53 @@
                     </div>
                 </div>
 
+                <!-- BLOCO PÓS-ABERTURA (COM ENDEREÇO, DADOS GERAIS E MÚLTIPLOS BLOCOS DINÂMICOS) -->
                 <div id="bloco-pos-abertura" oninput="salvarRascunhoCampo()" onchange="salvarRascunhoCampo()" class="space-y-3 hidden">
-                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1 flex justify-between items-start">
+                    <div class="bg-blue-50 p-3 rounded-xl border border-blue-200 text-xs space-y-1 flex justify-between items-start">
                         <div>
-                            <p><strong>Imóvel:</strong> <span id="lbl-imovel-aberto" class="font-bold text-blue-900">-</span></p>
+                            <div class="flex items-center gap-1.5">
+                                <span class="inline-block w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+                                <span class="font-black text-blue-950 uppercase text-[11px]">Status: Em Andamento no Painel</span>
+                            </div>
+                            <p class="mt-1"><strong>Imóvel:</strong> <span id="lbl-imovel-aberto" class="font-bold text-blue-900">-</span></p>
                             <p><strong>Entrada:</strong> <span id="lbl-h-entrada">-</span></p>
-                            <p><strong>GPS Real Capturado:</strong> <span id="lbl-gps-entrada" class="font-mono text-[10px] text-emerald-700 font-bold">-</span></p>
+                            <p><strong>GPS Real:</strong> <span id="lbl-gps-entrada" class="font-mono text-[10px] text-emerald-700 font-bold">-</span></p>
                         </div>
                         <button type="button" onclick="cancelarCheckinAberto()" class="text-[10px] bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-2 py-1 rounded font-bold">
-                            ✕ Cancelar Abertura
+                            ✕ Cancelar
                         </button>
                     </div>
 
                     <div class="space-y-3 border-t pt-3">
-                        <h3 class="font-bold text-xs text-slate-700" id="titulo-form-dinamico">Dados da Atividade</h3>
+                        <h3 class="font-bold text-xs text-slate-800 uppercase" id="titulo-form-dinamico">1. Dados Gerais do Condomínio / Imóvel</h3>
                         
-                        <div class="space-y-2">
-                            <div><label class="block text-[11px] font-semibold text-slate-600">Responsável</label><input type="text" id="form-responsavel" class="w-full text-xs border rounded-lg p-2 outline-none"></div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div><label class="block text-[11px] font-semibold text-slate-600">Contato</label><input type="text" id="form-contato" class="w-full text-xs border rounded-lg p-2 outline-none"></div>
-                                <div><label class="block text-[11px] font-semibold text-slate-600">E-mail</label><input type="email" id="form-email" class="w-full text-xs border rounded-lg p-2 outline-none"></div>
+                        <!-- ITEM 01 e 07: Endereço, Responsável, Contato e E-mail compartilhados para todos os blocos -->
+                        <div class="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-700">📍 Endereço do Atendimento *</label>
+                                <input type="text" id="form-endereco" placeholder="Rua, Número, Bairro..." class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-600">Responsável (Síndico / Portaria / Zelador)</label>
+                                <input type="text" id="form-responsavel" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none">
                             </div>
                             <div class="grid grid-cols-2 gap-2">
-                                <div><label class="block text-[11px] font-semibold text-slate-600">Andares</label><input type="number" id="form-andares" class="w-full text-xs border rounded-lg p-2 outline-none" placeholder="0"></div>
-                                <div><label class="block text-[11px] font-semibold text-slate-600">Nº de HPs</label><input type="number" id="form-hps" class="w-full text-xs border rounded-lg p-2 outline-none" placeholder="0"></div>
-                            </div>
-                        </div>
-
-                        <!-- Bloco de Materiais e Caixas -->
-                        <div id="bloco-materiais-completo" class="space-y-2 pt-2 border-t border-slate-100">
-                            <h4 class="text-[11px] font-bold text-blue-900 uppercase">Materiais e Caixas (Rede MDU)</h4>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div><label class="block text-[10px] font-semibold text-slate-600">Fusões</label><input type="number" id="mat-fusoes" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                                <div><label class="block text-[10px] font-semibold text-slate-600">Conectores</label><input type="number" id="mat-conectores" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div><label class="block text-[10px] font-semibold text-slate-600">Cabo RL (m)</label><input type="number" id="mat-cabo-rl" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                                <div><label class="block text-[10px] font-semibold text-slate-600">Cabo Drop (m)</label><input type="number" id="mat-cabo-drop" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div><label class="block text-[10px] font-semibold text-slate-600">NAP</label><input type="number" id="mat-nap" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                                <div><label class="block text-[10px] font-semibold text-slate-600">DIO</label><input type="number" id="mat-dio" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                            </div>
-                            <div class="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
-                                <div><label class="block text-[9px] font-semibold text-slate-600">Cx. Sobrepor</label><input type="number" id="mat-cx-sobrepor" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                                <div><label class="block text-[9px] font-semibold text-slate-600">Cx. Embutida</label><input type="number" id="mat-cx-embutida" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                                <div><label class="block text-[9px] font-semibold text-slate-600">Cx. FOSC</label><input type="number" id="mat-cx-fosc" value="0" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
-                            </div>
-                        </div>
-
-                        <div class="space-y-3 pt-3 border-t border-slate-200">
-                            <label class="block text-xs font-bold text-slate-800 uppercase">Selecione o Desfecho da Atividade:</label>
-                            
-                            <div class="grid grid-cols-3 gap-2">
-                                <button type="button" onclick="selecionarDesfecho('CONCLUIDA')" id="btn-desf-conc" class="bg-emerald-600 text-white font-bold p-2 rounded-lg text-xs">CONCLUÍDA</button>
-                                <button type="button" onclick="selecionarDesfecho('PENDENTE')" id="btn-desf-pend" class="bg-amber-500 text-white font-bold p-2 rounded-lg text-xs">PENDENTE</button>
-                                <button type="button" onclick="selecionarDesfecho('MALOGRADA')" id="btn-desf-malo" class="bg-red-600 text-white font-bold p-2 rounded-lg text-xs">MALOGRADA</button>
+                                <div><label class="block text-[11px] font-semibold text-slate-600">Contato / Tel</label><input type="text" id="form-contato" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none"></div>
+                                <div><label class="block text-[11px] font-semibold text-slate-600">E-mail</label><input type="email" id="form-email" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none"></div>
                             </div>
 
-                            <!-- Bloco Concluida contendo a opção "Houve Serviço de Obra? (Sim / Não)" -->
-                            <div id="bloco-concluida" class="space-y-2 hidden bg-emerald-50 p-3 rounded-xl border border-emerald-200">
-                                <label class="block text-[11px] font-bold text-emerald-900">Houve Serviço de Obra?</label>
-                                <select id="sel-servico-obra" class="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white outline-none">
-                                    <option value="SIM">SIM</option>
-                                    <option value="NÃO">NÃO</option>
-                                </select>
-                                <label class="block text-[11px] font-semibold text-emerald-900 mt-2">Informação Complementar (Opcional)</label>
-                                <input type="text" id="obs-concluida" class="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white" placeholder="Detalhe opcional...">
-                            </div>
-
-                            <div id="bloco-pendente" class="space-y-2 hidden bg-amber-50 p-3 rounded-xl border border-amber-200">
-                                <label class="block text-[11px] font-bold text-amber-900">Motivo da Pendência (Obrigatório)*</label>
-                                <textarea id="obs-pendente" rows="2" class="w-full text-xs border border-amber-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo..."></textarea>
-                            </div>
-
-                            <div id="bloco-malograda" class="space-y-2 hidden bg-red-50 p-3 rounded-xl border border-red-200">
-                                <label class="block text-[11px] font-bold text-red-900">Motivo do Malogro (Obrigatório)*</label>
-                                <textarea id="obs-malograda" rows="2" class="w-full text-xs border border-red-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo..."></textarea>
-                                
-                                <label class="block text-[11px] font-bold text-red-900 mt-2">Selecione o(s) Ofensor(es) / Malogro(s):*</label>
-                                <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-red-200 max-h-40 overflow-y-auto">
-                                    <label><input type="checkbox" name="malogro-check" value="FROTA"> FROTA</label>
-                                    <label><input type="checkbox" name="malogro-check" value="MATERIAL"> MATERIAL</label>
-                                    <label><input type="checkbox" name="malogro-check" value="FINANCEIRO"> FINANCEIRO</label>
-                                    <label><input type="checkbox" name="malogro-check" value="EQUIPAMENTOS"> EQUIPAMENTOS</label>
-                                    <label><input type="checkbox" name="malogro-check" value="ACESSO"> ACESSO</label>
-                                    <label><input type="checkbox" name="malogro-check" value="PROJETO"> PROJETO</label>
-                                    <label><input type="checkbox" name="malogro-check" value="REDE EXTERNA"> REDE EXTERNA</label>
-                                    <label><input type="checkbox" name="malogro-check" value="INFRAESTRUTURA"> INFRAESTRUTURA</label>
-                                    <label><input type="checkbox" name="malogro-check" value="ÁREA DE RISCO"> ÁREA DE RISCO</label>
+                            <!-- ITEM 07: Seletor de Quantidade de Blocos -->
+                            <div class="pt-2 border-t border-slate-200 flex items-center justify-between gap-3">
+                                <div>
+                                    <label class="block text-xs font-black text-blue-950 uppercase">🏢 Quantidade de Blocos:</label>
+                                    <span class="text-[10px] text-slate-500">Cada bloco terá Andares, HPs, Materiais e Desfecho próprios</span>
                                 </div>
+                                <input type="number" id="inp-qtd-blocos" min="1" max="20" value="1" onchange="alterarQuantidadeBlocos(this.value)" class="w-20 text-center font-black text-sm border-2 border-blue-600 rounded-xl p-2 bg-white text-blue-950 outline-none">
                             </div>
                         </div>
 
-                        <div>
-                            <label class="block text-[11px] font-semibold text-slate-600">Observações Gerais</label>
-                            <textarea id="form-observacoes" rows="2" class="w-full text-xs border border-slate-300 rounded-lg p-2 outline-none" placeholder="Ocorrências..."></textarea>
-                        </div>
+                        <!-- CONTAINER DINÂMICO DE BLOCOS (ITEM 02 e ITEM 07) -->
+                        <div id="container-blocos-dinamicos" class="space-y-4"></div>
                     </div>
 
                     <button onclick="salvarRegistro()" id="btn-salvar-final" class="w-full bg-blue-900 hover:bg-blue-950 text-white font-medium py-3 rounded-xl text-sm transition shadow-md">
@@ -841,8 +871,8 @@
                 <button onclick="fecharModalImprevisto()" class="text-white font-bold text-lg">✕</button>
             </div>
             <div class="p-4 space-y-3 text-xs">
-                <p class="text-[11px] text-slate-500 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
-                    Use esta opção quando houver atraso ou impedimento operacional <b>sem abertura de atividade</b> em imóvel. O GPS atual será registrado.
+                <p class="text-[11px] text-slate-600 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                    Ao registrar um imprevisto, o seu status no painel mudará para <b>Indisponível</b> até que você clique em <b>"Resolver Imprevisto"</b>.
                 </p>
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Motivo do Imprevisto / Atraso:*</label>
@@ -862,7 +892,7 @@
             </div>
             <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
                 <button onclick="fecharModalImprevisto()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
-                <button onclick="enviarImprevisto()" id="btn-enviar-imprevisto" class="bg-amber-500 hover:bg-amber-600 text-white text-xs px-4 py-2 rounded-lg font-bold shadow-sm">📍 Capturar GPS e Enviar</button>
+                <button onclick="enviarImprevisto()" id="btn-enviar-imprevisto" class="bg-amber-500 hover:bg-amber-600 text-white text-xs px-4 py-2 rounded-lg font-bold shadow-sm">📍 Capturar GPS e Iniciar Imprevisto</button>
             </div>
         </div>
     </div>
@@ -876,9 +906,15 @@
             </div>
             <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
                 <input type="hidden" id="edit-reg-id">
-                <div>
-                    <label class="block font-semibold mb-1">Cód. Imóvel</label>
-                    <input type="text" id="edit-reg-imovel" class="w-full border rounded-lg p-2 outline-none">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold mb-1">Cód. Imóvel / Bloco</label>
+                        <input type="text" id="edit-reg-imovel" class="w-full border rounded-lg p-2 outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Endereço</label>
+                        <input type="text" id="edit-reg-endereco" class="w-full border rounded-lg p-2 outline-none">
+                    </div>
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
@@ -897,12 +933,18 @@
                     <div>
                         <label class="block font-semibold mb-1">Desfecho</label>
                         <select id="edit-reg-desfecho" class="w-full border rounded-lg p-2 bg-white outline-none">
+                            <option value="EM ANDAMENTO">EM ANDAMENTO</option>
                             <option value="CONCLUIDA">CONCLUIDA</option>
                             <option value="PENDENTE">PENDENTE</option>
                             <option value="MALOGRADA">MALOGRADA</option>
-                            <option value="IMPREVISTO">IMPREVISTO</option>
+                            <option value="IMPREVISTO">IMPREVISTO (Ativo)</option>
+                            <option value="IMPREVISTO RESOLVIDO">IMPREVISTO RESOLVIDO</option>
                         </select>
                     </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block text-[10px] font-semibold">Andares</label><input type="number" id="edit-reg-andares" class="w-full border rounded p-1.5"></div>
+                    <div><label class="block text-[10px] font-semibold">Nº de HPs</label><input type="number" id="edit-reg-hps" class="w-full border rounded p-1.5"></div>
                 </div>
                 <div class="grid grid-cols-3 gap-2 border-t pt-2">
                     <div><label class="block text-[10px] font-semibold">Cabo RL (m)</label><input type="number" id="edit-reg-cabo-rl" class="w-full border rounded p-1"></div>
@@ -940,7 +982,7 @@
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
                                 <th class="p-2.5">Data</th>
-                                <th class="p-2.5">Imóvel</th>
+                                <th class="p-2.5">Imóvel / Endereço</th>
                                 <th class="p-2.5">Técnico / Equipe</th>
                                 <th class="p-2.5">Projeto</th>
                                 <th class="p-2.5">Desfecho</th>
@@ -974,19 +1016,37 @@
         </div>
     </div>
 
-    <!-- MODAL DE EQUIPE -->
+    <!-- MODAL DE EQUIPE (ITEM 03: Com Chave Seletora Vistoriador vs Instalador) -->
     <div id="modal-equipe" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
                 <h3 class="font-bold text-sm" id="modal-equipe-titulo">Cadastrar Nova Equipe</h3>
                 <button onclick="fecharModalEquipe()" class="text-white font-bold text-lg">✕</button>
             </div>
-            <div class="p-4 space-y-3 text-xs">
+            <div class="p-4 space-y-4 text-xs">
                 <input type="hidden" id="edit-equipe-id">
-                <div><label class="block font-semibold text-slate-600 mb-1">Nome do Técnico / Equipe</label><input type="text" id="inp-nome-equipe" class="w-full border rounded-lg p-2 outline-none uppercase" placeholder="NOME COMPLETO"></div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Nome do Técnico / Equipe</label>
+                    <input type="text" id="inp-nome-equipe" class="w-full border rounded-lg p-2.5 outline-none uppercase" placeholder="NOME COMPLETO">
+                </div>
+                
+                <!-- ITEM 03: Chave Seletora de Setor (Vistoriador vs Instalador) -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1.5">Setor de Atuação (Selecione a Chave):</label>
+                    <input type="hidden" id="inp-setor-equipe" value="Instalador">
+                    <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                        <button type="button" id="btn-chave-vistoriador" onclick="alternarChaveSetorEquipe('Vistoriador')" class="py-2.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 text-slate-600">
+                            🔍 Vistoriador
+                        </button>
+                        <button type="button" id="btn-chave-instalador" onclick="alternarChaveSetorEquipe('Instalador')" class="py-2.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 bg-blue-900 text-white shadow-sm">
+                            🛠️ Instalador
+                        </button>
+                    </div>
+                </div>
+
                 <div>
                     <label class="block font-semibold text-slate-600 mb-1">Status (Ativo / Inativo)</label>
-                    <select id="sel-status-equipe" class="w-full border rounded-lg p-2 bg-white outline-none">
+                    <select id="sel-status-equipe" class="w-full border rounded-lg p-2.5 bg-white outline-none">
                         <option value="Ativo">Ativo</option>
                         <option value="Inativo">Inativo</option>
                     </select>
@@ -1027,13 +1087,12 @@
         </div>
     </div>
 
-    <!-- Script Principal Completo com Sincronização de Usuários e Equipes na Nuvem -->
+    <!-- Script Principal Completo com Todas as 7 Melhorias Operacionais -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // IDs fixos reservados na tabela para guardar a configuração global de Usuários e Equipes na nuvem
         const ID_NUVEM_USUARIOS = 999999001;
         const ID_NUVEM_EQUIPES  = 999999002;
 
@@ -1066,10 +1125,17 @@
         let equipesSistema = JSON.parse(localStorage.getItem('gpd_equipes_cadastradas')) || listaEquipesInicial.map((nome, index) => ({
             id: index + 1,
             nome: nome,
+            setor: "Instalador",
             status: "Ativo"
         }));
 
-        let dadosAtendimento = { hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, desfechoSelecionado: null };
+        // Garante que todas as equipes tenham a propriedade 'setor'
+        equipesSistema = equipesSistema.map(eq => ({
+            ...eq,
+            setor: eq.setor || "Instalador"
+        }));
+
+        let dadosAtendimento = { idEmAndamento: null, hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, blocos: [] };
         let registrosSalvos = [];
         let usuariosSistema = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [
             { id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", senha: "Leo290301@", nivel: "Master", status: "Ativo" }
@@ -1105,7 +1171,6 @@
         // --- FUNÇÕES DE SINCRONIZAÇÃO DE USUÁRIOS E EQUIPES NA NUVEM (SUPABASE) ---
         async function sincronizarUsuariosNaNuvem() {
             try {
-                // Garante que o usuário Master principal sempre exista na lista
                 if (!usuariosSistema.some(u => u.email.toLowerCase() === "lsimoes@procisa.com.br")) {
                     usuariosSistema.unshift({ id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", senha: "Leo290301@", nivel: "Master", status: "Ativo" });
                 }
@@ -1162,13 +1227,16 @@
             }
         }
 
-        // Função auxiliar para retornar a classe de cores do Desfecho (Verde, Amarelo, Vermelho)
+        // Função auxiliar para retornar a classe de cores do Desfecho (Verde, Amarelo, Vermelho, Azul Em Andamento)
         function obterClasseCorDesfecho(desfecho) {
             const d = (desfecho || '').toUpperCase().trim();
-            if (d === 'CONCLUIDA' || d === 'CONCLUÍDA') {
+            if (d === 'EM ANDAMENTO') {
+                return 'bg-blue-600 text-white border border-blue-700 animate-pulse shadow-sm';
+            }
+            if (d === 'CONCLUIDA' || d === 'CONCLUÍDA' || d === 'IMPREVISTO RESOLVIDO') {
                 return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
             }
-            if (d === 'PENDENTE') {
+            if (d === 'PENDENTE' || d === 'IMPREVISTO') {
                 return 'bg-amber-100 text-amber-800 border border-amber-300';
             }
             if (d === 'MALOGRADA') {
@@ -1182,10 +1250,11 @@
         }
 
         window.onload = async function() { 
-            await carregarRegistrosDaNuvem(); // Carrega primeiro da nuvem (incluindo usuários e equipes globais)
+            await carregarRegistrosDaNuvem();
             popularSelectEquipes();
             verificarPermissoesSessao();
             restaurarRascunhoCampo();
+            verificarImprevistoAtivoEquipeCampo();
 
             if (usuarioLogado) {
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
@@ -1217,36 +1286,219 @@
             }, 180000);
         };
 
-        // --- MELHORIA 1: MEMÓRIA DE CHECK-IN NO CELULAR (ANTI-FECHAMENTO ACIDENTAL) ---
+        // --- ITEM 07: GERADOR DINÂMICO DE BLOCOS INDIVIDUAIS NO MODO CAMPO ---
+        function criarObjetoBlocoPadrao(numero) {
+            return {
+                identificacao: `BLOCO ${numero}`,
+                andares: "",
+                hps: "",
+                fusoes: 0,
+                conectores: 0,
+                caboRL: 0,
+                caboDrop: 0,
+                nap: 0,
+                dio: 0,
+                cxSobrepor: 0,
+                cxEmbutida: 0,
+                cxFosc: 0,
+                desfecho: null,
+                servicoObra: "SIM",
+                obsConcluida: "",
+                obsPendente: "",
+                obsMalograda: "",
+                malogros: [],
+                observacoes: ""
+            };
+        }
+
+        function lerDadosBlocosDaTela() {
+            const qtd = dadosAtendimento.blocos.length;
+            for (let i = 0; i < qtd; i++) {
+                const b = dadosAtendimento.blocos[i];
+                const elId = document.getElementById(`bloco-ident-${i}`);
+                if (!elId) continue;
+                b.identificacao = elId.value;
+                b.andares = document.getElementById(`bloco-andares-${i}`)?.value || "";
+                b.hps = document.getElementById(`bloco-hps-${i}`)?.value || "";
+                b.fusoes = document.getElementById(`bloco-fusoes-${i}`)?.value || 0;
+                b.conectores = document.getElementById(`bloco-conectores-${i}`)?.value || 0;
+                b.caboRL = document.getElementById(`bloco-cabo-rl-${i}`)?.value || 0;
+                b.caboDrop = document.getElementById(`bloco-cabo-drop-${i}`)?.value || 0;
+                b.nap = document.getElementById(`bloco-nap-${i}`)?.value || 0;
+                b.dio = document.getElementById(`bloco-dio-${i}`)?.value || 0;
+                b.cxSobrepor = document.getElementById(`bloco-cx-sobrepor-${i}`)?.value || 0;
+                b.cxEmbutida = document.getElementById(`bloco-cx-embutida-${i}`)?.value || 0;
+                b.cxFosc = document.getElementById(`bloco-cx-fosc-${i}`)?.value || 0;
+                b.servicoObra = document.getElementById(`bloco-servico-obra-${i}`)?.value || "SIM";
+                b.obsConcluida = document.getElementById(`bloco-obs-conc-${i}`)?.value || "";
+                b.obsPendente = document.getElementById(`bloco-obs-pend-${i}`)?.value || "";
+                b.obsMalograda = document.getElementById(`bloco-obs-malo-${i}`)?.value || "";
+                b.observacoes = document.getElementById(`bloco-observacoes-${i}`)?.value || "";
+
+                const checks = document.querySelectorAll(`input[name="bloco-malogro-check-${i}"]:checked`);
+                b.malogros = Array.from(checks).map(c => c.value);
+            }
+        }
+
+        function alterarQuantidadeBlocos(novaQtd) {
+            lerDadosBlocosDaTela();
+            let qtd = parseInt(novaQtd, 10);
+            if (isNaN(qtd) || qtd < 1) qtd = 1;
+            if (qtd > 20) qtd = 20;
+            document.getElementById('inp-qtd-blocos').value = qtd;
+
+            while (dadosAtendimento.blocos.length < qtd) {
+                dadosAtendimento.blocos.push(criarObjetoBlocoPadrao(dadosAtendimento.blocos.length + 1));
+            }
+            if (dadosAtendimento.blocos.length > qtd) {
+                dadosAtendimento.blocos = dadosAtendimento.blocos.slice(0, qtd);
+            }
+            renderizarBlocosCampo();
+            salvarRascunhoCampo();
+        }
+
+        function selecionarDesfechoBloco(idx, tipo) {
+            lerDadosBlocosDaTela();
+            if (dadosAtendimento.blocos[idx]) {
+                dadosAtendimento.blocos[idx].desfecho = tipo;
+            }
+            renderizarBlocosCampo();
+            salvarRascunhoCampo();
+        }
+
+        function renderizarBlocosCampo() {
+            const container = document.getElementById('container-blocos-dinamicos');
+            if (!container) return;
+            container.innerHTML = "";
+
+            const qtdTotal = dadosAtendimento.blocos.length;
+            const listaOfensoresPadrao = ["FROTA", "MATERIAL", "FINANCEIRO", "EQUIPAMENTOS", "ACESSO", "PROJETO", "REDE EXTERNA", "INFRAESTRUTURA", "ÁREA DE RISCO"];
+
+            dadosAtendimento.blocos.forEach((b, idx) => {
+                const mostrarIdentBloco = qtdTotal > 1;
+                const d = b.desfecho;
+
+                const btnConcClass = d === 'CONCLUIDA' ? 'ring-2 ring-offset-1 ring-emerald-700 bg-emerald-700 text-white' : 'bg-emerald-600/90 text-white opacity-80';
+                const btnPendClass = d === 'PENDENTE' ? 'ring-2 ring-offset-1 ring-amber-600 bg-amber-600 text-white' : 'bg-amber-500/90 text-white opacity-80';
+                const btnMaloClass = d === 'MALOGRADA' ? 'ring-2 ring-offset-1 ring-red-700 bg-red-700 text-white' : 'bg-red-600/90 text-white opacity-80';
+
+                const checkboxesHtml = listaOfensoresPadrao.map(ofensor => {
+                    const checked = (b.malogros && b.malogros.includes(ofensor)) ? 'checked' : '';
+                    return `<label class="flex items-center gap-1"><input type="checkbox" name="bloco-malogro-check-${idx}" value="${ofensor}" ${checked}> ${ofensor}</label>`;
+                }).join('');
+
+                const card = document.createElement('div');
+                card.className = "bg-white p-3.5 rounded-xl border-2 border-blue-900/20 shadow-sm space-y-3";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                        <span class="bg-blue-900 text-white font-black text-[11px] px-2.5 py-1 rounded-md uppercase">
+                            🏢 ${qtdTotal > 1 ? `Bloco ${idx + 1} de ${qtdTotal}` : 'Dados Técnicos do Bloco / Imóvel'}
+                        </span>
+                        ${mostrarIdentBloco ? `
+                            <div class="flex items-center gap-1">
+                                <span class="text-[10px] font-bold text-slate-600">Nome/Nº:</span>
+                                <input type="text" id="bloco-ident-${idx}" value="${b.identificacao}" placeholder="Ex: BLOCO A" class="w-28 text-xs font-bold border border-blue-300 rounded px-2 py-1 uppercase text-blue-950 outline-none">
+                            </div>
+                        ` : `<input type="hidden" id="bloco-ident-${idx}" value="${b.identificacao}">`}
+                    </div>
+
+                    <!-- ITEM 02: Andares e HPs Obrigatórios -->
+                    <div class="grid grid-cols-2 gap-2 bg-amber-50/60 p-2.5 rounded-lg border border-amber-200">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-800">Nº de Andares <span class="text-red-600">*</span></label>
+                            <input type="number" id="bloco-andares-${idx}" value="${b.andares}" min="1" class="w-full text-xs font-bold border border-slate-300 rounded-lg p-2 bg-white outline-none" placeholder="Obrigatório">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-800">Nº de HPs <span class="text-red-600">*</span></label>
+                            <input type="number" id="bloco-hps-${idx}" value="${b.hps}" min="1" class="w-full text-xs font-bold border border-slate-300 rounded-lg p-2 bg-white outline-none" placeholder="Obrigatório">
+                        </div>
+                    </div>
+
+                    <!-- Materiais e Caixas do Bloco -->
+                    <div class="space-y-2 pt-1">
+                        <h4 class="text-[10px] font-bold text-blue-900 uppercase">Materiais e Caixas (${qtdTotal > 1 ? b.identificacao : 'Rede MDU'})</h4>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label class="block text-[10px] font-semibold text-slate-600">Fusões</label><input type="number" id="bloco-fusoes-${idx}" value="${b.fusoes}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            <div><label class="block text-[10px] font-semibold text-slate-600">Conectores</label><input type="number" id="bloco-conectores-${idx}" value="${b.conectores}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label class="block text-[10px] font-semibold text-slate-600">Cabo RL (m)</label><input type="number" id="bloco-cabo-rl-${idx}" value="${b.caboRL}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            <div><label class="block text-[10px] font-semibold text-slate-600">Cabo Drop (m)</label><input type="number" id="bloco-cabo-drop-${idx}" value="${b.caboDrop}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label class="block text-[10px] font-semibold text-slate-600">NAP</label><input type="number" id="bloco-nap-${idx}" value="${b.nap}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            <div><label class="block text-[10px] font-semibold text-slate-600">DIO</label><input type="number" id="bloco-dio-${idx}" value="${b.dio}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
+                            <div><label class="block text-[9px] font-semibold text-slate-600">Cx. Sobrepor</label><input type="number" id="bloco-cx-sobrepor-${idx}" value="${b.cxSobrepor}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            <div><label class="block text-[9px] font-semibold text-slate-600">Cx. Embutida</label><input type="number" id="bloco-cx-embutida-${idx}" value="${b.cxEmbutida}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                            <div><label class="block text-[9px] font-semibold text-slate-600">Cx. FOSC</label><input type="number" id="bloco-cx-fosc-${idx}" value="${b.cxFosc}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                        </div>
+                    </div>
+
+                    <!-- Desfecho Individual do Bloco -->
+                    <div class="space-y-2 pt-2 border-t border-slate-200">
+                        <label class="block text-[11px] font-bold text-slate-800 uppercase">Desfecho ${qtdTotal > 1 ? `deste Bloco` : `da Atividade`}: <span class="text-red-600">*</span></label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button type="button" onclick="selecionarDesfechoBloco(${idx}, 'CONCLUIDA')" class="${btnConcClass} font-bold p-2 rounded-lg text-[11px] transition">CONCLUÍDA</button>
+                            <button type="button" onclick="selecionarDesfechoBloco(${idx}, 'PENDENTE')" class="${btnPendClass} font-bold p-2 rounded-lg text-[11px] transition">PENDENTE</button>
+                            <button type="button" onclick="selecionarDesfechoBloco(${idx}, 'MALOGRADA')" class="${btnMaloClass} font-bold p-2 rounded-lg text-[11px] transition">MALOGRADA</button>
+                        </div>
+
+                        <div class="${d === 'CONCLUIDA' ? '' : 'hidden'} space-y-2 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
+                            <label class="block text-[11px] font-bold text-emerald-900">Houve Serviço de Obra?</label>
+                            <select id="bloco-servico-obra-${idx}" class="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white outline-none">
+                                <option value="SIM" ${b.servicoObra === 'SIM' ? 'selected' : ''}>SIM</option>
+                                <option value="NÃO" ${b.servicoObra === 'NÃO' ? 'selected' : ''}>NÃO</option>
+                            </select>
+                            <label class="block text-[11px] font-semibold text-emerald-900">Informação Complementar (Opcional)</label>
+                            <input type="text" id="bloco-obs-conc-${idx}" value="${b.obsConcluida}" class="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white" placeholder="Detalhe opcional...">
+                        </div>
+
+                        <div class="${d === 'PENDENTE' ? '' : 'hidden'} space-y-2 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                            <label class="block text-[11px] font-bold text-amber-900">Motivo da Pendência (Obrigatório)*</label>
+                            <textarea id="bloco-obs-pend-${idx}" rows="2" class="w-full text-xs border border-amber-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo...">${b.obsPendente}</textarea>
+                        </div>
+
+                        <div class="${d === 'MALOGRADA' ? '' : 'hidden'} space-y-2 bg-red-50 p-2.5 rounded-xl border border-red-200">
+                            <label class="block text-[11px] font-bold text-red-900">Motivo do Malogro (Obrigatório)*</label>
+                            <textarea id="bloco-obs-malo-${idx}" rows="2" class="w-full text-xs border border-red-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo...">${b.obsMalograda}</textarea>
+                            <label class="block text-[11px] font-bold text-red-900 mt-1">Selecione o(s) Ofensor(es):*</label>
+                            <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-red-200 max-h-36 overflow-y-auto">
+                                ${checkboxesHtml}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-600">Observações Gerais ${qtdTotal > 1 ? `(${b.identificacao})` : ''}</label>
+                        <textarea id="bloco-observacoes-${idx}" rows="2" class="w-full text-xs border border-slate-300 rounded-lg p-2 outline-none" placeholder="Ocorrências...">${b.observacoes}</textarea>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // --- MEMÓRIA DE CHECK-IN NO CELULAR (ATUALIZADA PARA ENDEREÇO E MÚLTIPLOS BLOCOS) ---
         function salvarRascunhoCampo() {
             const posAberturaVisivel = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
+            if (posAberturaVisivel) {
+                lerDadosBlocosDaTela();
+            }
             const rascunho = {
                 emAndamento: posAberturaVisivel,
+                idEmAndamento: dadosAtendimento.idEmAndamento,
                 equipe: document.getElementById('sel-equipe').value,
                 projeto: document.getElementById('sel-projeto').value,
                 imovel: document.getElementById('inp-imovel').value,
                 hEntrada: document.getElementById('lbl-h-entrada').innerText,
                 gpsEntrada: dadosAtendimento.gpsEntrada,
-                desfecho: dadosAtendimento.desfechoSelecionado,
-                responsavel: document.getElementById('form-responsavel').value,
-                contato: document.getElementById('form-contato').value,
-                email: document.getElementById('form-email').value,
-                andares: document.getElementById('form-andares').value,
-                hps: document.getElementById('form-hps').value,
-                fusoes: document.getElementById('mat-fusoes').value,
-                conectores: document.getElementById('mat-conectores').value,
-                caboRL: document.getElementById('mat-cabo-rl').value,
-                caboDrop: document.getElementById('mat-cabo-drop').value,
-                nap: document.getElementById('mat-nap').value,
-                dio: document.getElementById('mat-dio').value,
-                cxSobrepor: document.getElementById('mat-cx-sobrepor').value,
-                cxEmbutida: document.getElementById('mat-cx-embutida').value,
-                cxFosc: document.getElementById('mat-cx-fosc').value,
-                servicoObra: document.getElementById('sel-servico-obra').value,
-                obsConcluida: document.getElementById('obs-concluida').value,
-                obsPendente: document.getElementById('obs-pendente').value,
-                obsMalograda: document.getElementById('obs-malograda').value,
-                observacoes: document.getElementById('form-observacoes').value
+                endereco: document.getElementById('form-endereco')?.value || '',
+                responsavel: document.getElementById('form-responsavel')?.value || '',
+                contato: document.getElementById('form-contato')?.value || '',
+                email: document.getElementById('form-email')?.value || '',
+                qtdBlocos: document.getElementById('inp-qtd-blocos')?.value || 1,
+                blocos: dadosAtendimento.blocos
             };
             localStorage.setItem('gpd_rascunho_campo_ativo', JSON.stringify(rascunho));
         }
@@ -1265,51 +1517,124 @@
                 if (r.imovel) document.getElementById('inp-imovel').value = r.imovel;
 
                 if (r.emAndamento) {
+                    dadosAtendimento.idEmAndamento = r.idEmAndamento || null;
                     dadosAtendimento.hEntrada = r.hEntrada;
                     dadosAtendimento.gpsEntrada = r.gpsEntrada;
+                    dadosAtendimento.blocos = (Array.isArray(r.blocos) && r.blocos.length > 0) ? r.blocos : [criarObjetoBlocoPadrao(1)];
+
                     document.getElementById('lbl-imovel-aberto').innerText = `${r.imovel} (${r.projeto})`;
                     document.getElementById('lbl-h-entrada').innerText = r.hEntrada || '-';
                     document.getElementById('lbl-gps-entrada').innerText = r.gpsEntrada || '-';
 
+                    document.getElementById('form-endereco').value = r.endereco || '';
                     document.getElementById('form-responsavel').value = r.responsavel || '';
                     document.getElementById('form-contato').value = r.contato || '';
                     document.getElementById('form-email').value = r.email || '';
-                    document.getElementById('form-andares').value = r.andares || '';
-                    document.getElementById('form-hps').value = r.hps || '';
-                    document.getElementById('mat-fusoes').value = r.fusoes || '0';
-                    document.getElementById('mat-conectores').value = r.conectores || '0';
-                    document.getElementById('mat-cabo-rl').value = r.caboRL || '0';
-                    document.getElementById('mat-cabo-drop').value = r.caboDrop || '0';
-                    document.getElementById('mat-nap').value = r.nap || '0';
-                    document.getElementById('mat-dio').value = r.dio || '0';
-                    document.getElementById('mat-cx-sobrepor').value = r.cxSobrepor || '0';
-                    document.getElementById('mat-cx-embutida').value = r.cxEmbutida || '0';
-                    document.getElementById('mat-cx-fosc').value = r.cxFosc || '0';
-                    document.getElementById('sel-servico-obra').value = r.servicoObra || 'SIM';
-                    document.getElementById('obs-concluida').value = r.obsConcluida || '';
-                    document.getElementById('obs-pendente').value = r.obsPendente || '';
-                    document.getElementById('obs-malograda').value = r.obsMalograda || '';
-                    document.getElementById('form-observacoes').value = r.observacoes || '';
-
-                    if (r.desfecho) selecionarDesfecho(r.desfecho);
+                    document.getElementById('inp-qtd-blocos').value = dadosAtendimento.blocos.length;
 
                     document.getElementById('form-campo-container').classList.add('hidden');
                     document.getElementById('bloco-pos-abertura').classList.remove('hidden');
                     mudarTipoProjeto();
+                    renderizarBlocosCampo();
                 }
             } catch (e) {
                 console.warn("Erro ao restaurar rascunho de campo:", e);
             }
         }
 
-        function cancelarCheckinAberto() {
+        async function cancelarCheckinAberto() {
             if (confirm("Deseja realmente cancelar a abertura desta atividade em andamento?")) {
+                if (dadosAtendimento.idEmAndamento) {
+                    await supabaseClient.from('registros_producao').delete().eq('id', dadosAtendimento.idEmAndamento);
+                }
                 localStorage.removeItem('gpd_rascunho_campo_ativo');
                 resetarFormularioCampo();
+                await carregarRegistrosDaNuvem();
             }
         }
 
-        // --- MELHORIA 3: ATALHOS RÁPIDOS DE PERÍODO ---
+        function aoSelecionarEquipeCampo() {
+            const eq = document.getElementById('sel-equipe').value;
+            document.getElementById('current-user-team').innerText = eq || "Selecione Equipe";
+            salvarRascunhoCampo();
+            verificarImprevistoAtivoEquipeCampo();
+        }
+
+        // --- ITEM 04: VERIFICAR E RESOLVER IMPREVISTO ATIVO NO CAMPO E NO GESTOR ---
+        function verificarImprevistoAtivoEquipeCampo() {
+            const equipeSelecionada = document.getElementById('sel-equipe').value;
+            const boxImp = document.getElementById('box-imprevisto-ativo-campo');
+            if (!equipeSelecionada || !boxImp) {
+                if (boxImp) boxImp.classList.add('hidden');
+                return;
+            }
+
+            const hojeISO = obterDataLocalISO();
+            const impAtivo = registrosSalvos.find(r => 
+                r.equipe === equipeSelecionada && 
+                r.dataRegistro === hojeISO && 
+                r.desfecho === 'IMPREVISTO'
+            );
+
+            if (impAtivo) {
+                const motivoStr = (impAtivo.malogros && impAtivo.malogros.length > 0) ? impAtivo.malogros[0] : impAtivo.motivoDesfecho;
+                document.getElementById('lbl-info-imprevisto-ativo').innerText = `${motivoStr} (Iniciado às ${impAtivo.hEntrada})`;
+                boxImp.dataset.idImprevisto = impAtivo.id;
+                boxImp.classList.remove('hidden');
+            } else {
+                boxImp.classList.add('hidden');
+            }
+        }
+
+        async function finalizarImprevistoCampo() {
+            const boxImp = document.getElementById('box-imprevisto-ativo-campo');
+            const idImp = Number(boxImp?.dataset.idImprevisto);
+            if (!idImp) return;
+
+            const btn = document.getElementById('btn-finalizar-imprevisto-campo');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "⏳ Finalizando imprevisto...";
+            }
+
+            await resolverImprevistoPorId(idImp, false);
+
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "✅ Resolver Imprevisto e Ficar Disponível";
+            }
+            boxImp.classList.add('hidden');
+            alert("✅ Imprevisto finalizado! Você já consta como DISPONÍVEL para o painel de gestão.");
+        }
+
+        async function resolverImprevistoPorId(idImp, chamadoPeloGestor = true) {
+            const reg = registrosSalvos.find(r => r.id === idImp);
+            const horaFim = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            const gpsSaida = reg?.gpsEntrada || "Não capturado";
+
+            const { error } = await supabaseClient
+                .from('registros_producao')
+                .update({
+                    desfecho: "IMPREVISTO RESOLVIDO",
+                    h_saida: horaFim,
+                    gps_saida: gpsSaida
+                })
+                .eq('id', idImp);
+
+            if (error) {
+                alert("Erro ao finalizar imprevisto: " + error.message);
+                return;
+            }
+
+            registrarLogAuditoria("IMPREVISTO RESOLVIDO", `Imprevisto da equipe ${reg?.equipe || ''} encerrado às ${horaFim}. Técnico novamente disponível.`);
+            await carregarRegistrosDaNuvem();
+            if (chamadoPeloGestor) {
+                atualizarDashboardGestor();
+                alert("✅ Imprevisto marcado como RESOLVIDO! O técnico voltou a ficar disponível.");
+            }
+        }
+
+        // --- ATALHOS RÁPIDOS DE PERÍODO ---
         function aplicarAtalhoPeriodo(tipo) {
             const inpInicio = document.getElementById('gestor-filtro-data-inicio');
             const inpFim = document.getElementById('gestor-filtro-data-fim');
@@ -1341,7 +1666,7 @@
             atualizarDashboardGestor();
         }
 
-        // --- MELHORIA 2: RESUMO PARA WHATSAPP (CAMPO, MODAL E BOLETIM GESTOR) ---
+        // --- RESUMO PARA WHATSAPP ---
         async function copiarTextoAreaTransferencia(texto, msgSucesso) {
             try {
                 await navigator.clipboard.writeText(texto);
@@ -1359,16 +1684,19 @@
 
         function montarTextoResumoItem(r) {
             let iconeDesf = "🟢";
-            if (r.desfecho === "PENDENTE") iconeDesf = "🟡";
-            else if (r.desfecho === "MALOGRADA" || r.desfecho === "IMPREVISTO") iconeDesf = "🔴";
+            if (r.desfecho === "PENDENTE" || r.desfecho === "IMPREVISTO") iconeDesf = "🟡";
+            else if (r.desfecho === "MALOGRADA") iconeDesf = "🔴";
+            else if (r.desfecho === "EM ANDAMENTO") iconeDesf = "🔵";
 
             let linhas = [
                 `📋 *GPD MDU • PROCISA RJ*`,
                 `📅 *Data:* ${r.dataRegistro}`,
                 `👷 *Equipe:* ${r.equipe}`,
                 `🏢 *Imóvel:* ${r.imovel}`,
+                `📍 *Endereço:* ${r.endereco || '-'}`,
                 `🏗️ *Projeto:* ${r.projeto}`,
-                `${iconeDesf} *Desfecho:* ${r.desfecho}`,
+                `🏢 *Andares:* ${r.andares || 0} | *HPs:* ${r.hps || 0}`,
+                `${iconeDesf} *Status/Desfecho:* ${r.desfecho}`,
                 `🕒 *Horário:* ${r.hEntrada} às ${r.hSaida}`,
                 `📍 *GPS:* ${r.gpsEntrada}`
             ];
@@ -1397,10 +1725,12 @@
         }
 
         function copiarBoletimGestorWhatsApp() {
-            const totalObras = dadosFiltradosAtuais.length;
-            const conc = dadosFiltradosAtuais.filter(i => i.desfecho === 'CONCLUIDA').length;
-            const pend = dadosFiltradosAtuais.filter(i => i.desfecho === 'PENDENTE').length;
-            const malo = dadosFiltradosAtuais.filter(i => i.desfecho === 'MALOGRADA').length;
+            const emAndamento = dadosFiltradosAtuais.filter(i => i.desfecho === 'EM ANDAMENTO').length;
+            const finalizadas = dadosFiltradosAtuais.filter(i => i.desfecho !== 'EM ANDAMENTO');
+            const totalObras = finalizadas.length;
+            const conc = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
+            const pend = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
+            const malo = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
             const impr = listaImprevistosAtuais.length;
             const efic = totalObras > 0 ? ((conc / totalObras) * 100).toFixed(1) : "0.0";
 
@@ -1415,11 +1745,12 @@
                 `📊 *BOLETIM OPERACIONAL GPD • MDU PROCISA RJ*`,
                 `📅 *Período:* ${periodoStr}`,
                 `────────────────────`,
-                `🏗️ *Total de Atividades:* ${totalObras}`,
+                `🔵 *Em Andamento Agora:* ${emAndamento}`,
+                `🏗️ *Total Finalizadas:* ${totalObras}`,
                 `🟢 *Concluídas:* ${conc} (${efic}%)`,
                 `🟡 *Pendentes:* ${pend}`,
                 `🔴 *Malogradas:* ${malo}`,
-                `⚠️ *Imprevistos (Sem Obra):* ${impr}`,
+                `⚠️ *Imprevistos Reportados:* ${impr}`,
                 `────────────────────`,
                 `⏱️ *Tempo Médio (TMA):* ${tmaStr}`,
                 `💰 *Medição Estimada:* ${medTotal}`
@@ -1463,11 +1794,12 @@
             if (selFiltro) selFiltro.innerHTML = '<option value="">Todas as Equipes</option>';
 
             equipesSistema.forEach(eq => {
+                const setorTag = eq.setor === 'Vistoriador' ? '🔍 Vistoriador' : '🛠️ Instalador';
                 if (eq.status === "Ativo" && selCampo) {
-                    selCampo.innerHTML += `<option value="${eq.nome}">${eq.nome}</option>`;
+                    selCampo.innerHTML += `<option value="${eq.nome}">${eq.nome} (${setorTag})</option>`;
                 }
                 if (selFiltro) {
-                    selFiltro.innerHTML += `<option value="${eq.nome}">${eq.nome} (${eq.status})</option>`;
+                    selFiltro.innerHTML += `<option value="${eq.nome}">${eq.nome} [${eq.setor || 'Instalador'}] (${eq.status})</option>`;
                 }
             });
         }
@@ -1478,7 +1810,6 @@
                 return;
             }
 
-            // Garante que a lista de usuários mais recente da nuvem seja carregada antes de validar a senha
             await carregarRegistrosDaNuvem();
 
             let emailInformado = prompt("🔒 Digite o seu e-mail corporativo:");
@@ -1549,6 +1880,7 @@
                 btnCampo.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold";
                 btnGestor.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-cyan-200 hover:text-white";
                 subtitle.innerText = "Setor Construção MDU • PROCISA RJ";
+                verificarImprevistoAtivoEquipeCampo();
             }
         }
 
@@ -1582,13 +1914,11 @@
                 if (error) throw error;
                 
                 if (data) {
-                    // 1. Extrai e sincroniza a lista global de Usuários da nuvem
                     const rowUsuarios = data.find(r => r.id === ID_NUVEM_USUARIOS || r.projeto === '__CONFIG_USUARIOS__');
                     if (rowUsuarios && rowUsuarios.observacoes) {
                         try {
                             const nuvemUsers = JSON.parse(rowUsuarios.observacoes);
                             if (Array.isArray(nuvemUsers) && nuvemUsers.length > 0) {
-                                // Mescla usuários locais (ex: do seu notebook) que ainda não estavam na nuvem
                                 const locais = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [];
                                 let houveAdicaoLocal = false;
                                 locais.forEach(uLocal => {
@@ -1599,23 +1929,19 @@
                                 });
                                 usuariosSistema = nuvemUsers;
                                 localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
-                                if (houveAdicaoLocal) {
-                                    await sincronizarUsuariosNaNuvem();
-                                }
+                                if (houveAdicaoLocal) await sincronizarUsuariosNaNuvem();
                             }
                         } catch (e) { console.warn("Erro ao ler JSON de usuários da nuvem:", e); }
                     } else {
-                        // Se ainda não existe registro de usuários na nuvem, sobe a lista atual (do seu notebook)
                         await sincronizarUsuariosNaNuvem();
                     }
 
-                    // 2. Extrai e sincroniza a lista global de Equipes da nuvem
                     const rowEquipes = data.find(r => r.id === ID_NUVEM_EQUIPES || r.projeto === '__CONFIG_EQUIPES__');
                     if (rowEquipes && rowEquipes.observacoes) {
                         try {
                             const nuvemEq = JSON.parse(rowEquipes.observacoes);
                             if (Array.isArray(nuvemEq) && nuvemEq.length > 0) {
-                                equipesSistema = nuvemEq;
+                                equipesSistema = nuvemEq.map(eq => ({ ...eq, setor: eq.setor || "Instalador" }));
                                 localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
                             }
                         } catch (e) { console.warn("Erro ao ler JSON de equipes da nuvem:", e); }
@@ -1623,7 +1949,6 @@
                         await sincronizarEquipesNaNuvem();
                     }
 
-                    // 3. Filtra apenas os registros reais de campo/imprevistos (esconde os registros técnicos de configuração)
                     const registrosReais = data.filter(r => 
                         r.id !== ID_NUVEM_USUARIOS && 
                         r.id !== ID_NUVEM_EQUIPES && 
@@ -1639,6 +1964,7 @@
                         membros: r.membros || '',
                         projeto: r.projeto || '',
                         imovel: r.imovel || '',
+                        endereco: r.agendamento || '', // Armazena o endereço no campo agendamento do banco sem quebrar schema
                         hEntrada: r.h_entrada || '',
                         hSaida: r.h_saida || '',
                         gpsEntrada: r.gps_entrada || '',
@@ -1676,29 +2002,17 @@
             atualizarDashboardGestor();
             const lblHora = document.getElementById('txt-hora-sync');
             if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
-            alert("🔄 Dados e acessos atualizados com sucesso da nuvem!");
+            alert("🔄 Dados, status em andamento e disponibilidade atualizados da nuvem!");
         }
 
         function mudarTipoProjeto() {
             const projeto = document.getElementById('sel-projeto').value;
             const titulo = document.getElementById('titulo-form-dinamico');
             if (projeto === 'VISTORIA') {
-                titulo.innerText = "Dados da Vistoria";
+                titulo.innerText = "1. Dados Gerais da Vistoria e Endereço";
             } else {
-                titulo.innerText = "Dados de Execução e Materiais (" + projeto + ")";
+                titulo.innerText = "1. Dados Gerais do Imóvel (" + projeto + ")";
             }
-        }
-
-        function selecionarDesfecho(tipo) {
-            dadosAtendimento.desfechoSelecionado = tipo;
-            document.getElementById('bloco-concluida').classList.add('hidden');
-            document.getElementById('bloco-pendente').classList.add('hidden');
-            document.getElementById('bloco-malograda').classList.add('hidden');
-
-            if (tipo === 'CONCLUIDA') document.getElementById('bloco-concluida').classList.remove('hidden');
-            if (tipo === 'PENDENTE') document.getElementById('bloco-pendente').classList.remove('hidden');
-            if (tipo === 'MALOGRADA') document.getElementById('bloco-malograda').classList.remove('hidden');
-            salvarRascunhoCampo();
         }
 
         // Função para capturar a localização exata do dispositivo
@@ -1722,18 +2036,19 @@
             });
         }
 
+        // --- ITEM 06: CHECK-IN AGORA CRIA REGISTRO "EM ANDAMENTO" IMEDIATAMENTE NO PAINEL ---
         async function fazerCheckIn() {
             const equipe = document.getElementById('sel-equipe').value;
             const projeto = document.getElementById('sel-projeto').value;
             const imovel = document.getElementById('inp-imovel').value.trim();
             if (!equipe || !imovel) { alert("⚠️ Selecione a Equipe e informe o Cód. Imóvel."); return; }
 
-            // --- MELHORIA 5: ALERTA DE DUPLICIDADE DE IMÓVEL NO MESMO DIA ---
             const hojeISO = obterDataLocalISO();
             const duplicadoHoje = registrosSalvos.find(r => 
                 r.dataRegistro === hojeISO && 
-                r.imovel.toUpperCase().trim() === imovel.toUpperCase() &&
-                r.projeto === projeto
+                r.imovel.toUpperCase().trim().startsWith(imovel.toUpperCase()) &&
+                r.projeto === projeto &&
+                r.desfecho !== 'EM ANDAMENTO'
             );
 
             if (duplicadoHoje) {
@@ -1746,36 +2061,77 @@
             const btnCheckin = document.getElementById('btn-checkin');
             if (btnCheckin) {
                 btnCheckin.disabled = true;
-                btnCheckin.innerText = "📍 Obtendo localização GPS exata...";
+                btnCheckin.innerText = "📍 Obtendo GPS e iniciando no painel...";
             }
 
+            let coordReal = "Não capturado";
             try {
-                const coordReal = await capturarGpsReal(12000);
+                coordReal = await capturarGpsReal(12000);
                 dadosAtendimento.gpsEntrada = coordReal;
                 document.getElementById('lbl-gps-entrada').innerText = coordReal;
             } catch (err) {
                 alert("❌ Não foi possível capturar o GPS. Verifique se a Localização do celular está ativada e se o navegador tem permissão.");
                 if (btnCheckin) {
                     btnCheckin.disabled = false;
-                    btnCheckin.innerText = "🚀 Iniciar Atividade (Capturar GPS)";
+                    btnCheckin.innerText = "🚀 Iniciar Atividade (Status: Em Andamento)";
                 }
                 return;
             }
 
+            const horaEntradaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            const idTemp = Date.now();
+
+            // Grava imediatamente no Supabase como "EM ANDAMENTO" para a gestão acompanhar ao vivo
+            const registroEmAndamentoDB = {
+                id: idTemp,
+                data_registro: hojeISO,
+                equipe: equipe,
+                membros: equipe,
+                projeto: projeto,
+                imovel: imovel,
+                h_entrada: horaEntradaAtual,
+                h_saida: "Em Andamento",
+                gps_entrada: coordReal,
+                gps_saida: "Em Campo",
+                desfecho: "EM ANDAMENTO",
+                motivo_desfecho: "Atividade iniciada em campo (Em execução)",
+                malogros: [],
+                responsavel: '',
+                contato: '',
+                email: '',
+                agendamento: '',
+                andares: 0,
+                hps: 0,
+                servico_obra: "SIM",
+                observacoes: "Em andamento"
+            };
+
+            const { error } = await supabaseClient.from('registros_producao').insert([registroEmAndamentoDB]);
+            if (error) {
+                console.warn("Aviso ao registrar status Em Andamento:", error.message);
+            } else {
+                dadosAtendimento.idEmAndamento = idTemp;
+            }
+
             if (btnCheckin) {
                 btnCheckin.disabled = false;
-                btnCheckin.innerText = "🚀 Iniciar Atividade (Capturar GPS)";
+                btnCheckin.innerText = "🚀 Iniciar Atividade (Status: Em Andamento)";
             }
+
+            dadosAtendimento.blocos = [criarObjetoBlocoPadrao(1)];
+            document.getElementById('inp-qtd-blocos').value = 1;
 
             document.getElementById('form-campo-container').classList.add('hidden');
             document.getElementById('bloco-pos-abertura').classList.remove('hidden');
             document.getElementById('lbl-imovel-aberto').innerText = `${imovel} (${projeto})`;
-            document.getElementById('lbl-h-entrada').innerText = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            document.getElementById('lbl-h-entrada').innerText = horaEntradaAtual;
             mudarTipoProjeto();
+            renderizarBlocosCampo();
             salvarRascunhoCampo();
+            await carregarRegistrosDaNuvem();
         }
 
-        // --- FUNÇÕES DE IMPREVISTOS APARTADOS (MODO CAMPO & GESTOR) ---
+        // --- FUNÇÕES DE IMPREVISTOS APARTADOS ---
         function abrirModalImprevisto() {
             const equipe = document.getElementById('sel-equipe').value;
             if (!equipe) {
@@ -1832,7 +2188,7 @@
                 projeto: "IMPREVISTO / ATRASO",
                 imovel: "SEM ATIVIDADE (Imprevisto)",
                 h_entrada: horaAtual,
-                h_saida: horaAtual,
+                h_saida: "Em Aberto",
                 gps_entrada: gpsCapturado,
                 gps_saida: gpsCapturado,
                 desfecho: "IMPREVISTO",
@@ -1860,7 +2216,7 @@
 
             if (btnEnviar) {
                 btnEnviar.disabled = false;
-                btnEnviar.innerText = "📍 Capturar GPS e Enviar";
+                btnEnviar.innerText = "📍 Capturar GPS e Iniciar Imprevisto";
             }
 
             if (error) {
@@ -1868,80 +2224,72 @@
                 return;
             }
 
-            ultimoResumoCampoTexto = montarTextoResumoItem({
-                dataRegistro: dataLocalCorreta,
-                equipe: equipe,
-                imovel: "SEM ATIVIDADE (Imprevisto)",
-                projeto: "IMPREVISTO / ATRASO",
-                desfecho: "IMPREVISTO",
-                hEntrada: horaAtual,
-                hSaida: horaAtual,
-                gpsEntrada: gpsCapturado,
-                malogros: [motivo],
-                motivoDesfecho: detalhe
-            });
-            document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
-
-            registrarLogAuditoria("IMPREVISTO REPORTADO", `Equipe: ${equipe} | Motivo: ${motivo} | GPS: ${gpsCapturado}`);
-            alert("✅ Imprevisto / atraso registrado e enviado para a supervisão!");
+            registrarLogAuditoria("IMPREVISTO REPORTADO", `Equipe: ${equipe} | Motivo: ${motivo} | Status: INDISPONÍVEL`);
+            alert("⚠️ Imprevisto registrado! Quando o problema for resolvido, clique no botão verde 'Resolver Imprevisto e Ficar Disponível' na sua tela.");
             fecharModalImprevisto();
             await carregarRegistrosDaNuvem();
+            verificarImprevistoAtivoEquipeCampo();
         }
 
         function resetarFormularioCampo() {
-            dadosAtendimento.desfechoSelecionado = null;
+            dadosAtendimento.idEmAndamento = null;
             dadosAtendimento.gpsEntrada = null;
             dadosAtendimento.gpsSaida = null;
+            dadosAtendimento.blocos = [];
             document.getElementById('inp-imovel').value = '';
+            document.getElementById('form-endereco').value = '';
             document.getElementById('form-responsavel').value = '';
             document.getElementById('form-contato').value = '';
             document.getElementById('form-email').value = '';
-            document.getElementById('form-andares').value = '';
-            document.getElementById('form-hps').value = '';
-            document.getElementById('obs-concluida').value = '';
-            document.getElementById('obs-pendente').value = '';
-            document.getElementById('obs-malograda').value = '';
-            document.getElementById('form-observacoes').value = '';
+            document.getElementById('inp-qtd-blocos').value = '1';
+            document.getElementById('container-blocos-dinamicos').innerHTML = '';
             document.getElementById('lbl-gps-entrada').innerText = '-';
             document.getElementById('lbl-imovel-aberto').innerText = '-';
             
-            ['mat-fusoes', 'mat-conectores', 'mat-cabo-rl', 'mat-cabo-drop', 'mat-nap', 'mat-dio', 'mat-cx-sobrepor', 'mat-cx-embutida', 'mat-cx-fosc'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '0';
-            });
-
-            document.querySelectorAll('input[name="malogro-check"]').forEach(cb => cb.checked = false);
-
-            document.getElementById('bloco-concluida').classList.add('hidden');
-            document.getElementById('bloco-pendente').classList.add('hidden');
-            document.getElementById('bloco-malograda').classList.add('hidden');
             document.getElementById('bloco-pos-abertura').classList.add('hidden');
             document.getElementById('form-campo-container').classList.remove('hidden');
             localStorage.removeItem('gpd_rascunho_campo_ativo');
         }
 
+        // --- SALVAR REGISTRO (VALIDA ENDEREÇO, ANDARES/HPS OBRIGATÓRIOS E SALVA MÚLTIPLOS BLOCOS) ---
         async function salvarRegistro() {
-            if (!dadosAtendimento.desfechoSelecionado) {
-                alert("⚠️ Selecione o desfecho da atividade (CONCLUÍDA, PENDENTE ou MALOGRADA).");
+            lerDadosBlocosDaTela();
+
+            const enderecoGeral = document.getElementById('form-endereco').value.trim();
+            if (!enderecoGeral) {
+                alert("⚠️ O preenchimento do ENDEREÇO DO ATENDIMENTO é obrigatório.");
+                document.getElementById('form-endereco').focus();
                 return;
             }
 
-            let motivoDesfecho = "";
-            let malogrosSelecionados = [];
-            let servObraVal = "SIM";
+            const qtdBlocos = dadosAtendimento.blocos.length;
 
-            if (dadosAtendimento.desfechoSelecionado === 'CONCLUIDA') {
-                servObraVal = document.getElementById('sel-servico-obra').value;
-                motivoDesfecho = document.getElementById('obs-concluida').value.trim();
-            } else if (dadosAtendimento.desfechoSelecionado === 'PENDENTE') {
-                motivoDesfecho = document.getElementById('obs-pendente').value.trim();
-                if (!motivoDesfecho) { alert("⚠️ Informe o motivo da pendência."); return; }
-            } else if (dadosAtendimento.desfechoSelecionado === 'MALOGRADA') {
-                motivoDesfecho = document.getElementById('obs-malograda').value.trim();
-                let checkboxes = document.querySelectorAll('input[name="malogro-check"]:checked');
-                checkboxes.forEach(cb => malogrosSelecionados.push(cb.value));
-                if (!motivoDesfecho || malogrosSelecionados.length === 0) {
-                    alert("⚠️ Informe o motivo e selecione pelo menos um ofensor/malogro.");
+            // Validação individual de cada bloco (Andares, HPs e Desfecho obrigatórios)
+            for (let i = 0; i < qtdBlocos; i++) {
+                const b = dadosAtendimento.blocos[i];
+                const nomeBloco = qtdBlocos > 1 ? `(${b.identificacao || 'Bloco ' + (i+1)})` : '';
+
+                const numAndares = Number(b.andares);
+                const numHps = Number(b.hps);
+
+                if (!b.andares || isNaN(numAndares) || numAndares <= 0) {
+                    alert(`⚠️ Informe obrigatoriamente a quantidade de ANDARES ${nomeBloco}.`);
+                    return;
+                }
+                if (!b.hps || isNaN(numHps) || numHps <= 0) {
+                    alert(`⚠️ Informe obrigatoriamente o Nº DE HPs ${nomeBloco}.`);
+                    return;
+                }
+                if (!b.desfecho) {
+                    alert(`⚠️ Selecione o DESFECHO da atividade ${nomeBloco} (CONCLUÍDA, PENDENTE ou MALOGRADA).`);
+                    return;
+                }
+                if (b.desfecho === 'PENDENTE' && !b.obsPendente.trim()) {
+                    alert(`⚠️ Informe o motivo da pendência ${nomeBloco}.`);
+                    return;
+                }
+                if (b.desfecho === 'MALOGRADA' && (!b.obsMalograda.trim() || !b.malogros || b.malogros.length === 0)) {
+                    alert(`⚠️ Informe o motivo e selecione pelo menos um ofensor de malogro ${nomeBloco}.`);
                     return;
                 }
             }
@@ -1961,43 +2309,64 @@
 
             const equipeNome = document.getElementById('sel-equipe').value;
             const projetoNome = document.getElementById('sel-projeto').value;
-            const imovelCod = document.getElementById('inp-imovel').value.trim();
+            const imovelBase = document.getElementById('inp-imovel').value.trim();
+            const responsavelGeral = document.getElementById('form-responsavel').value.trim();
+            const contatoGeral = document.getElementById('form-contato').value.trim();
+            const emailGeral = document.getElementById('form-email').value.trim();
             const dataLocalCorreta = obterDataLocalISO();
+            const horaEntradaOriginal = document.getElementById('lbl-h-entrada').innerText || "08:30";
             const horaSaidaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
 
-            const novoRegistroDB = {
-                id: Date.now(),
-                data_registro: dataLocalCorreta,
-                equipe: equipeNome,
-                membros: equipeNome,
-                projeto: projetoNome,
-                imovel: imovelCod,
-                h_entrada: document.getElementById('lbl-h-entrada').innerText || "08:30",
-                h_saida: horaSaidaAtual,
-                gps_entrada: dadosAtendimento.gpsEntrada || gpsSaidaFinal,
-                gps_saida: gpsSaidaFinal,
-                desfecho: dadosAtendimento.desfechoSelecionado,
-                motivo_desfecho: motivoDesfecho,
-                malogros: malogrosSelecionados,
-                responsavel: document.getElementById('form-responsavel').value || '',
-                contato: document.getElementById('form-contato').value || '',
-                email: document.getElementById('form-email').value || '',
-                andares: Number(document.getElementById('form-andares')?.value) || 0,
-                hps: Number(document.getElementById('form-hps')?.value) || 0,
-                servico_obra: servObraVal,
-                observacoes: document.getElementById('form-observacoes').value || '',
-                fusoes: Number(document.getElementById('mat-fusoes')?.value) || 0,
-                conectores: Number(document.getElementById('mat-conectores')?.value) || 0,
-                cabo_rl: Number(document.getElementById('mat-cabo-rl')?.value) || 0,
-                cabo_drop: Number(document.getElementById('mat-cabo-drop')?.value) || 0,
-                nap: Number(document.getElementById('mat-nap')?.value) || 0,
-                dio: Number(document.getElementById('mat-dio')?.value) || 0,
-                cx_sobrepor: Number(document.getElementById('mat-cx-sobrepor')?.value) || 0,
-                cx_embutida: Number(document.getElementById('mat-cx-embutida')?.value) || 0,
-                cx_fosc: Number(document.getElementById('mat-cx-fosc')?.value) || 0
-            };
+            // Remove o registro temporário "EM ANDAMENTO" antes de gravar os blocos finalizados
+            if (dadosAtendimento.idEmAndamento) {
+                await supabaseClient.from('registros_producao').delete().eq('id', dadosAtendimento.idEmAndamento);
+            }
 
-            const { error } = await supabaseClient.from('registros_producao').insert([novoRegistroDB]);
+            const listaRegistrosParaInserir = dadosAtendimento.blocos.map((b, idx) => {
+                let motivoDesfecho = "";
+                if (b.desfecho === 'CONCLUIDA') motivoDesfecho = b.obsConcluida.trim();
+                else if (b.desfecho === 'PENDENTE') motivoDesfecho = b.obsPendente.trim();
+                else if (b.desfecho === 'MALOGRADA') motivoDesfecho = b.obsMalograda.trim();
+
+                const codigoImovelFinal = qtdBlocos > 1 
+                    ? `${imovelBase} - ${(b.identificacao || 'BLOCO ' + (idx + 1)).toUpperCase().trim()}`
+                    : imovelBase;
+
+                return {
+                    id: Date.now() + idx,
+                    data_registro: dataLocalCorreta,
+                    equipe: equipeNome,
+                    membros: equipeNome,
+                    projeto: projetoNome,
+                    imovel: codigoImovelFinal,
+                    h_entrada: horaEntradaOriginal,
+                    h_saida: horaSaidaAtual,
+                    gps_entrada: dadosAtendimento.gpsEntrada || gpsSaidaFinal,
+                    gps_saida: gpsSaidaFinal,
+                    desfecho: b.desfecho,
+                    motivo_desfecho: motivoDesfecho,
+                    malogros: b.desfecho === 'MALOGRADA' ? b.malogros : [],
+                    responsavel: responsavelGeral,
+                    contato: contatoGeral,
+                    email: emailGeral,
+                    agendamento: enderecoGeral, // Salva o endereço no campo agendamento do banco
+                    andares: Number(b.andares) || 0,
+                    hps: Number(b.hps) || 0,
+                    servico_obra: b.servicoObra || "SIM",
+                    observacoes: b.observacoes || '',
+                    fusoes: Number(b.fusoes) || 0,
+                    conectores: Number(b.conectores) || 0,
+                    cabo_rl: Number(b.caboRL) || 0,
+                    cabo_drop: Number(b.caboDrop) || 0,
+                    nap: Number(b.nap) || 0,
+                    dio: Number(b.dio) || 0,
+                    cx_sobrepor: Number(b.cxSobrepor) || 0,
+                    cx_embutida: Number(b.cxEmbutida) || 0,
+                    cx_fosc: Number(b.cxFosc) || 0
+                };
+            });
+
+            const { error } = await supabaseClient.from('registros_producao').insert(listaRegistrosParaInserir);
             
             if (btnSalvar) {
                 btnSalvar.disabled = false;
@@ -2009,28 +2378,33 @@
                 return;
             }
 
+            // Monta resumo consolidado para WhatsApp
+            const primeiroReg = listaRegistrosParaInserir[0];
             ultimoResumoCampoTexto = montarTextoResumoItem({
                 dataRegistro: dataLocalCorreta,
                 equipe: equipeNome,
-                imovel: imovelCod,
+                imovel: qtdBlocos > 1 ? `${imovelBase} (${qtdBlocos} Blocos)` : imovelBase,
+                endereco: enderecoGeral,
                 projeto: projetoNome,
-                desfecho: novoRegistroDB.desfecho,
-                hEntrada: novoRegistroDB.h_entrada,
-                hSaida: novoRegistroDB.h_saida,
-                gpsEntrada: novoRegistroDB.gps_entrada,
-                caboRL: novoRegistroDB.cabo_rl,
-                caboDrop: novoRegistroDB.cabo_drop,
-                conectores: novoRegistroDB.conectores,
-                fusoes: novoRegistroDB.fusoes,
-                nap: novoRegistroDB.nap,
-                dio: novoRegistroDB.dio,
-                malogros: malogrosSelecionados,
-                motivoDesfecho: motivoDesfecho
+                andares: listaRegistrosParaInserir.reduce((acc, r) => acc + r.andares, 0),
+                hps: listaRegistrosParaInserir.reduce((acc, r) => acc + r.hps, 0),
+                desfecho: listaRegistrosParaInserir.map(r => r.desfecho).join(' / '),
+                hEntrada: horaEntradaOriginal,
+                hSaida: horaSaidaAtual,
+                gpsEntrada: primeiroReg.gps_entrada,
+                caboRL: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cabo_rl, 0),
+                caboDrop: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cabo_drop, 0),
+                conectores: listaRegistrosParaInserir.reduce((acc, r) => acc + r.conectores, 0),
+                fusoes: listaRegistrosParaInserir.reduce((acc, r) => acc + r.fusoes, 0),
+                nap: listaRegistrosParaInserir.reduce((acc, r) => acc + r.nap, 0),
+                dio: listaRegistrosParaInserir.reduce((acc, r) => acc + r.dio, 0),
+                malogros: primeiroReg.malogros,
+                motivoDesfecho: primeiroReg.motivo_desfecho
             });
             document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
 
-            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome}) [GPS: ${dadosAtendimento.gpsEntrada}]`);
-            alert("✅ Atendimento finalizado e sincronizado com sucesso!");
+            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelBase} (${qtdBlocos} bloco(s)) | Endereço: ${enderecoGeral}`);
+            alert(`✅ Atendimento finalizado (${qtdBlocos} bloco(s)) e sincronizado com sucesso!`);
             resetarFormularioCampo();
             await carregarRegistrosDaNuvem();
         }
@@ -2057,6 +2431,73 @@
             const h = Math.floor(totalMinutos / 60);
             const m = Math.round(totalMinutos % 60);
             return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
+        }
+
+        // --- ITEM 05: RENDERIZAR PAINEL DE DISPONIBILIDADE DOS TÉCNICOS ---
+        function renderizarPainelDisponibilidade() {
+            const tbody = document.getElementById('tabela-disponibilidade-corpo');
+            if (!tbody) return;
+            tbody.innerHTML = "";
+
+            const hojeISO = obterDataLocalISO();
+            const equipesAtivas = equipesSistema.filter(e => e.status === 'Ativo');
+
+            let countDisp = 0;
+            let countAtend = 0;
+            let countIndisp = 0;
+
+            equipesAtivas.forEach(eq => {
+                const regsHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.dataRegistro === hojeISO);
+                const impAberto = regsHoje.find(r => r.desfecho === 'IMPREVISTO');
+                const obraAndamento = regsHoje.find(r => r.desfecho === 'EM ANDAMENTO');
+                const ultimoReg = registrosSalvos.find(r => r.equipe === eq.nome);
+
+                let statusBadge = "";
+                let detalheTexto = "";
+                let acaoHtml = "-";
+
+                if (impAberto) {
+                    countIndisp++;
+                    statusBadge = `<span class="bg-red-100 text-red-800 border border-red-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🔴 INDISPONÍVEL (IMPREVISTO)</span>`;
+                    const mot = (impAberto.malogros && impAberto.malogros.length > 0) ? impAberto.malogros[0] : impAberto.motivoDesfecho;
+                    detalheTexto = `<span class="font-bold text-red-900">${mot}</span> <span class="text-slate-500">(Desde ${impAberto.hEntrada})</span>`;
+                    acaoHtml = `<button onclick="resolverImprevistoPorId(${impAberto.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Liberar Técnico</button>`;
+                } else if (obraAndamento) {
+                    countAtend++;
+                    statusBadge = `<span class="bg-blue-600 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block animate-pulse">🔵 EM ATENDIMENTO</span>`;
+                    detalheTexto = `Imóvel: <b>${obraAndamento.imovel}</b> (${obraAndamento.projeto}) • Início às <b>${obraAndamento.hEntrada}</b>`;
+                    acaoHtml = `<button onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${obraAndamento.id}))" class="bg-blue-50 text-blue-800 font-bold text-[10px] px-2.5 py-1 rounded border border-blue-200">👁️ Ver Atividade</button>`;
+                } else {
+                    countDisp++;
+                    statusBadge = `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🟢 DISPONÍVEL</span>`;
+                    const concluidasHoje = regsHoje.filter(r => r.desfecho === 'CONCLUIDA').length;
+                    detalheTexto = `<span class="text-slate-500">Livre para acionamento (${concluidasHoje} concluída(s) hoje)</span>`;
+                }
+
+                const setorBadge = eq.setor === 'Vistoriador'
+                    ? `<span class="bg-purple-100 text-purple-900 font-bold px-2 py-0.5 rounded text-[10px]">🔍 Vistoriador</span>`
+                    : `<span class="bg-cyan-100 text-cyan-900 font-bold px-2 py-0.5 rounded text-[10px]">🛠️ Instalador</span>`;
+
+                const gpsStr = (ultimoReg && ultimoReg.gpsEntrada && ultimoReg.gpsEntrada.includes(','))
+                    ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ultimoReg.gpsEntrada)}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${ultimoReg.gpsEntrada}</a>`
+                    : `<span class="text-slate-400 text-[10px]">Sem GPS recente</span>`;
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b">
+                        <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
+                        <td class="p-3">${setorBadge}</td>
+                        <td class="p-3">${statusBadge}</td>
+                        <td class="p-3">${detalheTexto}</td>
+                        <td class="p-3">${gpsStr}</td>
+                        <td class="p-3">${acaoHtml}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('disp-card-disponiveis').innerText = countDisp;
+            document.getElementById('disp-card-atendimento').innerText = countAtend;
+            document.getElementById('disp-card-indisponiveis').innerText = countIndisp;
+            document.getElementById('badge-aba-indisp').innerText = `${countIndisp} indisp.`;
         }
 
         async function atualizarDashboardGestor() {
@@ -2088,6 +2529,7 @@
                 let mBusca = true;
                 if (termoBusca) {
                     mBusca = (item.imovel && item.imovel.toLowerCase().includes(termoBusca)) ||
+                             (item.endereco && item.endereco.toLowerCase().includes(termoBusca)) ||
                              (item.equipe && item.equipe.toLowerCase().includes(termoBusca)) ||
                              (item.projeto && item.projeto.toLowerCase().includes(termoBusca)) ||
                              (item.motivoDesfecho && item.motivoDesfecho.toLowerCase().includes(termoBusca)) ||
@@ -2097,24 +2539,31 @@
                 return mData && mEquipe && mBusca;
             });
 
-            // Separação estrita: Imprevistos Apartados vs Atividades de Obra/Campo
-            let listaImprevistos = filtradosBase.filter(i => i.projeto === 'IMPREVISTO / ATRASO' || i.desfecho === 'IMPREVISTO');
-            let filtrados = filtradosBase.filter(i => i.projeto !== 'IMPREVISTO / ATRASO' && i.desfecho !== 'IMPREVISTO' && (fProjeto ? i.projeto === fProjeto : true));
+            // Separação: Imprevistos Apartados vs Atividades de Obra/Campo
+            let listaImprevistos = filtradosBase.filter(i => i.projeto === 'IMPREVISTO / ATRASO' || i.desfecho === 'IMPREVISTO' || i.desfecho === 'IMPREVISTO RESOLVIDO');
+            let filtrados = filtradosBase.filter(i => i.projeto !== 'IMPREVISTO / ATRASO' && i.desfecho !== 'IMPREVISTO' && i.desfecho !== 'IMPREVISTO RESOLVIDO' && (fProjeto ? i.projeto === fProjeto : true));
 
             dadosFiltradosAtuais = filtrados;
             listaImprevistosAtuais = listaImprevistos;
 
-            // Atualiza contadores e Alerta de Imprevistos Apartados
+            // Atualiza painel de Disponibilidade em tempo real
+            renderizarPainelDisponibilidade();
+
+            const qtdEmAndamento = filtrados.filter(i => i.desfecho === 'EM ANDAMENTO').length;
+            const imprevistosAbertos = listaImprevistos.filter(i => i.desfecho === 'IMPREVISTO').length;
+
+            document.getElementById('kpi-proj-andamento').innerText = qtdEmAndamento;
+            document.getElementById('badge-aba-andamento').innerText = `${qtdEmAndamento} em andamento`;
             document.getElementById('kpi-proj-imprevistos').innerText = listaImprevistos.length;
             document.getElementById('badge-aba-imprevistos').innerText = listaImprevistos.length;
-            document.getElementById('contador-imprevistos').innerText = `${listaImprevistos.length} imprevisto(s)`;
+            document.getElementById('contador-imprevistos').innerText = `${listaImprevistos.length} imprevisto(s) (${imprevistosAbertos} ativo(s))`;
 
             const alertaImp = document.getElementById('alerta-imprevistos-supervisao');
             if (alertaImp) {
-                if (listaImprevistos.length > 0 && alertaImp.dataset.fechadoPeloGestor !== "true") {
+                if (imprevistosAbertos > 0 && alertaImp.dataset.fechadoPeloGestor !== "true") {
                     alertaImp.classList.remove('hidden');
-                    document.getElementById('txt-alerta-imprevistos').innerText = `Foram registrados ${listaImprevistos.length} imprevisto(s)/atraso(s) de campo no período selecionado (isolados dos indicadores de obra).`;
-                } else if (listaImprevistos.length === 0) {
+                    document.getElementById('txt-alerta-imprevistos').innerText = `Existem ${imprevistosAbertos} técnico(s) com imprevisto ATIVO (indisponíveis) neste momento.`;
+                } else if (imprevistosAbertos === 0) {
                     alertaImp.classList.add('hidden');
                 }
             }
@@ -2122,7 +2571,7 @@
             // Renderiza a tabela exclusiva da aba de Imprevistos
             if (corpoImp) {
                 if (listaImprevistos.length === 0) {
-                    corpoImp.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum imprevisto ou atraso reportado no período.</td></tr>`;
+                    corpoImp.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum imprevisto ou atraso reportado no período.</td></tr>`;
                 } else {
                     listaImprevistos.forEach(imp => {
                         const motivoPrincipal = (imp.malogros && imp.malogros.length > 0) ? imp.malogros[0] : "IMPREVISTO";
@@ -2131,19 +2580,28 @@
                             `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(imp.gpsEntrada)}" target="_blank" onclick="event.stopPropagation()" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${imp.gpsEntrada}</a>` :
                             (imp.gpsEntrada || "-");
 
-                        const acoesImp = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') ?
-                            `<button onclick="excluirRegistro(${imp.id}, 'IMPREVISTO')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>` :
-                            `<span class="text-slate-400 text-[10px]">Leitura</span>`;
+                        const estaAberto = imp.desfecho === 'IMPREVISTO';
+                        const badgeSituacao = estaAberto
+                            ? `<span class="bg-red-100 text-red-800 border border-red-300 font-black px-2 py-0.5 rounded text-[10px]">🔴 EM ABERTO (Indisponível)</span>`
+                            : `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold px-2 py-0.5 rounded text-[10px]">🟢 RESOLVIDO (Disponível)</span>`;
+
+                        let acoesImp = "";
+                        if (estaAberto) {
+                            acoesImp += `<button onclick="resolverImprevistoPorId(${imp.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded mr-1 shadow-sm">✅ Resolver</button>`;
+                        }
+                        if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
+                            acoesImp += `<button onclick="excluirRegistro(${imp.id}, 'IMPREVISTO')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>`;
+                        }
 
                         const trImp = document.createElement('tr');
                         trImp.className = "hover:bg-amber-50/50 border-b cursor-pointer transition";
-                        trImp.title = "Clique para abrir todos os detalhes do imprevisto";
                         trImp.onclick = () => abrirDetalhesAtividade(imp);
 
                         trImp.innerHTML = `
-                            <td class="p-3"><div class="font-bold text-slate-800">${imp.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">🕒 ${imp.hEntrada}</div></td>
+                            <td class="p-3"><div class="font-bold text-slate-800">${imp.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">Início: ${imp.hEntrada} | Fim: ${imp.hSaida}</div></td>
                             <td class="p-3 font-bold text-blue-900">${imp.equipe}</td>
                             <td class="p-3"><span class="bg-amber-100 text-amber-900 font-bold px-2.5 py-1 rounded text-[10px]">${motivoPrincipal}</span></td>
+                            <td class="p-3">${badgeSituacao}</td>
                             <td class="p-3 text-slate-600">${obsTexto}</td>
                             <td class="p-3 font-mono text-[10px]">${linkGps}</td>
                             <td class="p-3" onclick="event.stopPropagation()">${acoesImp}</td>
@@ -2153,29 +2611,32 @@
                 }
             }
 
-            document.getElementById('kpi-proj-vistoria').innerText = filtrados.filter(i => i.projeto === 'VISTORIA').length;
-            document.getElementById('kpi-proj-ativacao').innerText = filtrados.filter(i => i.projeto === 'ATIVAÇÃO').length;
-            document.getElementById('kpi-proj-construcao').innerText = filtrados.filter(i => i.projeto === 'CONSTRUÇÃO').length;
-            document.getElementById('kpi-proj-const-ativ').innerText = filtrados.filter(i => i.projeto === 'CONSTRUÇÃO + ATIVAÇÃO').length;
-            document.getElementById('kpi-proj-nap-ativ').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA ATIVAÇÃO').length;
-            document.getElementById('kpi-proj-nap-const').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO').length;
-            document.getElementById('kpi-proj-nap-ambos').innerText = filtrados.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO').length;
-            document.getElementById('contador-resultados').innerText = filtrados.length + " registros encontrados";
-            document.getElementById('contador-materiais').innerText = filtrados.length + " registros sincronizados";
+            // Para os KPIs de entregas e medição, considera apenas atividades finalizadas (exclui "EM ANDAMENTO")
+            const finalizadas = filtrados.filter(i => i.desfecho !== 'EM ANDAMENTO');
 
-            let concluidasCount = filtrados.filter(i => i.desfecho === 'CONCLUIDA').length;
-            let malogradasCount = filtrados.filter(i => i.desfecho === 'MALOGRADA').length;
-            let pendentesCount = filtrados.filter(i => i.desfecho === 'PENDENTE').length;
+            document.getElementById('kpi-proj-vistoria').innerText = finalizadas.filter(i => i.projeto === 'VISTORIA').length;
+            document.getElementById('kpi-proj-ativacao').innerText = finalizadas.filter(i => i.projeto === 'ATIVAÇÃO').length;
+            document.getElementById('kpi-proj-construcao').innerText = finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO').length;
+            document.getElementById('kpi-proj-const-ativ').innerText = finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO + ATIVAÇÃO').length;
+            document.getElementById('kpi-proj-nap-ativ').innerText = finalizadas.filter(i => i.projeto === 'NAP LOTADA ATIVAÇÃO').length;
+            document.getElementById('kpi-proj-nap-const').innerText = finalizadas.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO').length;
+            document.getElementById('kpi-proj-nap-ambos').innerText = finalizadas.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO').length;
+            document.getElementById('contador-resultados').innerText = `${filtrados.length} registros (${qtdEmAndamento} em andamento)`;
+            document.getElementById('contador-materiais').innerText = finalizadas.length + " registros finalizados";
+
+            let concluidasCount = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
+            let malogradasCount = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
+            let pendentesCount = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
 
             document.getElementById('bonif-elegiveis').innerText = concluidasCount;
             document.getElementById('bonif-parciais').innerText = pendentesCount;
-            document.getElementById('bonif-media-geral').innerText = filtrados.length > 0 ? (concluidasCount / (new Set(filtrados.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0";
+            document.getElementById('bonif-media-geral').innerText = finalizadas.length > 0 ? (concluidasCount / (new Set(finalizadas.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0";
             document.getElementById('bonif-malogros').innerText = malogradasCount;
 
             let sumCaboRL = 0, sumConectores = 0, sumCaboDrop = 0, sumNap = 0, sumDio = 0, sumFusoes = 0;
             let sumSobrepor = 0, sumEmbutida = 0, sumFosc = 0, sumVistorias = 0;
 
-            filtrados.forEach(i => {
+            finalizadas.forEach(i => {
                 if (i.projeto === 'VISTORIA' && i.desfecho === 'CONCLUIDA') sumVistorias++;
                 sumCaboRL += Number(i.caboRL) || 0;
                 sumConectores += Number(i.conectores) || 0;
@@ -2223,9 +2684,18 @@
                 return;
             }
 
-            filtrados.forEach(item => {
+            // Ordena colocando "EM ANDAMENTO" no topo da lista de Atividades
+            const filtradosOrdenados = [...filtrados].sort((a, b) => {
+                if (a.desfecho === 'EM ANDAMENTO' && b.desfecho !== 'EM ANDAMENTO') return -1;
+                if (a.desfecho !== 'EM ANDAMENTO' && b.desfecho === 'EM ANDAMENTO') return 1;
+                return b.id - a.id;
+            });
+
+            filtradosOrdenados.forEach(item => {
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-blue-50/50 border-b cursor-pointer transition";
+                tr.className = item.desfecho === 'EM ANDAMENTO' 
+                    ? "bg-blue-50/70 hover:bg-blue-100/60 border-b cursor-pointer transition" 
+                    : "hover:bg-blue-50/50 border-b cursor-pointer transition";
                 tr.title = "Clique para ver todos os detalhes";
                 tr.onclick = () => abrirDetalhesAtividade(item);
                 
@@ -2241,13 +2711,26 @@
 
                 const minIn = converterHorarioParaMinutos(item.hEntrada);
                 const minOut = converterHorarioParaMinutos(item.hSaida);
-                const duracaoStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(minOut - minIn) : "-";
+                const duracaoStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(minOut - minIn) : (item.desfecho === 'EM ANDAMENTO' ? '⏳ Em execução' : '-');
                 const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
 
+                const eqObj = equipesSistema.find(e => e.nome === item.equipe);
+                const setorStr = eqObj ? eqObj.setor : "Instalador";
+
                 tr.innerHTML = `
-                    <td class="p-3"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-400">${item.dataRegistro}</div></td>
-                    <td class="p-3"><div class="font-semibold">${item.equipe}</div></td>
-                    <td class="p-3"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span></td>
+                    <td class="p-3">
+                        <div class="font-bold text-slate-800">${item.imovel}</div>
+                        <div class="text-[10px] text-blue-900 font-medium truncate max-w-[200px]" title="${item.endereco || ''}">📍 ${item.endereco || 'Endereço não informado'}</div>
+                        <div class="text-[10px] text-slate-400">${item.dataRegistro}</div>
+                    </td>
+                    <td class="p-3">
+                        <div class="font-semibold text-slate-800">${item.equipe}</div>
+                        <span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">${setorStr}</span>
+                    </td>
+                    <td class="p-3">
+                        <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px] inline-block">${item.projeto}</span>
+                        <div class="text-[10px] text-slate-500 mt-1 font-semibold">🏢 Andares: <b>${item.andares || 0}</b> | HPs: <b>${item.hps || 0}</b></div>
+                    </td>
                     <td class="p-3"><span class="font-bold px-2.5 py-1 rounded-md text-[10px] inline-block ${classeCorDesfecho}">${item.desfecho}</span></td>
                     <td class="p-3">
                         <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
@@ -2264,29 +2747,31 @@
                 `;
                 corpoAtiv.appendChild(tr);
 
-                const trMat = document.createElement('tr');
-                trMat.className = "hover:bg-slate-50 border-b transition";
-                trMat.innerHTML = `
-                    <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
-                    <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
-                    <td class="p-2.5 font-semibold">${item.caboRL} m</td>
-                    <td class="p-2.5 font-semibold">${item.conectores}</td>
-                    <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
-                    <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
-                    <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
-                    <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
-                    <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
-                    <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
-                    <td class="p-2.5 font-semibold">${item.fusoes}</td>
-                `;
-                corpoMat.appendChild(trMat);
+                if (item.desfecho !== 'EM ANDAMENTO') {
+                    const trMat = document.createElement('tr');
+                    trMat.className = "hover:bg-slate-50 border-b transition";
+                    trMat.innerHTML = `
+                        <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
+                        <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
+                        <td class="p-2.5 font-semibold">${item.caboRL} m</td>
+                        <td class="p-2.5 font-semibold">${item.conectores}</td>
+                        <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
+                        <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
+                        <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
+                        <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
+                        <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
+                        <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
+                        <td class="p-2.5 font-semibold">${item.fusoes}</td>
+                    `;
+                    corpoMat.appendChild(trMat);
+                }
             });
 
-            renderizarGraficos(filtrados);
-            renderizarRankingTecnicos(filtrados);
-            renderizarOfensoresMalogro(filtrados);
-            renderizarTabelaConsolidada(filtrados);
-            renderizarRankingsSeparados(filtrados);
+            renderizarGraficos(finalizadas);
+            renderizarRankingTecnicos(finalizadas);
+            renderizarOfensoresMalogro(finalizadas);
+            renderizarTabelaConsolidada(finalizadas);
+            renderizarRankingsSeparados(finalizadas);
             renderizarTabelaUsuariosPermissao();
         }
 
@@ -2481,8 +2966,11 @@
 
             document.getElementById('edit-reg-id').value = reg.id;
             document.getElementById('edit-reg-imovel').value = reg.imovel;
+            document.getElementById('edit-reg-endereco').value = reg.endereco || '';
             document.getElementById('edit-reg-projeto').value = reg.projeto;
             document.getElementById('edit-reg-desfecho').value = reg.desfecho;
+            document.getElementById('edit-reg-andares').value = reg.andares || 0;
+            document.getElementById('edit-reg-hps').value = reg.hps || 0;
             document.getElementById('edit-reg-cabo-rl').value = reg.caboRL;
             document.getElementById('edit-reg-conectores').value = reg.conectores;
             document.getElementById('edit-reg-cabo-drop').value = reg.caboDrop;
@@ -2503,8 +2991,11 @@
         async function salvarEdicaoRegistro() {
             let id = Number(document.getElementById('edit-reg-id').value);
             let imovel = document.getElementById('edit-reg-imovel').value.trim();
+            let endereco = document.getElementById('edit-reg-endereco').value.trim();
             let projeto = document.getElementById('edit-reg-projeto').value;
             let desfecho = document.getElementById('edit-reg-desfecho').value;
+            let andares = Number(document.getElementById('edit-reg-andares').value) || 0;
+            let hps = Number(document.getElementById('edit-reg-hps').value) || 0;
             let cabo_rl = Number(document.getElementById('edit-reg-cabo-rl').value) || 0;
             let conectores = Number(document.getElementById('edit-reg-conectores').value) || 0;
             let cabo_drop = Number(document.getElementById('edit-reg-cabo-drop').value) || 0;
@@ -2517,8 +3008,11 @@
 
             let dadosAtualizados = {
                 imovel: imovel,
+                agendamento: endereco,
                 projeto: projeto,
                 desfecho: desfecho,
+                andares: andares,
+                hps: hps,
                 cabo_rl: cabo_rl,
                 conectores: conectores,
                 cabo_drop: cabo_drop,
@@ -2724,6 +3218,7 @@
 
             conteudo.innerHTML = `
                 <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
+                    <div class="col-span-2"><strong>📍 Endereço do Atendimento:</strong> <span class="font-bold text-blue-950">${item.endereco || 'Não informado'}</span></div>
                     <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
                     <div><strong>Técnico / Equipe:</strong> ${item.equipe}</div>
                     <div><strong>Projeto / Tipo:</strong> ${item.projeto}</div>
@@ -2759,7 +3254,7 @@
                     </div>
                 </div>
 
-                ${(item.desfecho === 'MALOGRADA' || item.desfecho === 'IMPREVISTO') ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Motivo / Ofensor:</strong> ${malogrosStr}</div>` : ''}
+                ${(item.desfecho === 'MALOGRADA' || item.desfecho === 'IMPREVISTO' || item.desfecho === 'IMPREVISTO RESOLVIDO') ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Motivo / Ofensor:</strong> ${malogrosStr}</div>` : ''}
                 ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Detalhamento / Observação:</strong> ${item.motivoDesfecho}</div>` : ''}
             `;
             modal.classList.remove('hidden');
@@ -2790,7 +3285,7 @@
                     corpo.innerHTML += `
                         <tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))">
                             <td class="p-2.5 font-mono text-slate-600 font-bold">${item.dataRegistro}</td>
-                            <td class="p-2.5 font-bold text-slate-800">${item.imovel}</td>
+                            <td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'}</div></td>
                             <td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td>
                             <td class="p-2.5">${item.projeto}</td>
                             <td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] inline-block ${classeCorDesfecho}">${item.desfecho}</span></td>
@@ -2861,7 +3356,6 @@
                 }
             });
 
-            // 1. Preencher Card: Média de Abertura
             if (listaMinutosEntrada.length > 0) {
                 const somaIn = listaMinutosEntrada.reduce((a, b) => a + b, 0);
                 const mediaIn = somaIn / listaMinutosEntrada.length;
@@ -2873,7 +3367,6 @@
                 document.getElementById('ind-detalhe-abertura').innerText = "Sem dados no período";
             }
 
-            // 2. Preencher Card: Média de Fechamento
             if (listaMinutosSaida.length > 0) {
                 const somaOut = listaMinutosSaida.reduce((a, b) => a + b, 0);
                 const mediaOut = somaOut / listaMinutosSaida.length;
@@ -2885,7 +3378,6 @@
                 document.getElementById('ind-detalhe-fechamento').innerText = "Sem dados no período";
             }
 
-            // 3. Preencher Card: Tempo Médio de Atividade (TMA)
             if (listaDuracoes.length > 0) {
                 const somaDur = listaDuracoes.reduce((a, b) => a + b, 0);
                 const mediaDur = somaDur / listaDuracoes.length;
@@ -2898,7 +3390,6 @@
                 document.getElementById('ind-detalhe-tma').innerText = "Aguardando durações válidas";
             }
 
-            // 4. Preencher Card: Horário de Pico
             let maxAtivHora = 0;
             let horaPico = null;
             for (let h = 0; h < 24; h++) {
@@ -2915,7 +3406,6 @@
                 document.getElementById('ind-detalhe-pico').innerText = "Sem picos registrados";
             }
 
-            // Gráfico 1: Barras por Tipo de Projeto
             const ctxProj = document.getElementById('graficoProjetos')?.getContext('2d');
             if (ctxProj) {
                 if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
@@ -2945,7 +3435,6 @@
                 });
             }
 
-            // Gráfico 2: Rosca de Eficácia e Desfechos
             const ctxDesf = document.getElementById('graficoDesfechos')?.getContext('2d');
             if (ctxDesf) {
                 if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
@@ -2972,7 +3461,6 @@
                 });
             }
 
-            // Gráfico 3: Curva de Picos Horários (06h às 20h) - Abertura vs Fechamento
             const ctxHoras = document.getElementById('graficoHorasPico')?.getContext('2d');
             if (ctxHoras) {
                 if (graficoHorasPicoInstancia) graficoHorasPicoInstancia.destroy();
@@ -3016,7 +3504,6 @@
                 });
             }
 
-            // Gráfico 4: Tempo Médio por Tipo de Projeto (em minutos)
             const ctxTempoProj = document.getElementById('graficoTempoProjeto')?.getContext('2d');
             if (ctxTempoProj) {
                 if (graficoTempoProjetoInstancia) graficoTempoProjetoInstancia.destroy();
@@ -3050,7 +3537,7 @@
             }
         }
 
-        // --- MELHORIA 4: EXPORTAÇÃO EXCEL RESPEITANDO O FILTRO ATUAL + EXCEL FINANCEIRO ---
+        // --- EXPORTAÇÃO EXCEL COM ENDEREÇO E MÚLTIPLOS BLOCOS ---
         function exportarExcel() {
             const listaParaExportar = (dadosFiltradosAtuais.length > 0 || listaImprevistosAtuais.length > 0) 
                 ? [...dadosFiltradosAtuais, ...listaImprevistosAtuais] 
@@ -3062,10 +3549,10 @@
             }
 
             let colunas = [
-                "ID", "Data", "Equipe", "Membros", "Projeto", "Imóvel", 
+                "ID", "Data", "Equipe", "Projeto", "Imóvel / Bloco", "Endereço do Atendimento",
                 "Hora Entrada", "Hora Saída", "Duração", "GPS Entrada", "GPS Saída", 
                 "Desfecho", "Serviço Obra", "Ofensores/Malogros", "Motivo Desfecho", "Responsável", "Contato", 
-                "E-mail", "Agendamento", "Andares", "HPs", 
+                "E-mail", "Andares", "HPs", 
                 "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", 
                 "NAP", "DIO", "Cx Sobrepor", "Cx Embutida", "Cx FOSC", "Observações Gerais"
             ];
@@ -3079,9 +3566,9 @@
                     r.id || "",
                     r.dataRegistro || "",
                     r.equipe || "",
-                    r.membros || "",
                     r.projeto || "",
                     r.imovel || "",
+                    r.endereco || "",
                     r.hEntrada || "",
                     r.hSaida || "",
                     durStr,
@@ -3094,7 +3581,6 @@
                     r.responsavel || "",
                     r.contato || "",
                     r.email || "",
-                    r.agendamento || "",
                     r.andares !== "" ? r.andares : 0,
                     r.hps !== "" ? r.hps : 0,
                     r.fusoes !== "" ? r.fusoes : 0,
@@ -3177,23 +3663,39 @@
             registrarLogAuditoria("EXPORTAÇÃO FINANCEIRA", `Baixada planilha de Medição Financeira (Total: R$ ${valorGeral.toFixed(2)}).`);
         }
 
-        // --- GESTÃO DE EQUIPES (SINCRONIZADO NA NUVEM) ---
+        // --- ITEM 03: GESTÃO DE EQUIPES COM CHAVE SELETORA (VISTORIADOR / INSTALADOR) ---
+        function alternarChaveSetorEquipe(setorEscolhido) {
+            document.getElementById('inp-setor-equipe').value = setorEscolhido;
+            const btnVist = document.getElementById('btn-chave-vistoriador');
+            const btnInst = document.getElementById('btn-chave-instalador');
+
+            if (setorEscolhido === 'Vistoriador') {
+                btnVist.className = "py-2.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 bg-purple-800 text-white shadow-sm";
+                btnInst.className = "py-2.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 text-slate-600 hover:bg-slate-200";
+            } else {
+                btnInst.className = "py-2.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 bg-blue-900 text-white shadow-sm";
+                btnVist.className = "py-2.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 text-slate-600 hover:bg-slate-200";
+            }
+        }
+
         function abrirModalEquipe(id = null) {
             if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Usuários visualizadores não podem gerenciar equipes."); return; }
             document.getElementById('modal-equipe').classList.remove('hidden');
             if (id) {
-                document.getElementById('modal-equipe-titulo').innerText = "Editar Equipe";
+                document.getElementById('modal-equipe-titulo').innerText = "Editar Equipe / Setor";
                 let eq = equipesSistema.find(e => e.id === id);
                 if (eq) {
                     document.getElementById('edit-equipe-id').value = eq.id;
                     document.getElementById('inp-nome-equipe').value = eq.nome;
                     document.getElementById('sel-status-equipe').value = eq.status;
+                    alternarChaveSetorEquipe(eq.setor || "Instalador");
                 }
             } else {
                 document.getElementById('modal-equipe-titulo').innerText = "Cadastrar Nova Equipe";
                 document.getElementById('edit-equipe-id').value = "";
                 document.getElementById('inp-nome-equipe').value = "";
                 document.getElementById('sel-status-equipe').value = "Ativo";
+                alternarChaveSetorEquipe("Instalador");
             }
         }
 
@@ -3203,6 +3705,7 @@
             if (nivelUsuarioLogado === 'Visualizador') return;
             const editId = document.getElementById('edit-equipe-id').value;
             const nome = document.getElementById('inp-nome-equipe').value.trim().toUpperCase();
+            const setor = document.getElementById('inp-setor-equipe').value || "Instalador";
             const status = document.getElementById('sel-status-equipe').value;
 
             if (!nome) { alert("Preencha o nome da equipe ou técnico."); return; }
@@ -3210,20 +3713,33 @@
             if (editId) {
                 let eq = equipesSistema.find(e => e.id == editId);
                 if (eq) { 
-                    registrarLogAuditoria("EDIÇÃO DE EQUIPE", `Equipe ${eq.nome} alterada para ${nome} (${status})`);
+                    registrarLogAuditoria("EDIÇÃO DE EQUIPE", `Equipe ${eq.nome} atualizada: ${nome} | Setor: ${setor} (${status})`);
                     eq.nome = nome; 
+                    eq.setor = setor;
                     eq.status = status; 
                 }
             } else {
-                registrarLogAuditoria("CADASTRO DE EQUIPE", `Nova equipe cadastrada: ${nome} (${status})`);
-                equipesSistema.push({ id: Date.now(), nome, status });
+                registrarLogAuditoria("CADASTRO DE EQUIPE", `Nova equipe cadastrada: ${nome} | Setor: ${setor} (${status})`);
+                equipesSistema.push({ id: Date.now(), nome, setor, status });
             }
 
             await sincronizarEquipesNaNuvem();
             fecharModalEquipe();
             popularSelectEquipes();
             renderizarTabelaEquipes();
-            alert("☁️ Equipe salva e sincronizada na nuvem com sucesso!");
+            renderizarPainelDisponibilidade();
+            alert("☁️ Equipe e Setor de Atuação salvos e sincronizados na nuvem!");
+        }
+
+        async function alternarSetorDiretoNaTabela(idEquipe) {
+            if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+            const eq = equipesSistema.find(e => e.id === idEquipe);
+            if (!eq) return;
+            eq.setor = eq.setor === 'Vistoriador' ? 'Instalador' : 'Vistoriador';
+            await sincronizarEquipesNaNuvem();
+            popularSelectEquipes();
+            renderizarTabelaEquipes();
+            renderizarPainelDisponibilidade();
         }
 
         function renderizarTabelaEquipes() {
@@ -3231,13 +3747,30 @@
             if (!corpo) return;
             corpo.innerHTML = "";
             equipesSistema.forEach(eq => {
-                let acoesEq = nivelUsuarioLogado === 'Master' ? 
-                    `<button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button> <button onclick="excluirEquipe(${eq.id}, '${eq.nome}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>` :
+                const isVist = eq.setor === 'Vistoriador';
+                const chaveSetorHtml = `
+                    <div class="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-300">
+                        <button onclick="if('${eq.setor}' !== 'Vistoriador') alternarSetorDiretoNaTabela(${eq.id})" class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${isVist ? 'bg-purple-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}">
+                            🔍 Vistoriador
+                        </button>
+                        <button onclick="if('${eq.setor}' !== 'Instalador') alternarSetorDiretoNaTabela(${eq.id})" class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${!isVist ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}">
+                            🛠️ Instalador
+                        </button>
+                    </div>
+                `;
+
+                let acoesEq = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') ? 
+                    `<button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>` :
                     `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
+
+                if (nivelUsuarioLogado === 'Master') {
+                    acoesEq += ` <button onclick="excluirEquipe(${eq.id}, '${eq.nome}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>`;
+                }
 
                 corpo.innerHTML += `
                     <tr class="hover:bg-slate-50 border-b">
                         <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
+                        <td class="p-3">${chaveSetorHtml}</td>
                         <td class="p-3">
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold ${eq.status === 'Ativo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
                                 ${eq.status}
@@ -3260,7 +3793,7 @@
             }
         }
 
-        // --- GESTÃO DE USUÁRIOS (SINCRONIZADO NA NUVEM) ---
+        // --- GESTÃO DE USUÁRIOS ---
         function abrirModalUsuario(id = null) {
             if (nivelUsuarioLogado === 'Visualizador' && id) {
                 let uSelf = usuariosSistema.find(u => u.email.toLowerCase() === usuarioLogado.toLowerCase());
@@ -3323,7 +3856,6 @@
                 }
             } else {
                 if (nivelUsuarioLogado !== 'Master') { alert("Acesso negado."); return; }
-                // Evita duplicidade de e-mail
                 let jaExiste = usuariosSistema.find(u => u.email.toLowerCase() === email);
                 if (jaExiste) {
                     jaExiste.nome = nome;
@@ -3386,7 +3918,7 @@
         }
 
         function mudarSubAbaGestor(aba) {
-            const subs = ['atividades', 'graficos', 'imprevistos', 'materiais', 'financeiro', 'equipes', 'usuarios', 'bonificacao', 'auditoria'];
+            const subs = ['atividades', 'disponibilidade', 'graficos', 'imprevistos', 'materiais', 'financeiro', 'equipes', 'usuarios', 'bonificacao', 'auditoria'];
             subs.forEach(s => {
                 const el = document.getElementById(`subview-${s}`);
                 const btn = document.getElementById(`subtab-btn-${s}`);
@@ -3402,6 +3934,7 @@
             if (aba === 'usuarios') renderizarTabelaUsuariosPermissao();
             if (aba === 'equipes') renderizarTabelaEquipes();
             if (aba === 'auditoria') renderizarTabelaAuditoria();
+            if (aba === 'disponibilidade') renderizarPainelDisponibilidade();
             if (aba === 'graficos') atualizarDashboardGestor();
             if (aba === 'bonificacao') atualizarDashboardGestor();
             if (aba === 'financeiro') atualizarDashboardGestor();
