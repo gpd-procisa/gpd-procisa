@@ -45,7 +45,7 @@
         <!-- ================= MODO GESTOR ================= -->
         <main id="view-gestor" class="flex-1 p-4 sm:p-6 bg-slate-50 space-y-6 hidden">
             
-            <!-- Alerta Inteligente de Supervisão (Imprevistos) com botão de limpar -->
+            <!-- Alerta Inteligente de Supervisão (Imprevistos) -->
             <div id="alerta-imprevistos-supervisao" class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-sm hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <span class="text-2xl">⚠️</span>
@@ -67,7 +67,7 @@
                 </div>
             </div>
 
-            <!-- Abas em Destaque Logo Abaixo do Cabeçalho -->
+            <!-- Abas do Gestor -->
             <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5">
                     📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
@@ -110,10 +110,10 @@
                     <span id="lbl-status-autosync" class="text-[11px] bg-slate-100 text-slate-600 px-3 py-2 rounded-xl border border-slate-200 font-mono">
                         ⏱️ Auto-Sync (180s): <b id="txt-hora-sync" class="text-blue-900">Ativo</b>
                     </span>
-                    <button onclick="copiarBoletimGestorWhatsApp()" class="bg-green-600 hover:bg-green-700 text-white text-xs px-3.5 py-2.5 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-1.5" title="Copiar resumo executivo do período para colar no WhatsApp">
+                    <button onclick="copiarBoletimGestorWhatsApp()" class="bg-green-600 hover:bg-green-700 text-white text-xs px-3.5 py-2.5 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-1.5">
                         📲 Boletim WhatsApp
                     </button>
-                    <button onclick="exportarExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs px-3.5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5" title="Exporta para Excel os registros do período filtrado">
+                    <button onclick="exportarExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs px-3.5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
                         📥 Baixar Relatório (Excel)
                     </button>
                     <button onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3.5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
@@ -122,7 +122,7 @@
                 </div>
             </div>
 
-            <!-- KPIs Numéricos Independentes (7 Projetos + Em Andamento + Imprevistos) -->
+            <!-- KPIs Numéricos -->
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
                 <div class="bg-blue-50 p-3 rounded-xl shadow-sm border border-blue-300 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-blue-900 uppercase">🔵 Em Andamento</span>
@@ -156,7 +156,7 @@
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lot. Amb</span>
                     <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-nap-ambos">0</span>
                 </div>
-                <div onclick="mudarSubAbaGestor('imprevistos')" title="Clique para abrir a aba de Imprevistos" class="bg-amber-50 hover:bg-amber-100 cursor-pointer transition p-3 rounded-xl shadow-sm border border-amber-300 flex flex-col justify-between">
+                <div onclick="mudarSubAbaGestor('imprevistos')" class="bg-amber-50 hover:bg-amber-100 cursor-pointer transition p-3 rounded-xl shadow-sm border border-amber-300 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-amber-900 uppercase">⚠️ Imprevistos</span>
                     <span class="text-xl font-black text-amber-700 mt-1" id="kpi-proj-imprevistos">0</span>
                 </div>
@@ -205,7 +205,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Atividades (Exclusivo para Atividades de Obra/Campo + Em Andamento) -->
+            <!-- Sub-Aba: Atividades -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
                     <span>Atividades em Campo e Em Andamento (Clique na linha para ver todos os detalhes)</span>
@@ -238,7 +238,6 @@
                     </div>
                 </div>
 
-                <!-- 3 Cards de Resumo de Disponibilidade -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex justify-between items-center">
                         <div>
@@ -280,7 +279,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Imprevistos Apartados (Com Status Em Aberto vs Resolvido) -->
+            <!-- Sub-Aba: Imprevistos Apartados -->
             <div id="subview-imprevistos" class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden hidden">
                 <div class="p-4 border-b border-amber-200 bg-amber-50/60 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -313,7 +312,6 @@
                     <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto, fatia de desfecho, técnico ou ofensor de malogro para abrir o detalhamento.</span>
                 </div>
 
-                <!-- CARDS: Indicadores de Tempo, Abertura, Fechamento e Pico -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-600 flex flex-col justify-between">
                         <div class="flex justify-between items-start">
@@ -352,7 +350,6 @@
                     </div>
                 </div>
 
-                <!-- Gráficos Principais (Com Modo Explosão) -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
@@ -370,7 +367,6 @@
                     </div>
                 </div>
 
-                <!-- GRÁFICOS: Curva de Picos Horários e Tempo Médio por Projeto -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
@@ -388,7 +384,6 @@
                     </div>
                 </div>
 
-                <!-- BLOCO: Ranking e Gráfico de Ofensores / Motivos de Malogro -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-red-200 flex flex-col justify-between">
                         <div>
@@ -424,7 +419,6 @@
                     </div>
                 </div>
 
-                <!-- TABELA: Ranking de Produtividade e Tempo Médio por Técnico / Equipe -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50">
                         <div>
@@ -454,7 +448,6 @@
                     </div>
                 </div>
 
-                <!-- Rankings Separados por Desfecho -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="bg-white rounded-xl shadow-sm border border-emerald-200 overflow-hidden">
                         <div class="bg-emerald-50 p-3 border-b border-emerald-200 font-bold text-emerald-900 text-xs flex justify-between items-center">
@@ -514,7 +507,6 @@
                     </div>
                 </div>
 
-                <!-- Tabela Consolidada com Números Reais -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm">📋 Tabela Consolidada de Números Reais (Para a Diretoria)</div>
                     <div class="overflow-x-auto">
@@ -539,7 +531,6 @@
                     <span class="text-xs font-normal text-slate-500" id="contador-materiais">0 registros</span>
                 </div>
 
-                <!-- Bloco de Consolidado Geral para Baixa Massiva -->
                 <div class="bg-blue-900 text-white p-4 rounded-xl shadow-sm grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 gap-2 text-center text-[10px]">
                     <div class="bg-blue-950 p-2 rounded-lg border border-blue-800">
                         <span class="uppercase font-bold text-cyan-300 block">Cabo RL</span>
@@ -758,7 +749,7 @@
                     </button>
                 </div>
 
-                <!-- Banner de Último Atendimento Finalizado (Para copiar para o WhatsApp) -->
+                <!-- Banner de Último Atendimento Finalizado -->
                 <div id="box-ultimo-resumo-whats" class="bg-emerald-50 border border-emerald-300 p-3 rounded-xl space-y-2 hidden">
                     <div class="flex justify-between items-center">
                         <span class="text-[11px] font-bold text-emerald-900">✅ Atendimento Salvo com Sucesso!</span>
@@ -805,7 +796,7 @@
                     </div>
                 </div>
 
-                <!-- BLOCO PÓS-ABERTURA (COM ENDEREÇO, DADOS GERAIS E MÚLTIPLOS BLOCOS DINÂMICOS) -->
+                <!-- BLOCO PÓS-ABERTURA -->
                 <div id="bloco-pos-abertura" oninput="salvarRascunhoCampo()" onchange="salvarRascunhoCampo()" class="space-y-3 hidden">
                     <div class="bg-blue-50 p-3 rounded-xl border border-blue-200 text-xs space-y-1 flex justify-between items-start">
                         <div>
@@ -839,7 +830,6 @@
                                 <div><label class="block text-[11px] font-semibold text-slate-600">E-mail</label><input type="email" id="form-email" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none"></div>
                             </div>
 
-                            <!-- Seletor de Quantidade de Blocos -->
                             <div class="pt-2 border-t border-slate-200 flex items-center justify-between gap-3">
                                 <div>
                                     <label class="block text-xs font-black text-blue-950 uppercase">🏢 Quantidade de Blocos:</label>
@@ -849,7 +839,6 @@
                             </div>
                         </div>
 
-                        <!-- CONTAINER DINÂMICO DE BLOCOS -->
                         <div id="container-blocos-dinamicos" class="space-y-4"></div>
                     </div>
 
@@ -862,7 +851,7 @@
 
     </div>
 
-    <!-- MODAL DE IMPREVISTO / ATRASO (APARTADO) -->
+    <!-- MODAL DE IMPREVISTO / ATRASO -->
     <div id="modal-imprevisto" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
             <div class="bg-amber-500 text-white p-4 flex justify-between items-center">
@@ -1094,7 +1083,6 @@
         const ID_NUVEM_USUARIOS = 999999001;
         const ID_NUVEM_EQUIPES  = 999999002;
 
-        // Listas de Opções de Pendência e Malogro com "REDE CORRETIVA" incluída
         const OPCOES_PENDENCIA_PADRAO = [
             "REDE CORRETIVA",
             "ACESSO PARCIAL",
@@ -1209,6 +1197,7 @@
                     desfecho: "CONFIG",
                     motivo_desfecho: "",
                     malogros: [],
+                    agendamento: null,
                     observacoes: JSON.stringify(usuariosSistema)
                 };
 
@@ -1237,6 +1226,7 @@
                     desfecho: "CONFIG",
                     motivo_desfecho: "",
                     malogros: [],
+                    agendamento: null,
                     observacoes: JSON.stringify(equipesSistema)
                 };
 
@@ -1303,7 +1293,6 @@
             }, 180000);
         };
 
-        // --- GERADOR DINÂMICO DE BLOCOS INDIVIDUAIS NO MODO CAMPO ---
         function criarObjetoBlocoPadrao(numero) {
             return {
                 identificacao: `BLOCO ${numero}`,
@@ -1402,14 +1391,12 @@
                 const btnPendClass = d === 'PENDENTE' ? 'ring-2 ring-offset-1 ring-amber-600 bg-amber-600 text-white' : 'bg-amber-500/90 text-white opacity-80';
                 const btnMaloClass = d === 'MALOGRADA' ? 'ring-2 ring-offset-1 ring-red-700 bg-red-700 text-white' : 'bg-red-600/90 text-white opacity-80';
 
-                // Checkboxes de Pendência (com REDE CORRETIVA em destaque)
                 const checkboxesPendenciaHtml = OPCOES_PENDENCIA_PADRAO.map(op => {
                     const checked = (b.pendenciasOpcoes && b.pendenciasOpcoes.includes(op)) ? 'checked' : '';
                     const destaque = op === 'REDE CORRETIVA' ? 'font-black text-amber-900 bg-amber-100/70 px-1.5 py-0.5 rounded' : '';
                     return `<label class="flex items-center gap-1.5 ${destaque}"><input type="checkbox" name="bloco-pendencia-check-${idx}" value="${op}" ${checked}> ${op}</label>`;
                 }).join('');
 
-                // Checkboxes de Malogro (com REDE CORRETIVA em destaque)
                 const checkboxesMalogroHtml = OPCOES_MALOGRO_PADRAO.map(ofensor => {
                     const checked = (b.malogros && b.malogros.includes(ofensor)) ? 'checked' : '';
                     const destaque = ofensor === 'REDE CORRETIVA' ? 'font-black text-red-900 bg-red-100/70 px-1.5 py-0.5 rounded' : '';
@@ -1431,7 +1418,6 @@
                         ` : `<input type="hidden" id="bloco-ident-${idx}" value="${b.identificacao}">`}
                     </div>
 
-                    <!-- Andares e HPs Obrigatórios -->
                     <div class="grid grid-cols-2 gap-2 bg-amber-50/60 p-2.5 rounded-lg border border-amber-200">
                         <div>
                             <label class="block text-[11px] font-bold text-slate-800">Nº de Andares <span class="text-red-600">*</span></label>
@@ -1443,7 +1429,6 @@
                         </div>
                     </div>
 
-                    <!-- Materiais e Caixas do Bloco -->
                     <div class="space-y-2 pt-1">
                         <h4 class="text-[10px] font-bold text-blue-900 uppercase">Materiais e Caixas (${qtdTotal > 1 ? b.identificacao : 'Rede MDU'})</h4>
                         <div class="grid grid-cols-2 gap-2">
@@ -1465,7 +1450,6 @@
                         </div>
                     </div>
 
-                    <!-- Desfecho Individual do Bloco -->
                     <div class="space-y-2 pt-2 border-t border-slate-200">
                         <label class="block text-[11px] font-bold text-slate-800 uppercase">Desfecho ${qtdTotal > 1 ? `deste Bloco` : `da Atividade`}: <span class="text-red-600">*</span></label>
                         <div class="grid grid-cols-3 gap-2">
@@ -1484,7 +1468,6 @@
                             <input type="text" id="bloco-obs-conc-${idx}" value="${b.obsConcluida}" class="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white" placeholder="Detalhe opcional...">
                         </div>
 
-                        <!-- BLOCO PENDENTE COM REDE CORRETIVA E OPÇÕES -->
                         <div class="${d === 'PENDENTE' ? '' : 'hidden'} space-y-2 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
                             <label class="block text-[11px] font-bold text-amber-900">Selecione a(s) Opção(ões) da Pendência (Ex: Rede Corretiva):*</label>
                             <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-amber-200 max-h-36 overflow-y-auto">
@@ -1494,7 +1477,6 @@
                             <textarea id="bloco-obs-pend-${idx}" rows="2" class="w-full text-xs border border-amber-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo...">${b.obsPendente}</textarea>
                         </div>
 
-                        <!-- BLOCO MALOGRADA COM REDE CORRETIVA E OFENSORES -->
                         <div class="${d === 'MALOGRADA' ? '' : 'hidden'} space-y-2 bg-red-50 p-2.5 rounded-xl border border-red-200">
                             <label class="block text-[11px] font-bold text-red-900">Selecione o(s) Ofensor(es) / Malogro(s):*</label>
                             <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-red-200 max-h-40 overflow-y-auto">
@@ -1988,39 +1970,51 @@
                         r.projeto !== '__CONFIG_EQUIPES__'
                     );
 
-                    registrosSalvos = registrosReais.map(r => ({
-                        id: r.id,
-                        dataRegistro: r.data_registro || '',
-                        equipe: r.equipe || '',
-                        membros: r.membros || '',
-                        projeto: r.projeto || '',
-                        imovel: r.imovel || '',
-                        endereco: r.agendamento || '',
-                        hEntrada: r.h_entrada || '',
-                        hSaida: r.h_saida || '',
-                        gpsEntrada: r.gps_entrada || '',
-                        gpsSaida: r.gps_saida || '',
-                        desfecho: r.desfecho || '',
-                        motivoDesfecho: r.motivo_desfecho || '',
-                        malogros: r.malogros || [],
-                        responsavel: r.responsavel || '',
-                        contato: r.contato || '',
-                        email: r.email || '',
-                        agendamento: r.agendamento || '',
-                        andares: r.andares || '',
-                        hps: r.hps || '',
-                        servicoObra: r.servico_obra || 'SIM',
-                        observacoes: r.observacoes || '',
-                        fusoes: Number(r.fusoes) || 0,
-                        conectores: Number(r.conectores) || 0,
-                        caboRL: Number(r.cabo_rl) || 0,
-                        caboDrop: Number(r.cabo_drop) || 0,
-                        nap: Number(r.nap) || 0,
-                        dio: Number(r.dio) || 0,
-                        cxSobrepor: Number(r.cx_sobrepor) || 0,
-                        cxEmbutida: Number(r.cx_embutida) || 0,
-                        cxFosc: Number(r.cx_fosc) || 0
-                    }));
+                    // Extrai o endereço salvo com segurança na tag [END: ...] dentro de observacoes
+                    registrosSalvos = registrosReais.map(r => {
+                        let obsBruta = r.observacoes || '';
+                        let endExtraido = '';
+                        if (obsBruta.startsWith('[END:')) {
+                            let fimTag = obsBruta.indexOf(']');
+                            if (fimTag !== -1) {
+                                endExtraido = obsBruta.substring(5, fimTag).trim();
+                                obsBruta = obsBruta.substring(fimTag + 1).trim();
+                            }
+                        }
+                        return {
+                            id: r.id,
+                            dataRegistro: r.data_registro || '',
+                            equipe: r.equipe || '',
+                            membros: r.membros || '',
+                            projeto: r.projeto || '',
+                            imovel: r.imovel || '',
+                            endereco: endExtraido,
+                            hEntrada: r.h_entrada || '',
+                            hSaida: r.h_saida || '',
+                            gpsEntrada: r.gps_entrada || '',
+                            gpsSaida: r.gps_saida || '',
+                            desfecho: r.desfecho || '',
+                            motivoDesfecho: r.motivo_desfecho || '',
+                            malogros: r.malogros || [],
+                            responsavel: r.responsavel || '',
+                            contato: r.contato || '',
+                            email: r.email || '',
+                            agendamento: r.agendamento || '',
+                            andares: r.andares || '',
+                            hps: r.hps || '',
+                            servicoObra: r.servico_obra || 'SIM',
+                            observacoes: obsBruta,
+                            fusoes: Number(r.fusoes) || 0,
+                            conectores: Number(r.conectores) || 0,
+                            caboRL: Number(r.cabo_rl) || 0,
+                            caboDrop: Number(r.cabo_drop) || 0,
+                            nap: Number(r.nap) || 0,
+                            dio: Number(r.dio) || 0,
+                            cxSobrepor: Number(r.cx_sobrepor) || 0,
+                            cxEmbutida: Number(r.cx_embutida) || 0,
+                            cxFosc: Number(r.cx_fosc) || 0
+                        };
+                    });
                 }
             } catch (err) {
                 console.error("Erro ao carregar dados do Supabase:", err);
@@ -2127,7 +2121,7 @@
                 responsavel: '',
                 contato: '',
                 email: '',
-                agendamento: '',
+                agendamento: null,
                 andares: 0,
                 hps: 0,
                 servico_obra: "SIM",
@@ -2224,6 +2218,7 @@
                 responsavel: '',
                 contato: '',
                 email: '',
+                agendamento: null,
                 andares: 0,
                 hps: 0,
                 servico_obra: "NÃO",
@@ -2381,11 +2376,11 @@
                     responsavel: responsavelGeral,
                     contato: contatoGeral,
                     email: emailGeral,
-                    agendamento: enderecoGeral,
+                    agendamento: null,
                     andares: Number(b.andares) || 0,
                     hps: Number(b.hps) || 0,
                     servico_obra: b.servicoObra || "SIM",
-                    observacoes: b.observacoes || '',
+                    observacoes: `[END: ${enderecoGeral}] ${b.observacoes || ''}`.trim(),
                     fusoes: Number(b.fusoes) || 0,
                     conectores: Number(b.conectores) || 0,
                     cabo_rl: Number(b.caboRL) || 0,
@@ -2741,7 +2736,6 @@
                 const eqObj = equipesSistema.find(e => e.nome === item.equipe);
                 const setorStr = eqObj ? eqObj.setor : "Instalador";
 
-                // Exibe tags de opções (ex: REDE CORRETIVA) abaixo do selo de Desfecho
                 const tagsOpcoesHtml = (item.malogros && item.malogros.length > 0)
                     ? `<div class="mt-1 flex flex-wrap gap-1">${item.malogros.map(op => `<span class="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">${op}</span>`).join('')}</div>`
                     : '';
@@ -3015,6 +3009,7 @@
 
         async function salvarEdicaoRegistro() {
             let id = Number(document.getElementById('edit-reg-id').value);
+            let regOriginal = registrosSalvos.find(r => r.id === id);
             let imovel = document.getElementById('edit-reg-imovel').value.trim();
             let endereco = document.getElementById('edit-reg-endereco').value.trim();
             let projeto = document.getElementById('edit-reg-projeto').value;
@@ -3031,13 +3026,16 @@
             let cx_embutida = Number(document.getElementById('edit-reg-cx-embutida').value) || 0;
             let cx_fosc = Number(document.getElementById('edit-reg-cx-fosc').value) || 0;
 
+            let obsLimpa = regOriginal ? (regOriginal.observacoes || '') : '';
+            let obsComEndereco = endereco ? `[END: ${endereco}] ${obsLimpa}`.trim() : obsLimpa;
+
             let dadosAtualizados = {
                 imovel: imovel,
-                agendamento: endereco,
                 projeto: projeto,
                 desfecho: desfecho,
                 andares: andares,
                 hps: hps,
+                observacoes: obsComEndereco,
                 cabo_rl: cabo_rl,
                 conectores: conectores,
                 cabo_drop: cabo_drop,
@@ -3281,6 +3279,7 @@
 
                 ${(item.malogros && item.malogros.length > 0) ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Opções Marcadas / Ofensores:</strong> <span class="font-bold text-red-900">${malogrosStr}</span></div>` : ''}
                 ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Detalhamento / Observação:</strong> ${item.motivoDesfecho}</div>` : ''}
+                ${item.observacoes ? `<div class="bg-slate-50 p-3 rounded-lg border border-slate-200"><strong>Observações Gerais:</strong> ${item.observacoes}</div>` : ''}
             `;
             modal.classList.remove('hidden');
         }
