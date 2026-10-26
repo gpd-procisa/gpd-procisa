@@ -45,6 +45,25 @@
         <!-- ================= MODO GESTOR ================= -->
         <main id="view-gestor" class="flex-1 p-4 sm:p-6 bg-slate-50 space-y-6 hidden">
             
+            <!-- Alerta Inteligente de Supervisão (Imprevistos) com botão de limpar -->
+            <div id="alerta-imprevistos-supervisao" class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-sm hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">⚠️</span>
+                    <div>
+                        <h4 class="font-bold text-amber-900 text-xs uppercase">Aviso Operacional: Imprevistos / Atrasos Reportados em Campo!</h4>
+                        <p class="text-xs text-amber-800" id="txt-alerta-imprevistos">Existem ocorrências de imprevisto sem atividade registradas no período filtrado.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 self-end sm:self-center">
+                    <button onclick="mudarSubAbaGestor('imprevistos')" class="bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition shadow-sm">
+                        👁️ Ver Imprevistos
+                    </button>
+                    <button onclick="fecharAlertaImprevistos()" class="bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] px-3 py-1.5 rounded-lg transition">
+                        ✕ Limpar Alerta
+                    </button>
+                </div>
+            </div>
+
             <!-- Abas em Destaque Logo Abaixo do Cabeçalho -->
             <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5">
@@ -52,6 +71,9 @@
                 </button>
                 <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
                     📊 Gráficos & Indicadores
+                </button>
+                <button onclick="mudarSubAbaGestor('imprevistos')" id="subtab-btn-imprevistos" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
+                    ⚠️ Imprevistos (<span id="badge-aba-imprevistos">0</span>)
                 </button>
                 <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
                     📦 Materiais
@@ -91,8 +113,8 @@
                 </div>
             </div>
 
-            <!-- KPIs Numéricos Independentes -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <!-- KPIs Numéricos Independentes (7 Projetos + 1 Imprevistos Apartados) -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Vistoria</span>
                     <span class="text-xl font-bold text-slate-800 mt-1" id="kpi-proj-vistoria">0</span>
@@ -120,6 +142,10 @@
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lot. Amb</span>
                     <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-nap-ambos">0</span>
+                </div>
+                <div onclick="mudarSubAbaGestor('imprevistos')" title="Clique para abrir a aba de Imprevistos" class="bg-amber-50 hover:bg-amber-100 cursor-pointer transition p-3 rounded-xl shadow-sm border border-amber-300 flex flex-col justify-between">
+                    <span class="text-[10px] font-bold text-amber-900 uppercase">⚠️ Imprevistos</span>
+                    <span class="text-xl font-black text-amber-700 mt-1" id="kpi-proj-imprevistos">0</span>
                 </div>
             </div>
 
@@ -156,7 +182,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Atividades -->
+            <!-- Sub-Aba: Atividades (Exclusivo para Atividades de Obra/Campo) -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
                     <span>Atividades em Campo (Clique na linha para ver todos os detalhes)</span>
@@ -176,6 +202,32 @@
                             </tr>
                         </thead>
                         <tbody id="tabela-gestor-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Sub-Aba: Imprevistos Apartados (Nova Aba Isolada) -->
+            <div id="subview-imprevistos" class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden hidden">
+                <div class="p-4 border-b border-amber-200 bg-amber-50/60 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                        <h3 class="font-bold text-amber-950 text-sm">⚠️ Relatório de Imprevistos e Atrasos Operacionais (Apartado das Obras)</h3>
+                        <p class="text-[11px] text-amber-800">Estes registros não somam como malogro de imóvel nem afetam a eficácia das construções. Clique na linha para explodir detalhes.</p>
+                    </div>
+                    <span class="text-xs font-bold bg-amber-200 text-amber-950 px-3 py-1 rounded-lg" id="contador-imprevistos">0 imprevistos</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
+                                <th class="p-3">Data / Horário</th>
+                                <th class="p-3">Equipe / Técnico</th>
+                                <th class="p-3">Motivo do Imprevisto</th>
+                                <th class="p-3">Observações / Detalhes</th>
+                                <th class="p-3">Localização GPS (Maps)</th>
+                                <th class="p-3">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-imprevistos-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
                     </table>
                 </div>
             </div>
@@ -261,7 +313,7 @@
                     </div>
                 </div>
 
-                <!-- NOVO BLOCO: Ranking e Gráfico de Ofensores / Motivos de Malogro -->
+                <!-- BLOCO: Ranking e Gráfico de Ofensores / Motivos de Malogro -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-red-200 flex flex-col justify-between">
                         <div>
@@ -269,7 +321,7 @@
                                 <h3 class="text-sm font-bold text-red-900 uppercase">🚨 Gráfico de Ofensores de Malogro (Clique para Explodir)</h3>
                                 <span id="badge-total-ocorrencias-malogro" class="bg-red-100 text-red-800 text-[10px] font-bold px-2.5 py-0.5 rounded">0 ocorrências</span>
                             </div>
-                            <p class="text-xs text-slate-500 mb-4">Incidência acumulada por tipo de impedimento relatado em campo</p>
+                            <p class="text-xs text-slate-500 mb-4">Incidência acumulada por tipo de impedimento relatado nas atividades em campo</p>
                         </div>
                         <div class="relative h-72"><canvas id="graficoOfensoresMalogro"></canvas></div>
                     </div>
@@ -631,9 +683,12 @@
                         <input type="text" id="inp-imovel" placeholder="Ex: IMO-98421" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none">
                     </div>
 
-                    <div class="pt-2">
+                    <div class="pt-2 flex flex-col gap-2.5">
                         <button onclick="fazerCheckIn()" id="btn-checkin" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
                             🚀 Iniciar Atividade (Capturar GPS)
+                        </button>
+                        <button onclick="abrirModalImprevisto()" type="button" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2">
+                            ⚠️ Informar Imprevisto / Atraso (Sem Atividade)
                         </button>
                     </div>
                 </div>
@@ -740,6 +795,40 @@
 
     </div>
 
+    <!-- MODAL DE IMPREVISTO / ATRASO (APARTADO) -->
+    <div id="modal-imprevisto" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div class="bg-amber-500 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm">⚠️ Informar Imprevisto / Atraso</h3>
+                <button onclick="fecharModalImprevisto()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 space-y-3 text-xs">
+                <p class="text-[11px] text-slate-500 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                    Use esta opção quando houver atraso ou impedimento operacional <b>sem abertura de atividade</b> em imóvel. O GPS atual será registrado.
+                </p>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Motivo do Imprevisto / Atraso:*</label>
+                    <select id="sel-motivo-imprevisto" class="w-full border border-slate-300 rounded-lg p-2.5 bg-white outline-none font-semibold text-slate-800">
+                        <option value="CARRO COM DEFEITO">🚗 Carro com Defeito / Manutenção</option>
+                        <option value="FALTA DE MATERIAL">📦 Falta de Material (Almoxarifado)</option>
+                        <option value="FALTA DE EQUIPAMENTO">🛠️ Falta de Equipamento / Ferramental</option>
+                        <option value="SEM ATIVIDADE PROGRAMADA">📋 Sem Atividade Programada</option>
+                        <option value="SEM TEMPO HÁBIL">⏰ Sem Tempo Hábil para Deslocamento</option>
+                        <option value="AGUARDANDO LIBERAÇÃO / BASE">🏢 Aguardando Liberação na Base</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Observações / Detalhes Adicionais:</label>
+                    <textarea id="inp-detalhe-imprevisto" rows="3" class="w-full border border-slate-300 rounded-lg p-2 outline-none" placeholder="Descreva brevemente a situação (opcional)..."></textarea>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalImprevisto()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="enviarImprevisto()" id="btn-enviar-imprevisto" class="bg-amber-500 hover:bg-amber-600 text-white text-xs px-4 py-2 rounded-lg font-bold shadow-sm">📍 Capturar GPS e Enviar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE EDIÇÃO DE REGISTRO -->
     <div id="modal-edicao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
@@ -764,6 +853,7 @@
                             <option value="NAP LOTADA ATIVAÇÃO">NAP LOTADA ATIVAÇÃO</option>
                             <option value="NAP LOTADA CONSTRUÇÃO">NAP LOTADA CONSTRUÇÃO</option>
                             <option value="NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO">NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO</option>
+                            <option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>
                         </select>
                     </div>
                     <div>
@@ -772,6 +862,7 @@
                             <option value="CONCLUIDA">CONCLUIDA</option>
                             <option value="PENDENTE">PENDENTE</option>
                             <option value="MALOGRADA">MALOGRADA</option>
+                            <option value="IMPREVISTO">IMPREVISTO</option>
                         </select>
                     </div>
                 </div>
@@ -984,7 +1075,8 @@
                     !document.getElementById('modal-explosao').classList.contains('hidden') ||
                     !document.getElementById('modal-detalhes').classList.contains('hidden') ||
                     !document.getElementById('modal-equipe').classList.contains('hidden') ||
-                    !document.getElementById('modal-usuario').classList.contains('hidden');
+                    !document.getElementById('modal-usuario').classList.contains('hidden') ||
+                    !document.getElementById('modal-imprevisto').classList.contains('hidden');
 
                 if (usuarioLogado && viewGestorAtiva && !algumModalAberto) {
                     await carregarRegistrosDaNuvem();
@@ -1264,6 +1356,106 @@
             mudarTipoProjeto();
         }
 
+        // --- FUNÇÕES DE IMPREVISTOS APARTADOS (MODO CAMPO & GESTOR) ---
+        function abrirModalImprevisto() {
+            const equipe = document.getElementById('sel-equipe').value;
+            if (!equipe) {
+                alert("⚠️ Selecione primeiro a sua Equipe / Técnico antes de informar um imprevisto.");
+                return;
+            }
+            document.getElementById('inp-detalhe-imprevisto').value = '';
+            document.getElementById('modal-imprevisto').classList.remove('hidden');
+        }
+
+        function fecharModalImprevisto() {
+            document.getElementById('modal-imprevisto').classList.add('hidden');
+        }
+
+        function fecharAlertaImprevistos() {
+            const alerta = document.getElementById('alerta-imprevistos-supervisao');
+            if (alerta) {
+                alerta.classList.add('hidden');
+                alerta.dataset.fechadoPeloGestor = "true";
+            }
+        }
+
+        async function enviarImprevisto() {
+            const equipe = document.getElementById('sel-equipe').value;
+            const motivo = document.getElementById('sel-motivo-imprevisto').value;
+            const detalhe = document.getElementById('inp-detalhe-imprevisto').value.trim();
+
+            if (!equipe) {
+                alert("⚠️ Equipe não selecionada.");
+                return;
+            }
+
+            const btnEnviar = document.getElementById('btn-enviar-imprevisto');
+            if (btnEnviar) {
+                btnEnviar.disabled = true;
+                btnEnviar.innerText = "⏳ Capturando GPS...";
+            }
+
+            let gpsCapturado = "Não capturado";
+            try {
+                gpsCapturado = await capturarGpsReal(8000);
+            } catch (e) {
+                console.warn("Imprevisto enviado sem sinal exato de GPS.");
+            }
+
+            const hoje = new Date();
+            const dataLocalCorreta = new Date(hoje.getTime() - (hoje.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+            const horaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+            const registroImprevistoDB = {
+                id: Date.now(),
+                data_registro: dataLocalCorreta,
+                equipe: equipe,
+                membros: equipe,
+                projeto: "IMPREVISTO / ATRASO",
+                imovel: "SEM ATIVIDADE (Imprevisto)",
+                h_entrada: horaAtual,
+                h_saida: horaAtual,
+                gps_entrada: gpsCapturado,
+                gps_saida: gpsCapturado,
+                desfecho: "IMPREVISTO",
+                motivo_desfecho: detalhe ? `${motivo}: ${detalhe}` : motivo,
+                malogros: [motivo],
+                responsavel: '',
+                contato: '',
+                email: '',
+                andares: 0,
+                hps: 0,
+                servico_obra: "NÃO",
+                observacoes: detalhe,
+                fusoes: 0,
+                conectores: 0,
+                cabo_rl: 0,
+                cabo_drop: 0,
+                nap: 0,
+                dio: 0,
+                cx_sobrepor: 0,
+                cx_embutida: 0,
+                cx_fosc: 0
+            };
+
+            const { error } = await supabaseClient.from('registros_producao').insert([registroImprevistoDB]);
+
+            if (btnEnviar) {
+                btnEnviar.disabled = false;
+                btnEnviar.innerText = "📍 Capturar GPS e Enviar";
+            }
+
+            if (error) {
+                alert("❌ Erro ao registrar imprevisto: " + error.message);
+                return;
+            }
+
+            registrarLogAuditoria("IMPREVISTO REPORTADO", `Equipe: ${equipe} | Motivo: ${motivo} | GPS: ${gpsCapturado}`);
+            alert("✅ Imprevisto / atraso registrado e enviado para a supervisão!");
+            fecharModalImprevisto();
+            await carregarRegistrosDaNuvem();
+        }
+
         function resetarFormularioCampo() {
             dadosAtendimento.desfechoSelecionado = null;
             dadosAtendimento.gpsEntrada = null;
@@ -1423,10 +1615,12 @@
 
             const corpoAtiv = document.getElementById('tabela-gestor-corpo');
             const corpoMat = document.getElementById('tabela-materiais-corpo');
+            const corpoImp = document.getElementById('tabela-imprevistos-corpo');
             if (corpoAtiv) corpoAtiv.innerHTML = "";
             if (corpoMat) corpoMat.innerHTML = "";
+            if (corpoImp) corpoImp.innerHTML = "";
 
-            let filtrados = registrosSalvos.filter(item => {
+            let filtradosBase = registrosSalvos.filter(item => {
                 let mData = true;
                 if (dataInicio && dataFim) {
                     mData = item.dataRegistro >= dataInicio && item.dataRegistro <= dataFim;
@@ -1437,20 +1631,73 @@
                 }
 
                 let mEquipe = fEquipe ? item.equipe === fEquipe : true;
-                let mProj = fProjeto ? item.projeto === fProjeto : true;
 
                 let mBusca = true;
                 if (termoBusca) {
                     mBusca = (item.imovel && item.imovel.toLowerCase().includes(termoBusca)) ||
                              (item.equipe && item.equipe.toLowerCase().includes(termoBusca)) ||
                              (item.projeto && item.projeto.toLowerCase().includes(termoBusca)) ||
+                             (item.motivoDesfecho && item.motivoDesfecho.toLowerCase().includes(termoBusca)) ||
                              (item.desfecho && item.desfecho.toLowerCase().includes(termoBusca));
                 }
 
-                return mData && mEquipe && mProj && mBusca;
+                return mData && mEquipe && mBusca;
             });
 
+            // Separação estrita: Imprevistos Apartados vs Atividades de Obra/Campo
+            let listaImprevistos = filtradosBase.filter(i => i.projeto === 'IMPREVISTO / ATRASO' || i.desfecho === 'IMPREVISTO');
+            let filtrados = filtradosBase.filter(i => i.projeto !== 'IMPREVISTO / ATRASO' && i.desfecho !== 'IMPREVISTO' && (fProjeto ? i.projeto === fProjeto : true));
+
             dadosFiltradosAtuais = filtrados;
+
+            // Atualiza contadores e Alerta de Imprevistos Apartados
+            document.getElementById('kpi-proj-imprevistos').innerText = listaImprevistos.length;
+            document.getElementById('badge-aba-imprevistos').innerText = listaImprevistos.length;
+            document.getElementById('contador-imprevistos').innerText = `${listaImprevistos.length} imprevisto(s)`;
+
+            const alertaImp = document.getElementById('alerta-imprevistos-supervisao');
+            if (alertaImp) {
+                if (listaImprevistos.length > 0 && alertaImp.dataset.fechadoPeloGestor !== "true") {
+                    alertaImp.classList.remove('hidden');
+                    document.getElementById('txt-alerta-imprevistos').innerText = `Foram registrados ${listaImprevistos.length} imprevisto(s)/atraso(s) de campo no período selecionado (isolados dos indicadores de obra).`;
+                } else if (listaImprevistos.length === 0) {
+                    alertaImp.classList.add('hidden');
+                }
+            }
+
+            // Renderiza a tabela exclusiva da aba de Imprevistos
+            if (corpoImp) {
+                if (listaImprevistos.length === 0) {
+                    corpoImp.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum imprevisto ou atraso reportado no período.</td></tr>`;
+                } else {
+                    listaImprevistos.forEach(imp => {
+                        const motivoPrincipal = (imp.malogros && imp.malogros.length > 0) ? imp.malogros[0] : "IMPREVISTO";
+                        const obsTexto = imp.observacoes || imp.motivoDesfecho || "-";
+                        const linkGps = (imp.gpsEntrada && imp.gpsEntrada.includes(',')) ?
+                            `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(imp.gpsEntrada)}" target="_blank" onclick="event.stopPropagation()" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${imp.gpsEntrada}</a>` :
+                            (imp.gpsEntrada || "-");
+
+                        const acoesImp = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') ?
+                            `<button onclick="excluirRegistro(${imp.id}, 'IMPREVISTO')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>` :
+                            `<span class="text-slate-400 text-[10px]">Leitura</span>`;
+
+                        const trImp = document.createElement('tr');
+                        trImp.className = "hover:bg-amber-50/50 border-b cursor-pointer transition";
+                        trImp.title = "Clique para abrir todos os detalhes do imprevisto";
+                        trImp.onclick = () => abrirDetalhesAtividade(imp);
+
+                        trImp.innerHTML = `
+                            <td class="p-3"><div class="font-bold text-slate-800">${imp.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">🕒 ${imp.hEntrada}</div></td>
+                            <td class="p-3 font-bold text-blue-900">${imp.equipe}</td>
+                            <td class="p-3"><span class="bg-amber-100 text-amber-900 font-bold px-2.5 py-1 rounded text-[10px]">${motivoPrincipal}</span></td>
+                            <td class="p-3 text-slate-600">${obsTexto}</td>
+                            <td class="p-3 font-mono text-[10px]">${linkGps}</td>
+                            <td class="p-3" onclick="event.stopPropagation()">${acoesImp}</td>
+                        `;
+                        corpoImp.appendChild(trImp);
+                    });
+                }
+            }
 
             document.getElementById('kpi-proj-vistoria').innerText = filtrados.filter(i => i.projeto === 'VISTORIA').length;
             document.getElementById('kpi-proj-ativacao').innerText = filtrados.filter(i => i.projeto === 'ATIVAÇÃO').length;
@@ -2002,7 +2249,7 @@
             if (!item) return;
             const modal = document.getElementById('modal-detalhes');
             const conteudo = document.getElementById('modal-detalhes-conteudo');
-            document.getElementById('modal-detalhes-titulo').innerText = `Detalhes do Imóvel: ${item.imovel}`;
+            document.getElementById('modal-detalhes-titulo').innerText = `Detalhes do Registro: ${item.imovel}`;
 
             let linkGpsEntrada = item.gpsEntrada && item.gpsEntrada.includes(',') ? 
                 `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsEntrada)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsEntrada} (Abrir no Maps)</a>` : item.gpsEntrada;
@@ -2020,7 +2267,7 @@
                 <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
                     <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
                     <div><strong>Técnico / Equipe:</strong> ${item.equipe}</div>
-                    <div><strong>Projeto:</strong> ${item.projeto}</div>
+                    <div><strong>Projeto / Tipo:</strong> ${item.projeto}</div>
                     <div><strong>Desfecho:</strong> <span class="font-bold text-blue-900">${item.desfecho}</span></div>
                     <div><strong>Serviço de Obra:</strong> <span class="font-bold">${item.servicoObra || 'SIM'}</span></div>
                     <div><strong>Andares:</strong> ${item.andares || 0}</div>
@@ -2053,8 +2300,8 @@
                     </div>
                 </div>
 
-                ${item.desfecho === 'MALOGRADA' ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Ofensores/Malogros:</strong> ${malogrosStr}</div>` : ''}
-                ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Motivo / Observação:</strong> ${item.motivoDesfecho}</div>` : ''}
+                ${(item.desfecho === 'MALOGRADA' || item.desfecho === 'IMPREVISTO') ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Motivo / Ofensor:</strong> ${malogrosStr}</div>` : ''}
+                ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Detalhamento / Observação:</strong> ${item.motivoDesfecho}</div>` : ''}
             `;
             modal.classList.remove('hidden');
         }
@@ -2602,7 +2849,7 @@
         }
 
         function mudarSubAbaGestor(aba) {
-            const subs = ['atividades', 'graficos', 'materiais', 'financeiro', 'equipes', 'usuarios', 'bonificacao', 'auditoria'];
+            const subs = ['atividades', 'graficos', 'imprevistos', 'materiais', 'financeiro', 'equipes', 'usuarios', 'bonificacao', 'auditoria'];
             subs.forEach(s => {
                 const el = document.getElementById(`subview-${s}`);
                 const btn = document.getElementById(`subtab-btn-${s}`);
@@ -2623,6 +2870,7 @@
             if (aba === 'financeiro') atualizarDashboardGestor();
             if (aba === 'materiais') atualizarDashboardGestor();
             if (aba === 'atividades') atualizarDashboardGestor();
+            if (aba === 'imprevistos') atualizarDashboardGestor();
         }
     </script>
 </body>
