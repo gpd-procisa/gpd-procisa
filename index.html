@@ -229,7 +229,7 @@
                 </div>
             </div>
 
-            <!-- NOVA SUB-ABA (ITEM 05): DISPONIBILIDADE DOS TÉCNICOS EM TEMPO REAL -->
+            <!-- SUB-ABA: DISPONIBILIDADE DOS TÉCNICOS EM TEMPO REAL -->
             <div id="subview-disponibilidade" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden p-4 space-y-4">
                 <div class="border-b pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -636,7 +636,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Equipes (ITEM 03: Com Coluna de Setor Vistoriador / Instalador) -->
+            <!-- Sub-Aba: Equipes -->
             <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
@@ -744,7 +744,7 @@
                     <span class="text-[11px] bg-blue-50 text-blue-900 px-2.5 py-1 rounded-lg font-bold" id="current-user-team">Selecione Equipe</span>
                 </div>
 
-                <!-- ITEM 04: Banner de Imprevisto Ativo no Celular (Permite ao técnico finalizar o imprevisto e voltar a ficar disponível) -->
+                <!-- Banner de Imprevisto Ativo no Celular -->
                 <div id="box-imprevisto-ativo-campo" class="bg-amber-50 border-2 border-amber-400 p-3.5 rounded-xl space-y-2.5 hidden shadow-sm">
                     <div class="flex items-start gap-2">
                         <span class="text-lg">⚠️</span>
@@ -825,7 +825,6 @@
                     <div class="space-y-3 border-t pt-3">
                         <h3 class="font-bold text-xs text-slate-800 uppercase" id="titulo-form-dinamico">1. Dados Gerais do Condomínio / Imóvel</h3>
                         
-                        <!-- ITEM 01 e 07: Endereço, Responsável, Contato e E-mail compartilhados para todos os blocos -->
                         <div class="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-700">📍 Endereço do Atendimento *</label>
@@ -840,7 +839,7 @@
                                 <div><label class="block text-[11px] font-semibold text-slate-600">E-mail</label><input type="email" id="form-email" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none"></div>
                             </div>
 
-                            <!-- ITEM 07: Seletor de Quantidade de Blocos -->
+                            <!-- Seletor de Quantidade de Blocos -->
                             <div class="pt-2 border-t border-slate-200 flex items-center justify-between gap-3">
                                 <div>
                                     <label class="block text-xs font-black text-blue-950 uppercase">🏢 Quantidade de Blocos:</label>
@@ -850,7 +849,7 @@
                             </div>
                         </div>
 
-                        <!-- CONTAINER DINÂMICO DE BLOCOS (ITEM 02 e ITEM 07) -->
+                        <!-- CONTAINER DINÂMICO DE BLOCOS -->
                         <div id="container-blocos-dinamicos" class="space-y-4"></div>
                     </div>
 
@@ -1016,7 +1015,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE EQUIPE (ITEM 03: Com Chave Seletora Vistoriador vs Instalador) -->
+    <!-- MODAL DE EQUIPE -->
     <div id="modal-equipe" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
@@ -1030,7 +1029,6 @@
                     <input type="text" id="inp-nome-equipe" class="w-full border rounded-lg p-2.5 outline-none uppercase" placeholder="NOME COMPLETO">
                 </div>
                 
-                <!-- ITEM 03: Chave Seletora de Setor (Vistoriador vs Instalador) -->
                 <div>
                     <label class="block font-bold text-slate-700 mb-1.5">Setor de Atuação (Selecione a Chave):</label>
                     <input type="hidden" id="inp-setor-equipe" value="Instalador">
@@ -1087,7 +1085,7 @@
         </div>
     </div>
 
-    <!-- Script Principal Completo com Todas as 7 Melhorias Operacionais -->
+    <!-- Script Principal Completo -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1095,6 +1093,29 @@
 
         const ID_NUVEM_USUARIOS = 999999001;
         const ID_NUVEM_EQUIPES  = 999999002;
+
+        // Listas de Opções de Pendência e Malogro com "REDE CORRETIVA" incluída
+        const OPCOES_PENDENCIA_PADRAO = [
+            "REDE CORRETIVA",
+            "ACESSO PARCIAL",
+            "AGUARDANDO SÍNDICO / CLIENTE",
+            "OBSTRUÇÃO INTERNA / PRUMADA",
+            "FALTA DE TEMPO HÁBIL",
+            "OUTROS"
+        ];
+
+        const OPCOES_MALOGRO_PADRAO = [
+            "REDE CORRETIVA",
+            "FROTA",
+            "MATERIAL",
+            "FINANCEIRO",
+            "EQUIPAMENTOS",
+            "ACESSO",
+            "PROJETO",
+            "REDE EXTERNA",
+            "INFRAESTRUTURA",
+            "ÁREA DE RISCO"
+        ];
 
         const listaEquipesInicial = [
             "ANDREO FAGUNDES",
@@ -1129,7 +1150,6 @@
             status: "Ativo"
         }));
 
-        // Garante que todas as equipes tenham a propriedade 'setor'
         equipesSistema = equipesSistema.map(eq => ({
             ...eq,
             setor: eq.setor || "Instalador"
@@ -1168,7 +1188,6 @@
             "CX EMBUTIDA": { codigo: "1.11", desc: "INSTALAÇÃO DE CAIXA - EMBUTIDA", unidade: "Unidade", valor: 150.76 }
         };
 
-        // --- FUNÇÕES DE SINCRONIZAÇÃO DE USUÁRIOS E EQUIPES NA NUVEM (SUPABASE) ---
         async function sincronizarUsuariosNaNuvem() {
             try {
                 if (!usuariosSistema.some(u => u.email.toLowerCase() === "lsimoes@procisa.com.br")) {
@@ -1227,7 +1246,6 @@
             }
         }
 
-        // Função auxiliar para retornar a classe de cores do Desfecho (Verde, Amarelo, Vermelho, Azul Em Andamento)
         function obterClasseCorDesfecho(desfecho) {
             const d = (desfecho || '').toUpperCase().trim();
             if (d === 'EM ANDAMENTO') {
@@ -1266,7 +1284,6 @@
                 alternarVisao('campo');
             }
 
-            // Rotina de Atualização Automática a cada 180 segundos (180000 ms)
             setInterval(async () => {
                 const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
                 const algumModalAberto = 
@@ -1286,7 +1303,7 @@
             }, 180000);
         };
 
-        // --- ITEM 07: GERADOR DINÂMICO DE BLOCOS INDIVIDUAIS NO MODO CAMPO ---
+        // --- GERADOR DINÂMICO DE BLOCOS INDIVIDUAIS NO MODO CAMPO ---
         function criarObjetoBlocoPadrao(numero) {
             return {
                 identificacao: `BLOCO ${numero}`,
@@ -1305,6 +1322,7 @@
                 servicoObra: "SIM",
                 obsConcluida: "",
                 obsPendente: "",
+                pendenciasOpcoes: [],
                 obsMalograda: "",
                 malogros: [],
                 observacoes: ""
@@ -1335,8 +1353,11 @@
                 b.obsMalograda = document.getElementById(`bloco-obs-malo-${i}`)?.value || "";
                 b.observacoes = document.getElementById(`bloco-observacoes-${i}`)?.value || "";
 
-                const checks = document.querySelectorAll(`input[name="bloco-malogro-check-${i}"]:checked`);
-                b.malogros = Array.from(checks).map(c => c.value);
+                const checksPend = document.querySelectorAll(`input[name="bloco-pendencia-check-${i}"]:checked`);
+                b.pendenciasOpcoes = Array.from(checksPend).map(c => c.value);
+
+                const checksMalo = document.querySelectorAll(`input[name="bloco-malogro-check-${i}"]:checked`);
+                b.malogros = Array.from(checksMalo).map(c => c.value);
             }
         }
 
@@ -1372,7 +1393,6 @@
             container.innerHTML = "";
 
             const qtdTotal = dadosAtendimento.blocos.length;
-            const listaOfensoresPadrao = ["FROTA", "MATERIAL", "FINANCEIRO", "EQUIPAMENTOS", "ACESSO", "PROJETO", "REDE EXTERNA", "INFRAESTRUTURA", "ÁREA DE RISCO"];
 
             dadosAtendimento.blocos.forEach((b, idx) => {
                 const mostrarIdentBloco = qtdTotal > 1;
@@ -1382,9 +1402,18 @@
                 const btnPendClass = d === 'PENDENTE' ? 'ring-2 ring-offset-1 ring-amber-600 bg-amber-600 text-white' : 'bg-amber-500/90 text-white opacity-80';
                 const btnMaloClass = d === 'MALOGRADA' ? 'ring-2 ring-offset-1 ring-red-700 bg-red-700 text-white' : 'bg-red-600/90 text-white opacity-80';
 
-                const checkboxesHtml = listaOfensoresPadrao.map(ofensor => {
+                // Checkboxes de Pendência (com REDE CORRETIVA em destaque)
+                const checkboxesPendenciaHtml = OPCOES_PENDENCIA_PADRAO.map(op => {
+                    const checked = (b.pendenciasOpcoes && b.pendenciasOpcoes.includes(op)) ? 'checked' : '';
+                    const destaque = op === 'REDE CORRETIVA' ? 'font-black text-amber-900 bg-amber-100/70 px-1.5 py-0.5 rounded' : '';
+                    return `<label class="flex items-center gap-1.5 ${destaque}"><input type="checkbox" name="bloco-pendencia-check-${idx}" value="${op}" ${checked}> ${op}</label>`;
+                }).join('');
+
+                // Checkboxes de Malogro (com REDE CORRETIVA em destaque)
+                const checkboxesMalogroHtml = OPCOES_MALOGRO_PADRAO.map(ofensor => {
                     const checked = (b.malogros && b.malogros.includes(ofensor)) ? 'checked' : '';
-                    return `<label class="flex items-center gap-1"><input type="checkbox" name="bloco-malogro-check-${idx}" value="${ofensor}" ${checked}> ${ofensor}</label>`;
+                    const destaque = ofensor === 'REDE CORRETIVA' ? 'font-black text-red-900 bg-red-100/70 px-1.5 py-0.5 rounded' : '';
+                    return `<label class="flex items-center gap-1.5 ${destaque}"><input type="checkbox" name="bloco-malogro-check-${idx}" value="${ofensor}" ${checked}> ${ofensor}</label>`;
                 }).join('');
 
                 const card = document.createElement('div');
@@ -1402,7 +1431,7 @@
                         ` : `<input type="hidden" id="bloco-ident-${idx}" value="${b.identificacao}">`}
                     </div>
 
-                    <!-- ITEM 02: Andares e HPs Obrigatórios -->
+                    <!-- Andares e HPs Obrigatórios -->
                     <div class="grid grid-cols-2 gap-2 bg-amber-50/60 p-2.5 rounded-lg border border-amber-200">
                         <div>
                             <label class="block text-[11px] font-bold text-slate-800">Nº de Andares <span class="text-red-600">*</span></label>
@@ -1455,18 +1484,24 @@
                             <input type="text" id="bloco-obs-conc-${idx}" value="${b.obsConcluida}" class="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white" placeholder="Detalhe opcional...">
                         </div>
 
+                        <!-- BLOCO PENDENTE COM REDE CORRETIVA E OPÇÕES -->
                         <div class="${d === 'PENDENTE' ? '' : 'hidden'} space-y-2 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-                            <label class="block text-[11px] font-bold text-amber-900">Motivo da Pendência (Obrigatório)*</label>
+                            <label class="block text-[11px] font-bold text-amber-900">Selecione a(s) Opção(ões) da Pendência (Ex: Rede Corretiva):*</label>
+                            <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-amber-200 max-h-36 overflow-y-auto">
+                                ${checkboxesPendenciaHtml}
+                            </div>
+                            <label class="block text-[11px] font-bold text-amber-900 mt-1">Descrição / Motivo da Pendência (Obrigatório)*</label>
                             <textarea id="bloco-obs-pend-${idx}" rows="2" class="w-full text-xs border border-amber-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo...">${b.obsPendente}</textarea>
                         </div>
 
+                        <!-- BLOCO MALOGRADA COM REDE CORRETIVA E OFENSORES -->
                         <div class="${d === 'MALOGRADA' ? '' : 'hidden'} space-y-2 bg-red-50 p-2.5 rounded-xl border border-red-200">
-                            <label class="block text-[11px] font-bold text-red-900">Motivo do Malogro (Obrigatório)*</label>
-                            <textarea id="bloco-obs-malo-${idx}" rows="2" class="w-full text-xs border border-red-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo...">${b.obsMalograda}</textarea>
-                            <label class="block text-[11px] font-bold text-red-900 mt-1">Selecione o(s) Ofensor(es):*</label>
-                            <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-red-200 max-h-36 overflow-y-auto">
-                                ${checkboxesHtml}
+                            <label class="block text-[11px] font-bold text-red-900">Selecione o(s) Ofensor(es) / Malogro(s):*</label>
+                            <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-red-200 max-h-40 overflow-y-auto">
+                                ${checkboxesMalogroHtml}
                             </div>
+                            <label class="block text-[11px] font-bold text-red-900 mt-1">Descrição / Motivo do Malogro (Obrigatório)*</label>
+                            <textarea id="bloco-obs-malo-${idx}" rows="2" class="w-full text-xs border border-red-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo...">${b.obsMalograda}</textarea>
                         </div>
                     </div>
 
@@ -1479,7 +1514,6 @@
             });
         }
 
-        // --- MEMÓRIA DE CHECK-IN NO CELULAR (ATUALIZADA PARA ENDEREÇO E MÚLTIPLOS BLOCOS) ---
         function salvarRascunhoCampo() {
             const posAberturaVisivel = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
             if (posAberturaVisivel) {
@@ -1560,7 +1594,6 @@
             verificarImprevistoAtivoEquipeCampo();
         }
 
-        // --- ITEM 04: VERIFICAR E RESOLVER IMPREVISTO ATIVO NO CAMPO E NO GESTOR ---
         function verificarImprevistoAtivoEquipeCampo() {
             const equipeSelecionada = document.getElementById('sel-equipe').value;
             const boxImp = document.getElementById('box-imprevisto-ativo-campo');
@@ -1634,7 +1667,6 @@
             }
         }
 
-        // --- ATALHOS RÁPIDOS DE PERÍODO ---
         function aplicarAtalhoPeriodo(tipo) {
             const inpInicio = document.getElementById('gestor-filtro-data-inicio');
             const inpFim = document.getElementById('gestor-filtro-data-fim');
@@ -1666,7 +1698,6 @@
             atualizarDashboardGestor();
         }
 
-        // --- RESUMO PARA WHATSAPP ---
         async function copiarTextoAreaTransferencia(texto, msgSucesso) {
             try {
                 await navigator.clipboard.writeText(texto);
@@ -1705,7 +1736,7 @@
                 linhas.push(`📦 *Materiais:* RL: ${r.caboRL}m | Drop: ${r.caboDrop}m | Conect: ${r.conectores} | Fusões: ${r.fusoes} | NAP: ${r.nap} | DIO: ${r.dio}`);
             }
             if (r.malogros && r.malogros.length > 0) {
-                linhas.push(`⚠️ *Ofensores:* ${r.malogros.join(', ')}`);
+                linhas.push(`⚠️ *Opções/Ofensores:* ${r.malogros.join(', ')}`);
             }
             if (r.motivoDesfecho) {
                 linhas.push(`💬 *Detalhe:* ${r.motivoDesfecho}`);
@@ -1964,7 +1995,7 @@
                         membros: r.membros || '',
                         projeto: r.projeto || '',
                         imovel: r.imovel || '',
-                        endereco: r.agendamento || '', // Armazena o endereço no campo agendamento do banco sem quebrar schema
+                        endereco: r.agendamento || '',
                         hEntrada: r.h_entrada || '',
                         hSaida: r.h_saida || '',
                         gpsEntrada: r.gps_entrada || '',
@@ -2015,7 +2046,6 @@
             }
         }
 
-        // Função para capturar a localização exata do dispositivo
         function capturarGpsReal(tempoLimite = 12000) {
             return new Promise((resolve, reject) => {
                 if (!navigator.geolocation) {
@@ -2036,7 +2066,6 @@
             });
         }
 
-        // --- ITEM 06: CHECK-IN AGORA CRIA REGISTRO "EM ANDAMENTO" IMEDIATAMENTE NO PAINEL ---
         async function fazerCheckIn() {
             const equipe = document.getElementById('sel-equipe').value;
             const projeto = document.getElementById('sel-projeto').value;
@@ -2081,7 +2110,6 @@
             const horaEntradaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             const idTemp = Date.now();
 
-            // Grava imediatamente no Supabase como "EM ANDAMENTO" para a gestão acompanhar ao vivo
             const registroEmAndamentoDB = {
                 id: idTemp,
                 data_registro: hojeISO,
@@ -2131,7 +2159,6 @@
             await carregarRegistrosDaNuvem();
         }
 
-        // --- FUNÇÕES DE IMPREVISTOS APARTADOS ---
         function abrirModalImprevisto() {
             const equipe = document.getElementById('sel-equipe').value;
             if (!equipe) {
@@ -2251,7 +2278,6 @@
             localStorage.removeItem('gpd_rascunho_campo_ativo');
         }
 
-        // --- SALVAR REGISTRO (VALIDA ENDEREÇO, ANDARES/HPS OBRIGATÓRIOS E SALVA MÚLTIPLOS BLOCOS) ---
         async function salvarRegistro() {
             lerDadosBlocosDaTela();
 
@@ -2264,7 +2290,6 @@
 
             const qtdBlocos = dadosAtendimento.blocos.length;
 
-            // Validação individual de cada bloco (Andares, HPs e Desfecho obrigatórios)
             for (let i = 0; i < qtdBlocos; i++) {
                 const b = dadosAtendimento.blocos[i];
                 const nomeBloco = qtdBlocos > 1 ? `(${b.identificacao || 'Bloco ' + (i+1)})` : '';
@@ -2284,8 +2309,8 @@
                     alert(`⚠️ Selecione o DESFECHO da atividade ${nomeBloco} (CONCLUÍDA, PENDENTE ou MALOGRADA).`);
                     return;
                 }
-                if (b.desfecho === 'PENDENTE' && !b.obsPendente.trim()) {
-                    alert(`⚠️ Informe o motivo da pendência ${nomeBloco}.`);
+                if (b.desfecho === 'PENDENTE' && (!b.obsPendente.trim() || !b.pendenciasOpcoes || b.pendenciasOpcoes.length === 0)) {
+                    alert(`⚠️ Para atividade PENDENTE ${nomeBloco}, selecione pelo menos uma opção (ex: Rede Corretiva) e descreva o motivo.`);
                     return;
                 }
                 if (b.desfecho === 'MALOGRADA' && (!b.obsMalograda.trim() || !b.malogros || b.malogros.length === 0)) {
@@ -2317,16 +2342,23 @@
             const horaEntradaOriginal = document.getElementById('lbl-h-entrada').innerText || "08:30";
             const horaSaidaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
 
-            // Remove o registro temporário "EM ANDAMENTO" antes de gravar os blocos finalizados
             if (dadosAtendimento.idEmAndamento) {
                 await supabaseClient.from('registros_producao').delete().eq('id', dadosAtendimento.idEmAndamento);
             }
 
             const listaRegistrosParaInserir = dadosAtendimento.blocos.map((b, idx) => {
                 let motivoDesfecho = "";
-                if (b.desfecho === 'CONCLUIDA') motivoDesfecho = b.obsConcluida.trim();
-                else if (b.desfecho === 'PENDENTE') motivoDesfecho = b.obsPendente.trim();
-                else if (b.desfecho === 'MALOGRADA') motivoDesfecho = b.obsMalograda.trim();
+                let opcoesMarcadas = [];
+
+                if (b.desfecho === 'CONCLUIDA') {
+                    motivoDesfecho = b.obsConcluida.trim();
+                } else if (b.desfecho === 'PENDENTE') {
+                    motivoDesfecho = b.obsPendente.trim();
+                    opcoesMarcadas = b.pendenciasOpcoes || [];
+                } else if (b.desfecho === 'MALOGRADA') {
+                    motivoDesfecho = b.obsMalograda.trim();
+                    opcoesMarcadas = b.malogros || [];
+                }
 
                 const codigoImovelFinal = qtdBlocos > 1 
                     ? `${imovelBase} - ${(b.identificacao || 'BLOCO ' + (idx + 1)).toUpperCase().trim()}`
@@ -2345,11 +2377,11 @@
                     gps_saida: gpsSaidaFinal,
                     desfecho: b.desfecho,
                     motivo_desfecho: motivoDesfecho,
-                    malogros: b.desfecho === 'MALOGRADA' ? b.malogros : [],
+                    malogros: opcoesMarcadas,
                     responsavel: responsavelGeral,
                     contato: contatoGeral,
                     email: emailGeral,
-                    agendamento: enderecoGeral, // Salva o endereço no campo agendamento do banco
+                    agendamento: enderecoGeral,
                     andares: Number(b.andares) || 0,
                     hps: Number(b.hps) || 0,
                     servico_obra: b.servicoObra || "SIM",
@@ -2378,7 +2410,6 @@
                 return;
             }
 
-            // Monta resumo consolidado para WhatsApp
             const primeiroReg = listaRegistrosParaInserir[0];
             ultimoResumoCampoTexto = montarTextoResumoItem({
                 dataRegistro: dataLocalCorreta,
@@ -2409,7 +2440,6 @@
             await carregarRegistrosDaNuvem();
         }
 
-        // Funções utilitárias de cálculo de horários e duração
         function converterHorarioParaMinutos(strHora) {
             if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
             const partes = strHora.trim().split(':');
@@ -2433,7 +2463,6 @@
             return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
         }
 
-        // --- ITEM 05: RENDERIZAR PAINEL DE DISPONIBILIDADE DOS TÉCNICOS ---
         function renderizarPainelDisponibilidade() {
             const tbody = document.getElementById('tabela-disponibilidade-corpo');
             if (!tbody) return;
@@ -2539,14 +2568,12 @@
                 return mData && mEquipe && mBusca;
             });
 
-            // Separação: Imprevistos Apartados vs Atividades de Obra/Campo
             let listaImprevistos = filtradosBase.filter(i => i.projeto === 'IMPREVISTO / ATRASO' || i.desfecho === 'IMPREVISTO' || i.desfecho === 'IMPREVISTO RESOLVIDO');
             let filtrados = filtradosBase.filter(i => i.projeto !== 'IMPREVISTO / ATRASO' && i.desfecho !== 'IMPREVISTO' && i.desfecho !== 'IMPREVISTO RESOLVIDO' && (fProjeto ? i.projeto === fProjeto : true));
 
             dadosFiltradosAtuais = filtrados;
             listaImprevistosAtuais = listaImprevistos;
 
-            // Atualiza painel de Disponibilidade em tempo real
             renderizarPainelDisponibilidade();
 
             const qtdEmAndamento = filtrados.filter(i => i.desfecho === 'EM ANDAMENTO').length;
@@ -2568,7 +2595,6 @@
                 }
             }
 
-            // Renderiza a tabela exclusiva da aba de Imprevistos
             if (corpoImp) {
                 if (listaImprevistos.length === 0) {
                     corpoImp.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum imprevisto ou atraso reportado no período.</td></tr>`;
@@ -2611,7 +2637,6 @@
                 }
             }
 
-            // Para os KPIs de entregas e medição, considera apenas atividades finalizadas (exclui "EM ANDAMENTO")
             const finalizadas = filtrados.filter(i => i.desfecho !== 'EM ANDAMENTO');
 
             document.getElementById('kpi-proj-vistoria').innerText = finalizadas.filter(i => i.projeto === 'VISTORIA').length;
@@ -2684,7 +2709,6 @@
                 return;
             }
 
-            // Ordena colocando "EM ANDAMENTO" no topo da lista de Atividades
             const filtradosOrdenados = [...filtrados].sort((a, b) => {
                 if (a.desfecho === 'EM ANDAMENTO' && b.desfecho !== 'EM ANDAMENTO') return -1;
                 if (a.desfecho !== 'EM ANDAMENTO' && b.desfecho === 'EM ANDAMENTO') return 1;
@@ -2717,6 +2741,11 @@
                 const eqObj = equipesSistema.find(e => e.nome === item.equipe);
                 const setorStr = eqObj ? eqObj.setor : "Instalador";
 
+                // Exibe tags de opções (ex: REDE CORRETIVA) abaixo do selo de Desfecho
+                const tagsOpcoesHtml = (item.malogros && item.malogros.length > 0)
+                    ? `<div class="mt-1 flex flex-wrap gap-1">${item.malogros.map(op => `<span class="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">${op}</span>`).join('')}</div>`
+                    : '';
+
                 tr.innerHTML = `
                     <td class="p-3">
                         <div class="font-bold text-slate-800">${item.imovel}</div>
@@ -2731,7 +2760,10 @@
                         <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px] inline-block">${item.projeto}</span>
                         <div class="text-[10px] text-slate-500 mt-1 font-semibold">🏢 Andares: <b>${item.andares || 0}</b> | HPs: <b>${item.hps || 0}</b></div>
                     </td>
-                    <td class="p-3"><span class="font-bold px-2.5 py-1 rounded-md text-[10px] inline-block ${classeCorDesfecho}">${item.desfecho}</span></td>
+                    <td class="p-3">
+                        <span class="font-bold px-2.5 py-1 rounded-md text-[10px] inline-block ${classeCorDesfecho}">${item.desfecho}</span>
+                        ${tagsOpcoesHtml}
+                    </td>
                     <td class="p-3">
                         <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
                         <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
@@ -2775,20 +2807,14 @@
             renderizarTabelaUsuariosPermissao();
         }
 
-        // Função para renderizar o Gráfico e Ranking de Ofensores de Malogro
         function renderizarOfensoresMalogro(dados) {
             const tbody = document.getElementById('tabela-ofensores-malogro-corpo');
             const badgeTotal = document.getElementById('badge-total-ocorrencias-malogro');
             if (!tbody) return;
             tbody.innerHTML = "";
 
-            const padraoOfensores = [
-                "FROTA", "MATERIAL", "FINANCEIRO", "EQUIPAMENTOS", 
-                "ACESSO", "PROJETO", "REDE EXTERNA", "INFRAESTRUTURA", "ÁREA DE RISCO"
-            ];
-
             const contagemOfensores = {};
-            padraoOfensores.forEach(o => contagemOfensores[o] = 0);
+            OPCOES_MALOGRO_PADRAO.forEach(o => contagemOfensores[o] = 0);
 
             let totalOcorrenciasMalogro = 0;
 
@@ -2865,7 +2891,6 @@
             }
         }
 
-        // Função para renderizar o Ranking de Produtividade e Tempo Médio por Técnico
         function renderizarRankingTecnicos(dados) {
             const tbody = document.getElementById('tabela-ranking-tecnicos-corpo');
             const badgeContador = document.getElementById('contador-tecnicos-ativos');
@@ -3254,7 +3279,7 @@
                     </div>
                 </div>
 
-                ${(item.desfecho === 'MALOGRADA' || item.desfecho === 'IMPREVISTO' || item.desfecho === 'IMPREVISTO RESOLVIDO') ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Motivo / Ofensor:</strong> ${malogrosStr}</div>` : ''}
+                ${(item.malogros && item.malogros.length > 0) ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Opções Marcadas / Ofensores:</strong> <span class="font-bold text-red-900">${malogrosStr}</span></div>` : ''}
                 ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Detalhamento / Observação:</strong> ${item.motivoDesfecho}</div>` : ''}
             `;
             modal.classList.remove('hidden');
@@ -3280,7 +3305,7 @@
                 corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registro encontrado para esta seleção.</td></tr>`;
             } else {
                 subset.forEach(item => {
-                    let detalheInfo = item.malogros && item.malogros.length > 0 ? `Ofensores: ${item.malogros.join(', ')}` : (item.motivoDesfecho || 'Concluído sem pendências');
+                    let detalheInfo = item.malogros && item.malogros.length > 0 ? `Opções: ${item.malogros.join(', ')}` : (item.motivoDesfecho || 'Concluído sem pendências');
                     const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
                     corpo.innerHTML += `
                         <tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))">
@@ -3537,7 +3562,6 @@
             }
         }
 
-        // --- EXPORTAÇÃO EXCEL COM ENDEREÇO E MÚLTIPLOS BLOCOS ---
         function exportarExcel() {
             const listaParaExportar = (dadosFiltradosAtuais.length > 0 || listaImprevistosAtuais.length > 0) 
                 ? [...dadosFiltradosAtuais, ...listaImprevistosAtuais] 
@@ -3551,7 +3575,7 @@
             let colunas = [
                 "ID", "Data", "Equipe", "Projeto", "Imóvel / Bloco", "Endereço do Atendimento",
                 "Hora Entrada", "Hora Saída", "Duração", "GPS Entrada", "GPS Saída", 
-                "Desfecho", "Serviço Obra", "Ofensores/Malogros", "Motivo Desfecho", "Responsável", "Contato", 
+                "Desfecho", "Serviço Obra", "Opções/Ofensores", "Motivo Desfecho", "Responsável", "Contato", 
                 "E-mail", "Andares", "HPs", 
                 "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", 
                 "NAP", "DIO", "Cx Sobrepor", "Cx Embutida", "Cx FOSC", "Observações Gerais"
@@ -3663,7 +3687,6 @@
             registrarLogAuditoria("EXPORTAÇÃO FINANCEIRA", `Baixada planilha de Medição Financeira (Total: R$ ${valorGeral.toFixed(2)}).`);
         }
 
-        // --- ITEM 03: GESTÃO DE EQUIPES COM CHAVE SELETORA (VISTORIADOR / INSTALADOR) ---
         function alternarChaveSetorEquipe(setorEscolhido) {
             document.getElementById('inp-setor-equipe').value = setorEscolhido;
             const btnVist = document.getElementById('btn-chave-vistoriador');
@@ -3793,7 +3816,6 @@
             }
         }
 
-        // --- GESTÃO DE USUÁRIOS ---
         function abrirModalUsuario(id = null) {
             if (nivelUsuarioLogado === 'Visualizador' && id) {
                 let uSelf = usuariosSistema.find(u => u.email.toLowerCase() === usuarioLogado.toLowerCase());
