@@ -95,19 +95,22 @@
                 </button>
             </div>
 
-            <!-- Barra de Ações Rápidas, Busca e Atualização (Com Status de Auto-Sync 180s) -->
-            <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
-                <div class="flex items-center gap-2 w-full sm:w-80">
+            <!-- Barra de Ações Rápidas, Busca, Boletim WhatsApp e Atualização -->
+            <div class="flex flex-col lg:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
+                <div class="flex items-center gap-2 w-full lg:w-80">
                     <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, equipe, projeto..." class="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-none bg-slate-50 focus:bg-white transition">
                 </div>
-                <div class="flex flex-wrap gap-2 w-full sm:w-auto justify-end items-center">
+                <div class="flex flex-wrap gap-2 w-full lg:w-auto justify-end items-center">
                     <span id="lbl-status-autosync" class="text-[11px] bg-slate-100 text-slate-600 px-3 py-2 rounded-xl border border-slate-200 font-mono">
                         ⏱️ Auto-Sync (180s): <b id="txt-hora-sync" class="text-blue-900">Ativo</b>
                     </span>
-                    <button onclick="exportarExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
+                    <button onclick="copiarBoletimGestorWhatsApp()" class="bg-green-600 hover:bg-green-700 text-white text-xs px-3.5 py-2.5 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-1.5" title="Copiar resumo executivo do período para colar no WhatsApp">
+                        📲 Boletim WhatsApp
+                    </button>
+                    <button onclick="exportarExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs px-3.5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5" title="Exporta para Excel os registros do período filtrado">
                         📥 Baixar Relatório (Excel)
                     </button>
-                    <button onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
+                    <button onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3.5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
                         🔄 Atualizar Registros
                     </button>
                 </div>
@@ -149,9 +152,19 @@
                 </div>
             </div>
 
-            <!-- Filtros por Período (Múltipla Seleção) -->
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 w-full sm:w-auto flex-1">
+            <!-- Filtros por Período + Botões de Atalho Rápido -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                    <span class="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">⚡ Atalhos Rápidos de Período:</span>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button onclick="aplicarAtalhoPeriodo('hoje')" class="bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-bold text-[10px] px-3 py-1 rounded-lg transition">📅 Hoje</button>
+                        <button onclick="aplicarAtalhoPeriodo('ontem')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] px-3 py-1 rounded-lg transition">Ontem</button>
+                        <button onclick="aplicarAtalhoPeriodo('7dias')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] px-3 py-1 rounded-lg transition">Últimos 7 Dias</button>
+                        <button onclick="aplicarAtalhoPeriodo('mes')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] px-3 py-1 rounded-lg transition">Este Mês</button>
+                        <button onclick="aplicarAtalhoPeriodo('tudo')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-3 py-1 rounded-lg transition">🔄 Mostrar Tudo</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 w-full">
                     <div>
                         <label class="block text-[11px] font-bold text-slate-600 mb-1">📅 Data Inicial</label>
                         <input type="date" id="gestor-filtro-data-inicio" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 outline-none">
@@ -526,16 +539,21 @@
                 </div>
             </div>
 
-            <!-- SUB-ABA: MEDIÇÃO FINANCEIRA -->
+            <!-- SUB-ABA: MEDIÇÃO FINANCEIRA (Com Botão de Exportar Excel Financeiro) -->
             <div id="subview-financeiro" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
-                <div class="flex flex-col sm:flex-row justify-between items-center border-b pb-3 gap-2">
+                <div class="flex flex-col sm:flex-row justify-between items-center border-b pb-3 gap-3">
                     <div>
                         <h3 class="font-bold text-slate-800 text-base">💰 Medição Financeira de Produção</h3>
                         <p class="text-xs text-slate-500">Cálculo financeiro baseado na tabela de preços unitários vigente</p>
                     </div>
-                    <div class="bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-xl text-right">
-                        <span class="text-[10px] font-bold text-emerald-800 uppercase block">Valor Total da Medição</span>
-                        <span class="text-xl font-black text-emerald-700" id="fin-total-geral">R$ 0,00</span>
+                    <div class="flex items-center gap-3">
+                        <button onclick="exportarExcelFinanceiro()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2.5 rounded-xl font-bold shadow-sm transition flex items-center gap-1.5">
+                            📥 Exportar Medição (Excel)
+                        </button>
+                        <div class="bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-xl text-right">
+                            <span class="text-[10px] font-bold text-emerald-800 uppercase block">Valor Total da Medição</span>
+                            <span class="text-xl font-black text-emerald-700" id="fin-total-geral">R$ 0,00</span>
+                        </div>
                     </div>
                 </div>
 
@@ -657,17 +675,28 @@
                     <span class="text-xs text-blue-900 font-medium" id="current-user-team">Selecione Equipe</span>
                 </div>
 
+                <!-- Banner de Último Atendimento Finalizado (Para copiar para o WhatsApp) -->
+                <div id="box-ultimo-resumo-whats" class="bg-emerald-50 border border-emerald-300 p-3 rounded-xl space-y-2 hidden">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[11px] font-bold text-emerald-900">✅ Atendimento Salvo com Sucesso!</span>
+                        <button onclick="document.getElementById('box-ultimo-resumo-whats').classList.add('hidden')" class="text-emerald-700 font-bold text-xs">✕</button>
+                    </div>
+                    <button onclick="copiarUltimoResumoCampoWhatsApp()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg text-xs transition shadow-sm flex items-center justify-center gap-1.5">
+                        📲 Copiar Resumo para WhatsApp
+                    </button>
+                </div>
+
                 <div id="form-campo-container" class="space-y-3">
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Equipe / Técnico</label>
-                        <select id="sel-equipe" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
+                        <select id="sel-equipe" onchange="salvarRascunhoCampo()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
                             <option value="">Selecione a Equipe...</option>
                         </select>
                     </div>
 
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Projeto / Atividade</label>
-                        <select id="sel-projeto" onchange="mudarTipoProjeto()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
+                        <select id="sel-projeto" onchange="mudarTipoProjeto(); salvarRascunhoCampo()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
                             <option value="VISTORIA">VISTORIA</option>
                             <option value="ATIVAÇÃO">ATIVAÇÃO</option>
                             <option value="CONSTRUÇÃO">CONSTRUÇÃO</option>
@@ -680,7 +709,7 @@
 
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Cód. Imóvel</label>
-                        <input type="text" id="inp-imovel" placeholder="Ex: IMO-98421" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none">
+                        <input type="text" id="inp-imovel" oninput="salvarRascunhoCampo()" placeholder="Ex: IMO-98421" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none">
                     </div>
 
                     <div class="pt-2 flex flex-col gap-2.5">
@@ -693,10 +722,16 @@
                     </div>
                 </div>
 
-                <div id="bloco-pos-abertura" class="space-y-3 hidden">
-                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1">
-                        <p><strong>Entrada:</strong> <span id="lbl-h-entrada">-</span></p>
-                        <p><strong>GPS Real Capturado:</strong> <span id="lbl-gps-entrada" class="font-mono text-[10px] text-emerald-700 font-bold">-</span></p>
+                <div id="bloco-pos-abertura" oninput="salvarRascunhoCampo()" onchange="salvarRascunhoCampo()" class="space-y-3 hidden">
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-1 flex justify-between items-start">
+                        <div>
+                            <p><strong>Imóvel:</strong> <span id="lbl-imovel-aberto" class="font-bold text-blue-900">-</span></p>
+                            <p><strong>Entrada:</strong> <span id="lbl-h-entrada">-</span></p>
+                            <p><strong>GPS Real Capturado:</strong> <span id="lbl-gps-entrada" class="font-mono text-[10px] text-emerald-700 font-bold">-</span></p>
+                        </div>
+                        <button type="button" onclick="cancelarCheckinAberto()" class="text-[10px] bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-2 py-1 rounded font-bold">
+                            ✕ Cancelar Abertura
+                        </button>
                     </div>
 
                     <div class="space-y-3 border-t pt-3">
@@ -927,7 +962,10 @@
                 <button onclick="fecharModalDetalhes()" class="text-white font-bold text-lg">✕</button>
             </div>
             <div class="p-6 overflow-y-auto space-y-4 text-xs text-slate-700" id="modal-detalhes-conteudo"></div>
-            <div class="bg-slate-50 p-3 border-t flex justify-end">
+            <div class="bg-slate-50 p-3 border-t flex justify-between items-center">
+                <button onclick="copiarDetalheModalWhatsApp()" class="bg-green-600 hover:bg-green-700 text-white text-xs px-4 py-2 rounded-lg font-bold flex items-center gap-1.5">
+                    📲 Copiar para WhatsApp
+                </button>
                 <button onclick="fecharModalDetalhes()" class="bg-slate-600 hover:bg-slate-700 text-white text-xs px-4 py-2 rounded-lg font-medium">Fechar</button>
             </div>
         </div>
@@ -1038,6 +1076,10 @@
         let graficoTempoProjetoInstancia = null;
         let graficoOfensoresMalogroInstancia = null;
         let dadosFiltradosAtuais = [];
+        let listaImprevistosAtuais = [];
+        let ultimoResumoCampoTexto = "";
+        let itemDetalheAtualModal = null;
+        let totaisFinanceirosAtuais = null;
 
         const TABELA_PRECOS = {
             "VISTORIA": { codigo: "1.01", desc: "VISTORIA", unidade: "Bloco", valor: 167.52 },
@@ -1068,10 +1110,16 @@
             return 'bg-slate-100 text-slate-700 border border-slate-300';
         }
 
+        function obterDataLocalISO(dateObj = new Date()) {
+            return new Date(dateObj.getTime() - (dateObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+        }
+
         window.onload = async function() { 
             popularSelectEquipes();
             verificarPermissoesSessao();
             await carregarRegistrosDaNuvem();
+            restaurarRascunhoCampo(); // Recupera atividade em andamento caso o celular tenha fechado o navegador
+
             if (usuarioLogado) {
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
                 document.getElementById('btn-sair-gestor').classList.remove('hidden');
@@ -1101,6 +1149,217 @@
                 }
             }, 180000);
         };
+
+        // --- MELHORIA 1: MEMÓRIA DE CHECK-IN NO CELULAR (ANTI-FECHAMENTO ACIDENTAL) ---
+        function salvarRascunhoCampo() {
+            const posAberturaVisivel = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
+            const rascunho = {
+                emAndamento: posAberturaVisivel,
+                equipe: document.getElementById('sel-equipe').value,
+                projeto: document.getElementById('sel-projeto').value,
+                imovel: document.getElementById('inp-imovel').value,
+                hEntrada: document.getElementById('lbl-h-entrada').innerText,
+                gpsEntrada: dadosAtendimento.gpsEntrada,
+                desfecho: dadosAtendimento.desfechoSelecionado,
+                responsavel: document.getElementById('form-responsavel').value,
+                contato: document.getElementById('form-contato').value,
+                email: document.getElementById('form-email').value,
+                andares: document.getElementById('form-andares').value,
+                hps: document.getElementById('form-hps').value,
+                fusoes: document.getElementById('mat-fusoes').value,
+                conectores: document.getElementById('mat-conectores').value,
+                caboRL: document.getElementById('mat-cabo-rl').value,
+                caboDrop: document.getElementById('mat-cabo-drop').value,
+                nap: document.getElementById('mat-nap').value,
+                dio: document.getElementById('mat-dio').value,
+                cxSobrepor: document.getElementById('mat-cx-sobrepor').value,
+                cxEmbutida: document.getElementById('mat-cx-embutida').value,
+                cxFosc: document.getElementById('mat-cx-fosc').value,
+                servicoObra: document.getElementById('sel-servico-obra').value,
+                obsConcluida: document.getElementById('obs-concluida').value,
+                obsPendente: document.getElementById('obs-pendente').value,
+                obsMalograda: document.getElementById('obs-malograda').value,
+                observacoes: document.getElementById('form-observacoes').value
+            };
+            localStorage.setItem('gpd_rascunho_campo_ativo', JSON.stringify(rascunho));
+        }
+
+        function restaurarRascunhoCampo() {
+            try {
+                const salvo = localStorage.getItem('gpd_rascunho_campo_ativo');
+                if (!salvo) return;
+                const r = JSON.parse(salvo);
+
+                if (r.equipe) {
+                    document.getElementById('sel-equipe').value = r.equipe;
+                    document.getElementById('current-user-team').innerText = r.equipe;
+                }
+                if (r.projeto) document.getElementById('sel-projeto').value = r.projeto;
+                if (r.imovel) document.getElementById('inp-imovel').value = r.imovel;
+
+                if (r.emAndamento) {
+                    dadosAtendimento.hEntrada = r.hEntrada;
+                    dadosAtendimento.gpsEntrada = r.gpsEntrada;
+                    document.getElementById('lbl-imovel-aberto').innerText = `${r.imovel} (${r.projeto})`;
+                    document.getElementById('lbl-h-entrada').innerText = r.hEntrada || '-';
+                    document.getElementById('lbl-gps-entrada').innerText = r.gpsEntrada || '-';
+
+                    document.getElementById('form-responsavel').value = r.responsavel || '';
+                    document.getElementById('form-contato').value = r.contato || '';
+                    document.getElementById('form-email').value = r.email || '';
+                    document.getElementById('form-andares').value = r.andares || '';
+                    document.getElementById('form-hps').value = r.hps || '';
+                    document.getElementById('mat-fusoes').value = r.fusoes || '0';
+                    document.getElementById('mat-conectores').value = r.conectores || '0';
+                    document.getElementById('mat-cabo-rl').value = r.caboRL || '0';
+                    document.getElementById('mat-cabo-drop').value = r.caboDrop || '0';
+                    document.getElementById('mat-nap').value = r.nap || '0';
+                    document.getElementById('mat-dio').value = r.dio || '0';
+                    document.getElementById('mat-cx-sobrepor').value = r.cxSobrepor || '0';
+                    document.getElementById('mat-cx-embutida').value = r.cxEmbutida || '0';
+                    document.getElementById('mat-cx-fosc').value = r.cxFosc || '0';
+                    document.getElementById('sel-servico-obra').value = r.servicoObra || 'SIM';
+                    document.getElementById('obs-concluida').value = r.obsConcluida || '';
+                    document.getElementById('obs-pendente').value = r.obsPendente || '';
+                    document.getElementById('obs-malograda').value = r.obsMalograda || '';
+                    document.getElementById('form-observacoes').value = r.observacoes || '';
+
+                    if (r.desfecho) selecionarDesfecho(r.desfecho);
+
+                    document.getElementById('form-campo-container').classList.add('hidden');
+                    document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+                    mudarTipoProjeto();
+                }
+            } catch (e) {
+                console.warn("Erro ao restaurar rascunho de campo:", e);
+            }
+        }
+
+        function cancelarCheckinAberto() {
+            if (confirm("Deseja realmente cancelar a abertura desta atividade em andamento?")) {
+                localStorage.removeItem('gpd_rascunho_campo_ativo');
+                resetarFormularioCampo();
+            }
+        }
+
+        // --- MELHORIA 3: ATALHOS RÁPIDOS DE PERÍODO ---
+        function aplicarAtalhoPeriodo(tipo) {
+            const inpInicio = document.getElementById('gestor-filtro-data-inicio');
+            const inpFim = document.getElementById('gestor-filtro-data-fim');
+            const hoje = new Date();
+
+            if (tipo === 'hoje') {
+                const strHoje = obterDataLocalISO(hoje);
+                inpInicio.value = strHoje;
+                inpFim.value = strHoje;
+            } else if (tipo === 'ontem') {
+                const ontem = new Date(hoje);
+                ontem.setDate(hoje.getDate() - 1);
+                const strOntem = obterDataLocalISO(ontem);
+                inpInicio.value = strOntem;
+                inpFim.value = strOntem;
+            } else if (tipo === '7dias') {
+                const seteDiasAtras = new Date(hoje);
+                seteDiasAtras.setDate(hoje.getDate() - 6);
+                inpInicio.value = obterDataLocalISO(seteDiasAtras);
+                inpFim.value = obterDataLocalISO(hoje);
+            } else if (tipo === 'mes') {
+                const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+                inpInicio.value = obterDataLocalISO(primeiroDiaMes);
+                inpFim.value = obterDataLocalISO(hoje);
+            } else if (tipo === 'tudo') {
+                inpInicio.value = '';
+                inpFim.value = '';
+            }
+            atualizarDashboardGestor();
+        }
+
+        // --- MELHORIA 2: RESUMO PARA WHATSAPP (CAMPO, MODAL E BOLETIM GESTOR) ---
+        async function copiarTextoAreaTransferencia(texto, msgSucesso) {
+            try {
+                await navigator.clipboard.writeText(texto);
+                alert(msgSucesso);
+            } catch (err) {
+                const ta = document.createElement('textarea');
+                ta.value = texto;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                alert(msgSucesso);
+            }
+        }
+
+        function montarTextoResumoItem(r) {
+            let iconeDesf = "🟢";
+            if (r.desfecho === "PENDENTE") iconeDesf = "🟡";
+            else if (r.desfecho === "MALOGRADA" || r.desfecho === "IMPREVISTO") iconeDesf = "🔴";
+
+            let linhas = [
+                `📋 *GPD MDU • PROCISA RJ*`,
+                `📅 *Data:* ${r.dataRegistro}`,
+                `👷 *Equipe:* ${r.equipe}`,
+                `🏢 *Imóvel:* ${r.imovel}`,
+                `🏗️ *Projeto:* ${r.projeto}`,
+                `${iconeDesf} *Desfecho:* ${r.desfecho}`,
+                `🕒 *Horário:* ${r.hEntrada} às ${r.hSaida}`,
+                `📍 *GPS:* ${r.gpsEntrada}`
+            ];
+
+            if (r.projeto !== "IMPREVISTO / ATRASO") {
+                linhas.push(`📦 *Materiais:* RL: ${r.caboRL}m | Drop: ${r.caboDrop}m | Conect: ${r.conectores} | Fusões: ${r.fusoes} | NAP: ${r.nap} | DIO: ${r.dio}`);
+            }
+            if (r.malogros && r.malogros.length > 0) {
+                linhas.push(`⚠️ *Ofensores:* ${r.malogros.join(', ')}`);
+            }
+            if (r.motivoDesfecho) {
+                linhas.push(`💬 *Detalhe:* ${r.motivoDesfecho}`);
+            }
+            return linhas.join('\n');
+        }
+
+        function copiarUltimoResumoCampoWhatsApp() {
+            if (!ultimoResumoCampoTexto) return;
+            copiarTextoAreaTransferencia(ultimoResumoCampoTexto, "📲 Resumo da atividade copiado! Agora é só colar no WhatsApp.");
+        }
+
+        function copiarDetalheModalWhatsApp() {
+            if (!itemDetalheAtualModal) return;
+            const texto = montarTextoResumoItem(itemDetalheAtualModal);
+            copiarTextoAreaTransferencia(texto, "📲 Detalhes do registro copiados para o WhatsApp!");
+        }
+
+        function copiarBoletimGestorWhatsApp() {
+            const totalObras = dadosFiltradosAtuais.length;
+            const conc = dadosFiltradosAtuais.filter(i => i.desfecho === 'CONCLUIDA').length;
+            const pend = dadosFiltradosAtuais.filter(i => i.desfecho === 'PENDENTE').length;
+            const malo = dadosFiltradosAtuais.filter(i => i.desfecho === 'MALOGRADA').length;
+            const impr = listaImprevistosAtuais.length;
+            const efic = totalObras > 0 ? ((conc / totalObras) * 100).toFixed(1) : "0.0";
+
+            const dIni = document.getElementById('gestor-filtro-data-inicio').value;
+            const dFim = document.getElementById('gestor-filtro-data-fim').value;
+            const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Período Geral';
+
+            const tmaStr = document.getElementById('ind-tempo-medio')?.innerText || '--';
+            const medTotal = document.getElementById('fin-total-geral')?.innerText || 'R$ 0,00';
+
+            const textoBoletim = [
+                `📊 *BOLETIM OPERACIONAL GPD • MDU PROCISA RJ*`,
+                `📅 *Período:* ${periodoStr}`,
+                `────────────────────`,
+                `🏗️ *Total de Atividades:* ${totalObras}`,
+                `🟢 *Concluídas:* ${conc} (${efic}%)`,
+                `🟡 *Pendentes:* ${pend}`,
+                `🔴 *Malogradas:* ${malo}`,
+                `⚠️ *Imprevistos (Sem Obra):* ${impr}`,
+                `────────────────────`,
+                `⏱️ *Tempo Médio (TMA):* ${tmaStr}`,
+                `💰 *Medição Estimada:* ${medTotal}`
+            ].join('\n');
+
+            copiarTextoAreaTransferencia(textoBoletim, "📲 Boletim Operacional copiado! Pronto para colar no WhatsApp da diretoria/supervisão.");
+        }
 
         function verificarPermissoesSessao() {
             if (!usuarioLogado) return;
@@ -1313,6 +1572,7 @@
             if (tipo === 'CONCLUIDA') document.getElementById('bloco-concluida').classList.remove('hidden');
             if (tipo === 'PENDENTE') document.getElementById('bloco-pendente').classList.remove('hidden');
             if (tipo === 'MALOGRADA') document.getElementById('bloco-malograda').classList.remove('hidden');
+            salvarRascunhoCampo();
         }
 
         // Função para capturar a localização exata do dispositivo
@@ -1338,8 +1598,24 @@
 
         async function fazerCheckIn() {
             const equipe = document.getElementById('sel-equipe').value;
-            const imovel = document.getElementById('inp-imovel').value;
+            const projeto = document.getElementById('sel-projeto').value;
+            const imovel = document.getElementById('inp-imovel').value.trim();
             if (!equipe || !imovel) { alert("⚠️ Selecione a Equipe e informe o Cód. Imóvel."); return; }
+
+            // --- MELHORIA 5: ALERTA DE DUPLICIDADE DE IMÓVEL NO MESMO DIA ---
+            const hojeISO = obterDataLocalISO();
+            const duplicadoHoje = registrosSalvos.find(r => 
+                r.dataRegistro === hojeISO && 
+                r.imovel.toUpperCase().trim() === imovel.toUpperCase() &&
+                r.projeto === projeto
+            );
+
+            if (duplicadoHoje) {
+                const confirmarDup = confirm(`⚠️ ATENÇÃO: O imóvel "${imovel}" já possui um registro de "${projeto}" lançado hoje (${duplicadoHoje.desfecho} por ${duplicadoHoje.equipe}).\n\nDeseja abrir um novo atendimento para este mesmo imóvel?`);
+                if (!confirmarDup) return;
+            }
+
+            document.getElementById('box-ultimo-resumo-whats').classList.add('hidden');
 
             const btnCheckin = document.getElementById('btn-checkin');
             if (btnCheckin) {
@@ -1367,8 +1643,10 @@
 
             document.getElementById('form-campo-container').classList.add('hidden');
             document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+            document.getElementById('lbl-imovel-aberto').innerText = `${imovel} (${projeto})`;
             document.getElementById('lbl-h-entrada').innerText = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             mudarTipoProjeto();
+            salvarRascunhoCampo();
         }
 
         // --- FUNÇÕES DE IMPREVISTOS APARTADOS (MODO CAMPO & GESTOR) ---
@@ -1417,8 +1695,7 @@
                 console.warn("Imprevisto enviado sem sinal exato de GPS.");
             }
 
-            const hoje = new Date();
-            const dataLocalCorreta = new Date(hoje.getTime() - (hoje.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+            const dataLocalCorreta = obterDataLocalISO();
             const horaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
 
             const registroImprevistoDB = {
@@ -1465,6 +1742,20 @@
                 return;
             }
 
+            ultimoResumoCampoTexto = montarTextoResumoItem({
+                dataRegistro: dataLocalCorreta,
+                equipe: equipe,
+                imovel: "SEM ATIVIDADE (Imprevisto)",
+                projeto: "IMPREVISTO / ATRASO",
+                desfecho: "IMPREVISTO",
+                hEntrada: horaAtual,
+                hSaida: horaAtual,
+                gpsEntrada: gpsCapturado,
+                malogros: [motivo],
+                motivoDesfecho: detalhe
+            });
+            document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
+
             registrarLogAuditoria("IMPREVISTO REPORTADO", `Equipe: ${equipe} | Motivo: ${motivo} | GPS: ${gpsCapturado}`);
             alert("✅ Imprevisto / atraso registrado e enviado para a supervisão!");
             fecharModalImprevisto();
@@ -1486,6 +1777,7 @@
             document.getElementById('obs-malograda').value = '';
             document.getElementById('form-observacoes').value = '';
             document.getElementById('lbl-gps-entrada').innerText = '-';
+            document.getElementById('lbl-imovel-aberto').innerText = '-';
             
             ['mat-fusoes', 'mat-conectores', 'mat-cabo-rl', 'mat-cabo-drop', 'mat-nap', 'mat-dio', 'mat-cx-sobrepor', 'mat-cx-embutida', 'mat-cx-fosc'].forEach(id => {
                 const el = document.getElementById(id);
@@ -1499,6 +1791,7 @@
             document.getElementById('bloco-malograda').classList.add('hidden');
             document.getElementById('bloco-pos-abertura').classList.add('hidden');
             document.getElementById('form-campo-container').classList.remove('hidden');
+            localStorage.removeItem('gpd_rascunho_campo_ativo');
         }
 
         async function salvarRegistro() {
@@ -1542,10 +1835,9 @@
 
             const equipeNome = document.getElementById('sel-equipe').value;
             const projetoNome = document.getElementById('sel-projeto').value;
-            const imovelCod = document.getElementById('inp-imovel').value;
-
-            const hoje = new Date();
-            const dataLocalCorreta = new Date(hoje.getTime() - (hoje.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+            const imovelCod = document.getElementById('inp-imovel').value.trim();
+            const dataLocalCorreta = obterDataLocalISO();
+            const horaSaidaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
 
             const novoRegistroDB = {
                 id: Date.now(),
@@ -1555,7 +1847,7 @@
                 projeto: projetoNome,
                 imovel: imovelCod,
                 h_entrada: document.getElementById('lbl-h-entrada').innerText || "08:30",
-                h_saida: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
+                h_saida: horaSaidaAtual,
                 gps_entrada: dadosAtendimento.gpsEntrada || gpsSaidaFinal,
                 gps_saida: gpsSaidaFinal,
                 desfecho: dadosAtendimento.desfechoSelecionado,
@@ -1590,6 +1882,26 @@
                 alert("❌ Erro ao salvar: " + error.message);
                 return;
             }
+
+            ultimoResumoCampoTexto = montarTextoResumoItem({
+                dataRegistro: dataLocalCorreta,
+                equipe: equipeNome,
+                imovel: imovelCod,
+                projeto: projetoNome,
+                desfecho: novoRegistroDB.desfecho,
+                hEntrada: novoRegistroDB.h_entrada,
+                hSaida: novoRegistroDB.h_saida,
+                gpsEntrada: novoRegistroDB.gps_entrada,
+                caboRL: novoRegistroDB.cabo_rl,
+                caboDrop: novoRegistroDB.cabo_drop,
+                conectores: novoRegistroDB.conectores,
+                fusoes: novoRegistroDB.fusoes,
+                nap: novoRegistroDB.nap,
+                dio: novoRegistroDB.dio,
+                malogros: malogrosSelecionados,
+                motivoDesfecho: motivoDesfecho
+            });
+            document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
 
             registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelCod} (${projetoNome}) [GPS: ${dadosAtendimento.gpsEntrada}]`);
             alert("✅ Atendimento finalizado e sincronizado com sucesso!");
@@ -1664,6 +1976,7 @@
             let filtrados = filtradosBase.filter(i => i.projeto !== 'IMPREVISTO / ATRASO' && i.desfecho !== 'IMPREVISTO' && (fProjeto ? i.projeto === fProjeto : true));
 
             dadosFiltradosAtuais = filtrados;
+            listaImprevistosAtuais = listaImprevistos;
 
             // Atualiza contadores e Alerta de Imprevistos Apartados
             document.getElementById('kpi-proj-imprevistos').innerText = listaImprevistos.length;
@@ -1759,7 +2072,7 @@
             document.getElementById('total-cx-embutida').innerText = sumEmbutida;
             document.getElementById('total-cx-fosc').innerText = sumFosc;
 
-            renderizarTabelaFinanceiro({
+            totaisFinanceirosAtuais = {
                 vistorias: sumVistorias,
                 caboRL: sumCaboRL,
                 conectores: sumConectores,
@@ -1769,7 +2082,8 @@
                 dio: sumDio,
                 cxSobrepor: sumSobrepor,
                 cxEmbutida: sumEmbutida
-            });
+            };
+            renderizarTabelaFinanceiro(totaisFinanceirosAtuais);
 
             if (filtrados.length === 0) {
                 if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
@@ -2263,6 +2577,7 @@
 
         function abrirDetalhesAtividade(item) {
             if (!item) return;
+            itemDetalheAtualModal = item;
             const modal = document.getElementById('modal-detalhes');
             const conteudo = document.getElementById('modal-detalhes-conteudo');
             document.getElementById('modal-detalhes-titulo').innerText = `Detalhes do Registro: ${item.imovel}`;
@@ -2608,53 +2923,65 @@
             }
         }
 
+        // --- MELHORIA 4: EXPORTAÇÃO EXCEL RESPEITANDO O FILTRO ATUAL + EXCEL FINANCEIRO ---
         function exportarExcel() {
-            if (registrosSalvos.length === 0) {
-                alert("Nenhum registro para exportar.");
+            const listaParaExportar = (dadosFiltradosAtuais.length > 0 || listaImprevistosAtuais.length > 0) 
+                ? [...dadosFiltradosAtuais, ...listaImprevistosAtuais] 
+                : registrosSalvos;
+
+            if (listaParaExportar.length === 0) {
+                alert("Nenhum registro para exportar no filtro atual.");
                 return;
             }
 
             let colunas = [
                 "ID", "Data", "Equipe", "Membros", "Projeto", "Imóvel", 
-                "Hora Entrada", "Hora Saída", "GPS Entrada", "GPS Saída", 
+                "Hora Entrada", "Hora Saída", "Duração", "GPS Entrada", "GPS Saída", 
                 "Desfecho", "Serviço Obra", "Ofensores/Malogros", "Motivo Desfecho", "Responsável", "Contato", 
                 "E-mail", "Agendamento", "Andares", "HPs", 
                 "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", 
                 "NAP", "DIO", "Cx Sobrepor", "Cx Embutida", "Cx FOSC", "Observações Gerais"
             ];
 
-            let linhas = registrosSalvos.map(r => [
-                r.id || "",
-                r.dataRegistro || "",
-                r.equipe || "",
-                r.membros || "",
-                r.projeto || "",
-                r.imovel || "",
-                r.hEntrada || "",
-                r.hSaida || "",
-                r.gpsEntrada || "",
-                r.gpsSaida || "",
-                r.desfecho || "",
-                r.servicoObra || "SIM",
-                r.malogros ? r.malogros.join(', ') : "",
-                r.motivoDesfecho || "",
-                r.responsavel || "",
-                r.contato || "",
-                r.email || "",
-                r.agendamento || "",
-                r.andares !== "" ? r.andares : 0,
-                r.hps !== "" ? r.hps : 0,
-                r.fusoes !== "" ? r.fusoes : 0,
-                r.conectores !== "" ? r.conectores : 0,
-                r.caboRL !== "" ? r.caboRL : 0,
-                r.caboDrop !== "" ? r.caboDrop : 0,
-                r.nap !== "" ? r.nap : 0,
-                r.dio !== "" ? r.dio : 0,
-                r.cxSobrepor !== "" ? r.cxSobrepor : 0,
-                r.cxEmbutida !== "" ? r.cxEmbutida : 0,
-                r.cxFosc !== "" ? r.cxFosc : 0,
-                r.observacoes || ""
-            ]);
+            let linhas = listaParaExportar.map(r => {
+                const minIn = converterHorarioParaMinutos(r.hEntrada);
+                const minOut = converterHorarioParaMinutos(r.hSaida);
+                const durStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(minOut - minIn) : "-";
+
+                return [
+                    r.id || "",
+                    r.dataRegistro || "",
+                    r.equipe || "",
+                    r.membros || "",
+                    r.projeto || "",
+                    r.imovel || "",
+                    r.hEntrada || "",
+                    r.hSaida || "",
+                    durStr,
+                    r.gpsEntrada || "",
+                    r.gpsSaida || "",
+                    r.desfecho || "",
+                    r.servicoObra || "SIM",
+                    r.malogros ? r.malogros.join(', ') : "",
+                    r.motivoDesfecho || "",
+                    r.responsavel || "",
+                    r.contato || "",
+                    r.email || "",
+                    r.agendamento || "",
+                    r.andares !== "" ? r.andares : 0,
+                    r.hps !== "" ? r.hps : 0,
+                    r.fusoes !== "" ? r.fusoes : 0,
+                    r.conectores !== "" ? r.conectores : 0,
+                    r.caboRL !== "" ? r.caboRL : 0,
+                    r.caboDrop !== "" ? r.caboDrop : 0,
+                    r.nap !== "" ? r.nap : 0,
+                    r.dio !== "" ? r.dio : 0,
+                    r.cxSobrepor !== "" ? r.cxSobrepor : 0,
+                    r.cxEmbutida !== "" ? r.cxEmbutida : 0,
+                    r.cxFosc !== "" ? r.cxFosc : 0,
+                    r.observacoes || ""
+                ];
+            });
 
             let tabelaHTML = `<table border="1"><thead><tr>${colunas.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>`;
             linhas.forEach(l => {
@@ -2666,12 +2993,61 @@
             let url = URL.createObjectURL(blob);
             let a = document.createElement('a');
             a.href = url;
-            a.download = `relatorio_gpd_procisa_${new Date().toISOString().split('T')[0]}.xls`;
+            a.download = `relatorio_gpd_procisa_${obterDataLocalISO()}.xls`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
 
-            registrarLogAuditoria("EXPORTAÇÃO DE RELATÓRIO", `Baixado relatório Excel com ${registrosSalvos.length} registros.`);
+            registrarLogAuditoria("EXPORTAÇÃO DE RELATÓRIO", `Baixado relatório Excel com ${listaParaExportar.length} registros filtrados.`);
+        }
+
+        function exportarExcelFinanceiro() {
+            if (!totaisFinanceirosAtuais) {
+                alert("Atualize os dados antes de exportar a medição.");
+                return;
+            }
+
+            let itensMedicao = [
+                { chave: "VISTORIA", qtd: totaisFinanceirosAtuais.vistorias },
+                { chave: "CABO RL", qtd: totaisFinanceirosAtuais.caboRL },
+                { chave: "CONECTORES", qtd: totaisFinanceirosAtuais.conectores },
+                { chave: "FUSÕES", qtd: totaisFinanceirosAtuais.fusoes },
+                { chave: "CABO DROP", qtd: totaisFinanceirosAtuais.caboDrop },
+                { chave: "NAP", qtd: totaisFinanceirosAtuais.nap },
+                { chave: "DIO", qtd: totaisFinanceirosAtuais.dio },
+                { chave: "CX SOBREPOR", qtd: totaisFinanceirosAtuais.cxSobrepor },
+                { chave: "CX EMBUTIDA", qtd: totaisFinanceirosAtuais.cxEmbutida }
+            ];
+
+            let valorGeral = 0;
+            let tabelaHTML = `<table border="1"><thead><tr><th>Código</th><th>Descrição do Item</th><th>Unidade</th><th>Qtd. Produzida</th><th>Valor Unitário (R$)</th><th>Total (R$)</th></tr></thead><tbody>`;
+
+            itensMedicao.forEach(item => {
+                let cfg = TABELA_PRECOS[item.chave];
+                let totalItem = item.qtd * cfg.valor;
+                valorGeral += totalItem;
+                tabelaHTML += `<tr>
+                    <td>${cfg.codigo}</td>
+                    <td>${cfg.desc}</td>
+                    <td>${cfg.unidade}</td>
+                    <td>${item.qtd}</td>
+                    <td>R$ ${cfg.valor.toFixed(2).replace('.', ',')}</td>
+                    <td>R$ ${totalItem.toFixed(2).replace('.', ',')}</td>
+                </tr>`;
+            });
+
+            tabelaHTML += `<tr><td colspan="5"><b>VALOR TOTAL DA MEDIÇÃO</b></td><td><b>R$ ${valorGeral.toFixed(2).replace('.', ',')}</b></td></tr></tbody></table>`;
+
+            let blob = new Blob(['\ufeff' + tabelaHTML], { type: 'application/vnd.ms-excel' });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement('a');
+            a.href = url;
+            a.download = `medicao_financeira_mdu_${obterDataLocalISO()}.xls`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            registrarLogAuditoria("EXPORTAÇÃO FINANCEIRA", `Baixada planilha de Medição Financeira (Total: R$ ${valorGeral.toFixed(2)}).`);
         }
 
         // --- GESTÃO DE EQUIPES ---
