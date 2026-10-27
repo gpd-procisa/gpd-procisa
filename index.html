@@ -125,39 +125,39 @@
                 </div>
             </div>
 
-            <!-- KPIs Numéricos -->
+            <!-- KPIs Numéricos dos 7 Novos Projetos + Em Andamento + Imprevistos -->
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
                 <div class="bg-blue-50 p-3 rounded-xl shadow-sm border border-blue-300 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-blue-900 uppercase">🔵 Em Andamento</span>
                     <span class="text-xl font-black text-blue-700 mt-1" id="kpi-proj-andamento">0</span>
                 </div>
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Vistoria</span>
+                    <span class="text-[10px] font-bold text-purple-800 uppercase">Vistoria</span>
                     <span class="text-xl font-bold text-slate-800 mt-1" id="kpi-proj-vistoria">0</span>
                 </div>
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Ativação</span>
-                    <span class="text-xl font-bold text-blue-600 mt-1" id="kpi-proj-ativacao">0</span>
+                    <span class="text-[10px] font-bold text-indigo-700 uppercase">Construção F</span>
+                    <span class="text-xl font-bold text-indigo-600 mt-1" id="kpi-proj-const-f">0</span>
                 </div>
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Construção</span>
-                    <span class="text-xl font-bold text-indigo-600 mt-1" id="kpi-proj-construcao">0</span>
+                    <span class="text-[10px] font-bold text-blue-700 uppercase">Const. On Going</span>
+                    <span class="text-xl font-bold text-blue-600 mt-1" id="kpi-proj-const-ongoing">0</span>
                 </div>
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Const + Ativ</span>
-                    <span class="text-xl font-bold text-purple-600 mt-1" id="kpi-proj-const-ativ">0</span>
+                    <span class="text-[10px] font-bold text-orange-700 uppercase">Const. Nap Lot.</span>
+                    <span class="text-xl font-bold text-orange-600 mt-1" id="kpi-proj-const-nap">0</span>
                 </div>
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lot. Ativ</span>
-                    <span class="text-xl font-bold text-amber-600 mt-1" id="kpi-proj-nap-ativ">0</span>
+                    <span class="text-[10px] font-bold text-emerald-700 uppercase">Ativação F</span>
+                    <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-ativ-f">0</span>
                 </div>
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lot. Const</span>
-                    <span class="text-xl font-bold text-orange-600 mt-1" id="kpi-proj-nap-const">0</span>
+                    <span class="text-[10px] font-bold text-teal-700 uppercase">Ativ. On Going</span>
+                    <span class="text-xl font-bold text-teal-600 mt-1" id="kpi-proj-ativ-ongoing">0</span>
                 </div>
                 <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Nap Lot. Amb</span>
-                    <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-nap-ambos">0</span>
+                    <span class="text-[10px] font-bold text-amber-700 uppercase">Ativ. Nap Lot.</span>
+                    <span class="text-xl font-bold text-amber-600 mt-1" id="kpi-proj-ativ-nap">0</span>
                 </div>
                 <div onclick="mudarSubAbaGestor('imprevistos')" class="bg-amber-50 hover:bg-amber-100 cursor-pointer transition p-3 rounded-xl shadow-sm border border-amber-300 flex flex-col justify-between">
                     <span class="text-[10px] font-bold text-amber-900 uppercase">⚠️ Imprevistos</span>
@@ -196,13 +196,17 @@
                         <label class="block text-[11px] font-bold text-slate-600 mb-1">🏗️ Filtrar por Projeto</label>
                         <select id="gestor-filtro-projeto" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
                             <option value="">Todos os Projetos</option>
-                            <option value="VISTORIA">VISTORIA</option>
-                            <option value="ATIVAÇÃO">ATIVAÇÃO</option>
-                            <option value="CONSTRUÇÃO">CONSTRUÇÃO</option>
-                            <option value="CONSTRUÇÃO + ATIVAÇÃO">CONSTRUÇÃO + ATIVAÇÃO</option>
-                            <option value="NAP LOTADA ATIVAÇÃO">NAP LOTADA ATIVAÇÃO</option>
-                            <option value="NAP LOTADA CONSTRUÇÃO">NAP LOTADA CONSTRUÇÃO</option>
-                            <option value="NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO">NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO</option>
+                            <optgroup label="Grupo MALLING">
+                                <option value="VISTORIA">VISTORIA (Vistoriador)</option>
+                                <option value="CONSTRUÇÃO ON GOING">CONSTRUÇÃO ON GOING (Instalador)</option>
+                                <option value="CONSTRUÇÃO NAP LOTADA">CONSTRUÇÃO NAP LOTADA (Instalador)</option>
+                                <option value="ATIVAÇÃO ON GOING">ATIVAÇÃO ON GOING (Ativador)</option>
+                                <option value="ATIVAÇÃO NAP LOTADA">ATIVAÇÃO NAP LOTADA (Ativador)</option>
+                            </optgroup>
+                            <optgroup label="Grupo PROJETO F">
+                                <option value="CONSTRUÇÃO F">CONSTRUÇÃO F (Instalador)</option>
+                                <option value="ATIVAÇÃO F">ATIVAÇÃO F (Ativador)</option>
+                            </optgroup>
                         </select>
                     </div>
                 </div>
@@ -220,7 +224,7 @@
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
                                 <th class="p-3">Data / Imóvel / Endereço</th>
                                 <th class="p-3">Equipe / Setor</th>
-                                <th class="p-3">Projeto / Andares & HPs</th>
+                                <th class="p-3">Projeto / Grupo / Andares & HPs</th>
                                 <th class="p-3">Status / Desfecho & Fotos</th>
                                 <th class="p-3">Horários & Duração</th>
                                 <th class="p-3">GPS (Entrada / Saída)</th>
@@ -309,12 +313,214 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos -->
+            <!-- Sub-Aba: Gráficos & Indicadores (Reformulada com Itens 07 e 08 em Destaque Principal) -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
-                    <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra de projeto, fatia de desfecho, técnico ou ofensor de malogro para abrir o detalhamento.</span>
+                    <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra, fatia, executor ou projeto para abrir a listagem detalhada dos imóveis.</span>
                 </div>
 
+                <!-- ================= ITEM 07: DESTAQUE PRINCIPAL - PRODUÇÃO DIÁRIA, CONSOLIDADA E MÉDIA POR EXECUTOR ================= -->
+                <div class="bg-white rounded-2xl shadow-md border-2 border-blue-900/20 overflow-hidden">
+                    <div class="bg-blue-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div>
+                            <span class="bg-cyan-400 text-blue-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Indicador Principal</span>
+                            <h3 class="font-bold text-base mt-1">🏆 Produção Diária, Consolidada e Média por Executor (Vistoriador • Instalador • Ativador)</h3>
+                            <p class="text-xs text-cyan-200">Acompanhamento objetivo de entregas diárias (Data de Referência: <b id="lbl-data-ref-diaria">Hoje</b>) e acumulado no período filtrado</p>
+                        </div>
+                    </div>
+
+                    <div class="p-5 space-y-6">
+                        <!-- 3 Cards Executivos de Resumo por Grupo (Vistoriador, Instalador, Ativador) -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- Card Vistoriadores -->
+                            <div class="bg-purple-50/70 border-2 border-purple-200 p-4 rounded-xl space-y-2">
+                                <div class="flex justify-between items-center border-b border-purple-200 pb-2">
+                                    <span class="font-black text-purple-950 text-xs uppercase flex items-center gap-1.5">🔍 Grupo: VISTORIADOR</span>
+                                    <span class="text-[10px] bg-purple-200 text-purple-900 font-bold px-2 py-0.5 rounded" id="card-vist-qtd-tec">0 técnicos</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 text-center pt-1">
+                                    <div class="bg-white p-2 rounded-lg border border-purple-100">
+                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Prod. Diária</span>
+                                        <span class="text-lg font-black text-purple-800" id="card-vist-diaria">0</span>
+                                    </div>
+                                    <div class="bg-white p-2 rounded-lg border border-purple-100">
+                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Consolidado</span>
+                                        <span class="text-lg font-black text-slate-800" id="card-vist-consolidado">0</span>
+                                    </div>
+                                    <div class="bg-purple-800 text-white p-2 rounded-lg">
+                                        <span class="text-[9px] text-purple-200 uppercase font-bold block">Média / Dia</span>
+                                        <span class="text-lg font-black" id="card-vist-media">0.0</span>
+                                    </div>
+                                </div>
+                                <p class="text-[10px] text-purple-800 font-semibold pt-1">Projeto: <b>VISTORIA</b></p>
+                            </div>
+
+                            <!-- Card Instaladores -->
+                            <div class="bg-blue-50/70 border-2 border-blue-200 p-4 rounded-xl space-y-2">
+                                <div class="flex justify-between items-center border-b border-blue-200 pb-2">
+                                    <span class="font-black text-blue-950 text-xs uppercase flex items-center gap-1.5">🛠️ Grupo: INSTALADOR</span>
+                                    <span class="text-[10px] bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded" id="card-inst-qtd-tec">0 técnicos</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 text-center pt-1">
+                                    <div class="bg-white p-2 rounded-lg border border-blue-100">
+                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Prod. Diária</span>
+                                        <span class="text-lg font-black text-blue-800" id="card-inst-diaria">0</span>
+                                    </div>
+                                    <div class="bg-white p-2 rounded-lg border border-blue-100">
+                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Consolidado</span>
+                                        <span class="text-lg font-black text-slate-800" id="card-inst-consolidado">0</span>
+                                    </div>
+                                    <div class="bg-blue-900 text-white p-2 rounded-lg">
+                                        <span class="text-[9px] text-cyan-200 uppercase font-bold block">Média / Dia</span>
+                                        <span class="text-lg font-black" id="card-inst-media">0.0</span>
+                                    </div>
+                                </div>
+                                <p class="text-[10px] text-blue-900 font-semibold pt-1">Projetos: <b>CONSTRUÇÃO F • ON GOING • NAP LOTADA</b></p>
+                            </div>
+
+                            <!-- Card Ativadores -->
+                            <div class="bg-emerald-50/70 border-2 border-emerald-200 p-4 rounded-xl space-y-2">
+                                <div class="flex justify-between items-center border-b border-emerald-200 pb-2">
+                                    <span class="font-black text-emerald-950 text-xs uppercase flex items-center gap-1.5">⚡ Grupo: ATIVADOR</span>
+                                    <span class="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded" id="card-ativ-qtd-tec">0 técnicos</span>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 text-center pt-1">
+                                    <div class="bg-white p-2 rounded-lg border border-emerald-100">
+                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Prod. Diária</span>
+                                        <span class="text-lg font-black text-emerald-800" id="card-ativ-diaria">0</span>
+                                    </div>
+                                    <div class="bg-white p-2 rounded-lg border border-emerald-100">
+                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Consolidado</span>
+                                        <span class="text-lg font-black text-slate-800" id="card-ativ-consolidado">0</span>
+                                    </div>
+                                    <div class="bg-emerald-700 text-white p-2 rounded-lg">
+                                        <span class="text-[9px] text-emerald-100 uppercase font-bold block">Média / Dia</span>
+                                        <span class="text-lg font-black" id="card-ativ-media">0.0</span>
+                                    </div>
+                                </div>
+                                <p class="text-[10px] text-emerald-900 font-semibold pt-1">Projetos: <b>ATIVAÇÃO F • ON GOING • NAP LOTADA</b></p>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico Principal: Produção Consolidada, Diária e Média por Executor -->
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
+                                <div>
+                                    <h4 class="text-xs font-black text-slate-800 uppercase">📊 Gráfico Principal: Produção Consolidada vs. Produção Diária e Média por Executor</h4>
+                                    <p class="text-[11px] text-slate-500">Comparativo direto entre todos os Vistoriadores, Instaladores e Ativadores acionados</p>
+                                </div>
+                                <select id="filtro-setor-grafico-principal" onchange="atualizarDashboardGestor()" class="text-xs border border-slate-300 rounded-lg p-1.5 bg-white font-bold text-blue-950 outline-none">
+                                    <option value="TODOS">Mostrar Todos os Setores</option>
+                                    <option value="Vistoriador">🔍 Apenas Vistoriadores</option>
+                                    <option value="Instalador">🛠️ Apenas Instaladores</option>
+                                    <option value="Ativador">⚡ Apenas Ativadores</option>
+                                </select>
+                            </div>
+                            <div class="relative h-80"><canvas id="graficoPrincipalExecutores"></canvas></div>
+                        </div>
+
+                        <!-- Tabela Principal Objetiva por Executor (Separada por Setor com Médias) -->
+                        <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-800 text-white uppercase font-bold text-[10px] tracking-wider">
+                                        <th class="p-3 text-center">#</th>
+                                        <th class="p-3">Executor / Técnico</th>
+                                        <th class="p-3">Grupo / Função</th>
+                                        <th class="p-3 text-center bg-blue-900/40">Prod. Diária (Últ. Dia)</th>
+                                        <th class="p-3 text-center bg-emerald-900/40">Consolidado (Concluídas)</th>
+                                        <th class="p-3 text-center">Total Geral (c/ Pend/Malo)</th>
+                                        <th class="p-3 text-center">Dias Ativos</th>
+                                        <th class="p-3 text-center bg-indigo-900 font-black text-cyan-300">Média Diária / Executor</th>
+                                        <th class="p-3 text-right">Eficácia (%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabela-principal-executores-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= ITEM 08: EVOLUÇÃO DOS PROJETOS (MALLING vs PROJETO F) E CRUZAMENTO DE EXECUTORES ================= -->
+                <div class="bg-white rounded-2xl shadow-md border-2 border-indigo-900/20 overflow-hidden">
+                    <div class="bg-indigo-950 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div>
+                            <span class="bg-amber-400 text-indigo-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Análise por Grupos de Projeto</span>
+                            <h3 class="font-bold text-base mt-1">📈 Evolução e Cruzamento: Grupo MALLING vs. Grupo PROJETO F</h3>
+                            <p class="text-xs text-indigo-200">
+                                <b>MALLING:</b> Vistoria, Constr. On Going, Constr. Nap Lotada, Ativ. On Going, Ativ. Nap Lotada &nbsp;|&nbsp;
+                                <b>PROJETO F:</b> Construção F e Ativação F
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="p-5 space-y-6">
+                        <!-- Gráficos Lado a Lado: Grupo MALLING e Grupo PROJETO F -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h4 class="text-xs font-black text-blue-950 uppercase">🏢 Grupo MALLING (Volume e Desfecho por Projeto)</h4>
+                                        <p class="text-[10px] text-slate-500">Vistoria • Constr. On Going • Constr. Nap Lotada • Ativ. On Going • Ativ. Nap Lotada</p>
+                                    </div>
+                                    <span id="badge-total-malling" class="bg-blue-100 text-blue-900 font-black text-xs px-2.5 py-1 rounded-lg">0 total</span>
+                                </div>
+                                <div class="relative h-72"><canvas id="graficoGrupoMalling"></canvas></div>
+                            </div>
+
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h4 class="text-xs font-black text-indigo-950 uppercase">🚀 Grupo PROJETO F (Volume e Desfecho por Projeto)</h4>
+                                        <p class="text-[10px] text-slate-500">Construção F (Instalador) • Ativação F (Ativador)</p>
+                                    </div>
+                                    <span id="badge-total-projetof" class="bg-indigo-100 text-indigo-900 font-black text-xs px-2.5 py-1 rounded-lg">0 total</span>
+                                </div>
+                                <div class="relative h-72"><canvas id="graficoGrupoProjetoF"></canvas></div>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico de Evolução Diária (Linha do Tempo): MALLING vs PROJETO F -->
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <h4 class="text-xs font-black text-slate-800 uppercase mb-1">📅 Curva de Evolução Diária: MALLING vs. PROJETO F</h4>
+                            <p class="text-[11px] text-slate-500 mb-3">Acompanhamento dia a dia do ritmo de entregas de cada macrogrupo de projeto</p>
+                            <div class="relative h-64"><canvas id="graficoEvolucaoGrupos"></canvas></div>
+                        </div>
+
+                        <!-- Matriz de Cruzamento: Executores x Projetos (MALLING & PROJETO F) -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento: Executores × Projetos (MALLING & PROJETO F)</h4>
+                                    <p class="text-[11px] text-slate-500">Visão cruzada de quantas atividades cada executor realizou em cada projeto e macrogrupo</p>
+                                </div>
+                            </div>
+                            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                                <table class="w-full text-left border-collapse text-[11px]">
+                                    <thead>
+                                        <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] border-b">
+                                            <th class="p-2.5">Executor / Técnico</th>
+                                            <th class="p-2.5">Função</th>
+                                            <th class="p-2 text-center bg-blue-50 text-blue-900">Vistoria</th>
+                                            <th class="p-2 text-center bg-blue-50 text-blue-900">Const. On Going</th>
+                                            <th class="p-2 text-center bg-blue-50 text-blue-900">Const. Nap Lot.</th>
+                                            <th class="p-2 text-center bg-blue-50 text-blue-900">Ativ. On Going</th>
+                                            <th class="p-2 text-center bg-blue-50 text-blue-900">Ativ. Nap Lot.</th>
+                                            <th class="p-2 text-center bg-blue-200 text-blue-950 font-black">Subtotal MALLING</th>
+                                            <th class="p-2 text-center bg-indigo-50 text-indigo-900">Construção F</th>
+                                            <th class="p-2 text-center bg-indigo-50 text-indigo-900">Ativação F</th>
+                                            <th class="p-2 text-center bg-indigo-200 text-indigo-950 font-black">Subtotal PROJ. F</th>
+                                            <th class="p-2.5 text-center bg-slate-800 text-white font-black">Total Geral</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabela-cruzamento-executores-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cards de Horários e TMA -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-600 flex flex-col justify-between">
                         <div class="flex justify-between items-start">
@@ -353,11 +559,12 @@
                     </div>
                 </div>
 
+                <!-- Gráficos de Projetos e Desfechos -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase">📊 Distribuição por Tipo de Projeto (Clique para Explodir)</h3>
-                            <p class="text-xs text-slate-500 mb-4">Volume de atendimentos divididos por frentes de trabalho</p>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase">📊 Volume Geral por Projeto (Clique para Explodir)</h3>
+                            <p class="text-xs text-slate-500 mb-4">Comparativo entre os 7 projetos ativos</p>
                         </div>
                         <div class="relative h-80"><canvas id="graficoProjetos"></canvas></div>
                     </div>
@@ -380,13 +587,14 @@
                     </div>
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase">⏳ Tempo Médio de Execução por Tipo de Projeto (Minutos)</h3>
+                            <h3 class="text-sm font-bold text-slate-800 uppercase">⏳ Tempo Médio de Execução por Projeto (Minutos)</h3>
                             <p class="text-xs text-slate-500 mb-4">Duração média cronometrada entre o check-in e o check-out de cada frente</p>
                         </div>
                         <div class="relative h-72"><canvas id="graficoTempoProjeto"></canvas></div>
                     </div>
                 </div>
 
+                <!-- Ofensores de Malogro -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-red-200 flex flex-col justify-between">
                         <div>
@@ -422,10 +630,11 @@
                     </div>
                 </div>
 
+                <!-- Ranking de Tempos e Horários por Técnico -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50">
                         <div>
-                            <h3 class="font-bold text-slate-800 text-sm">⏱️ Ranking de Produtividade e Tempo Médio por Técnico / Equipe</h3>
+                            <h3 class="font-bold text-slate-800 text-sm">⏱️ Monitoramento de Horários (Abertura, Fechamento e TMA) por Técnico</h3>
                             <p class="text-[11px] text-slate-500">Clique na linha de qualquer técnico para explodir as atividades realizadas por ele no período</p>
                         </div>
                         <span id="contador-tecnicos-ativos" class="bg-blue-100 text-blue-900 font-bold px-3 py-1 rounded-lg text-xs">0 técnicos acionados</span>
@@ -451,6 +660,7 @@
                     </div>
                 </div>
 
+                <!-- Rankings Separados por Desfecho -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="bg-white rounded-xl shadow-sm border border-emerald-200 overflow-hidden">
                         <div class="bg-emerald-50 p-3 border-b border-emerald-200 font-bold text-emerald-900 text-xs flex justify-between items-center">
@@ -630,12 +840,12 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Equipes -->
+            <!-- Sub-Aba: Equipes (ITEM 04: VISTORIADOR, INSTALADOR E ATIVADOR) -->
             <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
                         <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos e Setor de Atuação</h3>
-                        <p class="text-[11px] text-slate-500">Defina se o técnico atua como Vistoriador ou Instalador na chave seletora</p>
+                        <p class="text-[11px] text-slate-500">Defina se o técnico atua como <b>Vistoriador</b>, <b>Instalador</b> ou <b>Ativador</b> na chave seletora (sincronizado na nuvem)</p>
                     </div>
                     <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-nova-equipe">+ Nova Equipe</button>
                 </div>
@@ -644,8 +854,9 @@
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
                                 <th class="p-3">Nome do Técnico / Equipe</th>
-                                <th class="p-3">Setor de Atuação</th>
-                                <th class="p-3">Status (Ativo / Inativo)</th>
+                                <th class="p-3">Setor de Atuação (Vistoriador / Instalador / Ativador)</th>
+                                <th class="p-3">Projetos Habilitados no Campo</th>
+                                <th class="p-3">Status</th>
                                 <th class="p-3" id="th-equipe-acoes">Ações</th>
                             </tr>
                         </thead>
@@ -654,7 +865,7 @@
                 </div>
             </div>
 
-            <!-- SUB-ABA (ITEM 02): GERENCIADOR DE OPÇÕES PRÉ-DEFINIDAS -->
+            <!-- Sub-Aba: Opções -->
             <div id="subview-opcoes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -806,15 +1017,13 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Projeto / Atividade</label>
-                        <select id="sel-projeto" onchange="mudarTipoProjeto(); salvarRascunhoCampo()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
-                            <option value="VISTORIA">VISTORIA</option>
-                            <option value="ATIVAÇÃO">ATIVAÇÃO</option>
-                            <option value="CONSTRUÇÃO">CONSTRUÇÃO</option>
-                            <option value="CONSTRUÇÃO + ATIVAÇÃO">CONSTRUÇÃO + ATIVAÇÃO</option>
-                            <option value="NAP LOTADA ATIVAÇÃO">NAP LOTADA ATIVAÇÃO</option>
-                            <option value="NAP LOTADA CONSTRUÇÃO">NAP LOTADA CONSTRUÇÃO</option>
-                            <option value="NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO">NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO</option>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-600">Projeto / Atividade</label>
+                            <span id="badge-setor-campo" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">Aguardando técnico...</span>
+                        </div>
+                        <!-- ITENS 05 e 06: Carrega dinamicamente apenas os projetos amarrados ao grupo do técnico -->
+                        <select id="sel-projeto" onchange="mudarTipoProjeto(); salvarRascunhoCampo()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none font-bold text-blue-950">
+                            <option value="">Selecione primeiro o técnico acima...</option>
                         </select>
                     </div>
 
@@ -938,12 +1147,12 @@
                         <label class="block font-semibold mb-1">Projeto</label>
                         <select id="edit-reg-projeto" class="w-full border rounded-lg p-2 bg-white outline-none">
                             <option value="VISTORIA">VISTORIA</option>
-                            <option value="ATIVAÇÃO">ATIVAÇÃO</option>
-                            <option value="CONSTRUÇÃO">CONSTRUÇÃO</option>
-                            <option value="CONSTRUÇÃO + ATIVAÇÃO">CONSTRUÇÃO + ATIVAÇÃO</option>
-                            <option value="NAP LOTADA ATIVAÇÃO">NAP LOTADA ATIVAÇÃO</option>
-                            <option value="NAP LOTADA CONSTRUÇÃO">NAP LOTADA CONSTRUÇÃO</option>
-                            <option value="NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO">NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO</option>
+                            <option value="CONSTRUÇÃO F">CONSTRUÇÃO F</option>
+                            <option value="CONSTRUÇÃO ON GOING">CONSTRUÇÃO ON GOING</option>
+                            <option value="CONSTRUÇÃO NAP LOTADA">CONSTRUÇÃO NAP LOTADA</option>
+                            <option value="ATIVAÇÃO F">ATIVAÇÃO F</option>
+                            <option value="ATIVAÇÃO ON GOING">ATIVAÇÃO ON GOING</option>
+                            <option value="ATIVAÇÃO NAP LOTADA">ATIVAÇÃO NAP LOTADA</option>
                             <option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>
                         </select>
                     </div>
@@ -1001,7 +1210,7 @@
                                 <th class="p-2.5">Data</th>
                                 <th class="p-2.5">Imóvel / Endereço</th>
                                 <th class="p-2.5">Técnico / Equipe</th>
-                                <th class="p-2.5">Projeto</th>
+                                <th class="p-2.5">Projeto / Grupo</th>
                                 <th class="p-2.5">Desfecho</th>
                                 <th class="p-2.5">Detalhes / Ofensores</th>
                             </tr>
@@ -1016,7 +1225,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE DETALHES (COM GALERIA DE FOTOS E DOWNLOAD) -->
+    <!-- MODAL DE DETALHES -->
     <div id="modal-detalhes" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
@@ -1033,7 +1242,7 @@
         </div>
     </div>
 
-    <!-- NOVO MODAL (ITEM 03): VISUALIZADOR / ZOOM DE FOTO EM TELA CHEIA -->
+    <!-- MODAL DE ZOOM DE FOTO -->
     <div id="modal-zoom-foto" class="fixed inset-0 bg-black/85 backdrop-blur-sm flex flex-col justify-center items-center p-4 hidden z-[60]">
         <div class="w-full max-w-3xl flex justify-between items-center text-white mb-3 px-2">
             <span class="font-bold text-sm" id="lbl-titulo-zoom-foto">📷 Visualização da Foto</span>
@@ -1049,7 +1258,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE EQUIPE -->
+    <!-- MODAL DE EQUIPE (ITEM 04: VISTORIADOR, INSTALADOR E ATIVADOR) -->
     <div id="modal-equipe" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
@@ -1066,12 +1275,15 @@
                 <div>
                     <label class="block font-bold text-slate-700 mb-1.5">Setor de Atuação (Selecione a Chave):</label>
                     <input type="hidden" id="inp-setor-equipe" value="Instalador">
-                    <div class="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-                        <button type="button" id="btn-chave-vistoriador" onclick="alternarChaveSetorEquipe('Vistoriador')" class="py-2.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 text-slate-600">
+                    <div class="grid grid-cols-3 gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                        <button type="button" id="btn-chave-vistoriador" onclick="alternarChaveSetorEquipe('Vistoriador')" class="py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600">
                             🔍 Vistoriador
                         </button>
-                        <button type="button" id="btn-chave-instalador" onclick="alternarChaveSetorEquipe('Instalador')" class="py-2.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 bg-blue-900 text-white shadow-sm">
+                        <button type="button" id="btn-chave-instalador" onclick="alternarChaveSetorEquipe('Instalador')" class="py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 bg-blue-900 text-white shadow-sm">
                             🛠️ Instalador
+                        </button>
+                        <button type="button" id="btn-chave-ativador" onclick="alternarChaveSetorEquipe('Ativador')" class="py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600">
+                            ⚡ Ativador
                         </button>
                     </div>
                 </div>
@@ -1118,7 +1330,7 @@
             </div>
         </div>
     </div>
-<!-- Script Principal - Parte 1 de 2 (Com Sistema de Fotos no Fechamento) -->
+<!-- Script Principal - Parte 1 de 2 (Itens 04, 05, 06, 07 e 08 Integrados) -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1127,6 +1339,76 @@
         const ID_NUVEM_USUARIOS = 999999001;
         const ID_NUVEM_EQUIPES  = 999999002;
         const ID_NUVEM_OPCOES   = 999999003;
+
+        // ITENS 05 e 06: Amarração oficial de projetos por Grupo de Técnicos
+        const PROJETOS_POR_SETOR = {
+            "Vistoriador": [
+                "VISTORIA"
+            ],
+            "Instalador": [
+                "CONSTRUÇÃO F",
+                "CONSTRUÇÃO ON GOING",
+                "CONSTRUÇÃO NAP LOTADA"
+            ],
+            "Ativador": [
+                "ATIVAÇÃO F",
+                "ATIVAÇÃO ON GOING",
+                "ATIVAÇÃO NAP LOTADA"
+            ]
+        };
+
+        const TODOS_OS_PROJETOS = [
+            "VISTORIA",
+            "CONSTRUÇÃO F",
+            "CONSTRUÇÃO ON GOING",
+            "CONSTRUÇÃO NAP LOTADA",
+            "ATIVAÇÃO F",
+            "ATIVAÇÃO ON GOING",
+            "ATIVAÇÃO NAP LOTADA"
+        ];
+
+        // ITEM 08: Classificação oficial em MALLING vs PROJETO F
+        const PROJETOS_GRUPO_MALLING = [
+            "VISTORIA",
+            "CONSTRUÇÃO ON GOING",
+            "CONSTRUÇÃO NAP LOTADA",
+            "ATIVAÇÃO ON GOING",
+            "ATIVAÇÃO NAP LOTADA"
+        ];
+
+        const PROJETOS_GRUPO_PROJETO_F = [
+            "CONSTRUÇÃO F",
+            "ATIVAÇÃO F"
+        ];
+
+        // Normaliza nomes de projetos antigos já salvos no banco para os novos nomes padronizados
+        function normalizarNomeProjeto(projBruto) {
+            const p = (projBruto || '').toUpperCase().trim();
+            if (p === 'ATIVAÇÃO ON GOIG') return 'ATIVAÇÃO ON GOING';
+            if (p === 'CONTRUÇÃO NAP LOTADA' || p === 'NAP LOTADA CONSTRUÇÃO') return 'CONSTRUÇÃO NAP LOTADA';
+            if (p === 'NAP LOTADA ATIVAÇÃO') return 'ATIVAÇÃO NAP LOTADA';
+            if (p === 'CONSTRUÇÃO') return 'CONSTRUÇÃO ON GOING';
+            if (p === 'ATIVAÇÃO') return 'ATIVAÇÃO ON GOING';
+            if (p === 'CONSTRUÇÃO + ATIVAÇÃO' || p === 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO') return 'CONSTRUÇÃO F';
+            return p;
+        }
+
+        function obterMacroGrupoProjeto(projeto) {
+            const p = normalizarNomeProjeto(projeto);
+            if (PROJETOS_GRUPO_PROJETO_F.includes(p)) return "PROJETO F";
+            if (PROJETOS_GRUPO_MALLING.includes(p)) return "MALLING";
+            return "OUTROS";
+        }
+
+        function obterBadgeSetorHtml(setor) {
+            if (setor === 'Vistoriador') {
+                return `<span class="bg-purple-100 text-purple-900 border border-purple-300 font-bold px-2 py-0.5 rounded text-[10px]">🔍 Vistoriador</span>`;
+            }
+            if (setor === 'Ativador') {
+                return `<span class="bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold px-2 py-0.5 rounded text-[10px]">⚡ Ativador</span>`;
+            }
+            return `<span class="bg-blue-100 text-blue-900 border border-blue-300 font-bold px-2 py-0.5 rounded text-[10px]">🛠️ Instalador</span>`;
+        }
 
         let OPCOES_PENDENCIA_PADRAO = JSON.parse(localStorage.getItem('gpd_opcoes_pendencia')) || [
             "REDE CORRETIVA",
@@ -1205,11 +1487,18 @@
         let trilhaAuditoria = JSON.parse(localStorage.getItem('gpd_trilha_auditoria')) || [];
         let usuarioLogado = sessionStorage.getItem('gpd_user_logado') || null;
         let nivelUsuarioLogado = "Visualizador";
+
+        // Instâncias dos Gráficos
+        let graficoPrincipalExecutoresInstancia = null;
+        let graficoGrupoMallingInstancia = null;
+        let graficoGrupoProjetoFInstancia = null;
+        let graficoEvolucaoGruposInstancia = null;
         let graficoProjetosInstancia = null;
         let graficoDesfechosInstancia = null;
         let graficoHorasPicoInstancia = null;
         let graficoTempoProjetoInstancia = null;
         let graficoOfensoresMalogroInstancia = null;
+
         let dadosFiltradosAtuais = [];
         let listaImprevistosAtuais = [];
         let ultimoResumoCampoTexto = "";
@@ -1462,7 +1751,7 @@
             }, 180000);
         };
 
-        // --- ITEM 03: FUNÇÕES DE COMPRESSÃO, ANEXO, ZOOM E DOWNLOAD DE FOTOS ---
+        // --- FUNÇÕES DE FOTOS ---
         function comprimirImagemBase64(file, maxWidth = 850, quality = 0.65) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -1759,7 +2048,6 @@
                         </div>
                     </div>
 
-                    <!-- ITEM 03: BLOCO DE FOTOS NO FECHAMENTO DO ATENDIMENTO -->
                     <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
                         <div class="flex justify-between items-center">
                             <label class="text-[11px] font-bold text-blue-950 flex items-center gap-1">📷 Fotos do Fechamento (${b.fotos.length}/4)</label>
@@ -1807,6 +2095,46 @@
             }
         }
 
+        // ITENS 05 e 06: Atualiza o dropdown de projetos do Modo Campo exibindo apenas os pertinentes ao grupo do técnico
+        function atualizarProjetosPermitidosCampo(nomeEquipe, projetoPreSelecionado = null) {
+            const selProj = document.getElementById('sel-projeto');
+            const badgeSetor = document.getElementById('badge-setor-campo');
+            if (!selProj) return;
+
+            if (!nomeEquipe) {
+                selProj.innerHTML = `<option value="">Selecione primeiro o técnico acima...</option>`;
+                if (badgeSetor) {
+                    badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600";
+                    badgeSetor.innerText = "Aguardando técnico...";
+                }
+                return;
+            }
+
+            const eqObj = equipesSistema.find(e => e.nome === nomeEquipe);
+            const setor = eqObj && eqObj.setor ? eqObj.setor : "Instalador";
+            const listaProjetos = PROJETOS_POR_SETOR[setor] || PROJETOS_POR_SETOR["Instalador"];
+
+            if (badgeSetor) {
+                if (setor === 'Vistoriador') {
+                    badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-300";
+                    badgeSetor.innerText = "🔍 Setor: VISTORIADOR";
+                } else if (setor === 'Ativador') {
+                    badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300";
+                    badgeSetor.innerText = "⚡ Setor: ATIVADOR";
+                } else {
+                    badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-300";
+                    badgeSetor.innerText = "🛠️ Setor: INSTALADOR";
+                }
+            }
+
+            selProj.innerHTML = listaProjetos.map(p => `<option value="${p}">${p}</option>`).join('');
+
+            if (projetoPreSelecionado && listaProjetos.includes(projetoPreSelecionado)) {
+                selProj.value = projetoPreSelecionado;
+            }
+            mudarTipoProjeto();
+        }
+
         function restaurarRascunhoCampo() {
             try {
                 const salvo = localStorage.getItem('gpd_rascunho_campo_ativo');
@@ -1816,8 +2144,8 @@
                 if (r.equipe) {
                     document.getElementById('sel-equipe').value = r.equipe;
                     document.getElementById('current-user-team').innerText = r.equipe;
+                    atualizarProjetosPermitidosCampo(r.equipe, r.projeto);
                 }
-                if (r.projeto) document.getElementById('sel-projeto').value = r.projeto;
                 if (r.imovel) document.getElementById('inp-imovel').value = r.imovel;
 
                 if (r.emAndamento) {
@@ -1860,6 +2188,7 @@
         function aoSelecionarEquipeCampo() {
             const eq = document.getElementById('sel-equipe').value;
             document.getElementById('current-user-team').innerText = eq || "Selecione Equipe";
+            atualizarProjetosPermitidosCampo(eq);
             salvarRascunhoCampo();
             verificarImprevistoAtivoEquipeCampo();
         }
@@ -1995,7 +2324,7 @@
                 `👷 *Equipe:* ${r.equipe}`,
                 `🏢 *Imóvel:* ${r.imovel}`,
                 `📍 *Endereço:* ${r.endereco || '-'}`,
-                `🏗️ *Projeto:* ${r.projeto}`,
+                `🏗️ *Projeto:* ${r.projeto} (${obterMacroGrupoProjeto(r.projeto)})`,
                 `🏢 *Andares:* ${r.andares || 0} | *HPs:* ${r.hps || 0}`,
                 `${iconeDesf} *Status/Desfecho:* ${r.desfecho}`,
                 `🕒 *Horário:* ${r.hEntrada} às ${r.hSaida}`,
@@ -2038,6 +2367,9 @@
             const impr = listaImprevistosAtuais.length;
             const efic = totalObras > 0 ? ((conc / totalObras) * 100).toFixed(1) : "0.0";
 
+            const totMalling = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'MALLING').length;
+            const totProjF = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'PROJETO F').length;
+
             const dIni = document.getElementById('gestor-filtro-data-inicio').value;
             const dFim = document.getElementById('gestor-filtro-data-fim').value;
             const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Período Geral';
@@ -2055,6 +2387,9 @@
                 `🟡 *Pendentes:* ${pend}`,
                 `🔴 *Malogradas:* ${malo}`,
                 `⚠️ *Imprevistos Reportados:* ${impr}`,
+                `────────────────────`,
+                `🏢 *Grupo MALLING:* ${totMalling} ativ.`,
+                `🚀 *Grupo PROJETO F:* ${totProjF} ativ.`,
                 `────────────────────`,
                 `⏱️ *Tempo Médio (TMA):* ${tmaStr}`,
                 `💰 *Medição Estimada:* ${medTotal}`
@@ -2093,12 +2428,16 @@
             
             const selCampo = document.getElementById('sel-equipe');
             const selFiltro = document.getElementById('gestor-filtro-equipe');
+            const valorAtualCampo = selCampo ? selCampo.value : "";
             
             if (selCampo) selCampo.innerHTML = '<option value="">Selecione a Equipe...</option>';
             if (selFiltro) selFiltro.innerHTML = '<option value="">Todas as Equipes</option>';
 
             equipesSistema.forEach(eq => {
-                const setorTag = eq.setor === 'Vistoriador' ? '🔍 Vistoriador' : '🛠️ Instalador';
+                let setorTag = '🛠️ Instalador';
+                if (eq.setor === 'Vistoriador') setorTag = '🔍 Vistoriador';
+                else if (eq.setor === 'Ativador') setorTag = '⚡ Ativador';
+
                 if (eq.status === "Ativo" && selCampo) {
                     selCampo.innerHTML += `<option value="${eq.nome}">${eq.nome} (${setorTag})</option>`;
                 }
@@ -2106,6 +2445,11 @@
                     selFiltro.innerHTML += `<option value="${eq.nome}">${eq.nome} [${eq.setor || 'Instalador'}] (${eq.status})</option>`;
                 }
             });
+
+            if (selCampo && valorAtualCampo) {
+                selCampo.value = valorAtualCampo;
+                atualizarProjetosPermitidosCampo(valorAtualCampo);
+            }
         }
 
         async function tentarAcessarGestor() {
@@ -2276,7 +2620,6 @@
                         r.projeto !== '__CONFIG_OPCOES__'
                     );
 
-                    // Extrai tanto o [END: ...] quanto as fotos [FOTOS:[...]] salvas em observacoes
                     registrosSalvos = registrosReais.map(r => {
                         let obsBruta = r.observacoes || '';
                         let endExtraido = '';
@@ -2302,12 +2645,15 @@
                             }
                         }
 
+                        const projBruto = r.projeto || '';
+                        const projNorm = (projBruto === 'IMPREVISTO / ATRASO') ? projBruto : normalizarNomeProjeto(projBruto);
+
                         return {
                             id: r.id,
                             dataRegistro: r.data_registro || '',
                             equipe: r.equipe || '',
                             membros: r.membros || '',
-                            projeto: r.projeto || '',
+                            projeto: projNorm,
                             imovel: r.imovel || '',
                             endereco: endExtraido,
                             fotos: Array.isArray(fotosExtraidas) ? fotosExtraidas : [],
@@ -2349,16 +2695,18 @@
             atualizarDashboardGestor();
             const lblHora = document.getElementById('txt-hora-sync');
             if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
-            alert("🔄 Dados, fotos, opções e disponibilidade atualizados da nuvem!");
+            alert("🔄 Dados, fotos, setores e indicadores atualizados da nuvem!");
         }
 
         function mudarTipoProjeto() {
             const projeto = document.getElementById('sel-projeto').value;
             const titulo = document.getElementById('titulo-form-dinamico');
-            if (projeto === 'VISTORIA') {
-                titulo.innerText = "1. Dados Gerais da Vistoria e Endereço";
+            if (!projeto) {
+                titulo.innerText = "1. Dados Gerais do Condomínio / Imóvel";
+            } else if (projeto === 'VISTORIA') {
+                titulo.innerText = "1. Dados Gerais da Vistoria e Endereço (MALLING)";
             } else {
-                titulo.innerText = "1. Dados Gerais do Imóvel (" + projeto + ")";
+                titulo.innerText = `1. Dados Gerais do Imóvel (${projeto} • ${obterMacroGrupoProjeto(projeto)})`;
             }
         }
 
@@ -2386,7 +2734,7 @@
             const equipe = document.getElementById('sel-equipe').value;
             const projeto = document.getElementById('sel-projeto').value;
             const imovel = document.getElementById('inp-imovel').value.trim();
-            if (!equipe || !imovel) { alert("⚠️ Selecione a Equipe e informe o Cód. Imóvel."); return; }
+            if (!equipe || !projeto || !imovel) { alert("⚠️ Selecione a Equipe, o Projeto e informe o Cód. Imóvel."); return; }
 
             const hojeISO = obterDataLocalISO();
             const duplicadoHoje = registrosSalvos.find(r => 
@@ -2761,382 +3109,7 @@
             resetarFormularioCampo();
             await carregarRegistrosDaNuvem();
         }
-// Script Principal - Parte 2 de 2 (Continuação até o fechamento)
-        function converterHorarioParaMinutos(strHora) {
-            if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
-            const partes = strHora.trim().split(':');
-            const h = parseInt(partes[0], 10);
-            const m = parseInt(partes[1], 10);
-            if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
-            return (h * 60) + m;
-        }
-
-        function formatarMinutosParaHHMM(totalMinutos) {
-            if (totalMinutos === null || isNaN(totalMinutos) || totalMinutos < 0) return "--:--";
-            const h = Math.floor(totalMinutos / 60);
-            const m = Math.round(totalMinutos % 60);
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-        }
-
-        function formatarDuracaoTexto(totalMinutos) {
-            if (totalMinutos === null || isNaN(totalMinutos) || totalMinutos <= 0) return "--h --m";
-            const h = Math.floor(totalMinutos / 60);
-            const m = Math.round(totalMinutos % 60);
-            return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
-        }
-
-        function renderizarPainelDisponibilidade() {
-            const tbody = document.getElementById('tabela-disponibilidade-corpo');
-            if (!tbody) return;
-            tbody.innerHTML = "";
-
-            const hojeISO = obterDataLocalISO();
-            const equipesAtivas = equipesSistema.filter(e => e.status === 'Ativo');
-
-            let countDisp = 0;
-            let countAtend = 0;
-            let countIndisp = 0;
-
-            equipesAtivas.forEach(eq => {
-                const regsHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.dataRegistro === hojeISO);
-                const impAberto = regsHoje.find(r => r.desfecho === 'IMPREVISTO');
-                const obraAndamento = regsHoje.find(r => r.desfecho === 'EM ANDAMENTO');
-                const ultimoReg = registrosSalvos.find(r => r.equipe === eq.nome);
-
-                let statusBadge = "";
-                let detalheTexto = "";
-                let acaoHtml = "-";
-
-                if (impAberto) {
-                    countIndisp++;
-                    statusBadge = `<span class="bg-red-100 text-red-800 border border-red-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🔴 INDISPONÍVEL (IMPREVISTO)</span>`;
-                    const mot = (impAberto.malogros && impAberto.malogros.length > 0) ? impAberto.malogros[0] : impAberto.motivoDesfecho;
-                    detalheTexto = `<span class="font-bold text-red-900">${mot}</span> <span class="text-slate-500">(Desde ${impAberto.hEntrada})</span>`;
-                    acaoHtml = `<button onclick="resolverImprevistoPorId(${impAberto.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Liberar Técnico</button>`;
-                } else if (obraAndamento) {
-                    countAtend++;
-                    statusBadge = `<span class="bg-blue-600 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block animate-pulse">🔵 EM ATENDIMENTO</span>`;
-                    detalheTexto = `Imóvel: <b>${obraAndamento.imovel}</b> (${obraAndamento.projeto}) • Início às <b>${obraAndamento.hEntrada}</b>`;
-                    acaoHtml = `<button onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${obraAndamento.id}))" class="bg-blue-50 text-blue-800 font-bold text-[10px] px-2.5 py-1 rounded border border-blue-200">👁️ Ver Atividade</button>`;
-                } else {
-                    countDisp++;
-                    statusBadge = `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🟢 DISPONÍVEL</span>`;
-                    const concluidasHoje = regsHoje.filter(r => r.desfecho === 'CONCLUIDA').length;
-                    detalheTexto = `<span class="text-slate-500">Livre para acionamento (${concluidasHoje} concluída(s) hoje)</span>`;
-                }
-
-                const setorBadge = eq.setor === 'Vistoriador'
-                    ? `<span class="bg-purple-100 text-purple-900 font-bold px-2 py-0.5 rounded text-[10px]">🔍 Vistoriador</span>`
-                    : `<span class="bg-cyan-100 text-cyan-900 font-bold px-2 py-0.5 rounded text-[10px]">🛠️ Instalador</span>`;
-
-                const gpsStr = (ultimoReg && ultimoReg.gpsEntrada && ultimoReg.gpsEntrada.includes(','))
-                    ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ultimoReg.gpsEntrada)}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${ultimoReg.gpsEntrada}</a>`
-                    : `<span class="text-slate-400 text-[10px]">Sem GPS recente</span>`;
-
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-50 border-b">
-                        <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
-                        <td class="p-3">${setorBadge}</td>
-                        <td class="p-3">${statusBadge}</td>
-                        <td class="p-3">${detalheTexto}</td>
-                        <td class="p-3">${gpsStr}</td>
-                        <td class="p-3">${acaoHtml}</td>
-                    </tr>
-                `;
-            });
-
-            document.getElementById('disp-card-disponiveis').innerText = countDisp;
-            document.getElementById('disp-card-atendimento').innerText = countAtend;
-            document.getElementById('disp-card-indisponiveis').innerText = countIndisp;
-            document.getElementById('badge-aba-indisp').innerText = `${countIndisp} indisp.`;
-        }
-
-        async function atualizarDashboardGestor() {
-            const dataInicio = document.getElementById('gestor-filtro-data-inicio').value;
-            const dataFim = document.getElementById('gestor-filtro-data-fim').value;
-            const fEquipe = document.getElementById('gestor-filtro-equipe').value;
-            const fProjeto = document.getElementById('gestor-filtro-projeto').value;
-            const termoBusca = document.getElementById('inp-busca-global')?.value.toLowerCase().trim() || "";
-
-            const corpoAtiv = document.getElementById('tabela-gestor-corpo');
-            const corpoMat = document.getElementById('tabela-materiais-corpo');
-            const corpoImp = document.getElementById('tabela-imprevistos-corpo');
-            if (corpoAtiv) corpoAtiv.innerHTML = "";
-            if (corpoMat) corpoMat.innerHTML = "";
-            if (corpoImp) corpoImp.innerHTML = "";
-
-            let filtradosBase = registrosSalvos.filter(item => {
-                let mData = true;
-                if (dataInicio && dataFim) {
-                    mData = item.dataRegistro >= dataInicio && item.dataRegistro <= dataFim;
-                } else if (dataInicio) {
-                    mData = item.dataRegistro >= dataInicio;
-                } else if (dataFim) {
-                    mData = item.dataRegistro <= dataFim;
-                }
-
-                let mEquipe = fEquipe ? item.equipe === fEquipe : true;
-
-                let mBusca = true;
-                if (termoBusca) {
-                    mBusca = (item.imovel && item.imovel.toLowerCase().includes(termoBusca)) ||
-                             (item.endereco && item.endereco.toLowerCase().includes(termoBusca)) ||
-                             (item.equipe && item.equipe.toLowerCase().includes(termoBusca)) ||
-                             (item.projeto && item.projeto.toLowerCase().includes(termoBusca)) ||
-                             (item.motivoDesfecho && item.motivoDesfecho.toLowerCase().includes(termoBusca)) ||
-                             (item.desfecho && item.desfecho.toLowerCase().includes(termoBusca));
-                }
-
-                return mData && mEquipe && mBusca;
-            });
-
-            let listaImprevistos = filtradosBase.filter(i => i.projeto === 'IMPREVISTO / ATRASO' || i.desfecho === 'IMPREVISTO' || i.desfecho === 'IMPREVISTO RESOLVIDO');
-            let filtrados = filtradosBase.filter(i => i.projeto !== 'IMPREVISTO / ATRASO' && i.desfecho !== 'IMPREVISTO' && i.desfecho !== 'IMPREVISTO RESOLVIDO' && (fProjeto ? i.projeto === fProjeto : true));
-
-            dadosFiltradosAtuais = filtrados;
-            listaImprevistosAtuais = listaImprevistos;
-
-            renderizarPainelDisponibilidade();
-
-            const qtdEmAndamento = filtrados.filter(i => i.desfecho === 'EM ANDAMENTO').length;
-            const imprevistosAbertos = listaImprevistos.filter(i => i.desfecho === 'IMPREVISTO').length;
-
-            document.getElementById('kpi-proj-andamento').innerText = qtdEmAndamento;
-            document.getElementById('badge-aba-andamento').innerText = `${qtdEmAndamento} em andamento`;
-            document.getElementById('kpi-proj-imprevistos').innerText = listaImprevistos.length;
-            document.getElementById('badge-aba-imprevistos').innerText = listaImprevistos.length;
-            document.getElementById('contador-imprevistos').innerText = `${listaImprevistos.length} imprevisto(s) (${imprevistosAbertos} ativo(s))`;
-
-            const alertaImp = document.getElementById('alerta-imprevistos-supervisao');
-            if (alertaImp) {
-                if (imprevistosAbertos > 0 && alertaImp.dataset.fechadoPeloGestor !== "true") {
-                    alertaImp.classList.remove('hidden');
-                    document.getElementById('txt-alerta-imprevistos').innerText = `Existem ${imprevistosAbertos} técnico(s) com imprevisto ATIVO (indisponíveis) neste momento.`;
-                } else if (imprevistosAbertos === 0) {
-                    alertaImp.classList.add('hidden');
-                }
-            }
-
-            if (corpoImp) {
-                if (listaImprevistos.length === 0) {
-                    corpoImp.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum imprevisto ou atraso reportado no período.</td></tr>`;
-                } else {
-                    listaImprevistos.forEach(imp => {
-                        const motivoPrincipal = (imp.malogros && imp.malogros.length > 0) ? imp.malogros[0] : "IMPREVISTO";
-                        const obsTexto = imp.observacoes || imp.motivoDesfecho || "-";
-                        const linkGps = (imp.gpsEntrada && imp.gpsEntrada.includes(',')) ?
-                            `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(imp.gpsEntrada)}" target="_blank" onclick="event.stopPropagation()" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${imp.gpsEntrada}</a>` :
-                            (imp.gpsEntrada || "-");
-
-                        const estaAberto = imp.desfecho === 'IMPREVISTO';
-                        const badgeSituacao = estaAberto
-                            ? `<span class="bg-red-100 text-red-800 border border-red-300 font-black px-2 py-0.5 rounded text-[10px]">🔴 EM ABERTO (Indisponível)</span>`
-                            : `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold px-2 py-0.5 rounded text-[10px]">🟢 RESOLVIDO (Disponível)</span>`;
-
-                        let acoesImp = "";
-                        if (estaAberto) {
-                            acoesImp += `<button onclick="resolverImprevistoPorId(${imp.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded mr-1 shadow-sm">✅ Resolver</button>`;
-                        }
-                        if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
-                            acoesImp += `<button onclick="excluirRegistro(${imp.id}, 'IMPREVISTO')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>`;
-                        }
-
-                        const trImp = document.createElement('tr');
-                        trImp.className = "hover:bg-amber-50/50 border-b cursor-pointer transition";
-                        trImp.onclick = () => abrirDetalhesAtividade(imp);
-
-                        trImp.innerHTML = `
-                            <td class="p-3"><div class="font-bold text-slate-800">${imp.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">Início: ${imp.hEntrada} | Fim: ${imp.hSaida}</div></td>
-                            <td class="p-3 font-bold text-blue-900">${imp.equipe}</td>
-                            <td class="p-3"><span class="bg-amber-100 text-amber-900 font-bold px-2.5 py-1 rounded text-[10px]">${motivoPrincipal}</span></td>
-                            <td class="p-3">${badgeSituacao}</td>
-                            <td class="p-3 text-slate-600">${obsTexto}</td>
-                            <td class="p-3 font-mono text-[10px]">${linkGps}</td>
-                            <td class="p-3" onclick="event.stopPropagation()">${acoesImp}</td>
-                        `;
-                        corpoImp.appendChild(trImp);
-                    });
-                }
-            }
-
-            const finalizadas = filtrados.filter(i => i.desfecho !== 'EM ANDAMENTO');
-
-            document.getElementById('kpi-proj-vistoria').innerText = finalizadas.filter(i => i.projeto === 'VISTORIA').length;
-            document.getElementById('kpi-proj-ativacao').innerText = finalizadas.filter(i => i.projeto === 'ATIVAÇÃO').length;
-            document.getElementById('kpi-proj-construcao').innerText = finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO').length;
-            document.getElementById('kpi-proj-const-ativ').innerText = finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO + ATIVAÇÃO').length;
-            document.getElementById('kpi-proj-nap-ativ').innerText = finalizadas.filter(i => i.projeto === 'NAP LOTADA ATIVAÇÃO').length;
-            document.getElementById('kpi-proj-nap-const').innerText = finalizadas.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO').length;
-            document.getElementById('kpi-proj-nap-ambos').innerText = finalizadas.filter(i => i.projeto === 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO').length;
-            document.getElementById('contador-resultados').innerText = `${filtrados.length} registros (${qtdEmAndamento} em andamento)`;
-            document.getElementById('contador-materiais').innerText = finalizadas.length + " registros finalizados";
-
-            let concluidasCount = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
-            let malogradasCount = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
-            let pendentesCount = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
-
-            document.getElementById('bonif-elegiveis').innerText = concluidasCount;
-            document.getElementById('bonif-parciais').innerText = pendentesCount;
-            document.getElementById('bonif-media-geral').innerText = finalizadas.length > 0 ? (concluidasCount / (new Set(finalizadas.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0";
-            document.getElementById('bonif-malogros').innerText = malogradasCount;
-
-            let sumCaboRL = 0, sumConectores = 0, sumCaboDrop = 0, sumNap = 0, sumDio = 0, sumFusoes = 0;
-            let sumSobrepor = 0, sumEmbutida = 0, sumFosc = 0, sumVistorias = 0;
-
-            finalizadas.forEach(i => {
-                if (i.projeto === 'VISTORIA' && i.desfecho === 'CONCLUIDA') sumVistorias++;
-                sumCaboRL += Number(i.caboRL) || 0;
-                sumConectores += Number(i.conectores) || 0;
-                sumCaboDrop += Number(i.caboDrop) || 0;
-                sumNap += Number(i.nap) || 0;
-                sumDio += Number(i.dio) || 0;
-                sumFusoes += Number(i.fusoes) || 0;
-                sumSobrepor += Number(i.cxSobrepor) || 0;
-                sumEmbutida += Number(i.cxEmbutida) || 0;
-                sumFosc += Number(i.cxFosc) || 0;
-            });
-
-            document.getElementById('total-cabo-rl').innerText = sumCaboRL + " m";
-            document.getElementById('total-conectores').innerText = sumConectores;
-            document.getElementById('total-cabo-drop').innerText = sumCaboDrop + " m";
-            document.getElementById('total-nap').innerText = sumNap;
-            document.getElementById('total-dio').innerText = sumDio;
-            document.getElementById('total-fusoes').innerText = sumFusoes;
-            document.getElementById('total-cx-sobrepor').innerText = sumSobrepor;
-            document.getElementById('total-cx-embutida').innerText = sumEmbutida;
-            document.getElementById('total-cx-fosc').innerText = sumFosc;
-
-            totaisFinanceirosAtuais = {
-                vistorias: sumVistorias,
-                caboRL: sumCaboRL,
-                conectores: sumConectores,
-                fusoes: sumFusoes,
-                caboDrop: sumCaboDrop,
-                nap: sumNap,
-                dio: sumDio,
-                cxSobrepor: sumSobrepor,
-                cxEmbutida: sumEmbutida
-            };
-            renderizarTabelaFinanceiro(totaisFinanceirosAtuais);
-
-            if (filtrados.length === 0) {
-                if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
-                if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
-                renderizarGraficos([]);
-                renderizarRankingTecnicos([]);
-                renderizarOfensoresMalogro([]);
-                renderizarTabelaConsolidada([]);
-                renderizarRankingsSeparados([]);
-                renderizarTabelaUsuariosPermissao();
-                return;
-            }
-
-            const filtradosOrdenados = [...filtrados].sort((a, b) => {
-                if (a.desfecho === 'EM ANDAMENTO' && b.desfecho !== 'EM ANDAMENTO') return -1;
-                if (a.desfecho !== 'EM ANDAMENTO' && b.desfecho === 'EM ANDAMENTO') return 1;
-                return b.id - a.id;
-            });
-
-            filtradosOrdenados.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.className = item.desfecho === 'EM ANDAMENTO' 
-                    ? "bg-blue-50/70 hover:bg-blue-100/60 border-b cursor-pointer transition" 
-                    : "hover:bg-blue-50/50 border-b cursor-pointer transition";
-                tr.title = "Clique para ver todos os detalhes e fotos";
-                tr.onclick = () => abrirDetalhesAtividade(item);
-                
-                let botoesAcao = "";
-                if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
-                    botoesAcao = `
-                        <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 px-2 py-1 rounded mr-1">✏️ Editar</button>
-                        <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
-                    `;
-                } else {
-                    botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
-                }
-
-                const minIn = converterHorarioParaMinutos(item.hEntrada);
-                const minOut = converterHorarioParaMinutos(item.hSaida);
-                const duracaoStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(minOut - minIn) : (item.desfecho === 'EM ANDAMENTO' ? '⏳ Em execução' : '-');
-                const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
-
-                const eqObj = equipesSistema.find(e => e.nome === item.equipe);
-                const setorStr = eqObj ? eqObj.setor : "Instalador";
-
-                const tagsOpcoesHtml = (item.malogros && item.malogros.length > 0)
-                    ? `<div class="mt-1 flex flex-wrap gap-1">${item.malogros.map(op => `<span class="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">${op}</span>`).join('')}</div>`
-                    : '';
-
-                // ITEM 03: Selo indicador de fotos anexadas na linha da atividade
-                const badgeFotosHtml = (item.fotos && item.fotos.length > 0)
-                    ? `<span class="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-300 font-bold px-2 py-0.5 rounded-md text-[10px] inline-block" title="Clique para ver e baixar as fotos">📷 ${item.fotos.length} foto(s)</span>`
-                    : '';
-
-                tr.innerHTML = `
-                    <td class="p-3">
-                        <div class="font-bold text-slate-800">${item.imovel}</div>
-                        <div class="text-[10px] text-blue-900 font-medium truncate max-w-[200px]" title="${item.endereco || ''}">📍 ${item.endereco || 'Endereço não informado'}</div>
-                        <div class="text-[10px] text-slate-400">${item.dataRegistro}</div>
-                    </td>
-                    <td class="p-3">
-                        <div class="font-semibold text-slate-800">${item.equipe}</div>
-                        <span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">${setorStr}</span>
-                    </td>
-                    <td class="p-3">
-                        <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px] inline-block">${item.projeto}</span>
-                        <div class="text-[10px] text-slate-500 mt-1 font-semibold">🏢 Andares: <b>${item.andares || 0}</b> | HPs: <b>${item.hps || 0}</b></div>
-                    </td>
-                    <td class="p-3">
-                        <div class="flex flex-wrap items-center gap-1">
-                            <span class="font-bold px-2.5 py-1 rounded-md text-[10px] inline-block ${classeCorDesfecho}">${item.desfecho}</span>
-                            ${badgeFotosHtml}
-                        </div>
-                        ${tagsOpcoesHtml}
-                    </td>
-                    <td class="p-3">
-                        <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
-                        <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
-                        <div class="text-[10px] text-emerald-700 font-bold mt-0.5">⏱️ Duração: ${duracaoStr}</div>
-                    </td>
-                    <td class="p-3 text-[10px] font-mono text-slate-600">
-                        <div>In: ${item.gpsEntrada}</div>
-                        <div>Out: ${item.gpsSaida}</div>
-                    </td>
-                    <td class="p-3" onclick="event.stopPropagation()">
-                        ${botoesAcao}
-                    </td>
-                `;
-                corpoAtiv.appendChild(tr);
-
-                if (item.desfecho !== 'EM ANDAMENTO') {
-                    const trMat = document.createElement('tr');
-                    trMat.className = "hover:bg-slate-50 border-b transition";
-                    trMat.innerHTML = `
-                        <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
-                        <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
-                        <td class="p-2.5 font-semibold">${item.caboRL} m</td>
-                        <td class="p-2.5 font-semibold">${item.conectores}</td>
-                        <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
-                        <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
-                        <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
-                        <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
-                        <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
-                        <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
-                        <td class="p-2.5 font-semibold">${item.fusoes}</td>
-                    `;
-                    corpoMat.appendChild(trMat);
-                }
-            });
-
-            renderizarGraficos(finalizadas);
-            renderizarRankingTecnicos(finalizadas);
-            renderizarOfensoresMalogro(finalizadas);
-            renderizarTabelaConsolidada(finalizadas);
-            renderizarRankingsSeparados(finalizadas);
-            renderizarTabelaUsuariosPermissao();
-        }
-
-        function renderizarOfensoresMalogro(dados) {
+function renderizarOfensoresMalogro(dados) {
             const tbody = document.getElementById('tabela-ofensores-malogro-corpo');
             const badgeTotal = document.getElementById('badge-total-ocorrencias-malogro');
             if (!tbody) return;
@@ -3488,11 +3461,6 @@
         function renderizarRankingsSeparados(dados) {
             let totalGeral = dados.length;
 
-            let tiposProjetos = [
-                'VISTORIA', 'ATIVAÇÃO', 'CONSTRUÇÃO', 'CONSTRUÇÃO + ATIVAÇÃO', 
-                'NAP LOTADA ATIVAÇÃO', 'NAP LOTADA CONSTRUÇÃO', 'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO'
-            ];
-
             function preencherTabelaRank(desfechoAlvo, idTabela, idTotal) {
                 const tbody = document.getElementById(idTabela);
                 const spanTotal = document.getElementById(idTotal);
@@ -3503,7 +3471,7 @@
                 spanTotal.innerText = `${subset.length} total`;
 
                 let contagemProj = {};
-                tiposProjetos.forEach(p => contagemProj[p] = 0);
+                TODOS_OS_PROJETOS.forEach(p => contagemProj[p] = 0);
                 subset.forEach(d => {
                     if (contagemProj[d.projeto] !== undefined) contagemProj[d.projeto]++;
                 });
@@ -3514,7 +3482,7 @@
                     let perc = totalGeral > 0 ? ((qtd / totalGeral) * 100).toFixed(1) : 0;
                     tbody.innerHTML += `
                         <tr class="border-b hover:bg-slate-50">
-                            <td class="py-1.5 font-medium text-slate-700 truncate max-w-[120px]">${proj}</td>
+                            <td class="py-1.5 font-medium text-slate-700 truncate max-w-[140px]">${proj}</td>
                             <td class="py-1.5 text-center font-bold text-blue-900">${qtd}</td>
                             <td class="py-1.5 text-right text-slate-500">${perc}%</td>
                         </tr>
@@ -3536,7 +3504,7 @@
             let categorias = {};
 
             dados.forEach(d => {
-                let chave = `${d.projeto} (${d.desfecho})`;
+                let chave = `[${obterMacroGrupoProjeto(d.projeto)}] ${d.projeto} (${d.desfecho})`;
                 categorias[chave] = (categorias[chave] || 0) + 1;
             });
 
@@ -3577,7 +3545,6 @@
             const duracaoStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(minOut - minIn) : "-";
             const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
 
-            // ITEM 03: Galeria de Fotos no Modal Gestor com Ampliar e Baixar
             const codigoLimpo = (item.imovel || 'imovel').replace(/[^a-zA-Z0-9_-]/g, '_');
             let galeriaFotosHtml = '';
             if (item.fotos && item.fotos.length > 0) {
@@ -3618,7 +3585,7 @@
                     <div class="col-span-2"><strong>📍 Endereço do Atendimento:</strong> <span class="font-bold text-blue-950">${item.endereco || 'Não informado'}</span></div>
                     <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
                     <div><strong>Técnico / Equipe:</strong> ${item.equipe}</div>
-                    <div><strong>Projeto / Tipo:</strong> ${item.projeto}</div>
+                    <div><strong>Projeto / Grupo:</strong> ${item.projeto} (${obterMacroGrupoProjeto(item.projeto)})</div>
                     <div><strong>Desfecho:</strong> <span class="font-bold px-2 py-0.5 rounded text-[10px] ${classeCorDesfecho}">${item.desfecho}</span></div>
                     <div><strong>Serviço de Obra:</strong> <span class="font-bold">${item.servicoObra || 'SIM'}</span></div>
                     <div><strong>Andares:</strong> ${item.andares || 0}</div>
@@ -3687,7 +3654,7 @@
                             <td class="p-2.5 font-mono text-slate-600 font-bold">${item.dataRegistro}</td>
                             <td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'}</div></td>
                             <td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td>
-                            <td class="p-2.5">${item.projeto}</td>
+                            <td class="p-2.5"><b>${item.projeto}</b> <span class="text-[9px] text-slate-400">(${obterMacroGrupoProjeto(item.projeto)})</span></td>
                             <td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] inline-block ${classeCorDesfecho}">${item.desfecho}</span></td>
                             <td class="p-2.5 text-slate-500">${detalheInfo}</td>
                         </tr>
@@ -3702,15 +3669,8 @@
         }
 
         function renderizarGraficos(dados) {
-            let projetosCount = {
-                'VISTORIA': 0,
-                'ATIVAÇÃO': 0,
-                'CONSTRUÇÃO': 0,
-                'CONSTRUÇÃO + ATIVAÇÃO': 0,
-                'NAP LOTADA ATIVAÇÃO': 0,
-                'NAP LOTADA CONSTRUÇÃO': 0,
-                'NAP LOTADA CONSTRUÇÃO + ATIVAÇÃO': 0
-            };
+            let projetosCount = {};
+            TODOS_OS_PROJETOS.forEach(p => projetosCount[p] = 0);
 
             let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
 
@@ -3720,7 +3680,7 @@
             let aberturasPorHora = new Array(24).fill(0);
             let fechamentosPorHora = new Array(24).fill(0);
             let duracaoPorProjeto = {};
-            Object.keys(projetosCount).forEach(k => duracaoPorProjeto[k] = []);
+            TODOS_OS_PROJETOS.forEach(k => duracaoPorProjeto[k] = []);
 
             dados.forEach(d => {
                 if (projetosCount[d.projeto] !== undefined) {
@@ -3816,7 +3776,7 @@
                         datasets: [{
                             label: 'Volume de Atendimentos',
                             data: Object.values(projetosCount),
-                            backgroundColor: ['#1e3a8a', '#2563eb', '#3b82f6', '#60a5fa', '#d97706', '#ea580c', '#059669'],
+                            backgroundColor: ['#7c3aed', '#4f46e5', '#2563eb', '#ea580c', '#059669', '#0d9488', '#d97706'],
                             borderRadius: 6
                         }]
                     },
@@ -3948,7 +3908,7 @@
             }
 
             let colunas = [
-                "ID", "Data", "Equipe", "Projeto", "Imóvel / Bloco", "Endereço do Atendimento",
+                "ID", "Data", "Equipe", "Setor", "Projeto", "Macrogrupo", "Imóvel / Bloco", "Endereço do Atendimento",
                 "Hora Entrada", "Hora Saída", "Duração", "GPS Entrada", "GPS Saída", 
                 "Desfecho", "Qtd Fotos", "Serviço Obra", "Opções/Ofensores", "Motivo Desfecho", "Responsável", "Contato", 
                 "E-mail", "Andares", "HPs", 
@@ -3960,12 +3920,16 @@
                 const minIn = converterHorarioParaMinutos(r.hEntrada);
                 const minOut = converterHorarioParaMinutos(r.hSaida);
                 const durStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(minOut - minIn) : "-";
+                const eqObj = equipesSistema.find(e => e.nome === r.equipe);
+                const setorStr = eqObj ? eqObj.setor : "Instalador";
 
                 return [
                     r.id || "",
                     r.dataRegistro || "",
                     r.equipe || "",
+                    setorStr,
                     r.projeto || "",
+                    obterMacroGrupoProjeto(r.projeto),
                     r.imovel || "",
                     r.endereco || "",
                     r.hEntrada || "",
@@ -4063,17 +4027,24 @@
             registrarLogAuditoria("EXPORTAÇÃO FINANCEIRA", `Baixada planilha de Medição Financeira (Total: R$ ${valorGeral.toFixed(2)}).`);
         }
 
+        // ITEM 04: Chave de 3 posições (Vistoriador, Instalador, Ativador)
         function alternarChaveSetorEquipe(setorEscolhido) {
             document.getElementById('inp-setor-equipe').value = setorEscolhido;
             const btnVist = document.getElementById('btn-chave-vistoriador');
             const btnInst = document.getElementById('btn-chave-instalador');
+            const btnAtiv = document.getElementById('btn-chave-ativador');
 
-            if (setorEscolhido === 'Vistoriador') {
-                btnVist.className = "py-2.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 bg-purple-800 text-white shadow-sm";
-                btnInst.className = "py-2.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 text-slate-600 hover:bg-slate-200";
-            } else {
-                btnInst.className = "py-2.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 bg-blue-900 text-white shadow-sm";
-                btnVist.className = "py-2.5 px-3 rounded-lg font-bold text-xs transition flex items-center justify-center gap-1.5 text-slate-600 hover:bg-slate-200";
+            const inativoClass = "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600 hover:bg-slate-200";
+            if (btnVist) btnVist.className = inativoClass;
+            if (btnInst) btnInst.className = inativoClass;
+            if (btnAtiv) btnAtiv.className = inativoClass;
+
+            if (setorEscolhido === 'Vistoriador' && btnVist) {
+                btnVist.className = "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 bg-purple-800 text-white shadow-sm";
+            } else if (setorEscolhido === 'Ativador' && btnAtiv) {
+                btnAtiv.className = "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 bg-emerald-700 text-white shadow-sm";
+            } else if (btnInst) {
+                btnInst.className = "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 bg-blue-900 text-white shadow-sm";
             }
         }
 
@@ -4130,11 +4101,12 @@
             alert("☁️ Equipe e Setor de Atuação salvos e sincronizados na nuvem!");
         }
 
-        async function alternarSetorDiretoNaTabela(idEquipe) {
+        async function definirSetorDiretoNaTabela(idEquipe, novoSetor) {
             if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
             const eq = equipesSistema.find(e => e.id === idEquipe);
-            if (!eq) return;
-            eq.setor = eq.setor === 'Vistoriador' ? 'Instalador' : 'Vistoriador';
+            if (!eq || eq.setor === novoSetor) return;
+            eq.setor = novoSetor;
+            registrarLogAuditoria("ALTERAÇÃO DE SETOR", `Técnico ${eq.nome} alterado para o grupo ${novoSetor}`);
             await sincronizarEquipesNaNuvem();
             popularSelectEquipes();
             renderizarTabelaEquipes();
@@ -4146,17 +4118,22 @@
             if (!corpo) return;
             corpo.innerHTML = "";
             equipesSistema.forEach(eq => {
-                const isVist = eq.setor === 'Vistoriador';
+                const s = eq.setor || 'Instalador';
                 const chaveSetorHtml = `
                     <div class="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-300">
-                        <button onclick="if('${eq.setor}' !== 'Vistoriador') alternarSetorDiretoNaTabela(${eq.id})" class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${isVist ? 'bg-purple-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}">
+                        <button onclick="definirSetorDiretoNaTabela(${eq.id}, 'Vistoriador')" class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${s === 'Vistoriador' ? 'bg-purple-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}">
                             🔍 Vistoriador
                         </button>
-                        <button onclick="if('${eq.setor}' !== 'Instalador') alternarSetorDiretoNaTabela(${eq.id})" class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${!isVist ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}">
+                        <button onclick="definirSetorDiretoNaTabela(${eq.id}, 'Instalador')" class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${s === 'Instalador' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}">
                             🛠️ Instalador
+                        </button>
+                        <button onclick="definirSetorDiretoNaTabela(${eq.id}, 'Ativador')" class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${s === 'Ativador' ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}">
+                            ⚡ Ativador
                         </button>
                     </div>
                 `;
+
+                const projsHabilitados = (PROJETOS_POR_SETOR[s] || []).map(p => `<span class="bg-slate-100 border border-slate-300 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded">${p}</span>`).join(' ');
 
                 let acoesEq = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') ? 
                     `<button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>` :
@@ -4170,6 +4147,7 @@
                     <tr class="hover:bg-slate-50 border-b">
                         <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
                         <td class="p-3">${chaveSetorHtml}</td>
+                        <td class="p-3"><div class="flex flex-wrap gap-1">${projsHabilitados}</div></td>
                         <td class="p-3">
                             <span class="px-2 py-0.5 rounded text-[10px] font-bold ${eq.status === 'Ativo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
                                 ${eq.status}
