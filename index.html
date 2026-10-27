@@ -67,7 +67,7 @@
                 </div>
             </div>
 
-            <!-- Menu de Abas do Gestor (Com a nova guia ⚙️ Opções) -->
+            <!-- Menu de Abas do Gestor -->
             <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center">
                 <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5">
                     📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
@@ -211,7 +211,7 @@
             <!-- Sub-Aba: Atividades -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
-                    <span>Atividades em Campo e Em Andamento (Clique na linha para ver todos os detalhes)</span>
+                    <span>Atividades em Campo e Em Andamento (Clique na linha para ver detalhes e fotos 📷)</span>
                     <span class="text-xs font-normal text-slate-500" id="contador-resultados">0 registros</span>
                 </div>
                 <div class="overflow-x-auto">
@@ -221,7 +221,7 @@
                                 <th class="p-3">Data / Imóvel / Endereço</th>
                                 <th class="p-3">Equipe / Setor</th>
                                 <th class="p-3">Projeto / Andares & HPs</th>
-                                <th class="p-3">Status / Desfecho</th>
+                                <th class="p-3">Status / Desfecho & Fotos</th>
                                 <th class="p-3">Horários & Duração</th>
                                 <th class="p-3">GPS (Entrada / Saída)</th>
                                 <th class="p-3" id="th-acao-master-label">Ações / Gestão</th>
@@ -869,7 +869,7 @@
                             <div class="pt-2 border-t border-slate-200 flex items-center justify-between gap-3">
                                 <div>
                                     <label class="block text-xs font-black text-blue-950 uppercase">🏢 Quantidade de Blocos:</label>
-                                    <span class="text-[10px] text-slate-500">Cada bloco terá Andares, HPs, Materiais e Desfecho próprios</span>
+                                    <span class="text-[10px] text-slate-500">Cada bloco terá Andares, HPs, Materiais, Fotos e Desfecho</span>
                                 </div>
                                 <input type="number" id="inp-qtd-blocos" min="1" max="20" value="1" onchange="alterarQuantidadeBlocos(this.value)" class="w-20 text-center font-black text-sm border-2 border-blue-600 rounded-xl p-2 bg-white text-blue-950 outline-none">
                             </div>
@@ -1016,7 +1016,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE DETALHES -->
+    <!-- MODAL DE DETALHES (COM GALERIA DE FOTOS E DOWNLOAD) -->
     <div id="modal-detalhes" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
@@ -1030,6 +1030,22 @@
                 </button>
                 <button onclick="fecharModalDetalhes()" class="bg-slate-600 hover:bg-slate-700 text-white text-xs px-4 py-2 rounded-lg font-medium">Fechar</button>
             </div>
+        </div>
+    </div>
+
+    <!-- NOVO MODAL (ITEM 03): VISUALIZADOR / ZOOM DE FOTO EM TELA CHEIA -->
+    <div id="modal-zoom-foto" class="fixed inset-0 bg-black/85 backdrop-blur-sm flex flex-col justify-center items-center p-4 hidden z-[60]">
+        <div class="w-full max-w-3xl flex justify-between items-center text-white mb-3 px-2">
+            <span class="font-bold text-sm" id="lbl-titulo-zoom-foto">📷 Visualização da Foto</span>
+            <div class="flex items-center gap-2">
+                <a id="btn-download-zoom-foto" href="#" download="foto_gpd.jpg" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-md flex items-center gap-1.5">
+                    ⬇️ Baixar Foto
+                </a>
+                <button onclick="fecharZoomFoto()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl">✕ Fechar</button>
+            </div>
+        </div>
+        <div class="bg-slate-900 p-2 rounded-2xl border border-slate-700 max-h-[80vh] overflow-auto flex justify-center items-center">
+            <img id="img-zoom-alvo" src="" alt="Foto da atividade" class="max-h-[75vh] w-auto rounded-xl object-contain">
         </div>
     </div>
 
@@ -1102,7 +1118,7 @@
             </div>
         </div>
     </div>
-<!-- Script Principal - Parte 1 de 2 -->
+<!-- Script Principal - Parte 1 de 2 (Com Sistema de Fotos no Fechamento) -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1432,6 +1448,7 @@
                     !document.getElementById('modal-edicao').classList.contains('hidden') ||
                     !document.getElementById('modal-explosao').classList.contains('hidden') ||
                     !document.getElementById('modal-detalhes').classList.contains('hidden') ||
+                    !document.getElementById('modal-zoom-foto').classList.contains('hidden') ||
                     !document.getElementById('modal-equipe').classList.contains('hidden') ||
                     !document.getElementById('modal-usuario').classList.contains('hidden') ||
                     !document.getElementById('modal-imprevisto').classList.contains('hidden');
@@ -1444,6 +1461,100 @@
                 }
             }, 180000);
         };
+
+        // --- ITEM 03: FUNÇÕES DE COMPRESSÃO, ANEXO, ZOOM E DOWNLOAD DE FOTOS ---
+        function comprimirImagemBase64(file, maxWidth = 850, quality = 0.65) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        resolve(dataUrl);
+                    };
+                    img.onerror = reject;
+                    img.src = event.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function aoSelecionarFotosBloco(idx, inputEl) {
+            lerDadosBlocosDaTela();
+            const arquivos = Array.from(inputEl.files || []);
+            if (arquivos.length === 0) return;
+
+            const bloco = dadosAtendimento.blocos[idx];
+            if (!bloco.fotos) bloco.fotos = [];
+
+            if (bloco.fotos.length + arquivos.length > 4) {
+                alert("⚠️ Você pode anexar no máximo 4 fotos por bloco.");
+                inputEl.value = "";
+                return;
+            }
+
+            for (const arq of arquivos) {
+                try {
+                    const base64Comprimida = await comprimirImagemBase64(arq, 850, 0.65);
+                    bloco.fotos.push(base64Comprimida);
+                } catch (e) {
+                    console.warn("Erro ao processar foto:", e);
+                }
+            }
+
+            inputEl.value = "";
+            renderizarBlocosCampo();
+            salvarRascunhoCampo();
+        }
+
+        function removerFotoBloco(idxBloco, idxFoto) {
+            lerDadosBlocosDaTela();
+            const bloco = dadosAtendimento.blocos[idxBloco];
+            if (bloco && Array.isArray(bloco.fotos)) {
+                bloco.fotos.splice(idxFoto, 1);
+                renderizarBlocosCampo();
+                salvarRascunhoCampo();
+            }
+        }
+
+        function abrirZoomFoto(srcBase64, nomeArquivo = "foto_gpd.jpg") {
+            const modal = document.getElementById('modal-zoom-foto');
+            const img = document.getElementById('img-zoom-alvo');
+            const btnDown = document.getElementById('btn-download-zoom-foto');
+            const lbl = document.getElementById('lbl-titulo-zoom-foto');
+            if (!modal || !img) return;
+
+            img.src = srcBase64;
+            btnDown.href = srcBase64;
+            btnDown.download = nomeArquivo;
+            lbl.innerText = `📷 ${nomeArquivo}`;
+            modal.classList.remove('hidden');
+        }
+
+        function fecharZoomFoto() {
+            document.getElementById('modal-zoom-foto').classList.add('hidden');
+        }
+
+        function baixarFotoDireto(srcBase64, nomeArquivo) {
+            const a = document.createElement('a');
+            a.href = srcBase64;
+            a.download = nomeArquivo;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
 
         function criarObjetoBlocoPadrao(numero) {
             return {
@@ -1466,7 +1577,8 @@
                 pendenciasOpcoes: [],
                 obsMalograda: "",
                 malogros: [],
-                observacoes: ""
+                observacoes: "",
+                fotos: []
             };
         }
 
@@ -1536,6 +1648,7 @@
             const qtdTotal = dadosAtendimento.blocos.length;
 
             dadosAtendimento.blocos.forEach((b, idx) => {
+                if (!b.fotos) b.fotos = [];
                 const mostrarIdentBloco = qtdTotal > 1;
                 const d = b.desfecho;
 
@@ -1554,6 +1667,13 @@
                     const destaque = ofensor === 'REDE CORRETIVA' ? 'font-black text-red-900 bg-red-100/70 px-1.5 py-0.5 rounded' : '';
                     return `<label class="flex items-center gap-1.5 ${destaque}"><input type="checkbox" name="bloco-malogro-check-${idx}" value="${ofensor}" ${checked}> ${ofensor}</label>`;
                 }).join('');
+
+                const miniaturasFotosHtml = b.fotos.map((fotoSrc, fIdx) => `
+                    <div class="relative group border border-slate-300 rounded-lg overflow-hidden w-16 h-16 bg-slate-100">
+                        <img src="${fotoSrc}" onclick="abrirZoomFoto('${fotoSrc}', 'Foto_${fIdx + 1}.jpg')" class="w-full h-full object-cover cursor-pointer">
+                        <button type="button" onclick="removerFotoBloco(${idx}, ${fIdx})" class="absolute top-0.5 right-0.5 bg-red-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow">✕</button>
+                    </div>
+                `).join('');
 
                 const card = document.createElement('div');
                 card.className = "bg-white p-3.5 rounded-xl border-2 border-blue-900/20 shadow-sm space-y-3";
@@ -1639,6 +1759,18 @@
                         </div>
                     </div>
 
+                    <!-- ITEM 03: BLOCO DE FOTOS NO FECHAMENTO DO ATENDIMENTO -->
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <label class="text-[11px] font-bold text-blue-950 flex items-center gap-1">📷 Fotos do Fechamento (${b.fotos.length}/4)</label>
+                            <label class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg cursor-pointer shadow-sm transition">
+                                + Tirar / Anexar Foto
+                                <input type="file" accept="image/*" multiple onchange="aoSelecionarFotosBloco(${idx}, this)" class="hidden">
+                            </label>
+                        </div>
+                        ${b.fotos.length > 0 ? `<div class="flex flex-wrap gap-2 pt-1">${miniaturasFotosHtml}</div>` : `<p class="text-[10px] text-slate-400">Nenhuma foto anexada neste bloco.</p>`}
+                    </div>
+
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-600">Observações Gerais ${qtdTotal > 1 ? `(${b.identificacao})` : ''}</label>
                         <textarea id="bloco-observacoes-${idx}" rows="2" class="w-full text-xs border border-slate-300 rounded-lg p-2 outline-none" placeholder="Ocorrências...">${b.observacoes}</textarea>
@@ -1668,7 +1800,11 @@
                 qtdBlocos: document.getElementById('inp-qtd-blocos')?.value || 1,
                 blocos: dadosAtendimento.blocos
             };
-            localStorage.setItem('gpd_rascunho_campo_ativo', JSON.stringify(rascunho));
+            try {
+                localStorage.setItem('gpd_rascunho_campo_ativo', JSON.stringify(rascunho));
+            } catch (e) {
+                console.warn("Aviso ao salvar rascunho local:", e);
+            }
         }
 
         function restaurarRascunhoCampo() {
@@ -1874,6 +2010,9 @@
             }
             if (r.motivoDesfecho) {
                 linhas.push(`💬 *Detalhe:* ${r.motivoDesfecho}`);
+            }
+            if (r.fotos && r.fotos.length > 0) {
+                linhas.push(`📷 *Fotos Anexadas:* ${r.fotos.length} foto(s) no sistema`);
             }
             return linhas.join('\n');
         }
@@ -2137,9 +2276,24 @@
                         r.projeto !== '__CONFIG_OPCOES__'
                     );
 
+                    // Extrai tanto o [END: ...] quanto as fotos [FOTOS:[...]] salvas em observacoes
                     registrosSalvos = registrosReais.map(r => {
                         let obsBruta = r.observacoes || '';
                         let endExtraido = '';
+                        let fotosExtraidas = [];
+
+                        const posFotos = obsBruta.indexOf('[FOTOS:');
+                        if (posFotos !== -1) {
+                            const fimFotos = obsBruta.lastIndexOf(']');
+                            if (fimFotos > posFotos) {
+                                const jsonStr = obsBruta.substring(posFotos + 7, fimFotos);
+                                try {
+                                    fotosExtraidas = JSON.parse(jsonStr);
+                                } catch (e) { console.warn("Erro ao extrair fotos:", e); }
+                                obsBruta = (obsBruta.substring(0, posFotos) + obsBruta.substring(fimFotos + 1)).trim();
+                            }
+                        }
+
                         if (obsBruta.startsWith('[END:')) {
                             let fimTag = obsBruta.indexOf(']');
                             if (fimTag !== -1) {
@@ -2147,6 +2301,7 @@
                                 obsBruta = obsBruta.substring(fimTag + 1).trim();
                             }
                         }
+
                         return {
                             id: r.id,
                             dataRegistro: r.data_registro || '',
@@ -2155,6 +2310,7 @@
                             projeto: r.projeto || '',
                             imovel: r.imovel || '',
                             endereco: endExtraido,
+                            fotos: Array.isArray(fotosExtraidas) ? fotosExtraidas : [],
                             hEntrada: r.h_entrada || '',
                             hSaida: r.h_saida || '',
                             gpsEntrada: r.gps_entrada || '',
@@ -2193,7 +2349,7 @@
             atualizarDashboardGestor();
             const lblHora = document.getElementById('txt-hora-sync');
             if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
-            alert("🔄 Dados, opções e disponibilidade atualizados da nuvem!");
+            alert("🔄 Dados, fotos, opções e disponibilidade atualizados da nuvem!");
         }
 
         function mudarTipoProjeto() {
@@ -2483,7 +2639,7 @@
             const btnSalvar = document.getElementById('btn-salvar-final');
             if (btnSalvar) {
                 btnSalvar.disabled = true;
-                btnSalvar.innerText = "⏳ Capturando GPS de saída e salvando...";
+                btnSalvar.innerText = "⏳ Capturando GPS de saída e salvando fotos...";
             }
 
             let gpsSaidaFinal = dadosAtendimento.gpsEntrada || "Não capturado";
@@ -2525,6 +2681,9 @@
                     ? `${imovelBase} - ${(b.identificacao || 'BLOCO ' + (idx + 1)).toUpperCase().trim()}`
                     : imovelBase;
 
+                const sufixoFotos = (b.fotos && b.fotos.length > 0) ? ` [FOTOS:${JSON.stringify(b.fotos)}]` : '';
+                const obsFinal = `[END: ${enderecoGeral}] ${b.observacoes || ''}${sufixoFotos}`.trim();
+
                 return {
                     id: Date.now() + idx,
                     data_registro: dataLocalCorreta,
@@ -2546,7 +2705,7 @@
                     andares: Number(b.andares) || 0,
                     hps: Number(b.hps) || 0,
                     servico_obra: b.servicoObra || "SIM",
-                    observacoes: `[END: ${enderecoGeral}] ${b.observacoes || ''}`.trim(),
+                    observacoes: obsFinal,
                     fusoes: Number(b.fusoes) || 0,
                     conectores: Number(b.conectores) || 0,
                     cabo_rl: Number(b.caboRL) || 0,
@@ -2572,6 +2731,7 @@
             }
 
             const primeiroReg = listaRegistrosParaInserir[0];
+            const todasFotos = dadosAtendimento.blocos.flatMap(b => b.fotos || []);
             ultimoResumoCampoTexto = montarTextoResumoItem({
                 dataRegistro: dataLocalCorreta,
                 equipe: equipeNome,
@@ -2591,12 +2751,13 @@
                 nap: listaRegistrosParaInserir.reduce((acc, r) => acc + r.nap, 0),
                 dio: listaRegistrosParaInserir.reduce((acc, r) => acc + r.dio, 0),
                 malogros: primeiroReg.malogros,
-                motivoDesfecho: primeiroReg.motivo_desfecho
+                motivoDesfecho: primeiroReg.motivo_desfecho,
+                fotos: todasFotos
             });
             document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
 
-            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelBase} (${qtdBlocos} bloco(s)) | Endereço: ${enderecoGeral}`);
-            alert(`✅ Atendimento finalizado (${qtdBlocos} bloco(s)) e sincronizado com sucesso!`);
+            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelBase} (${qtdBlocos} bloco(s)) | Fotos: ${todasFotos.length}`);
+            alert(`✅ Atendimento finalizado (${qtdBlocos} bloco(s) e ${todasFotos.length} foto(s)) e sincronizado com sucesso!`);
             resetarFormularioCampo();
             await carregarRegistrosDaNuvem();
         }
@@ -2881,7 +3042,7 @@
                 tr.className = item.desfecho === 'EM ANDAMENTO' 
                     ? "bg-blue-50/70 hover:bg-blue-100/60 border-b cursor-pointer transition" 
                     : "hover:bg-blue-50/50 border-b cursor-pointer transition";
-                tr.title = "Clique para ver todos os detalhes";
+                tr.title = "Clique para ver todos os detalhes e fotos";
                 tr.onclick = () => abrirDetalhesAtividade(item);
                 
                 let botoesAcao = "";
@@ -2906,6 +3067,11 @@
                     ? `<div class="mt-1 flex flex-wrap gap-1">${item.malogros.map(op => `<span class="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">${op}</span>`).join('')}</div>`
                     : '';
 
+                // ITEM 03: Selo indicador de fotos anexadas na linha da atividade
+                const badgeFotosHtml = (item.fotos && item.fotos.length > 0)
+                    ? `<span class="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-300 font-bold px-2 py-0.5 rounded-md text-[10px] inline-block" title="Clique para ver e baixar as fotos">📷 ${item.fotos.length} foto(s)</span>`
+                    : '';
+
                 tr.innerHTML = `
                     <td class="p-3">
                         <div class="font-bold text-slate-800">${item.imovel}</div>
@@ -2921,7 +3087,10 @@
                         <div class="text-[10px] text-slate-500 mt-1 font-semibold">🏢 Andares: <b>${item.andares || 0}</b> | HPs: <b>${item.hps || 0}</b></div>
                     </td>
                     <td class="p-3">
-                        <span class="font-bold px-2.5 py-1 rounded-md text-[10px] inline-block ${classeCorDesfecho}">${item.desfecho}</span>
+                        <div class="flex flex-wrap items-center gap-1">
+                            <span class="font-bold px-2.5 py-1 rounded-md text-[10px] inline-block ${classeCorDesfecho}">${item.desfecho}</span>
+                            ${badgeFotosHtml}
+                        </div>
                         ${tagsOpcoesHtml}
                     </td>
                     <td class="p-3">
@@ -3193,7 +3362,10 @@
             let cx_fosc = Number(document.getElementById('edit-reg-cx-fosc').value) || 0;
 
             let obsLimpa = regOriginal ? (regOriginal.observacoes || '') : '';
-            let obsComEndereco = endereco ? `[END: ${endereco}] ${obsLimpa}`.trim() : obsLimpa;
+            let sufixoFotos = (regOriginal && regOriginal.fotos && regOriginal.fotos.length > 0)
+                ? ` [FOTOS:${JSON.stringify(regOriginal.fotos)}]`
+                : '';
+            let obsComEnderecoEFotos = `${endereco ? `[END: ${endereco}] ` : ''}${obsLimpa}${sufixoFotos}`.trim();
 
             let dadosAtualizados = {
                 imovel: imovel,
@@ -3201,7 +3373,7 @@
                 desfecho: desfecho,
                 andares: andares,
                 hps: hps,
-                observacoes: obsComEndereco,
+                observacoes: obsComEnderecoEFotos,
                 cabo_rl: cabo_rl,
                 conectores: conectores,
                 cabo_drop: cabo_drop,
@@ -3405,6 +3577,42 @@
             const duracaoStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(minOut - minIn) : "-";
             const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
 
+            // ITEM 03: Galeria de Fotos no Modal Gestor com Ampliar e Baixar
+            const codigoLimpo = (item.imovel || 'imovel').replace(/[^a-zA-Z0-9_-]/g, '_');
+            let galeriaFotosHtml = '';
+            if (item.fotos && item.fotos.length > 0) {
+                const cardsFotos = item.fotos.map((fSrc, idx) => {
+                    const nomeArq = `${codigoLimpo}_foto_${idx + 1}.jpg`;
+                    return `
+                        <div class="bg-white p-2 rounded-xl border border-indigo-200 shadow-sm flex flex-col items-center gap-1.5">
+                            <img src="${fSrc}" onclick="abrirZoomFoto('${fSrc}', '${nomeArq}')" class="w-full h-28 object-cover rounded-lg cursor-pointer hover:opacity-90 transition border" title="Clique para ampliar">
+                            <div class="flex gap-1 w-full">
+                                <button type="button" onclick="abrirZoomFoto('${fSrc}', '${nomeArq}')" class="flex-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-bold text-[10px] py-1 rounded">🔍 Ampliar</button>
+                                <button type="button" onclick="baixarFotoDireto('${fSrc}', '${nomeArq}')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] py-1 rounded">⬇️ Baixar</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                galeriaFotosHtml = `
+                    <div class="bg-indigo-50/70 p-3 rounded-lg border border-indigo-200 space-y-2">
+                        <h4 class="font-bold text-indigo-950 text-xs uppercase flex items-center justify-between">
+                            <span>📷 Fotos Anexadas em Campo (${item.fotos.length})</span>
+                            <span class="text-[10px] font-normal text-indigo-700">Clique na imagem para dar zoom ou baixar</span>
+                        </h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                            ${cardsFotos}
+                        </div>
+                    </div>
+                `;
+            } else {
+                galeriaFotosHtml = `
+                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-slate-400 text-[11px] flex items-center gap-1.5">
+                        <span>📷 Nenhuma foto anexada neste fechamento.</span>
+                    </div>
+                `;
+            }
+
             conteudo.innerHTML = `
                 <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
                     <div class="col-span-2"><strong>📍 Endereço do Atendimento:</strong> <span class="font-bold text-blue-950">${item.endereco || 'Não informado'}</span></div>
@@ -3418,6 +3626,8 @@
                     <div><strong>Responsável:</strong> ${item.responsavel || '-'}</div>
                     <div><strong>Contato:</strong> ${item.contato || '-'}</div>
                 </div>
+
+                ${galeriaFotosHtml}
 
                 <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 space-y-1">
                     <h4 class="font-bold text-blue-900 text-xs uppercase">🕒 Horários, Duração e GPS</h4>
@@ -3740,7 +3950,7 @@
             let colunas = [
                 "ID", "Data", "Equipe", "Projeto", "Imóvel / Bloco", "Endereço do Atendimento",
                 "Hora Entrada", "Hora Saída", "Duração", "GPS Entrada", "GPS Saída", 
-                "Desfecho", "Serviço Obra", "Opções/Ofensores", "Motivo Desfecho", "Responsável", "Contato", 
+                "Desfecho", "Qtd Fotos", "Serviço Obra", "Opções/Ofensores", "Motivo Desfecho", "Responsável", "Contato", 
                 "E-mail", "Andares", "HPs", 
                 "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", 
                 "NAP", "DIO", "Cx Sobrepor", "Cx Embutida", "Cx FOSC", "Observações Gerais"
@@ -3764,6 +3974,7 @@
                     r.gpsEntrada || "",
                     r.gpsSaida || "",
                     r.desfecho || "",
+                    r.fotos ? r.fotos.length : 0,
                     r.servicoObra || "SIM",
                     r.malogros ? r.malogros.join(', ') : "",
                     r.motivoDesfecho || "",
