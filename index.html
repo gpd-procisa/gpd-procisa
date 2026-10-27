@@ -3109,7 +3109,8 @@
             resetarFormularioCampo();
             await carregarRegistrosDaNuvem();
         }
-function renderizarOfensoresMalogro(dados) {
+// ================= PARTE 03 (BLOCO 3B) - FECHAMENTO DO SCRIPT E DO ARQUIVO =================
+        function renderizarOfensoresMalogro(dados) {
             const tbody = document.getElementById('tabela-ofensores-malogro-corpo');
             const badgeTotal = document.getElementById('badge-total-ocorrencias-malogro');
             if (!tbody) return;
@@ -3428,7 +3429,7 @@ function renderizarOfensoresMalogro(dados) {
                 `;
             });
 
-            spanTotalGeral.innerText = `R$ ${valorGeralAcumulado.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            if (spanTotalGeral) spanTotalGeral.innerText = `R$ ${valorGeralAcumulado.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
         }
 
         function renderizarTabelaUsuariosPermissao() {
@@ -4027,7 +4028,6 @@ function renderizarOfensoresMalogro(dados) {
             registrarLogAuditoria("EXPORTAÇÃO FINANCEIRA", `Baixada planilha de Medição Financeira (Total: R$ ${valorGeral.toFixed(2)}).`);
         }
 
-        // ITEM 04: Chave de 3 posições (Vistoriador, Instalador, Ativador)
         function alternarChaveSetorEquipe(setorEscolhido) {
             document.getElementById('inp-setor-equipe').value = setorEscolhido;
             const btnVist = document.getElementById('btn-chave-vistoriador');
