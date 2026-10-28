@@ -16,10 +16,10 @@
     <!-- Container Principal (Sem overflow-hidden para permitir o cabeçalho Sticky travado na rolagem) -->
     <div class="w-full max-w-7xl bg-white shadow-2xl sm:rounded-2xl flex flex-col border border-slate-200 min-h-[95vh]">
         
-        <!-- ================= BLOCO SUPERIOR FIXO / CONGELADO NA ROLAGEM (ITEM 04) ================= -->
+        <!-- ================= BLOCO SUPERIOR FIXO / CONGELADO NA ROLAGEM ================= -->
         <div class="sticky top-0 z-40 shadow-md sm:rounded-t-2xl bg-white">
             
-            <!-- Cabeçalho Azul Compacto + Barra de Pesquisa e Ações abaixo do botão Sair (ITEM 03) -->
+            <!-- Cabeçalho Azul Compacto + Barra de Pesquisa e Ações abaixo do botão Sair -->
             <header class="bg-blue-900 text-white px-4 py-3 sm:px-6 sm:py-3.5 border-b-4 border-cyan-400 sm:rounded-t-2xl space-y-2.5">
                 
                 <!-- Linha 1 do Cabeçalho: Título + Botões de Modo + Sair/Bloquear -->
@@ -52,15 +52,18 @@
                     </div>
                 </div>
 
-                <!-- Linha 2 do Cabeçalho (ITEM 03): Pesquisa + WhatsApp, Relatório Excel e Atualizar logo abaixo do botão Sair -->
+                <!-- Linha 2 do Cabeçalho: Pesquisa + Importar Planilha, WhatsApp, Excel e Atualizar -->
                 <div id="header-gestor-acoes" class="pt-2 border-t border-blue-800/80 flex flex-col lg:flex-row justify-between items-center gap-2 hidden">
-                    <div class="w-full lg:w-96">
+                    <div class="w-full lg:w-80">
                         <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, endereço, equipe, projeto..." class="w-full text-xs text-slate-800 border border-blue-700 rounded-lg px-3 py-1.5 outline-none bg-white focus:ring-2 focus:ring-cyan-400 transition">
                     </div>
                     <div class="flex flex-wrap gap-1.5 w-full lg:w-auto justify-end items-center">
                         <span id="lbl-status-autosync" class="text-[10px] bg-blue-950 text-cyan-200 px-2.5 py-1.5 rounded-lg border border-blue-800 font-mono">
                             ⏱️ Sync (180s): <b id="txt-hora-sync" class="text-white">Ativo</b>
                         </span>
+                        <button onclick="abrirModalImportarPlanilha()" id="btn-importar-planilha" class="bg-purple-600 hover:bg-purple-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1" title="Enviar carga de atividades via planilha para os técnicos">
+                            📤 Importar Carga (Planilha)
+                        </button>
                         <button onclick="copiarBoletimGestorWhatsApp()" class="bg-green-600 hover:bg-green-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
                             📲 Boletim WhatsApp
                         </button>
@@ -74,10 +77,10 @@
                 </div>
             </header>
 
-            <!-- Sub-Cabeçalho Fixo do Gestor (ITEM 01 e 04): Atalhos Rápidos + Filtros Compactos + Menu de Abas -->
+            <!-- Sub-Cabeçalho Fixo do Gestor: Atalhos Rápidos + Filtros Compactos (c/ Filtro de Status) + Menu de Abas -->
             <div id="header-gestor-subbarra" class="bg-slate-100 border-b border-slate-300 px-4 py-2 space-y-2 hidden">
                 
-                <!-- Linha de Atalhos Rápidos de Período + Filtros em Linha Única -->
+                <!-- Linha de Atalhos Rápidos de Período + 5 Filtros em Linha Única -->
                 <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
                     <div class="flex flex-wrap items-center gap-1.5">
                         <span class="text-[11px] font-black text-blue-950 uppercase mr-1">⚡ Período:</span>
@@ -88,7 +91,8 @@
                         <button onclick="aplicarAtalhoPeriodo('tudo')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-md transition">🔄 Tudo</button>
                     </div>
 
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full xl:w-auto">
+                    <!-- ITEM 02: Grid agora com 5 filtros incluindo Status/Desfecho -->
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 w-full xl:w-auto">
                         <div class="flex items-center gap-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1">
                             <span class="text-[10px] font-bold text-slate-500">De:</span>
                             <input type="date" id="gestor-filtro-data-inicio" onchange="atualizarDashboardGestor()" class="w-full text-[11px] bg-transparent outline-none font-semibold text-slate-700">
@@ -113,6 +117,15 @@
                                 <option value="CONSTRUÇÃO F">CONSTRUÇÃO F (Instalador)</option>
                                 <option value="ATIVAÇÃO F">ATIVAÇÃO F (Ativador)</option>
                             </optgroup>
+                        </select>
+                        <select id="gestor-filtro-desfecho" onchange="atualizarDashboardGestor()" class="w-full text-[11px] border-2 border-blue-200 rounded-lg px-2 py-1 bg-blue-50/40 outline-none font-bold text-blue-950">
+                            <option value="">🎯 Todos os Status</option>
+                            <option value="PROGRAMADA">📋 Programadas (Carga)</option>
+                            <option value="EM ANDAMENTO">🔵 Em Andamento</option>
+                            <option value="REABERTA">🔄 Reabertas p/ Edição</option>
+                            <option value="CONCLUIDA">🟢 Concluídas</option>
+                            <option value="PENDENTE">🟡 Pendentes</option>
+                            <option value="MALOGRADA">🔴 Malogradas</option>
                         </select>
                     </div>
                 </div>
@@ -181,10 +194,10 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Atividades (Agora super limpa, subindo direto para a listagem) -->
+            <!-- Sub-Aba: Atividades -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="p-3.5 bg-slate-50 border-b border-slate-200 font-bold text-slate-800 text-xs sm:text-sm flex justify-between items-center">
-                    <span>📋 Atividades em Campo e Em Andamento (Clique na linha para ver detalhes e fotos 📷)</span>
+                <div class="p-3.5 bg-slate-50 border-b border-slate-200 font-bold text-slate-800 text-xs sm:text-sm flex flex-wrap justify-between items-center gap-2">
+                    <span>📋 Atividades em Campo, Programadas e Finalizadas (Clique na linha para ver detalhes e fotos 📷)</span>
                     <span class="text-xs font-bold bg-blue-100 text-blue-900 px-2.5 py-1 rounded-lg" id="contador-resultados">0 registros</span>
                 </div>
                 <div class="overflow-x-auto">
@@ -197,7 +210,7 @@
                                 <th class="p-3">Status / Desfecho & Fotos</th>
                                 <th class="p-3">Horários & Duração</th>
                                 <th class="p-3">GPS (Entrada / Saída)</th>
-                                <th class="p-3" id="th-acao-master-label">Ações / Gestão</th>
+                                <th class="p-3" id="th-acao-master-label">Ações / Reabertura</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-gestor-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -282,10 +295,10 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos & Indicadores (ITEM 02: KPIs Gerais movidos exclusivamente para cá) -->
+            <!-- Sub-Aba: Gráficos & Indicadores -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 
-                <!-- ITEM 02: Cards de Números Gerais exclusivos na aba Gráficos & Indicadores -->
+                <!-- Cards de Números Gerais exclusivos na aba Gráficos & Indicadores -->
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-2.5">
                     <div class="flex justify-between items-center">
                         <span class="text-xs font-black text-slate-700 uppercase">📌 Resumo Geral de Volumes por Projeto (Período Filtrado)</span>
@@ -331,7 +344,7 @@
                     </div>
                 </div>
 
-                <!-- ITEM 07: DESTAQUE PRINCIPAL - PRODUÇÃO DIÁRIA, CONSOLIDADA E MÉDIA POR EXECUTOR -->
+                <!-- DESTAQUE PRINCIPAL - PRODUÇÃO DIÁRIA, CONSOLIDADA E MÉDIA POR EXECUTOR -->
                 <div class="bg-white rounded-2xl shadow-md border-2 border-blue-900/20 overflow-hidden">
                     <div class="bg-blue-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
@@ -450,7 +463,7 @@
                     </div>
                 </div>
 
-                <!-- ITEM 08: EVOLUÇÃO DOS PROJETOS (MALLING vs PROJETO F) E CRUZAMENTO DE EXECUTORES -->
+                <!-- EVOLUÇÃO DOS PROJETOS (MALLING vs PROJETO F) E CRUZAMENTO DE EXECUTORES -->
                 <div class="bg-white rounded-2xl shadow-md border-2 border-indigo-900/20 overflow-hidden">
                     <div class="bg-indigo-950 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
@@ -847,7 +860,7 @@
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
                         <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos e Setor de Atuação</h3>
-                        <p class="text-[11px] text-slate-500">Defina se o técnico atua como <b>Vistoriador</b>, <b>Instalador</b> ou <b>Ativador</b> na chave seletora (sincronizado na nuvem)</p>
+                        <p class="text-[11px] text-slate-500">Defina se o técnico atua como <b>Vistoriador</b>, <b>Instalador</b> e/ou <b>Ativador</b> (suporta marcação múltipla)</p>
                     </div>
                     <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-nova-equipe">+ Nova Equipe</button>
                 </div>
@@ -987,6 +1000,30 @@
                     <span class="text-[11px] bg-blue-50 text-blue-900 px-2.5 py-1 rounded-lg font-bold" id="current-user-team">Selecione Equipe</span>
                 </div>
 
+                <!-- ITEM 01: Alerta de Atividades Reabertas pelo Gestor para Correção do Técnico -->
+                <div id="box-reabertas-campo" class="bg-purple-50 border-2 border-purple-400 p-3.5 rounded-xl space-y-2 hidden shadow-sm">
+                    <div class="flex items-start gap-2">
+                        <span class="text-lg">🔄</span>
+                        <div>
+                            <h4 class="text-xs font-black text-purple-950 uppercase">Atividade Liberada para Edição pelo Gestor!</h4>
+                            <p class="text-[11px] text-purple-800">Clique abaixo para retomar os dados, corrigir ou anexar novas fotos:</p>
+                        </div>
+                    </div>
+                    <div id="lista-reabertas-campo" class="space-y-1.5 pt-1"></div>
+                </div>
+
+                <!-- ITEM 04: Caixa de Atividades Programadas via Planilha para o Técnico -->
+                <div id="box-programadas-campo" class="bg-cyan-50 border-2 border-cyan-400 p-3.5 rounded-xl space-y-2 hidden shadow-sm">
+                    <div class="flex items-start gap-2">
+                        <span class="text-lg">📋</span>
+                        <div>
+                            <h4 class="text-xs font-black text-cyan-950 uppercase">Suas Atividades Programadas pela Gestão</h4>
+                            <p class="text-[11px] text-cyan-800">Clique em Iniciar para carregar o imóvel automaticamente:</p>
+                        </div>
+                    </div>
+                    <div id="lista-programadas-campo" class="space-y-1.5 pt-1 max-h-48 overflow-y-auto"></div>
+                </div>
+
                 <div id="box-imprevisto-ativo-campo" class="bg-amber-50 border-2 border-amber-400 p-3.5 rounded-xl space-y-2.5 hidden shadow-sm">
                     <div class="flex items-start gap-2">
                         <span class="text-lg">⚠️</span>
@@ -1048,7 +1085,7 @@
                         <div>
                             <div class="flex items-center gap-1.5">
                                 <span class="inline-block w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
-                                <span class="font-black text-blue-950 uppercase text-[11px]">Status: Em Andamento no Painel</span>
+                                <span class="font-black text-blue-950 uppercase text-[11px]" id="lbl-status-execucao-campo">Status: Em Andamento no Painel</span>
                             </div>
                             <p class="mt-1"><strong>Imóvel:</strong> <span id="lbl-imovel-aberto" class="font-bold text-blue-900">-</span></p>
                             <p><strong>Entrada:</strong> <span id="lbl-h-entrada">-</span></p>
@@ -1079,7 +1116,7 @@
                             <div class="pt-2 border-t border-slate-200 flex items-center justify-between gap-3">
                                 <div>
                                     <label class="block text-xs font-black text-blue-950 uppercase">🏢 Quantidade de Blocos:</label>
-                                    <span class="text-[10px] text-slate-500">Cada bloco terá Andares, HPs, Materiais, Fotos e Desfecho</span>
+                                    <span class="text-[10px] text-slate-500">Cada bloco comporta até 10 fotos, materiais e desfecho</span>
                                 </div>
                                 <input type="number" id="inp-qtd-blocos" min="1" max="20" value="1" onchange="alterarQuantidadeBlocos(this.value)" class="w-20 text-center font-black text-sm border-2 border-blue-600 rounded-xl p-2 bg-white text-blue-950 outline-none">
                             </div>
@@ -1098,6 +1135,48 @@
     </div>
 
     <!-- Modais -->
+    <!-- ITEM 04: NOVO MODAL DE IMPORTAÇÃO DE CARGA DE ATIVIDADES VIA PLANILHA -->
+    <div id="modal-importar-planilha" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="bg-purple-800 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm">📤 Importar Planilha de Atividades para os Técnicos</h3>
+                <button onclick="fecharModalImportarPlanilha()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
+                <div class="bg-purple-50 border border-purple-200 p-3 rounded-xl space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-purple-950">📋 Como funciona a Carga Programada:</span>
+                        <button onclick="baixarModeloPlanilhaCSV()" class="bg-purple-700 hover:bg-purple-800 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-sm">
+                            ⬇️ Baixar Planilha Modelo (.CSV)
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-purple-900 leading-relaxed">
+                        Você pode subir um arquivo <b>.CSV</b> salvo no Excel ou simplesmente <b>copiar e colar as linhas do Excel</b> na caixa abaixo. Cada linha será enviada direto para a tela do técnico responsável com status <b>PROGRAMADA</b>.
+                    </p>
+                    <p class="text-[10px] font-mono bg-white p-2 rounded border border-purple-200 text-slate-600">
+                        Formato das colunas: <b>IMOVEL ; ENDERECO ; PROJETO ; TECNICO ; ANDARES ; HPS</b>
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Opção 1: Selecionar Arquivo (.CSV ou .TXT separado por ponto-e-vírgula):</label>
+                    <input type="file" id="inp-arquivo-planilha" accept=".csv,.txt" onchange="lerArquivoPlanilhaUpload(this)" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-slate-50">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Opção 2: Ou cole aqui as linhas copiadas direto do Excel (1 imóvel por linha):</label>
+                    <textarea id="txt-linhas-planilha" rows="6" class="w-full font-mono text-[11px] border border-slate-300 rounded-xl p-2.5 outline-none" placeholder="IMO-1020;Rua das Flores 120 - Tijuca;VISTORIA;ANDREO FAGUNDES;10;40&#10;IMO-3040;Av Atlântica 500 - Copacabana;CONSTRUÇÃO F;BRUNO SOARES DA SILVA;12;60"></textarea>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalImportarPlanilha()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="processarImportacaoPlanilha()" id="btn-confirmar-importacao" class="bg-purple-700 hover:bg-purple-800 text-white text-xs px-4 py-2 rounded-lg font-bold shadow-sm">
+                    🚀 Enviar Atividades para os Técnicos
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-imprevisto" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
             <div class="bg-amber-500 text-white p-4 flex justify-between items-center">
@@ -1160,7 +1239,9 @@
                     <div>
                         <label class="block font-semibold mb-1">Desfecho</label>
                         <select id="edit-reg-desfecho" class="w-full border rounded-lg p-2 bg-white outline-none">
+                            <option value="PROGRAMADA">PROGRAMADA (Carga)</option>
                             <option value="EM ANDAMENTO">EM ANDAMENTO</option>
+                            <option value="REABERTA">REABERTA (Liberada p/ Técnico)</option>
                             <option value="CONCLUIDA">CONCLUIDA</option>
                             <option value="PENDENTE">PENDENTE</option>
                             <option value="MALOGRADA">MALOGRADA</option>
@@ -1274,7 +1355,7 @@
                 </div>
                 
                 <div>
-                    <label class="block font-bold text-slate-700 mb-1.5">Setor de Atuação (Selecione a Chave):</label>
+                    <label class="block font-bold text-slate-700 mb-1.5">Setor de Atuação (Marcação Múltipla Habilitada):</label>
                     <input type="hidden" id="inp-setor-equipe" value="Instalador">
                     <div class="grid grid-cols-3 gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
                         <button type="button" id="btn-chave-vistoriador" onclick="alternarChaveSetorEquipe('Vistoriador')" class="py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600">
@@ -1331,7 +1412,7 @@
             </div>
         </div>
     </div>
-<!-- Script Principal - Parte 1 de 2 (Multi-Grupos e Seleção Múltipla Global) -->
+<!-- Script Principal - Parte 1 de 2 (Reabertura, Filtro Status, 10 Fotos e Carga via Planilha) -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1390,7 +1471,6 @@
             "LIBERADO PARA COMERCIAL"
         ];
 
-        // Funções utilitárias para suportar Múltiplos Grupos/Setores por Técnico
         function obterArraySetores(setorCampo) {
             if (!setorCampo) return ["Instalador"];
             if (Array.isArray(setorCampo)) {
@@ -1527,7 +1607,7 @@
             setor: formatarSetoresString(eq.setor || "Instalador")
         }));
 
-        let dadosAtendimento = { idEmAndamento: null, hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, blocos: [] };
+        let dadosAtendimento = { idEmAndamento: null, eraReaberta: false, hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, blocos: [] };
         let registrosSalvos = [];
         let usuariosSistema = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [
             { id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", senha: "Leo290301@", nivel: "Master", status: "Ativo" }
@@ -1663,7 +1743,6 @@
             }
         }
 
-        // Habilita marcação múltipla também nos motivos de Imprevistos / Atrasos
         function popularSelectImprevistos() {
             const sel = document.getElementById('sel-motivo-imprevisto');
             if (!sel) return;
@@ -1760,6 +1839,12 @@
             if (d === 'EM ANDAMENTO') {
                 return 'bg-blue-600 text-white border border-blue-700 animate-pulse shadow-sm';
             }
+            if (d === 'PROGRAMADA') {
+                return 'bg-cyan-100 text-cyan-900 border border-cyan-300 font-black';
+            }
+            if (d === 'REABERTA') {
+                return 'bg-purple-600 text-white border border-purple-700 animate-pulse shadow-sm';
+            }
             if (d === 'CONCLUIDA' || d === 'CONCLUÍDA' || d === 'IMPREVISTO RESOLVIDO') {
                 return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
             }
@@ -1783,6 +1868,7 @@
             verificarPermissoesSessao();
             restaurarRascunhoCampo();
             verificarImprevistoAtivoEquipeCampo();
+            verificarPendenciasReabertasEProgramadasCampo();
 
             if (usuarioLogado) {
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
@@ -1803,7 +1889,8 @@
                     !document.getElementById('modal-zoom-foto').classList.contains('hidden') ||
                     !document.getElementById('modal-equipe').classList.contains('hidden') ||
                     !document.getElementById('modal-usuario').classList.contains('hidden') ||
-                    !document.getElementById('modal-imprevisto').classList.contains('hidden');
+                    !document.getElementById('modal-imprevisto').classList.contains('hidden') ||
+                    !document.getElementById('modal-importar-planilha').classList.contains('hidden');
 
                 if (usuarioLogado && viewGestorAtiva && !algumModalAberto) {
                     await carregarRegistrosDaNuvem();
@@ -1814,7 +1901,8 @@
             }, 180000);
         };
 
-        function comprimirImagemBase64(file, maxWidth = 850, quality = 0.65) {
+        // ITEM 03: Compressão otimizada para suportar até 10 fotos sem impacto de performance
+        function comprimirImagemBase64(file, maxWidth = 780, quality = 0.60) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = function(event) {
@@ -1850,15 +1938,15 @@
             const bloco = dadosAtendimento.blocos[idx];
             if (!bloco.fotos) bloco.fotos = [];
 
-            if (bloco.fotos.length + arquivos.length > 4) {
-                alert("⚠️ Você pode anexar no máximo 4 fotos por bloco.");
+            if (bloco.fotos.length + arquivos.length > 10) {
+                alert("⚠️ Você pode anexar no máximo 10 fotos por bloco.");
                 inputEl.value = "";
                 return;
             }
 
             for (const arq of arquivos) {
                 try {
-                    const base64Comprimida = await comprimirImagemBase64(arq, 850, 0.65);
+                    const base64Comprimida = await comprimirImagemBase64(arq, 780, 0.60);
                     bloco.fotos.push(base64Comprimida);
                 } catch (e) {
                     console.warn("Erro ao processar foto:", e);
@@ -2124,15 +2212,16 @@
                         </div>
                     </div>
 
+                    <!-- ITEM 03: Até 10 Fotos por Bloco -->
                     <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
                         <div class="flex justify-between items-center">
-                            <label class="text-[11px] font-bold text-blue-950 flex items-center gap-1">📷 Fotos do Fechamento (${b.fotos.length}/4)</label>
+                            <label class="text-[11px] font-bold text-blue-950 flex items-center gap-1">📷 Fotos do Fechamento (${b.fotos.length}/10)</label>
                             <label class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg cursor-pointer shadow-sm transition">
                                 + Tirar / Anexar Foto
                                 <input type="file" accept="image/*" multiple onchange="aoSelecionarFotosBloco(${idx}, this)" class="hidden">
                             </label>
                         </div>
-                        ${b.fotos.length > 0 ? `<div class="flex flex-wrap gap-2 pt-1">${miniaturasFotosHtml}</div>` : `<p class="text-[10px] text-slate-400">Nenhuma foto anexada neste bloco.</p>`}
+                        ${b.fotos.length > 0 ? `<div class="flex flex-wrap gap-2 pt-1">${miniaturasFotosHtml}</div>` : `<p class="text-[10px] text-slate-400">Nenhuma foto anexada neste bloco (Máx. 10 fotos).</p>`}
                     </div>
 
                     <div>
@@ -2152,6 +2241,7 @@
             const rascunho = {
                 emAndamento: posAberturaVisivel,
                 idEmAndamento: dadosAtendimento.idEmAndamento,
+                eraReaberta: dadosAtendimento.eraReaberta || false,
                 equipe: document.getElementById('sel-equipe').value,
                 projeto: document.getElementById('sel-projeto').value,
                 imovel: document.getElementById('inp-imovel').value,
@@ -2171,7 +2261,6 @@
             }
         }
 
-        // Soma todos os projetos permitidos para todos os grupos marcados para o técnico
         function atualizarProjetosPermitidosCampo(nomeEquipe, projetoPreSelecionado = null) {
             const selProj = document.getElementById('sel-projeto');
             const badgeSetor = document.getElementById('badge-setor-campo');
@@ -2195,7 +2284,6 @@
                 badgeSetor.innerText = `Grupos: ${setoresArr.join(' + ')}`;
             }
 
-            // Se o técnico pertence a mais de 1 grupo, organiza por <optgroup> para ficar super claro
             if (setoresArr.length > 1) {
                 selProj.innerHTML = setoresArr.map(s => {
                     const projs = PROJETOS_POR_SETOR[s] || [];
@@ -2207,6 +2295,9 @@
 
             const projNorm = projetoPreSelecionado ? normalizarNomeProjeto(projetoPreSelecionado) : null;
             if (projNorm && listaProjetos.includes(projNorm)) {
+                selProj.value = projNorm;
+            } else if (projNorm) {
+                selProj.innerHTML += `<option value="${projNorm}">${projNorm}</option>`;
                 selProj.value = projNorm;
             } else {
                 selProj.value = listaProjetos[0];
@@ -2229,6 +2320,7 @@
 
                 if (r.emAndamento) {
                     dadosAtendimento.idEmAndamento = r.idEmAndamento || null;
+                    dadosAtendimento.eraReaberta = r.eraReaberta || false;
                     dadosAtendimento.hEntrada = r.hEntrada;
                     dadosAtendimento.gpsEntrada = r.gpsEntrada;
                     dadosAtendimento.blocos = (Array.isArray(r.blocos) && r.blocos.length > 0) ? r.blocos : [criarObjetoBlocoPadrao(1)];
@@ -2255,13 +2347,14 @@
         }
 
         async function cancelarCheckinAberto() {
-            if (confirm("Deseja realmente cancelar a abertura desta atividade em andamento?")) {
-                if (dadosAtendimento.idEmAndamento) {
+            if (confirm("Deseja realmente cancelar a edição/abertura atual?")) {
+                if (dadosAtendimento.idEmAndamento && !dadosAtendimento.eraReaberta) {
                     await supabaseClient.from('registros_producao').delete().eq('id', dadosAtendimento.idEmAndamento);
                 }
                 localStorage.removeItem('gpd_rascunho_campo_ativo');
                 resetarFormularioCampo();
                 await carregarRegistrosDaNuvem();
+                verificarPendenciasReabertasEProgramadasCampo();
             }
         }
 
@@ -2271,6 +2364,186 @@
             atualizarProjetosPermitidosCampo(eq);
             salvarRascunhoCampo();
             verificarImprevistoAtivoEquipeCampo();
+            verificarPendenciasReabertasEProgramadasCampo();
+        }
+
+        // ITEM 01 e ITEM 04: Verifica se o técnico possui atividades REABERTAS pelo gestor ou PROGRAMADAS via planilha
+        function verificarPendenciasReabertasEProgramadasCampo() {
+            const equipeSelecionada = document.getElementById('sel-equipe').value;
+            const boxReab = document.getElementById('box-reabertas-campo');
+            const listaReab = document.getElementById('lista-reabertas-campo');
+            const boxProg = document.getElementById('box-programadas-campo');
+            const listaProg = document.getElementById('lista-programadas-campo');
+
+            if (!equipeSelecionada) {
+                if (boxReab) boxReab.classList.add('hidden');
+                if (boxProg) boxProg.classList.add('hidden');
+                return;
+            }
+
+            // 1. Atividades Reabertas pelo Gestor
+            const reabertas = registrosSalvos.filter(r => r.equipe === equipeSelecionada && r.desfecho === 'REABERTA');
+            if (boxReab && listaReab) {
+                if (reabertas.length > 0) {
+                    listaReab.innerHTML = reabertas.map(r => `
+                        <div class="bg-white p-2.5 rounded-lg border border-purple-300 flex justify-between items-center gap-2">
+                            <div>
+                                <div class="font-bold text-purple-950 text-xs">🏢 ${r.imovel} (${r.projeto})</div>
+                                <div class="text-[10px] text-slate-500">📍 ${r.endereco || 'Sem endereço'} • Data: ${r.dataRegistro}</div>
+                            </div>
+                            <button type="button" onclick="retomarAtividadeReabertaCampo(${r.id})" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
+                                ✏️ Editar Agora
+                            </button>
+                        </div>
+                    `).join('');
+                    boxReab.classList.remove('hidden');
+                } else {
+                    boxReab.classList.add('hidden');
+                }
+            }
+
+            // 2. Atividades Programadas via Planilha pela Gestão
+            const programadas = registrosSalvos.filter(r => r.equipe === equipeSelecionada && r.desfecho === 'PROGRAMADA');
+            if (boxProg && listaProg) {
+                if (programadas.length > 0) {
+                    listaProg.innerHTML = programadas.map(r => `
+                        <div class="bg-white p-2.5 rounded-lg border border-cyan-300 flex justify-between items-center gap-2">
+                            <div>
+                                <div class="font-bold text-cyan-950 text-xs">🏢 ${r.imovel} <span class="bg-cyan-100 text-cyan-900 px-1.5 py-0.5 rounded text-[9px]">${r.projeto}</span></div>
+                                <div class="text-[10px] text-slate-600">📍 ${r.endereco || 'Endereço a confirmar'}</div>
+                                <div class="text-[9px] text-slate-400">Andares: ${r.andares || '-'} | HPs: ${r.hps || '-'}</div>
+                            </div>
+                            <button type="button" onclick="iniciarAtividadeProgramadaCampo(${r.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
+                                🚀 Iniciar
+                            </button>
+                        </div>
+                    `).join('');
+                    boxProg.classList.remove('hidden');
+                } else {
+                    boxProg.classList.add('hidden');
+                }
+            }
+        }
+
+        // ITEM 01: Carrega a atividade reaberta de volta no formulário do técnico
+        function retomarAtividadeReabertaCampo(idReg) {
+            const r = registrosSalvos.find(item => item.id === idReg);
+            if (!r) return;
+
+            atualizarProjetosPermitidosCampo(r.equipe, r.projeto);
+            document.getElementById('sel-projeto').value = r.projeto;
+            document.getElementById('inp-imovel').value = r.imovel;
+
+            dadosAtendimento.idEmAndamento = r.id;
+            dadosAtendimento.eraReaberta = true;
+            dadosAtendimento.hEntrada = r.hEntrada || new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            dadosAtendimento.gpsEntrada = r.gpsEntrada || "Mantido da abertura";
+
+            const blocoRecuperado = {
+                identificacao: "BLOCO 1",
+                andares: r.andares || 1,
+                hps: r.hps || 1,
+                fusoes: r.fusoes || 0,
+                conectores: r.conectores || 0,
+                caboRL: r.caboRL || 0,
+                caboDrop: r.caboDrop || 0,
+                nap: r.nap || 0,
+                dio: r.dio || 0,
+                cxSobrepor: r.cxSobrepor || 0,
+                cxEmbutida: r.cxEmbutida || 0,
+                cxFosc: r.cxFosc || 0,
+                desfecho: "CONCLUIDA",
+                servicoObra: r.servicoObra || "SIM",
+                concluidasOpcoes: Array.isArray(r.malogros) ? r.malogros : [],
+                obsConcluida: r.motivoDesfecho || "",
+                obsPendente: r.motivoDesfecho || "",
+                pendenciasOpcoes: Array.isArray(r.malogros) ? r.malogros : [],
+                obsMalograda: r.motivoDesfecho || "",
+                malogros: Array.isArray(r.malogros) ? r.malogros : [],
+                observacoes: r.observacoes || "",
+                fotos: Array.isArray(r.fotos) ? [...r.fotos] : []
+            };
+
+            dadosAtendimento.blocos = [blocoRecuperado];
+
+            document.getElementById('lbl-status-execucao-campo').innerText = "🔄 Editando Atividade Reaberta pelo Gestor";
+            document.getElementById('lbl-imovel-aberto').innerText = `${r.imovel} (${r.projeto})`;
+            document.getElementById('lbl-h-entrada').innerText = dadosAtendimento.hEntrada;
+            document.getElementById('lbl-gps-entrada').innerText = dadosAtendimento.gpsEntrada;
+
+            document.getElementById('form-endereco').value = r.endereco || '';
+            document.getElementById('form-responsavel').value = r.responsavel || '';
+            document.getElementById('form-contato').value = r.contato || '';
+            document.getElementById('form-email').value = r.email || '';
+            document.getElementById('inp-qtd-blocos').value = 1;
+
+            document.getElementById('form-campo-container').classList.add('hidden');
+            document.getElementById('box-reabertas-campo').classList.add('hidden');
+            document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+
+            mudarTipoProjeto();
+            renderizarBlocosCampo();
+            salvarRascunhoCampo();
+        }
+
+        // ITEM 04: Inicia uma atividade que veio programada da planilha do gestor
+        async function iniciarAtividadeProgramadaCampo(idReg) {
+            const r = registrosSalvos.find(item => item.id === idReg);
+            if (!r) return;
+
+            atualizarProjetosPermitidosCampo(r.equipe, r.projeto);
+            document.getElementById('sel-projeto').value = r.projeto;
+            document.getElementById('inp-imovel').value = r.imovel;
+
+            let coordReal = "Não capturado";
+            try {
+                coordReal = await capturarGpsReal(10000);
+            } catch (err) {
+                alert("❌ Ative o GPS do celular para iniciar a atividade programada.");
+                return;
+            }
+
+            const horaEntradaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            const hojeISO = obterDataLocalISO();
+
+            await supabaseClient.from('registros_producao').update({
+                data_registro: hojeISO,
+                h_entrada: horaEntradaAtual,
+                h_saida: "Em Andamento",
+                gps_entrada: coordReal,
+                desfecho: "EM ANDAMENTO",
+                motivo_desfecho: "Atividade programada iniciada em campo"
+            }).eq('id', r.id);
+
+            dadosAtendimento.idEmAndamento = r.id;
+            dadosAtendimento.eraReaberta = false;
+            dadosAtendimento.hEntrada = horaEntradaAtual;
+            dadosAtendimento.gpsEntrada = coordReal;
+
+            const blocoInicial = criarObjetoBlocoPadrao(1);
+            if (r.andares) blocoInicial.andares = r.andares;
+            if (r.hps) blocoInicial.hps = r.hps;
+            dadosAtendimento.blocos = [blocoInicial];
+
+            document.getElementById('lbl-status-execucao-campo').innerText = "Status: Em Andamento no Painel";
+            document.getElementById('lbl-imovel-aberto').innerText = `${r.imovel} (${r.projeto})`;
+            document.getElementById('lbl-h-entrada').innerText = horaEntradaAtual;
+            document.getElementById('lbl-gps-entrada').innerText = coordReal;
+
+            document.getElementById('form-endereco').value = r.endereco || '';
+            document.getElementById('form-responsavel').value = r.responsavel || '';
+            document.getElementById('form-contato').value = r.contato || '';
+            document.getElementById('form-email').value = r.email || '';
+            document.getElementById('inp-qtd-blocos').value = 1;
+
+            document.getElementById('form-campo-container').classList.add('hidden');
+            document.getElementById('box-programadas-campo').classList.add('hidden');
+            document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+
+            mudarTipoProjeto();
+            renderizarBlocosCampo();
+            salvarRascunhoCampo();
+            await carregarRegistrosDaNuvem();
         }
 
         function verificarImprevistoAtivoEquipeCampo() {
@@ -2397,6 +2670,8 @@
             if (r.desfecho === "PENDENTE" || r.desfecho === "IMPREVISTO") iconeDesf = "🟡";
             else if (r.desfecho === "MALOGRADA") iconeDesf = "🔴";
             else if (r.desfecho === "EM ANDAMENTO") iconeDesf = "🔵";
+            else if (r.desfecho === "REABERTA") iconeDesf = "🔄";
+            else if (r.desfecho === "PROGRAMADA") iconeDesf = "📋";
 
             let linhas = [
                 `📋 *GPD MDU • PROCISA RJ*`,
@@ -2439,7 +2714,8 @@
 
         function copiarBoletimGestorWhatsApp() {
             const emAndamento = dadosFiltradosAtuais.filter(i => i.desfecho === 'EM ANDAMENTO').length;
-            const finalizadas = dadosFiltradosAtuais.filter(i => i.desfecho !== 'EM ANDAMENTO');
+            const programadas = dadosFiltradosAtuais.filter(i => i.desfecho === 'PROGRAMADA').length;
+            const finalizadas = dadosFiltradosAtuais.filter(i => !['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
             const totalObras = finalizadas.length;
             const conc = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
             const pend = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
@@ -2461,6 +2737,7 @@
                 `📊 *BOLETIM OPERACIONAL GPD • MDU PROCISA RJ*`,
                 `📅 *Período:* ${periodoStr}`,
                 `────────────────────`,
+                `📋 *Programadas na Fila:* ${programadas}`,
                 `🔵 *Em Andamento Agora:* ${emAndamento}`,
                 `🏗️ *Total Finalizadas:* ${totalObras}`,
                 `🟢 *Concluídas:* ${conc} (${efic}%)`,
@@ -2615,6 +2892,7 @@
                 btnGestor.className = "px-3 py-1.5 text-xs font-medium rounded-lg transition text-cyan-200 hover:text-white";
                 subtitle.innerText = "Setor Construção MDU • PROCISA RJ";
                 verificarImprevistoAtivoEquipeCampo();
+                verificarPendenciasReabertasEProgramadasCampo();
             }
         }
 
@@ -2622,19 +2900,23 @@
             const btnNovaEquipe = document.getElementById('btn-nova-equipe');
             const btnNovoUsuario = document.getElementById('btn-novo-usuario');
             const btnLimparLogs = document.getElementById('btn-limpar-logs');
+            const btnImpPlan = document.getElementById('btn-importar-planilha');
 
             if (nivelUsuarioLogado === 'Visualizador') {
                 if (btnNovaEquipe) btnNovaEquipe.classList.add('hidden');
                 if (btnNovoUsuario) btnNovoUsuario.classList.add('hidden');
                 if (btnLimparLogs) btnLimparLogs.classList.add('hidden');
+                if (btnImpPlan) btnImpPlan.classList.add('hidden');
             } else if (nivelUsuarioLogado === 'Operador') {
                 if (btnNovoUsuario) btnNovoUsuario.classList.add('hidden');
                 if (btnLimparLogs) btnLimparLogs.classList.add('hidden');
                 if (btnNovaEquipe) btnNovaEquipe.classList.remove('hidden');
+                if (btnImpPlan) btnImpPlan.classList.remove('hidden');
             } else {
                 if (btnNovaEquipe) btnNovaEquipe.classList.remove('hidden');
                 if (btnNovoUsuario) btnNovoUsuario.classList.remove('hidden');
                 if (btnLimparLogs) btnLimparLogs.classList.remove('hidden');
+                if (btnImpPlan) btnImpPlan.classList.remove('hidden');
             }
         }
 
@@ -2827,7 +3109,7 @@
                 r.dataRegistro === hojeISO && 
                 r.imovel.toUpperCase().trim().startsWith(imovel.toUpperCase()) &&
                 r.projeto === projeto &&
-                r.desfecho !== 'EM ANDAMENTO'
+                !['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(r.desfecho)
             );
 
             if (duplicadoHoje) {
@@ -2889,6 +3171,7 @@
                 console.warn("Aviso ao registrar status Em Andamento:", error.message);
             } else {
                 dadosAtendimento.idEmAndamento = idTemp;
+                dadosAtendimento.eraReaberta = false;
             }
 
             if (btnCheckin) {
@@ -2899,6 +3182,7 @@
             dadosAtendimento.blocos = [criarObjetoBlocoPadrao(1)];
             document.getElementById('inp-qtd-blocos').value = 1;
 
+            document.getElementById('lbl-status-execucao-campo').innerText = "Status: Em Andamento no Painel";
             document.getElementById('form-campo-container').classList.add('hidden');
             document.getElementById('bloco-pos-abertura').classList.remove('hidden');
             document.getElementById('lbl-imovel-aberto').innerText = `${imovel} (${projeto})`;
@@ -3025,6 +3309,7 @@
 
         function resetarFormularioCampo() {
             dadosAtendimento.idEmAndamento = null;
+            dadosAtendimento.eraReaberta = false;
             dadosAtendimento.gpsEntrada = null;
             dadosAtendimento.gpsSaida = null;
             dadosAtendimento.blocos = [];
@@ -3106,6 +3391,7 @@
             const dataLocalCorreta = obterDataLocalISO();
             const horaEntradaOriginal = document.getElementById('lbl-h-entrada').innerText || "08:30";
             const horaSaidaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            const foiReaberta = dadosAtendimento.eraReaberta;
 
             if (dadosAtendimento.idEmAndamento) {
                 await supabaseClient.from('registros_producao').delete().eq('id', dadosAtendimento.idEmAndamento);
@@ -3205,10 +3491,12 @@
             });
             document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
 
-            registrarLogAuditoria("INSERÇÃO DE REGISTRO", `Equipe: ${equipeNome} | Imóvel: ${imovelBase} (${qtdBlocos} bloco(s)) | Fotos: ${todasFotos.length}`);
+            const tipoAcaoAudit = foiReaberta ? "ATIVIDADE REABERTA FINALIZADA" : "INSERÇÃO DE REGISTRO";
+            registrarLogAuditoria(tipoAcaoAudit, `Equipe: ${equipeNome} | Imóvel: ${imovelBase} (${qtdBlocos} bloco(s)) | Fotos: ${todasFotos.length}`);
             alert(`✅ Atendimento finalizado (${qtdBlocos} bloco(s) e ${todasFotos.length} foto(s)) e sincronizado com sucesso!`);
             resetarFormularioCampo();
             await carregarRegistrosDaNuvem();
+            verificarPendenciasReabertasEProgramadasCampo();
         }
 // ================= PARTE 03 (BLOCO 3A) - CONTINUAÇÃO EXATA DA PARTE 02 =================
         function converterHorarioParaMinutos(strHora) {
@@ -3234,6 +3522,171 @@
             return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
         }
 
+        // ITEM 01: Autorização do Gestor para Reabrir Atividade para o Técnico com Registro em Auditoria
+        async function autorizarReaberturaCampo(id) {
+            if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
+                alert("⚠️ Apenas Gestores (Master ou Operador) podem autorizar a reabertura de uma atividade.");
+                return;
+            }
+            const reg = registrosSalvos.find(r => r.id === id);
+            if (!reg) return;
+
+            const motivoReabertura = prompt(`🔓 AUTORIZAR REABERTURA PARA O TÉCNICO:\n\nImóvel: ${reg.imovel}\nTécnico: ${reg.equipe}\nStatus Atual: ${reg.desfecho}\n\nInforme brevemente o motivo da reabertura (ficará salvo na Auditoria):`, "Correção de dados / inclusão de fotos");
+            if (motivoReabertura === null) return;
+
+            const { error } = await supabaseClient
+                .from('registros_producao')
+                .update({
+                    desfecho: "REABERTA"
+                })
+                .eq('id', id);
+
+            if (error) {
+                alert("❌ Erro ao reabrir atividade: " + error.message);
+                return;
+            }
+
+            registrarLogAuditoria(
+                "REABERTURA AUTORIZADA",
+                `Gestor ${usuarioLogado} autorizou a reabertura do imóvel ${reg.imovel} (ID: ${id}) para o técnico ${reg.equipe}. Status anterior: ${reg.desfecho} | Motivo: ${motivoReabertura || 'Ajuste operacional'}`
+            );
+
+            alert(`✅ Atividade do imóvel "${reg.imovel}" foi REABERTA!\n\nO técnico ${reg.equipe} já pode visualizá-la e editá-la no Modo Campo.`);
+            await recarregarDadosGestor();
+        }
+
+        // ITEM 04: Funções de Importação de Planilha / Carga Programada para os Técnicos
+        function abrirModalImportarPlanilha() {
+            if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
+                alert("⚠️ Permissão insuficiente para importar planilha de atividades.");
+                return;
+            }
+            document.getElementById('inp-arquivo-planilha').value = "";
+            document.getElementById('txt-linhas-planilha').value = "";
+            document.getElementById('modal-importar-planilha').classList.remove('hidden');
+        }
+
+        function fecharModalImportarPlanilha() {
+            document.getElementById('modal-importar-planilha').classList.add('hidden');
+        }
+
+        function baixarModeloPlanilhaCSV() {
+            const cabecalho = "IMOVEL;ENDERECO;PROJETO;TECNICO;ANDARES;HPS\n";
+            const ex1 = "IMO-1001;Rua Conde de Bonfim 450 - Tijuca;VISTORIA;ANDREO FAGUNDES;10;40\n";
+            const ex2 = "IMO-2002;Av Nossa Senhora de Copacabana 800;CONSTRUÇÃO F;BRUNO SOARES DA SILVA;12;60\n";
+            const ex3 = "IMO-3003;Rua Voluntários da Pátria 190 - Botafogo;ATIVAÇÃO ON GOING;CESAR SALES ROSA;8;32\n";
+            const blob = new Blob(['\ufeff' + cabecalho + ex1 + ex2 + ex3], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `modelo_carga_gpd_procisa_${obterDataLocalISO()}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function lerArquivoPlanilhaUpload(inputEl) {
+            const file = inputEl.files && inputEl.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('txt-linhas-planilha').value = e.target.result || "";
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        async function processarImportacaoPlanilha() {
+            const textoBruto = document.getElementById('txt-linhas-planilha').value.trim();
+            if (!textoBruto) {
+                alert("⚠️ Selecione um arquivo .CSV ou cole as linhas da planilha na caixa de texto.");
+                return;
+            }
+
+            const linhas = textoBruto.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            const hojeISO = obterDataLocalISO();
+            const novosRegistros = [];
+
+            linhas.forEach((linha, idx) => {
+                // Ignora cabeçalho se houver
+                if (idx === 0 && (linha.toUpperCase().startsWith("IMOVEL") || linha.toUpperCase().startsWith("IMÓVEL") || linha.toUpperCase().includes("ENDERECO;PROJETO"))) {
+                    return;
+                }
+
+                // Suporta ponto-e-vírgula (;), tabulação (\t - cópia direta do Excel) ou vírgula (,)
+                let delimitador = ';';
+                if (linha.includes('\t')) delimitador = '\t';
+                else if (!linha.includes(';') && linha.includes(',')) delimitador = ',';
+
+                const partes = linha.split(delimitador).map(p => p.trim());
+                if (partes.length < 4) return;
+
+                const imovel = partes[0];
+                const endereco = partes[1] || "Endereço a confirmar";
+                const projeto = normalizarNomeProjeto(partes[2] || "CONSTRUÇÃO ON GOING");
+                const tecnico = (partes[3] || "").toUpperCase().trim();
+                const andares = Number(partes[4]) || 0;
+                const hps = Number(partes[5]) || 0;
+
+                if (!imovel || !tecnico) return;
+
+                novosRegistros.push({
+                    id: Date.now() + idx + Math.floor(Math.random() * 1000),
+                    data_registro: hojeISO,
+                    equipe: tecnico,
+                    membros: tecnico,
+                    projeto: TODOS_OS_PROJETOS.includes(projeto) ? projeto : "CONSTRUÇÃO ON GOING",
+                    imovel: imovel,
+                    h_entrada: "Programada",
+                    h_saida: "Aguardando",
+                    gps_entrada: "Carga Gestor",
+                    gps_saida: "-",
+                    desfecho: "PROGRAMADA",
+                    motivo_desfecho: `Enviada via planilha por ${usuarioLogado || 'Gestor'}`,
+                    malogros: [],
+                    responsavel: "",
+                    contato: "",
+                    email: "",
+                    agendamento: null,
+                    andares: andares,
+                    hps: hps,
+                    servico_obra: "SIM",
+                    observacoes: `[END: ${endereco}] Atividade programada pela gestão.`
+                });
+            });
+
+            if (novosRegistros.length === 0) {
+                alert("⚠️ Nenhuma linha válida encontrada. Certifique-se de informar pelo menos: IMOVEL ; ENDERECO ; PROJETO ; TECNICO");
+                return;
+            }
+
+            const btn = document.getElementById('btn-confirmar-importacao');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "⏳ Enviando carga para a nuvem...";
+            }
+
+            const { error } = await supabaseClient.from('registros_producao').insert(novosRegistros);
+
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "🚀 Enviar Atividades para os Técnicos";
+            }
+
+            if (error) {
+                alert("❌ Erro ao importar planilha: " + error.message);
+                return;
+            }
+
+            registrarLogAuditoria(
+                "IMPORTAÇÃO DE PLANILHA",
+                `Importadas ${novosRegistros.length} atividade(s) programada(s) diretamente para os técnicos.`
+            );
+
+            fecharModalImportarPlanilha();
+            await recarregarDadosGestor();
+            alert(`✅ Sucesso! ${novosRegistros.length} atividade(s) foram enviadas diretamente para os técnicos e já aparecem no Modo Campo deles.`);
+        }
+
         function renderizarPainelDisponibilidade() {
             try {
                 const tbody = document.getElementById('tabela-disponibilidade-corpo');
@@ -3250,8 +3703,9 @@
                 equipesAtivas.forEach(eq => {
                     const regsHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.dataRegistro === hojeISO);
                     const impAberto = regsHoje.find(r => r.desfecho === 'IMPREVISTO');
-                    const obraAndamento = regsHoje.find(r => r.desfecho === 'EM ANDAMENTO');
-                    const ultimoReg = registrosSalvos.find(r => r.equipe === eq.nome);
+                    const obraAndamento = regsHoje.find(r => r.desfecho === 'EM ANDAMENTO' || r.desfecho === 'REABERTA');
+                    const programadasHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.desfecho === 'PROGRAMADA').length;
+                    const ultimoReg = registrosSalvos.find(r => r.equipe === eq.nome && r.gpsEntrada && r.gpsEntrada.includes(','));
 
                     let statusBadge = "";
                     let detalheTexto = "";
@@ -3272,7 +3726,8 @@
                         countDisp++;
                         statusBadge = `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🟢 DISPONÍVEL</span>`;
                         const concluidasHoje = regsHoje.filter(r => r.desfecho === 'CONCLUIDA').length;
-                        detalheTexto = `<span class="text-slate-500">Livre para acionamento (${concluidasHoje} concluída(s) hoje)</span>`;
+                        const txtProg = programadasHoje > 0 ? ` • <b class="text-cyan-800">${programadasHoje} programada(s) na fila</b>` : '';
+                        detalheTexto = `<span class="text-slate-500">Livre para acionamento (${concluidasHoje} concluída(s) hoje${txtProg})</span>`;
                     }
 
                     const setorBadge = obterBadgeSetorHtml(eq.setor);
@@ -3316,6 +3771,7 @@
             const dataFim = document.getElementById('gestor-filtro-data-fim')?.value || "";
             const fEquipe = document.getElementById('gestor-filtro-equipe')?.value || "";
             const fProjeto = document.getElementById('gestor-filtro-projeto')?.value || "";
+            const fDesfecho = document.getElementById('gestor-filtro-desfecho')?.value || "";
             const termoBusca = document.getElementById('inp-busca-global')?.value.toLowerCase().trim() || "";
 
             const corpoAtiv = document.getElementById('tabela-gestor-corpo');
@@ -3351,14 +3807,23 @@
             });
 
             let listaImprevistos = filtradosBase.filter(i => i.projeto === 'IMPREVISTO / ATRASO' || i.desfecho === 'IMPREVISTO' || i.desfecho === 'IMPREVISTO RESOLVIDO');
-            let filtrados = filtradosBase.filter(i => i.projeto !== 'IMPREVISTO / ATRASO' && i.desfecho !== 'IMPREVISTO' && i.desfecho !== 'IMPREVISTO RESOLVIDO' && (fProjeto ? i.projeto === fProjeto : true));
+            
+            // ITEM 02: Aplica também o filtro de Status/Desfecho selecionado na barra superior
+            let filtrados = filtradosBase.filter(i => 
+                i.projeto !== 'IMPREVISTO / ATRASO' && 
+                i.desfecho !== 'IMPREVISTO' && 
+                i.desfecho !== 'IMPREVISTO RESOLVIDO' && 
+                (fProjeto ? i.projeto === fProjeto : true) &&
+                (fDesfecho ? i.desfecho === fDesfecho : true)
+            );
 
             dadosFiltradosAtuais = filtrados;
             listaImprevistosAtuais = listaImprevistos;
 
             renderizarPainelDisponibilidade();
 
-            const qtdEmAndamento = filtrados.filter(i => i.desfecho === 'EM ANDAMENTO').length;
+            const qtdEmAndamento = filtrados.filter(i => i.desfecho === 'EM ANDAMENTO' || i.desfecho === 'REABERTA').length;
+            const qtdProgramadas = filtrados.filter(i => i.desfecho === 'PROGRAMADA').length;
             const imprevistosAbertos = listaImprevistos.filter(i => i.desfecho === 'IMPREVISTO').length;
 
             const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
@@ -3421,7 +3886,7 @@
                 }
             }
 
-            const finalizadas = filtrados.filter(i => i.desfecho !== 'EM ANDAMENTO');
+            const finalizadas = filtrados.filter(i => !['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
 
             setTxt('kpi-proj-vistoria', finalizadas.filter(i => i.projeto === 'VISTORIA').length);
             setTxt('kpi-proj-const-f', finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO F').length);
@@ -3431,7 +3896,7 @@
             setTxt('kpi-proj-ativ-ongoing', finalizadas.filter(i => i.projeto === 'ATIVAÇÃO ON GOING').length);
             setTxt('kpi-proj-ativ-nap', finalizadas.filter(i => i.projeto === 'ATIVAÇÃO NAP LOTADA').length);
 
-            setTxt('contador-resultados', `${filtrados.length} registros (${qtdEmAndamento} em andamento)`);
+            setTxt('contador-resultados', `${filtrados.length} registros (${qtdEmAndamento} em andamento | ${qtdProgramadas} programadas)`);
             setTxt('contador-materiais', finalizadas.length + " registros finalizados");
 
             let concluidasCount = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
@@ -3483,29 +3948,39 @@
             renderizarTabelaFinanceiro(totaisFinanceirosAtuais);
 
             if (filtrados.length === 0) {
-                if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
+                if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este filtro/período.</td></tr>`;
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
             } else {
+                const prioridadeStatus = { 'EM ANDAMENTO': 1, 'REABERTA': 2, 'PROGRAMADA': 3 };
                 const filtradosOrdenados = [...filtrados].sort((a, b) => {
-                    if (a.desfecho === 'EM ANDAMENTO' && b.desfecho !== 'EM ANDAMENTO') return -1;
-                    if (a.desfecho !== 'EM ANDAMENTO' && b.desfecho === 'EM ANDAMENTO') return 1;
+                    const pA = prioridadeStatus[a.desfecho] || 4;
+                    const pB = prioridadeStatus[b.desfecho] || 4;
+                    if (pA !== pB) return pA - pB;
                     return b.id - a.id;
                 });
 
                 filtradosOrdenados.forEach(item => {
                     if (corpoAtiv) {
                         const tr = document.createElement('tr');
-                        tr.className = item.desfecho === 'EM ANDAMENTO' 
+                        tr.className = (item.desfecho === 'EM ANDAMENTO' || item.desfecho === 'REABERTA')
                             ? "bg-blue-50/70 hover:bg-blue-100/60 border-b cursor-pointer transition" 
-                            : "hover:bg-blue-50/50 border-b cursor-pointer transition";
+                            : (item.desfecho === 'PROGRAMADA' ? "bg-cyan-50/40 hover:bg-cyan-100/50 border-b cursor-pointer transition" : "hover:bg-blue-50/50 border-b cursor-pointer transition");
                         tr.title = "Clique para ver todos os detalhes e fotos";
                         tr.onclick = () => abrirDetalhesAtividade(item);
                         
                         let botoesAcao = "";
                         if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
+                            // ITEM 01: Botão de Reabertura para o Técnico (aparece nas atividades finalizadas)
+                            const btnReabrir = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(item.desfecho)
+                                ? `<button onclick="autorizarReaberturaCampo(${item.id})" class="text-purple-800 hover:bg-purple-200 font-bold text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded mr-1" title="Autorizar que o técnico reabra e edite esta atividade no Modo Campo">🔓 Reabrir p/ Campo</button>`
+                                : '';
+
                             botoesAcao = `
-                                <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 px-2 py-1 rounded mr-1">✏️ Editar</button>
-                                <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>
+                                <div class="flex flex-wrap gap-1">
+                                    ${btnReabrir}
+                                    <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded">✏️ Editar</button>
+                                    <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 border border-red-200 px-2 py-1 rounded">Excluir</button>
+                                </div>
                             `;
                         } else {
                             botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
@@ -3513,7 +3988,17 @@
 
                         const minIn = converterHorarioParaMinutos(item.hEntrada);
                         const minOut = converterHorarioParaMinutos(item.hSaida);
-                        const duracaoStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(minOut - minIn) : (item.desfecho === 'EM ANDAMENTO' ? '⏳ Em execução' : '-');
+                        let duracaoStr = "-";
+                        if (minIn !== null && minOut !== null && minOut >= minIn) {
+                            duracaoStr = formatarDuracaoTexto(minOut - minIn);
+                        } else if (item.desfecho === 'EM ANDAMENTO') {
+                            duracaoStr = '⏳ Em execução';
+                        } else if (item.desfecho === 'REABERTA') {
+                            duracaoStr = '🔄 Aguardando edição';
+                        } else if (item.desfecho === 'PROGRAMADA') {
+                            duracaoStr = '📋 Na fila do técnico';
+                        }
+
                         const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
 
                         const eqObj = equipesSistema.find(e => e.nome === item.equipe);
@@ -3556,7 +4041,7 @@
                             <td class="p-3">
                                 <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
                                 <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
-                                <div class="text-[10px] text-emerald-700 font-bold mt-0.5">⏱️ Duração: ${duracaoStr}</div>
+                                <div class="text-[10px] text-emerald-700 font-bold mt-0.5">⏱️ ${duracaoStr}</div>
                             </td>
                             <td class="p-3 text-[10px] font-mono text-slate-600">
                                 <div>In: ${item.gpsEntrada}</div>
@@ -3569,7 +4054,7 @@
                         corpoAtiv.appendChild(tr);
                     }
 
-                    if (item.desfecho !== 'EM ANDAMENTO' && corpoMat) {
+                    if (!['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(item.desfecho) && corpoMat) {
                         const trMat = document.createElement('tr');
                         trMat.className = "hover:bg-slate-50 border-b transition";
                         trMat.innerHTML = `
@@ -4178,7 +4663,7 @@
                 return;
             }
 
-            registrarLogAuditoria("EDIÇÃO DE REGISTRO", `Registro ID ${id} (Imóvel: ${imovel}) atualizado.`);
+            registrarLogAuditoria("EDIÇÃO DE REGISTRO", `Registro ID ${id} (Imóvel: ${imovel}) atualizado para status ${desfecho}.`);
             alert("Registro atualizado com sucesso!");
             fecharModalEdicao();
             await recarregarDadosGestor();
@@ -4348,7 +4833,7 @@
             let linkGpsSaida = item.gpsSaida && item.gpsSaida.includes(',') ? 
                 `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsSaida)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsSaida} (Abrir no Maps)</a>` : item.gpsSaida;
 
-            let malogrosStr = item.malogros && item.malogros.length > 0 ? item.malogros.join(', ') : 'Nenhum';
+            let malogrosStr = item.malogros && item.malogros.length > 0 ? item.malogros.join(' + ') : 'Nenhum';
 
             const minIn = converterHorarioParaMinutos(item.hEntrada);
             const minOut = converterHorarioParaMinutos(item.hSaida);
@@ -4374,7 +4859,7 @@
                 galeriaFotosHtml = `
                     <div class="bg-indigo-50/70 p-3 rounded-lg border border-indigo-200 space-y-2">
                         <h4 class="font-bold text-indigo-950 text-xs uppercase flex items-center justify-between">
-                            <span>📷 Fotos Anexadas em Campo (${item.fotos.length})</span>
+                            <span>📷 Fotos Anexadas em Campo (${item.fotos.length}/10)</span>
                             <span class="text-[10px] font-normal text-indigo-700">Clique na imagem para dar zoom ou baixar</span>
                         </h4>
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
@@ -4390,7 +4875,15 @@
                 `;
             }
 
+            const btnReabrirNoModal = ((nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') && ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(item.desfecho))
+                ? `<div class="bg-purple-50 border border-purple-200 p-3 rounded-lg flex justify-between items-center">
+                     <span class="text-[11px] font-bold text-purple-950">Deseja liberar esta atividade para o técnico editar no celular?</span>
+                     <button onclick="fecharModalDetalhes(); autorizarReaberturaCampo(${item.id})" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">🔓 Autorizar Reabertura</button>
+                   </div>`
+                : '';
+
             conteudo.innerHTML = `
+                ${btnReabrirNoModal}
                 <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
                     <div class="col-span-2"><strong>📍 Endereço do Atendimento:</strong> <span class="font-bold text-blue-950">${item.endereco || 'Não informado'}</span></div>
                     <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
@@ -4430,7 +4923,7 @@
                     </div>
                 </div>
 
-                ${(item.malogros && item.malogros.length > 0) ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Opções / Ofensores:</strong> <span class="font-bold text-red-900">${malogrosStr}</span></div>` : ''}
+                ${(item.malogros && item.malogros.length > 0) ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Opções Marcadas / Ofensores:</strong> <span class="font-bold text-red-900">${malogrosStr}</span></div>` : ''}
                 ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Detalhamento / Observação:</strong> ${item.motivoDesfecho}</div>` : ''}
                 ${item.observacoes ? `<div class="bg-slate-50 p-3 rounded-lg border border-slate-200"><strong>Observações Gerais:</strong> ${item.observacoes}</div>` : ''}
             `;
@@ -4457,7 +4950,7 @@
                 corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registro encontrado para esta seleção.</td></tr>`;
             } else {
                 subset.forEach(item => {
-                    let detalheInfo = item.malogros && item.malogros.length > 0 ? `Opções: ${item.malogros.join(', ')}` : (item.motivoDesfecho || 'Concluído sem pendências');
+                    let detalheInfo = item.malogros && item.malogros.length > 0 ? `Opções: ${item.malogros.join(' + ')}` : (item.motivoDesfecho || 'Concluído sem pendências');
                     const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
                     corpo.innerHTML += `
                         <tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))">
@@ -4837,7 +5330,6 @@
             registrarLogAuditoria("EXPORTAÇÃO FINANCEIRA", `Baixada planilha de Medição Financeira (Total: R$ ${valorGeral.toFixed(2)}).`);
         }
 
-        // Suporte a Seleção Múltipla Independente para os Setores no Modal de Equipe
         function alternarChaveSetorEquipe(setorEscolhido) {
             let inputHidden = document.getElementById('inp-setor-equipe');
             let atuais = obterArraySetores(inputHidden.value);
@@ -5128,11 +5620,15 @@
                 return;
             }
             trilhaAuditoria.forEach(log => {
+                const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA")
+                    ? "bg-purple-100 text-purple-900 border border-purple-300"
+                    : "bg-slate-100 text-slate-800";
+
                 corpo.innerHTML += `
                     <tr class="hover:bg-slate-50 border-b text-xs">
                         <td class="p-3 font-mono text-slate-500">${log.dataHora}</td>
                         <td class="p-3 font-bold text-blue-900">${log.usuario}</td>
-                        <td class="p-3"><span class="bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded text-[10px]">${log.acao}</span></td>
+                        <td class="p-3"><span class="${destaqueReabertura} font-bold px-2 py-0.5 rounded text-[10px]">${log.acao}</span></td>
                         <td class="p-3 text-slate-600">${log.detalhes}</td>
                     </tr>
                 `;
