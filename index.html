@@ -1331,7 +1331,7 @@
             </div>
         </div>
     </div>
-<!-- Script Principal - Parte 1 de 2 (Layout Fixo e Clean Integrado) -->
+<!-- Script Principal - Parte 1 de 2 (Multi-Grupos e Seleção Múltipla Global) -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1341,7 +1341,8 @@
         const ID_NUVEM_EQUIPES  = 999999002;
         const ID_NUVEM_OPCOES   = 999999003;
 
-        // ITENS 05 e 06: Amarração oficial de projetos por Grupo de Técnicos
+        const ORDEM_SETORES = ["Vistoriador", "Instalador", "Ativador"];
+
         const PROJETOS_POR_SETOR = {
             "Vistoriador": [
                 "VISTORIA"
@@ -1368,7 +1369,6 @@
             "ATIVAÇÃO NAP LOTADA"
         ];
 
-        // ITEM 08: Classificação oficial em MALLING vs PROJETO F
         const PROJETOS_GRUPO_MALLING = [
             "VISTORIA",
             "CONSTRUÇÃO ON GOING",
@@ -1381,6 +1381,51 @@
             "CONSTRUÇÃO F",
             "ATIVAÇÃO F"
         ];
+
+        const OPCOES_CONCLUIDA_PADRAO = [
+            "REDE INTERNA CONCLUÍDA",
+            "FUSÃO / CONECTORIZAÇÃO OK",
+            "TESTE ÓPTICO APROVADO",
+            "CAIXAS IDENTIFICADAS",
+            "LIBERADO PARA COMERCIAL"
+        ];
+
+        // Funções utilitárias para suportar Múltiplos Grupos/Setores por Técnico
+        function obterArraySetores(setorCampo) {
+            if (!setorCampo) return ["Instalador"];
+            if (Array.isArray(setorCampo)) {
+                const limpos = setorCampo.map(s => String(s).trim()).filter(s => ORDEM_SETORES.includes(s));
+                return limpos.length > 0 ? ORDEM_SETORES.filter(o => limpos.includes(o)) : ["Instalador"];
+            }
+            const partes = String(setorCampo).split(/[+,;/|]/).map(s => s.trim()).filter(s => ORDEM_SETORES.includes(s));
+            return partes.length > 0 ? ORDEM_SETORES.filter(o => partes.includes(o)) : ["Instalador"];
+        }
+
+        function formatarSetoresString(arrSetores) {
+            const validos = obterArraySetores(arrSetores);
+            return validos.join(" + ");
+        }
+
+        function tecnicoPertenceAoSetor(setorCampo, setorAlvo) {
+            if (!setorAlvo || setorAlvo === 'TODOS') return true;
+            return obterArraySetores(setorCampo).includes(setorAlvo);
+        }
+
+        function obterProjetosPermitidosParaSetores(setorCampo) {
+            const listaSetores = obterArraySetores(setorCampo);
+            const projetosUnicos = new Set();
+            listaSetores.forEach(s => {
+                (PROJETOS_POR_SETOR[s] || []).forEach(p => projetosUnicos.add(p));
+            });
+            return Array.from(projetosUnicos);
+        }
+
+        function obterSetorDoProjeto(projeto) {
+            const p = normalizarNomeProjeto(projeto);
+            if (PROJETOS_POR_SETOR["Vistoriador"].includes(p)) return "Vistoriador";
+            if (PROJETOS_POR_SETOR["Ativador"].includes(p)) return "Ativador";
+            return "Instalador";
+        }
 
         function normalizarNomeProjeto(projBruto) {
             const p = (projBruto || '').toUpperCase().trim();
@@ -1400,14 +1445,17 @@
             return "OUTROS";
         }
 
-        function obterBadgeSetorHtml(setor) {
-            if (setor === 'Vistoriador') {
-                return `<span class="bg-purple-100 text-purple-900 border border-purple-300 font-bold px-2 py-0.5 rounded text-[10px]">🔍 Vistoriador</span>`;
-            }
-            if (setor === 'Ativador') {
-                return `<span class="bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold px-2 py-0.5 rounded text-[10px]">⚡ Ativador</span>`;
-            }
-            return `<span class="bg-blue-100 text-blue-900 border border-blue-300 font-bold px-2 py-0.5 rounded text-[10px]">🛠️ Instalador</span>`;
+        function obterBadgeSetorHtml(setorCampo) {
+            const lista = obterArraySetores(setorCampo);
+            return `<div class="flex flex-wrap gap-1">` + lista.map(setor => {
+                if (setor === 'Vistoriador') {
+                    return `<span class="bg-purple-100 text-purple-900 border border-purple-300 font-bold px-2 py-0.5 rounded text-[10px]">🔍 Vistoriador</span>`;
+                }
+                if (setor === 'Ativador') {
+                    return `<span class="bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold px-2 py-0.5 rounded text-[10px]">⚡ Ativador</span>`;
+                }
+                return `<span class="bg-blue-100 text-blue-900 border border-blue-300 font-bold px-2 py-0.5 rounded text-[10px]">🛠️ Instalador</span>`;
+            }).join('') + `</div>`;
         }
 
         let OPCOES_PENDENCIA_PADRAO = JSON.parse(localStorage.getItem('gpd_opcoes_pendencia')) || [
@@ -1476,7 +1524,7 @@
 
         equipesSistema = equipesSistema.map(eq => ({
             ...eq,
-            setor: eq.setor || "Instalador"
+            setor: formatarSetoresString(eq.setor || "Instalador")
         }));
 
         let dadosAtendimento = { idEmAndamento: null, hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, blocos: [] };
@@ -1615,10 +1663,26 @@
             }
         }
 
+        // Habilita marcação múltipla também nos motivos de Imprevistos / Atrasos
         function popularSelectImprevistos() {
             const sel = document.getElementById('sel-motivo-imprevisto');
             if (!sel) return;
             sel.innerHTML = OPCOES_IMPREVISTO_PADRAO.map(op => `<option value="${op}">⚠️ ${op}</option>`).join('');
+
+            let boxMulti = document.getElementById('box-multi-imprevistos');
+            if (!boxMulti) {
+                sel.classList.add('hidden');
+                boxMulti = document.createElement('div');
+                boxMulti.id = 'box-multi-imprevistos';
+                boxMulti.className = 'grid grid-cols-1 gap-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-300 max-h-44 overflow-y-auto text-xs';
+                sel.parentNode.insertBefore(boxMulti, sel.nextSibling);
+            }
+            boxMulti.innerHTML = OPCOES_IMPREVISTO_PADRAO.map((op, i) => `
+                <label class="flex items-center gap-2 font-bold text-slate-700 cursor-pointer hover:bg-amber-50 p-1 rounded">
+                    <input type="checkbox" name="chk-motivo-imprevisto" value="${op}" ${i === 0 ? 'checked' : ''} class="w-4 h-4 accent-amber-600 rounded">
+                    <span>⚠️ ${op}</span>
+                </label>
+            `).join('');
         }
 
         function renderizarPainelOpcoesSistema() {
@@ -1750,7 +1814,6 @@
             }, 180000);
         };
 
-        // --- FUNÇÕES DE FOTOS ---
         function comprimirImagemBase64(file, maxWidth = 850, quality = 0.65) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -1860,6 +1923,7 @@
                 cxFosc: 0,
                 desfecho: null,
                 servicoObra: "SIM",
+                concluidasOpcoes: [],
                 obsConcluida: "",
                 obsPendente: "",
                 pendenciasOpcoes: [],
@@ -1893,6 +1957,9 @@
                 b.obsPendente = document.getElementById(`bloco-obs-pend-${i}`)?.value || "";
                 b.obsMalograda = document.getElementById(`bloco-obs-malo-${i}`)?.value || "";
                 b.observacoes = document.getElementById(`bloco-observacoes-${i}`)?.value || "";
+
+                const checksConc = document.querySelectorAll(`input[name="bloco-concluida-check-${i}"]:checked`);
+                b.concluidasOpcoes = Array.from(checksConc).map(c => c.value);
 
                 const checksPend = document.querySelectorAll(`input[name="bloco-pendencia-check-${i}"]:checked`);
                 b.pendenciasOpcoes = Array.from(checksPend).map(c => c.value);
@@ -1937,12 +2004,18 @@
 
             dadosAtendimento.blocos.forEach((b, idx) => {
                 if (!b.fotos) b.fotos = [];
+                if (!b.concluidasOpcoes) b.concluidasOpcoes = [];
                 const mostrarIdentBloco = qtdTotal > 1;
                 const d = b.desfecho;
 
                 const btnConcClass = d === 'CONCLUIDA' ? 'ring-2 ring-offset-1 ring-emerald-700 bg-emerald-700 text-white' : 'bg-emerald-600/90 text-white opacity-80';
                 const btnPendClass = d === 'PENDENTE' ? 'ring-2 ring-offset-1 ring-amber-600 bg-amber-600 text-white' : 'bg-amber-500/90 text-white opacity-80';
                 const btnMaloClass = d === 'MALOGRADA' ? 'ring-2 ring-offset-1 ring-red-700 bg-red-700 text-white' : 'bg-red-600/90 text-white opacity-80';
+
+                const checkboxesConcluidaHtml = OPCOES_CONCLUIDA_PADRAO.map(op => {
+                    const checked = (b.concluidasOpcoes && b.concluidasOpcoes.includes(op)) ? 'checked' : '';
+                    return `<label class="flex items-center gap-1.5"><input type="checkbox" name="bloco-concluida-check-${idx}" value="${op}" ${checked}> ${op}</label>`;
+                }).join('');
 
                 const checkboxesPendenciaHtml = OPCOES_PENDENCIA_PADRAO.map(op => {
                     const checked = (b.pendenciasOpcoes && b.pendenciasOpcoes.includes(op)) ? 'checked' : '';
@@ -2024,12 +2097,16 @@
                                 <option value="SIM" ${b.servicoObra === 'SIM' ? 'selected' : ''}>SIM</option>
                                 <option value="NÃO" ${b.servicoObra === 'NÃO' ? 'selected' : ''}>NÃO</option>
                             </select>
+                            <label class="block text-[11px] font-bold text-emerald-900 mt-1">Itens Verificados / Entregues (Marcação Múltipla):</label>
+                            <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-emerald-200">
+                                ${checkboxesConcluidaHtml}
+                            </div>
                             <label class="block text-[11px] font-semibold text-emerald-900">Informação Complementar (Opcional)</label>
                             <input type="text" id="bloco-obs-conc-${idx}" value="${b.obsConcluida}" class="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white" placeholder="Detalhe opcional...">
                         </div>
 
                         <div class="${d === 'PENDENTE' ? '' : 'hidden'} space-y-2 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-                            <label class="block text-[11px] font-bold text-amber-900">Selecione a(s) Opção(ões) da Pendência (Ex: Rede Corretiva):*</label>
+                            <label class="block text-[11px] font-bold text-amber-900">Selecione a(s) Opção(ões) da Pendência (Marcação Múltipla):*</label>
                             <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-amber-200 max-h-36 overflow-y-auto">
                                 ${checkboxesPendenciaHtml}
                             </div>
@@ -2038,7 +2115,7 @@
                         </div>
 
                         <div class="${d === 'MALOGRADA' ? '' : 'hidden'} space-y-2 bg-red-50 p-2.5 rounded-xl border border-red-200">
-                            <label class="block text-[11px] font-bold text-red-900">Selecione o(s) Ofensor(es) / Malogro(s):*</label>
+                            <label class="block text-[11px] font-bold text-red-900">Selecione o(s) Ofensor(es) / Malogro(s) (Marcação Múltipla):*</label>
                             <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-red-200 max-h-40 overflow-y-auto">
                                 ${checkboxesMalogroHtml}
                             </div>
@@ -2094,6 +2171,7 @@
             }
         }
 
+        // Soma todos os projetos permitidos para todos os grupos marcados para o técnico
         function atualizarProjetosPermitidosCampo(nomeEquipe, projetoPreSelecionado = null) {
             const selProj = document.getElementById('sel-projeto');
             const badgeSetor = document.getElementById('badge-setor-campo');
@@ -2109,23 +2187,23 @@
             }
 
             const eqObj = equipesSistema.find(e => e.nome === nomeEquipe);
-            const setor = eqObj && eqObj.setor ? eqObj.setor : "Instalador";
-            const listaProjetos = PROJETOS_POR_SETOR[setor] || PROJETOS_POR_SETOR["Instalador"];
+            const setoresArr = obterArraySetores(eqObj ? eqObj.setor : "Instalador");
+            const listaProjetos = obterProjetosPermitidosParaSetores(setoresArr);
 
             if (badgeSetor) {
-                if (setor === 'Vistoriador') {
-                    badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-300";
-                    badgeSetor.innerText = "🔍 Setor: VISTORIADOR";
-                } else if (setor === 'Ativador') {
-                    badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300";
-                    badgeSetor.innerText = "⚡ Setor: ATIVADOR";
-                } else {
-                    badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-900 border border-blue-300";
-                    badgeSetor.innerText = "🛠️ Setor: INSTALADOR";
-                }
+                badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-950 border border-indigo-300";
+                badgeSetor.innerText = `Grupos: ${setoresArr.join(' + ')}`;
             }
 
-            selProj.innerHTML = listaProjetos.map(p => `<option value="${p}">${p}</option>`).join('');
+            // Se o técnico pertence a mais de 1 grupo, organiza por <optgroup> para ficar super claro
+            if (setoresArr.length > 1) {
+                selProj.innerHTML = setoresArr.map(s => {
+                    const projs = PROJETOS_POR_SETOR[s] || [];
+                    return `<optgroup label="Grupo: ${s.toUpperCase()}">${projs.map(p => `<option value="${p}">${p}</option>`).join('')}</optgroup>`;
+                }).join('');
+            } else {
+                selProj.innerHTML = listaProjetos.map(p => `<option value="${p}">${p}</option>`).join('');
+            }
 
             const projNorm = projetoPreSelecionado ? normalizarNomeProjeto(projetoPreSelecionado) : null;
             if (projNorm && listaProjetos.includes(projNorm)) {
@@ -2211,7 +2289,7 @@
             );
 
             if (impAtivo) {
-                const motivoStr = (impAtivo.malogros && impAtivo.malogros.length > 0) ? impAtivo.malogros[0] : impAtivo.motivoDesfecho;
+                const motivoStr = (impAtivo.malogros && impAtivo.malogros.length > 0) ? impAtivo.malogros.join(' + ') : impAtivo.motivoDesfecho;
                 document.getElementById('lbl-info-imprevisto-ativo').innerText = `${motivoStr} (Iniciado às ${impAtivo.hEntrada})`;
                 boxImp.dataset.idImprevisto = impAtivo.id;
                 boxImp.classList.remove('hidden');
@@ -2337,7 +2415,7 @@
                 linhas.push(`📦 *Materiais:* RL: ${r.caboRL}m | Drop: ${r.caboDrop}m | Conect: ${r.conectores} | Fusões: ${r.fusoes} | NAP: ${r.nap} | DIO: ${r.dio}`);
             }
             if (r.malogros && r.malogros.length > 0) {
-                linhas.push(`⚠️ *Opções/Ofensores:* ${r.malogros.join(', ')}`);
+                linhas.push(`⚠️ *Opções Marcadas:* ${r.malogros.join(', ')}`);
             }
             if (r.motivoDesfecho) {
                 linhas.push(`💬 *Detalhe:* ${r.motivoDesfecho}`);
@@ -2436,15 +2514,13 @@
             if (selFiltro) selFiltro.innerHTML = '<option value="">👥 Todas as Equipes</option>';
 
             equipesSistema.forEach(eq => {
-                let setorTag = '🛠️ Instalador';
-                if (eq.setor === 'Vistoriador') setorTag = '🔍 Vistoriador';
-                else if (eq.setor === 'Ativador') setorTag = '⚡ Ativador';
+                const strSetores = formatarSetoresString(eq.setor);
 
                 if (eq.status === "Ativo" && selCampo) {
-                    selCampo.innerHTML += `<option value="${eq.nome}">${eq.nome} (${setorTag})</option>`;
+                    selCampo.innerHTML += `<option value="${eq.nome}">${eq.nome} (${strSetores})</option>`;
                 }
                 if (selFiltro) {
-                    selFiltro.innerHTML += `<option value="${eq.nome}">${eq.nome} [${eq.setor || 'Instalador'}] (${eq.status})</option>`;
+                    selFiltro.innerHTML += `<option value="${eq.nome}">${eq.nome} [${strSetores}] (${eq.status})</option>`;
                 }
             });
 
@@ -2504,7 +2580,6 @@
             alert("Sessão encerrada com segurança.");
         }
 
-        // Atualizado para exibir/ocultar as barras fixas do cabeçalho Gestor (Itens 01, 03 e 04)
         function alternarVisao(visao) {
             const vGestor = document.getElementById('view-gestor');
             const vCampo = document.getElementById('view-campo');
@@ -2600,7 +2675,7 @@
                         try {
                             const nuvemEq = JSON.parse(rowEquipes.observacoes);
                             if (Array.isArray(nuvemEq) && nuvemEq.length > 0) {
-                                equipesSistema = nuvemEq.map(eq => ({ ...eq, setor: eq.setor || "Instalador" }));
+                                equipesSistema = nuvemEq.map(eq => ({ ...eq, setor: formatarSetoresString(eq.setor || "Instalador") }));
                                 localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
                             }
                         } catch (e) { console.warn("Erro ao ler JSON de equipes da nuvem:", e); }
@@ -2706,7 +2781,7 @@
             atualizarDashboardGestor();
             const lblHora = document.getElementById('txt-hora-sync');
             if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
-            alert("🔄 Dados, fotos, setores e indicadores atualizados da nuvem!");
+            alert("🔄 Dados, fotos, grupos de equipes e indicadores atualizados da nuvem!");
         }
 
         function mudarTipoProjeto() {
@@ -2841,6 +2916,7 @@
                 return;
             }
             document.getElementById('inp-detalhe-imprevisto').value = '';
+            popularSelectImprevistos();
             document.getElementById('modal-imprevisto').classList.remove('hidden');
         }
 
@@ -2858,7 +2934,20 @@
 
         async function enviarImprevisto() {
             const equipe = document.getElementById('sel-equipe').value;
-            const motivo = document.getElementById('sel-motivo-imprevisto').value;
+            const checksImp = document.querySelectorAll('input[name="chk-motivo-imprevisto"]:checked');
+            let motivosSelecionados = Array.from(checksImp).map(c => c.value);
+
+            if (motivosSelecionados.length === 0) {
+                const fallbackSel = document.getElementById('sel-motivo-imprevisto')?.value;
+                if (fallbackSel) motivosSelecionados = [fallbackSel];
+            }
+
+            if (motivosSelecionados.length === 0) {
+                alert("⚠️ Selecione pelo menos um motivo de imprevisto.");
+                return;
+            }
+
+            const motivoStr = motivosSelecionados.join(" + ");
             const detalhe = document.getElementById('inp-detalhe-imprevisto').value.trim();
 
             if (!equipe) {
@@ -2894,8 +2983,8 @@
                 gps_entrada: gpsCapturado,
                 gps_saida: gpsCapturado,
                 desfecho: "IMPREVISTO",
-                motivo_desfecho: detalhe ? `${motivo}: ${detalhe}` : motivo,
-                malogros: [motivo],
+                motivo_desfecho: detalhe ? `${motivoStr}: ${detalhe}` : motivoStr,
+                malogros: motivosSelecionados,
                 responsavel: '',
                 contato: '',
                 email: '',
@@ -2927,7 +3016,7 @@
                 return;
             }
 
-            registrarLogAuditoria("IMPREVISTO REPORTADO", `Equipe: ${equipe} | Motivo: ${motivo} | Status: INDISPONÍVEL`);
+            registrarLogAuditoria("IMPREVISTO REPORTADO", `Equipe: ${equipe} | Motivo(s): ${motivoStr} | Status: INDISPONÍVEL`);
             alert("⚠️ Imprevisto registrado! Quando o problema for resolvido, clique no botão verde 'Resolver Imprevisto e Ficar Disponível' na sua tela.");
             fecharModalImprevisto();
             await carregarRegistrosDaNuvem();
@@ -3028,6 +3117,7 @@
 
                 if (b.desfecho === 'CONCLUIDA') {
                     motivoDesfecho = b.obsConcluida.trim();
+                    opcoesMarcadas = b.concluidasOpcoes || [];
                 } else if (b.desfecho === 'PENDENTE') {
                     motivoDesfecho = b.obsPendente.trim();
                     opcoesMarcadas = b.pendenciasOpcoes || [];
@@ -3170,7 +3260,7 @@
                     if (impAberto) {
                         countIndisp++;
                         statusBadge = `<span class="bg-red-100 text-red-800 border border-red-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🔴 INDISPONÍVEL (IMPREVISTO)</span>`;
-                        const mot = (impAberto.malogros && impAberto.malogros.length > 0) ? impAberto.malogros[0] : impAberto.motivoDesfecho;
+                        const mot = (impAberto.malogros && impAberto.malogros.length > 0) ? impAberto.malogros.join(' + ') : impAberto.motivoDesfecho;
                         detalheTexto = `<span class="font-bold text-red-900">${mot}</span> <span class="text-slate-500">(Desde ${impAberto.hEntrada})</span>`;
                         acaoHtml = `<button onclick="resolverImprevistoPorId(${impAberto.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Liberar Técnico</button>`;
                     } else if (obraAndamento) {
@@ -3185,7 +3275,7 @@
                         detalheTexto = `<span class="text-slate-500">Livre para acionamento (${concluidasHoje} concluída(s) hoje)</span>`;
                     }
 
-                    const setorBadge = obterBadgeSetorHtml(eq.setor || 'Instalador');
+                    const setorBadge = obterBadgeSetorHtml(eq.setor);
 
                     const gpsStr = (ultimoReg && ultimoReg.gpsEntrada && ultimoReg.gpsEntrada.includes(','))
                         ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ultimoReg.gpsEntrada)}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${ultimoReg.gpsEntrada}</a>`
@@ -3294,7 +3384,7 @@
                     corpoImp.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum imprevisto ou atraso reportado no período.</td></tr>`;
                 } else {
                     listaImprevistos.forEach(imp => {
-                        const motivoPrincipal = (imp.malogros && imp.malogros.length > 0) ? imp.malogros[0] : "IMPREVISTO";
+                        const motivoPrincipal = (imp.malogros && imp.malogros.length > 0) ? imp.malogros.join(' + ') : "IMPREVISTO";
                         const obsTexto = imp.observacoes || imp.motivoDesfecho || "-";
                         const linkGps = (imp.gpsEntrada && imp.gpsEntrada.includes(',')) ?
                             `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(imp.gpsEntrada)}" target="_blank" onclick="event.stopPropagation()" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${imp.gpsEntrada}</a>` :
@@ -3392,7 +3482,6 @@
             };
             renderizarTabelaFinanceiro(totaisFinanceirosAtuais);
 
-            // PREENCHE IMEDIATAMENTE A TABELA DE ATIVIDADES E MATERIAIS
             if (filtrados.length === 0) {
                 if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este período.</td></tr>`;
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
@@ -3529,7 +3618,7 @@
             equipesSistema.filter(e => e.status === 'Ativo').forEach(eq => {
                 mapaExec[eq.nome] = {
                     nome: eq.nome,
-                    setor: eq.setor || "Instalador",
+                    setor: eq.setor,
                     prodDiaria: 0,
                     consolidadoConcluidas: 0,
                     totalGeral: 0,
@@ -3543,7 +3632,7 @@
                     const eqCadastrada = equipesSistema.find(e => e.nome === nome);
                     mapaExec[nome] = {
                         nome: nome,
-                        setor: eqCadastrada ? (eqCadastrada.setor || "Instalador") : "Instalador",
+                        setor: eqCadastrada ? eqCadastrada.setor : "Instalador",
                         prodDiaria: 0,
                         consolidadoConcluidas: 0,
                         totalGeral: 0,
@@ -3570,7 +3659,7 @@
             });
 
             const atualizarCardGrupo = (setorAlvo, prefixoId) => {
-                const doSetor = listaTodos.filter(i => i.setor === setorAlvo);
+                const doSetor = listaTodos.filter(i => tecnicoPertenceAoSetor(i.setor, setorAlvo));
                 const comProducao = doSetor.filter(i => i.totalGeral > 0);
                 const somaDiaria = doSetor.reduce((acc, i) => acc + i.prodDiaria, 0);
                 const somaCons = doSetor.reduce((acc, i) => acc + i.consolidadoConcluidas, 0);
@@ -3594,7 +3683,7 @@
             atualizarCardGrupo('Ativador', 'ativ');
 
             const filtroSetor = document.getElementById('filtro-setor-grafico-principal')?.value || 'TODOS';
-            let listaExibicao = listaTodos.filter(ex => filtroSetor === 'TODOS' ? true : ex.setor === filtroSetor);
+            let listaExibicao = listaTodos.filter(ex => tecnicoPertenceAoSetor(ex.setor, filtroSetor));
 
             listaExibicao.sort((a, b) => {
                 if (b.consolidadoConcluidas !== a.consolidadoConcluidas) return b.consolidadoConcluidas - a.consolidadoConcluidas;
@@ -3637,7 +3726,7 @@
                 graficoPrincipalExecutoresInstancia = new Chart(ctxExec, {
                     type: 'bar',
                     data: {
-                        labels: listaGrafico.map(e => `${e.nome.split(' ')[0]} (${e.setor.substring(0,4)})`),
+                        labels: listaGrafico.map(e => `${e.nome.split(' ')[0]}`),
                         datasets: [
                             {
                                 label: 'Consolidado (Concluídas)',
@@ -3785,7 +3874,7 @@
                     const eqObj = equipesSistema.find(e => e.nome === nome);
                     mapaCruz[nome] = {
                         nome: nome,
-                        setor: eqObj ? (eqObj.setor || 'Instalador') : 'Instalador',
+                        setor: eqObj ? eqObj.setor : 'Instalador',
                         contagem: {}
                     };
                     TODOS_OS_PROJETOS.forEach(p => mapaCruz[nome].contagem[p] = 0);
@@ -3795,7 +3884,7 @@
                 }
             });
 
-            const listaCruz = Object.values(mapaCruz).sort((a, b) => a.setor.localeCompare(b.setor) || a.nome.localeCompare(b.nome));
+            const listaCruz = Object.values(mapaCruz).sort((a, b) => a.nome.localeCompare(b.nome));
 
             if (listaCruz.length === 0) {
                 tbodyCruz.innerHTML = `<tr><td colspan="12" class="p-4 text-center text-slate-400">Nenhuma atividade registrada no período para exibir o cruzamento entre executores e projetos.</td></tr>`;
@@ -4341,7 +4430,7 @@
                     </div>
                 </div>
 
-                ${(item.malogros && item.malogros.length > 0) ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Opções Marcadas / Ofensores:</strong> <span class="font-bold text-red-900">${malogrosStr}</span></div>` : ''}
+                ${(item.malogros && item.malogros.length > 0) ? `<div class="bg-red-50 p-3 rounded-lg border border-red-200"><strong>Opções / Ofensores:</strong> <span class="font-bold text-red-900">${malogrosStr}</span></div>` : ''}
                 ${item.motivoDesfecho ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Detalhamento / Observação:</strong> ${item.motivoDesfecho}</div>` : ''}
                 ${item.observacoes ? `<div class="bg-slate-50 p-3 rounded-lg border border-slate-200"><strong>Observações Gerais:</strong> ${item.observacoes}</div>` : ''}
             `;
@@ -4631,7 +4720,7 @@
             let colunas = [
                 "ID", "Data", "Equipe", "Setor", "Projeto", "Macrogrupo", "Imóvel / Bloco", "Endereço do Atendimento",
                 "Hora Entrada", "Hora Saída", "Duração", "GPS Entrada", "GPS Saída", 
-                "Desfecho", "Qtd Fotos", "Serviço Obra", "Opções/Ofensores", "Motivo Desfecho", "Responsável", "Contato", 
+                "Desfecho", "Qtd Fotos", "Serviço Obra", "Opções Marcadas", "Motivo Desfecho", "Responsável", "Contato", 
                 "E-mail", "Andares", "HPs", 
                 "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", 
                 "NAP", "DIO", "Cx Sobrepor", "Cx Embutida", "Cx FOSC", "Observações Gerais"
@@ -4661,7 +4750,7 @@
                     r.desfecho || "",
                     r.fotos ? r.fotos.length : 0,
                     r.servicoObra || "SIM",
-                    r.malogros ? r.malogros.join(', ') : "",
+                    r.malogros ? r.malogros.join(' + ') : "",
                     r.motivoDesfecho || "",
                     r.responsavel || "",
                     r.contato || "",
@@ -4748,44 +4837,77 @@
             registrarLogAuditoria("EXPORTAÇÃO FINANCEIRA", `Baixada planilha de Medição Financeira (Total: R$ ${valorGeral.toFixed(2)}).`);
         }
 
+        // Suporte a Seleção Múltipla Independente para os Setores no Modal de Equipe
         function alternarChaveSetorEquipe(setorEscolhido) {
-            document.getElementById('inp-setor-equipe').value = setorEscolhido;
+            let inputHidden = document.getElementById('inp-setor-equipe');
+            let atuais = obterArraySetores(inputHidden.value);
+
+            if (atuais.includes(setorEscolhido)) {
+                if (atuais.length > 1) {
+                    atuais = atuais.filter(s => s !== setorEscolhido);
+                } else {
+                    alert("⚠️ O técnico precisa pertencer a pelo menos um grupo de atuação.");
+                    return;
+                }
+            } else {
+                atuais.push(setorEscolhido);
+            }
+
+            inputHidden.value = formatarSetoresString(atuais);
+
             const btnVist = document.getElementById('btn-chave-vistoriador');
             const btnInst = document.getElementById('btn-chave-instalador');
             const btnAtiv = document.getElementById('btn-chave-ativador');
 
-            const inativoClass = "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600 hover:bg-slate-200";
-            if (btnVist) btnVist.className = inativoClass;
-            if (btnInst) btnInst.className = inativoClass;
-            if (btnAtiv) btnAtiv.className = inativoClass;
+            const aplicarEstilo = (btn, ativo, corBg) => {
+                if (!btn) return;
+                if (ativo) {
+                    btn.className = `py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 ${corBg} text-white shadow-sm`;
+                } else {
+                    btn.className = "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600 hover:bg-slate-200 bg-slate-100";
+                }
+            };
 
-            if (setorEscolhido === 'Vistoriador' && btnVist) {
-                btnVist.className = "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 bg-purple-800 text-white shadow-sm";
-            } else if (setorEscolhido === 'Ativador' && btnAtiv) {
-                btnAtiv.className = "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 bg-emerald-700 text-white shadow-sm";
-            } else if (btnInst) {
-                btnInst.className = "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 bg-blue-900 text-white shadow-sm";
-            }
+            aplicarEstilo(btnVist, atuais.includes('Vistoriador'), 'bg-purple-800');
+            aplicarEstilo(btnInst, atuais.includes('Instalador'), 'bg-blue-900');
+            aplicarEstilo(btnAtiv, atuais.includes('Ativador'), 'bg-emerald-700');
         }
 
         function abrirModalEquipe(id = null) {
             if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Usuários visualizadores não podem gerenciar equipes."); return; }
             document.getElementById('modal-equipe').classList.remove('hidden');
             if (id) {
-                document.getElementById('modal-equipe-titulo').innerText = "Editar Equipe / Setor";
+                document.getElementById('modal-equipe-titulo').innerText = "Editar Equipe / Setor(es)";
                 let eq = equipesSistema.find(e => e.id === id);
                 if (eq) {
                     document.getElementById('edit-equipe-id').value = eq.id;
                     document.getElementById('inp-nome-equipe').value = eq.nome;
                     document.getElementById('sel-status-equipe').value = eq.status;
-                    alternarChaveSetorEquipe(eq.setor || "Instalador");
+                    
+                    document.getElementById('inp-setor-equipe').value = formatarSetoresString(eq.setor);
+                    const setoresAtuais = obterArraySetores(eq.setor);
+                    
+                    const btnVist = document.getElementById('btn-chave-vistoriador');
+                    const btnInst = document.getElementById('btn-chave-instalador');
+                    const btnAtiv = document.getElementById('btn-chave-ativador');
+
+                    if (btnVist) btnVist.className = setoresAtuais.includes('Vistoriador') ? "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 bg-purple-800 text-white shadow-sm" : "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600 hover:bg-slate-200 bg-slate-100";
+                    if (btnInst) btnInst.className = setoresAtuais.includes('Instalador') ? "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 bg-blue-900 text-white shadow-sm" : "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600 hover:bg-slate-200 bg-slate-100";
+                    if (btnAtiv) btnAtiv.className = setoresAtuais.includes('Ativador') ? "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 bg-emerald-700 text-white shadow-sm" : "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600 hover:bg-slate-200 bg-slate-100";
                 }
             } else {
                 document.getElementById('modal-equipe-titulo').innerText = "Cadastrar Nova Equipe";
                 document.getElementById('edit-equipe-id').value = "";
                 document.getElementById('inp-nome-equipe').value = "";
                 document.getElementById('sel-status-equipe').value = "Ativo";
-                alternarChaveSetorEquipe("Instalador");
+                document.getElementById('inp-setor-equipe').value = "Instalador";
+                
+                const btnVist = document.getElementById('btn-chave-vistoriador');
+                const btnInst = document.getElementById('btn-chave-instalador');
+                const btnAtiv = document.getElementById('btn-chave-ativador');
+                if (btnVist) btnVist.className = "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600 hover:bg-slate-200 bg-slate-100";
+                if (btnInst) btnInst.className = "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 bg-blue-900 text-white shadow-sm";
+                if (btnAtiv) btnAtiv.className = "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600 hover:bg-slate-200 bg-slate-100";
             }
         }
 
@@ -4795,7 +4917,7 @@
             if (nivelUsuarioLogado === 'Visualizador') return;
             const editId = document.getElementById('edit-equipe-id').value;
             const nome = document.getElementById('inp-nome-equipe').value.trim().toUpperCase();
-            const setor = document.getElementById('inp-setor-equipe').value || "Instalador";
+            const setor = formatarSetoresString(document.getElementById('inp-setor-equipe').value || "Instalador");
             const status = document.getElementById('sel-status-equipe').value;
 
             if (!nome) { alert("Preencha o nome da equipe ou técnico."); return; }
@@ -4803,13 +4925,13 @@
             if (editId) {
                 let eq = equipesSistema.find(e => e.id == editId);
                 if (eq) { 
-                    registrarLogAuditoria("EDIÇÃO DE EQUIPE", `Equipe ${eq.nome} atualizada: ${nome} | Setor: ${setor} (${status})`);
+                    registrarLogAuditoria("EDIÇÃO DE EQUIPE", `Equipe ${eq.nome} atualizada: ${nome} | Setor(es): ${setor} (${status})`);
                     eq.nome = nome; 
                     eq.setor = setor;
                     eq.status = status; 
                 }
             } else {
-                registrarLogAuditoria("CADASTRO DE EQUIPE", `Nova equipe cadastrada: ${nome} | Setor: ${setor} (${status})`);
+                registrarLogAuditoria("CADASTRO DE EQUIPE", `Nova equipe cadastrada: ${nome} | Setor(es): ${setor} (${status})`);
                 equipesSistema.push({ id: Date.now(), nome, setor, status });
             }
 
@@ -4818,15 +4940,28 @@
             popularSelectEquipes();
             renderizarTabelaEquipes();
             renderizarPainelDisponibilidade();
-            alert("☁️ Equipe e Setor de Atuação salvos e sincronizados na nuvem!");
+            alert("☁️ Equipe e Setor(es) de Atuação salvos e sincronizados na nuvem!");
         }
 
-        async function definirSetorDiretoNaTabela(idEquipe, novoSetor) {
+        async function alternarSetorDiretoNaTabela(idEquipe, setorAlvo) {
             if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
             const eq = equipesSistema.find(e => e.id === idEquipe);
-            if (!eq || eq.setor === novoSetor) return;
-            eq.setor = novoSetor;
-            registrarLogAuditoria("ALTERAÇÃO DE SETOR", `Técnico ${eq.nome} alterado para o grupo ${novoSetor}`);
+            if (!eq) return;
+
+            let setoresAtuais = obterArraySetores(eq.setor);
+            if (setoresAtuais.includes(setorAlvo)) {
+                if (setoresAtuais.length > 1) {
+                    setoresAtuais = setoresAtuais.filter(s => s !== setorAlvo);
+                } else {
+                    alert("⚠️ O técnico precisa pertencer a pelo menos um grupo de atuação.");
+                    return;
+                }
+            } else {
+                setoresAtuais.push(setorAlvo);
+            }
+
+            eq.setor = formatarSetoresString(setoresAtuais);
+            registrarLogAuditoria("ALTERAÇÃO DE SETOR", `Técnico ${eq.nome} atualizado para o(s) grupo(s): ${eq.setor}`);
             await sincronizarEquipesNaNuvem();
             popularSelectEquipes();
             renderizarTabelaEquipes();
@@ -4838,22 +4973,22 @@
             if (!corpo) return;
             corpo.innerHTML = "";
             equipesSistema.forEach(eq => {
-                const s = eq.setor || 'Instalador';
+                const setoresAtuais = obterArraySetores(eq.setor);
                 const chaveSetorHtml = `
-                    <div class="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-300">
-                        <button onclick="definirSetorDiretoNaTabela(${eq.id}, 'Vistoriador')" class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${s === 'Vistoriador' ? 'bg-purple-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}">
+                    <div class="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-300 gap-1">
+                        <button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Vistoriador')" class="px-2 py-1 rounded-md text-[10px] font-bold transition ${setoresAtuais.includes('Vistoriador') ? 'bg-purple-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 bg-white'}">
                             🔍 Vistoriador
                         </button>
-                        <button onclick="definirSetorDiretoNaTabela(${eq.id}, 'Instalador')" class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${s === 'Instalador' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}">
+                        <button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Instalador')" class="px-2 py-1 rounded-md text-[10px] font-bold transition ${setoresAtuais.includes('Instalador') ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 bg-white'}">
                             🛠️ Instalador
                         </button>
-                        <button onclick="definirSetorDiretoNaTabela(${eq.id}, 'Ativador')" class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${s === 'Ativador' ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}">
+                        <button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Ativador')" class="px-2 py-1 rounded-md text-[10px] font-bold transition ${setoresAtuais.includes('Ativador') ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 bg-white'}">
                             ⚡ Ativador
                         </button>
                     </div>
                 `;
 
-                const projsHabilitados = (PROJETOS_POR_SETOR[s] || []).map(p => `<span class="bg-slate-100 border border-slate-300 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded">${p}</span>`).join(' ');
+                const projsHabilitados = obterProjetosPermitidosParaSetores(setoresAtuais).map(p => `<span class="bg-slate-100 border border-slate-300 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded">${p}</span>`).join(' ');
 
                 let acoesEq = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') ? 
                     `<button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>` :
@@ -5013,7 +5148,6 @@
             }
         }
 
-        // Atualizado para o novo estilo compacto da barra de abas fixa no topo
         function mudarSubAbaGestor(aba) {
             const subs = ['atividades', 'disponibilidade', 'graficos', 'imprevistos', 'materiais', 'financeiro', 'equipes', 'opcoes', 'usuarios', 'bonificacao', 'auditoria'];
             subs.forEach(s => {
