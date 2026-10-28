@@ -11,44 +11,158 @@
     <!-- Chart.js para Gráficos Dinâmicos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-start p-2 sm:p-6">
+<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-start p-0 sm:p-4">
 
-    <div class="w-full max-w-7xl bg-white shadow-2xl rounded-2xl flex flex-col overflow-hidden border border-slate-200 min-h-[90vh]">
+    <!-- Container Principal (Sem overflow-hidden para permitir o cabeçalho Sticky travado na rolagem) -->
+    <div class="w-full max-w-7xl bg-white shadow-2xl sm:rounded-2xl flex flex-col border border-slate-200 min-h-[95vh]">
         
-        <!-- Cabeçalho -->
-        <header class="bg-blue-900 text-white p-4 sm:p-6 shadow-md flex flex-col sm:flex-row justify-between items-center gap-4 border-b-4 border-cyan-400">
-            <div>
-                <div class="flex items-center gap-2">
-                    <span class="bg-cyan-500 text-blue-950 font-black text-xs px-2 py-0.5 rounded tracking-wider">GPD</span>
-                    <h1 class="font-bold text-xl sm:text-2xl">Gestão de Produção Diária</h1>
-                </div>
-                <p class="text-xs sm:text-sm text-cyan-200 font-bold mt-1" id="header-subtitle">Setor Construção MDU • PROCISA RJ</p>
-            </div>
-            <div class="flex flex-col items-end gap-1.5">
-                <div class="flex items-center gap-3">
-                    <span id="badge-usuario-logado" class="text-xs bg-blue-950 px-3 py-1.5 rounded-lg border border-blue-700 hidden">👤 <span id="txt-email-ativo"></span> (<span id="txt-nivel-ativo" class="text-cyan-300 font-bold"></span>)</span>
-                    <div class="flex bg-blue-950 p-1 rounded-xl border border-blue-700">
-                        <button onclick="alternarVisao('campo')" id="btn-modo-campo" class="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-cyan-200 hover:text-white">
-                            📱 Modo Campo
-                        </button>
-                        <button onclick="tentarAcessarGestor()" id="btn-modo-gestor" class="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold">
-                            🔒 Dashboard Gestor
+        <!-- ================= BLOCO SUPERIOR FIXO / CONGELADO NA ROLAGEM (ITEM 04) ================= -->
+        <div class="sticky top-0 z-40 shadow-md sm:rounded-t-2xl bg-white">
+            
+            <!-- Cabeçalho Azul Compacto + Barra de Pesquisa e Ações abaixo do botão Sair (ITEM 03) -->
+            <header class="bg-blue-900 text-white px-4 py-3 sm:px-6 sm:py-3.5 border-b-4 border-cyan-400 sm:rounded-t-2xl space-y-2.5">
+                
+                <!-- Linha 1 do Cabeçalho: Título + Botões de Modo + Sair/Bloquear -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="bg-cyan-500 text-blue-950 font-black text-xs px-2 py-0.5 rounded tracking-wider">GPD</span>
+                            <h1 class="font-bold text-lg sm:text-xl leading-tight">Gestão de Produção Diária</h1>
+                        </div>
+                        <p class="text-[11px] sm:text-xs text-cyan-200 font-bold mt-0.5" id="header-subtitle">Setor Construção MDU • PROCISA RJ</p>
+                    </div>
+
+                    <div class="flex flex-col items-end gap-1.5 w-full sm:w-auto">
+                        <div class="flex items-center justify-end gap-2 w-full sm:w-auto">
+                            <span id="badge-usuario-logado" class="text-[11px] bg-blue-950 px-2.5 py-1 rounded-lg border border-blue-700 hidden">
+                                👤 <span id="txt-email-ativo"></span> (<span id="txt-nivel-ativo" class="text-cyan-300 font-bold"></span>)
+                            </span>
+                            <div class="flex bg-blue-950 p-1 rounded-xl border border-blue-700">
+                                <button onclick="alternarVisao('campo')" id="btn-modo-campo" class="px-3 py-1.5 text-xs font-medium rounded-lg transition text-cyan-200 hover:text-white">
+                                    📱 Modo Campo
+                                </button>
+                                <button onclick="tentarAcessarGestor()" id="btn-modo-gestor" class="px-3 py-1.5 text-xs font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold">
+                                    🔒 Dashboard Gestor
+                                </button>
+                            </div>
+                        </div>
+                        <button onclick="fazerLogoutGestor()" id="btn-sair-gestor" class="bg-red-600 hover:bg-red-700 text-white text-[10px] px-2.5 py-1 rounded-md font-bold shadow-sm transition hidden">
+                            🚪 Sair / Bloquear
                         </button>
                     </div>
                 </div>
-                <button onclick="fazerLogoutGestor()" id="btn-sair-gestor" class="bg-red-600 hover:bg-red-700 text-white text-[10px] px-2.5 py-1 rounded-md font-medium shadow-sm transition hidden">
-                    🚪 Sair / Bloquear
-                </button>
-            </div>
-        </header>
 
-        <!-- ================= MODO GESTOR ================= -->
-        <main id="view-gestor" class="flex-1 p-4 sm:p-6 bg-slate-50 space-y-6 hidden">
+                <!-- Linha 2 do Cabeçalho (ITEM 03): Pesquisa + WhatsApp, Relatório Excel e Atualizar logo abaixo do botão Sair -->
+                <div id="header-gestor-acoes" class="pt-2 border-t border-blue-800/80 flex flex-col lg:flex-row justify-between items-center gap-2 hidden">
+                    <div class="w-full lg:w-96">
+                        <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, endereço, equipe, projeto..." class="w-full text-xs text-slate-800 border border-blue-700 rounded-lg px-3 py-1.5 outline-none bg-white focus:ring-2 focus:ring-cyan-400 transition">
+                    </div>
+                    <div class="flex flex-wrap gap-1.5 w-full lg:w-auto justify-end items-center">
+                        <span id="lbl-status-autosync" class="text-[10px] bg-blue-950 text-cyan-200 px-2.5 py-1.5 rounded-lg border border-blue-800 font-mono">
+                            ⏱️ Sync (180s): <b id="txt-hora-sync" class="text-white">Ativo</b>
+                        </span>
+                        <button onclick="copiarBoletimGestorWhatsApp()" class="bg-green-600 hover:bg-green-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
+                            📲 Boletim WhatsApp
+                        </button>
+                        <button onclick="exportarExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
+                            📥 Baixar Relatório (Excel)
+                        </button>
+                        <button onclick="recarregarDadosGestor()" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 text-[11px] px-3 py-1.5 rounded-lg font-black shadow-sm transition flex items-center gap-1">
+                            🔄 Atualizar Registros
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Sub-Cabeçalho Fixo do Gestor (ITEM 01 e 04): Atalhos Rápidos + Filtros Compactos + Menu de Abas -->
+            <div id="header-gestor-subbarra" class="bg-slate-100 border-b border-slate-300 px-4 py-2 space-y-2 hidden">
+                
+                <!-- Linha de Atalhos Rápidos de Período + Filtros em Linha Única -->
+                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-[11px] font-black text-blue-950 uppercase mr-1">⚡ Período:</span>
+                        <button onclick="aplicarAtalhoPeriodo('hoje')" class="bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-bold text-[10px] px-2.5 py-1 rounded-md transition">📅 Hoje</button>
+                        <button onclick="aplicarAtalhoPeriodo('ontem')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] px-2.5 py-1 rounded-md transition">Ontem</button>
+                        <button onclick="aplicarAtalhoPeriodo('7dias')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] px-2.5 py-1 rounded-md transition">7 Dias</button>
+                        <button onclick="aplicarAtalhoPeriodo('mes')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] px-2.5 py-1 rounded-md transition">Este Mês</button>
+                        <button onclick="aplicarAtalhoPeriodo('tudo')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-md transition">🔄 Tudo</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full xl:w-auto">
+                        <div class="flex items-center gap-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1">
+                            <span class="text-[10px] font-bold text-slate-500">De:</span>
+                            <input type="date" id="gestor-filtro-data-inicio" onchange="atualizarDashboardGestor()" class="w-full text-[11px] bg-transparent outline-none font-semibold text-slate-700">
+                        </div>
+                        <div class="flex items-center gap-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1">
+                            <span class="text-[10px] font-bold text-slate-500">Até:</span>
+                            <input type="date" id="gestor-filtro-data-fim" onchange="atualizarDashboardGestor()" class="w-full text-[11px] bg-transparent outline-none font-semibold text-slate-700">
+                        </div>
+                        <select id="gestor-filtro-equipe" onchange="atualizarDashboardGestor()" class="w-full text-[11px] border border-slate-300 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-700">
+                            <option value="">👥 Todas as Equipes</option>
+                        </select>
+                        <select id="gestor-filtro-projeto" onchange="atualizarDashboardGestor()" class="w-full text-[11px] border border-slate-300 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-700">
+                            <option value="">🏗️ Todos os Projetos</option>
+                            <optgroup label="Grupo MALLING">
+                                <option value="VISTORIA">VISTORIA (Vistoriador)</option>
+                                <option value="CONSTRUÇÃO ON GOING">CONSTRUÇÃO ON GOING (Instalador)</option>
+                                <option value="CONSTRUÇÃO NAP LOTADA">CONSTRUÇÃO NAP LOTADA (Instalador)</option>
+                                <option value="ATIVAÇÃO ON GOING">ATIVAÇÃO ON GOING (Ativador)</option>
+                                <option value="ATIVAÇÃO NAP LOTADA">ATIVAÇÃO NAP LOTADA (Ativador)</option>
+                            </optgroup>
+                            <optgroup label="Grupo PROJETO F">
+                                <option value="CONSTRUÇÃO F">CONSTRUÇÃO F (Instalador)</option>
+                                <option value="ATIVAÇÃO F">ATIVAÇÃO F (Ativador)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Menu de Abas do Gestor Compacto e Sempre Visível -->
+                <div class="flex flex-wrap gap-1.5 items-center pt-0.5">
+                    <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1">
+                        📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
+                    </button>
+                    <button onclick="mudarSubAbaGestor('disponibilidade')" id="subtab-btn-disponibilidade" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        📡 Disponibilidade (<span id="badge-aba-indisp" class="text-red-600 font-black">0 indisp.</span>)
+                    </button>
+                    <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        📊 Gráficos & Indicadores
+                    </button>
+                    <button onclick="mudarSubAbaGestor('imprevistos')" id="subtab-btn-imprevistos" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        ⚠️ Imprevistos (<span id="badge-aba-imprevistos">0</span>)
+                    </button>
+                    <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        📦 Materiais
+                    </button>
+                    <button onclick="mudarSubAbaGestor('financeiro')" id="subtab-btn-financeiro" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        💰 Medição Financeira
+                    </button>
+                    <button onclick="mudarSubAbaGestor('equipes')" id="subtab-btn-equipes" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        🛠️ Equipes
+                    </button>
+                    <button onclick="mudarSubAbaGestor('opcoes')" id="subtab-btn-opcoes" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        ⚙️ Opções
+                    </button>
+                    <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        👥 Usuários
+                    </button>
+                    <button onclick="mudarSubAbaGestor('bonificacao')" id="subtab-btn-bonificacao" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        🏆 Bonificação
+                    </button>
+                    <button onclick="mudarSubAbaGestor('auditoria')" id="subtab-btn-auditoria" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        🛡️ Auditoria
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= CORPO ROLÁVEL DO MODO GESTOR ================= -->
+        <main id="view-gestor" class="flex-1 p-4 sm:p-5 bg-slate-50 space-y-5 hidden">
             
             <!-- Alerta de Imprevistos -->
-            <div id="alerta-imprevistos-supervisao" class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-sm hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div id="alerta-imprevistos-supervisao" class="bg-amber-50 border-l-4 border-amber-500 p-3.5 rounded-xl shadow-sm hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
-                    <span class="text-2xl">⚠️</span>
+                    <span class="text-xl">⚠️</span>
                     <div>
                         <h4 class="font-bold text-amber-900 text-xs uppercase">Aviso Operacional: Imprevistos / Atrasos Reportados em Campo!</h4>
                         <p class="text-xs text-amber-800" id="txt-alerta-imprevistos">Existem ocorrências de imprevisto sem atividade registradas no período filtrado.</p>
@@ -67,156 +181,11 @@
                 </div>
             </div>
 
-            <!-- Menu de Abas do Gestor -->
-            <div class="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-wrap gap-2 items-center">
-                <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5">
-                    📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
-                </button>
-                <button onclick="mudarSubAbaGestor('disponibilidade')" id="subtab-btn-disponibilidade" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
-                    📡 Disponibilidade (<span id="badge-aba-indisp" class="text-red-600 font-black">0 indisp.</span>)
-                </button>
-                <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
-                    📊 Gráficos & Indicadores
-                </button>
-                <button onclick="mudarSubAbaGestor('imprevistos')" id="subtab-btn-imprevistos" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
-                    ⚠️ Imprevistos (<span id="badge-aba-imprevistos">0</span>)
-                </button>
-                <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
-                    📦 Materiais
-                </button>
-                <button onclick="mudarSubAbaGestor('financeiro')" id="subtab-btn-financeiro" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
-                    💰 Medição Financeira
-                </button>
-                <button onclick="mudarSubAbaGestor('equipes')" id="subtab-btn-equipes" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
-                    🛠️ Equipes
-                </button>
-                <button onclick="mudarSubAbaGestor('opcoes')" id="subtab-btn-opcoes" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
-                    ⚙️ Opções
-                </button>
-                <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
-                    👥 Usuários
-                </button>
-                <button onclick="mudarSubAbaGestor('bonificacao')" id="subtab-btn-bonificacao" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
-                    🏆 Bonificação
-                </button>
-                <button onclick="mudarSubAbaGestor('auditoria')" id="subtab-btn-auditoria" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5">
-                    🛡️ Auditoria
-                </button>
-            </div>
-
-            <!-- Barra de Ações Rápidas -->
-            <div class="flex flex-col lg:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-3">
-                <div class="flex items-center gap-2 w-full lg:w-80">
-                    <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, endereço, equipe..." class="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-none bg-slate-50 focus:bg-white transition">
-                </div>
-                <div class="flex flex-wrap gap-2 w-full lg:w-auto justify-end items-center">
-                    <span id="lbl-status-autosync" class="text-[11px] bg-slate-100 text-slate-600 px-3 py-2 rounded-xl border border-slate-200 font-mono">
-                        ⏱️ Auto-Sync (180s): <b id="txt-hora-sync" class="text-blue-900">Ativo</b>
-                    </span>
-                    <button onclick="copiarBoletimGestorWhatsApp()" class="bg-green-600 hover:bg-green-700 text-white text-xs px-3.5 py-2.5 rounded-xl font-bold shadow-sm transition flex items-center justify-center gap-1.5">
-                        📲 Boletim WhatsApp
-                    </button>
-                    <button onclick="exportarExcel()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs px-3.5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
-                        📥 Baixar Relatório (Excel)
-                    </button>
-                    <button onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3.5 py-2.5 rounded-xl font-medium shadow-sm transition flex items-center justify-center gap-1.5">
-                        🔄 Atualizar Registros
-                    </button>
-                </div>
-            </div>
-
-            <!-- KPIs Numéricos dos 7 Novos Projetos + Em Andamento + Imprevistos -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
-                <div class="bg-blue-50 p-3 rounded-xl shadow-sm border border-blue-300 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-blue-900 uppercase">🔵 Em Andamento</span>
-                    <span class="text-xl font-black text-blue-700 mt-1" id="kpi-proj-andamento">0</span>
-                </div>
-                <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-purple-800 uppercase">Vistoria</span>
-                    <span class="text-xl font-bold text-slate-800 mt-1" id="kpi-proj-vistoria">0</span>
-                </div>
-                <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-indigo-700 uppercase">Construção F</span>
-                    <span class="text-xl font-bold text-indigo-600 mt-1" id="kpi-proj-const-f">0</span>
-                </div>
-                <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-blue-700 uppercase">Const. On Going</span>
-                    <span class="text-xl font-bold text-blue-600 mt-1" id="kpi-proj-const-ongoing">0</span>
-                </div>
-                <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-orange-700 uppercase">Const. Nap Lot.</span>
-                    <span class="text-xl font-bold text-orange-600 mt-1" id="kpi-proj-const-nap">0</span>
-                </div>
-                <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-emerald-700 uppercase">Ativação F</span>
-                    <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-ativ-f">0</span>
-                </div>
-                <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-teal-700 uppercase">Ativ. On Going</span>
-                    <span class="text-xl font-bold text-teal-600 mt-1" id="kpi-proj-ativ-ongoing">0</span>
-                </div>
-                <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-amber-700 uppercase">Ativ. Nap Lot.</span>
-                    <span class="text-xl font-bold text-amber-600 mt-1" id="kpi-proj-ativ-nap">0</span>
-                </div>
-                <div onclick="mudarSubAbaGestor('imprevistos')" class="bg-amber-50 hover:bg-amber-100 cursor-pointer transition p-3 rounded-xl shadow-sm border border-amber-300 flex flex-col justify-between">
-                    <span class="text-[10px] font-bold text-amber-900 uppercase">⚠️ Imprevistos</span>
-                    <span class="text-xl font-black text-amber-700 mt-1" id="kpi-proj-imprevistos">0</span>
-                </div>
-            </div>
-
-            <!-- Filtros por Período -->
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
-                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                    <span class="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">⚡ Atalhos Rápidos de Período:</span>
-                    <div class="flex flex-wrap gap-1.5">
-                        <button onclick="aplicarAtalhoPeriodo('hoje')" class="bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-bold text-[10px] px-3 py-1 rounded-lg transition">📅 Hoje</button>
-                        <button onclick="aplicarAtalhoPeriodo('ontem')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] px-3 py-1 rounded-lg transition">Ontem</button>
-                        <button onclick="aplicarAtalhoPeriodo('7dias')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] px-3 py-1 rounded-lg transition">Últimos 7 Dias</button>
-                        <button onclick="aplicarAtalhoPeriodo('mes')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] px-3 py-1 rounded-lg transition">Este Mês</button>
-                        <button onclick="aplicarAtalhoPeriodo('tudo')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-3 py-1 rounded-lg transition">🔄 Mostrar Tudo</button>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 w-full">
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-1">📅 Data Inicial</label>
-                        <input type="date" id="gestor-filtro-data-inicio" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-1">📅 Data Final</label>
-                        <input type="date" id="gestor-filtro-data-fim" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-1">👥 Filtrar por Equipe</label>
-                        <select id="gestor-filtro-equipe" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
-                            <option value="">Todas as Equipes</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-600 mb-1">🏗️ Filtrar por Projeto</label>
-                        <select id="gestor-filtro-projeto" onchange="atualizarDashboardGestor()" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
-                            <option value="">Todos os Projetos</option>
-                            <optgroup label="Grupo MALLING">
-                                <option value="VISTORIA">VISTORIA (Vistoriador)</option>
-                                <option value="CONSTRUÇÃO ON GOING">CONSTRUÇÃO ON GOING (Instalador)</option>
-                                <option value="CONSTRUÇÃO NAP LOTADA">CONSTRUÇÃO NAP LOTADA (Instalador)</option>
-                                <option value="ATIVAÇÃO ON GOING">ATIVAÇÃO ON GOING (Ativador)</option>
-                                <option value="ATIVAÇÃO NAP LOTADA">ATIVAÇÃO NAP LOTADA (Ativador)</option>
-                            </optgroup>
-                            <optgroup label="Grupo PROJETO F">
-                                <option value="CONSTRUÇÃO F">CONSTRUÇÃO F (Instalador)</option>
-                                <option value="ATIVAÇÃO F">ATIVAÇÃO F (Ativador)</option>
-                            </optgroup>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Sub-Aba: Atividades -->
+            <!-- Sub-Aba: Atividades (Agora super limpa, subindo direto para a listagem) -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
-                    <span>Atividades em Campo e Em Andamento (Clique na linha para ver detalhes e fotos 📷)</span>
-                    <span class="text-xs font-normal text-slate-500" id="contador-resultados">0 registros</span>
+                <div class="p-3.5 bg-slate-50 border-b border-slate-200 font-bold text-slate-800 text-xs sm:text-sm flex justify-between items-center">
+                    <span>📋 Atividades em Campo e Em Andamento (Clique na linha para ver detalhes e fotos 📷)</span>
+                    <span class="text-xs font-bold bg-blue-100 text-blue-900 px-2.5 py-1 rounded-lg" id="contador-resultados">0 registros</span>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
@@ -313,13 +282,56 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos & Indicadores (Reformulada com Itens 07 e 08 em Destaque Principal) -->
+            <!-- Sub-Aba: Gráficos & Indicadores (ITEM 02: KPIs Gerais movidos exclusivamente para cá) -->
             <div id="subview-graficos" class="space-y-6 hidden">
-                <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl text-xs text-blue-900 font-medium flex items-center justify-between">
-                    <span>💡 <b>Modo Explosão Ativo:</b> Clique em qualquer barra, fatia, executor ou projeto para abrir a listagem detalhada dos imóveis.</span>
+                
+                <!-- ITEM 02: Cards de Números Gerais exclusivos na aba Gráficos & Indicadores -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-2.5">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-black text-slate-700 uppercase">📌 Resumo Geral de Volumes por Projeto (Período Filtrado)</span>
+                        <span class="text-[11px] text-blue-800 font-medium">💡 Clique nos gráficos abaixo para explodir detalhes</span>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
+                        <div class="bg-blue-50 p-3 rounded-xl shadow-sm border border-blue-300 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-blue-900 uppercase">🔵 Em Andamento</span>
+                            <span class="text-xl font-black text-blue-700 mt-1" id="kpi-proj-andamento">0</span>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-purple-800 uppercase">Vistoria</span>
+                            <span class="text-xl font-bold text-slate-800 mt-1" id="kpi-proj-vistoria">0</span>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-indigo-700 uppercase">Construção F</span>
+                            <span class="text-xl font-bold text-indigo-600 mt-1" id="kpi-proj-const-f">0</span>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-blue-700 uppercase">Const. On Going</span>
+                            <span class="text-xl font-bold text-blue-600 mt-1" id="kpi-proj-const-ongoing">0</span>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-orange-700 uppercase">Const. Nap Lot.</span>
+                            <span class="text-xl font-bold text-orange-600 mt-1" id="kpi-proj-const-nap">0</span>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-emerald-700 uppercase">Ativação F</span>
+                            <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-ativ-f">0</span>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-teal-700 uppercase">Ativ. On Going</span>
+                            <span class="text-xl font-bold text-teal-600 mt-1" id="kpi-proj-ativ-ongoing">0</span>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-amber-700 uppercase">Ativ. Nap Lot.</span>
+                            <span class="text-xl font-bold text-amber-600 mt-1" id="kpi-proj-ativ-nap">0</span>
+                        </div>
+                        <div onclick="mudarSubAbaGestor('imprevistos')" class="bg-amber-50 hover:bg-amber-100 cursor-pointer transition p-3 rounded-xl shadow-sm border border-amber-300 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-amber-900 uppercase">⚠️ Imprevistos</span>
+                            <span class="text-xl font-black text-amber-700 mt-1" id="kpi-proj-imprevistos">0</span>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- ================= ITEM 07: DESTAQUE PRINCIPAL - PRODUÇÃO DIÁRIA, CONSOLIDADA E MÉDIA POR EXECUTOR ================= -->
+                <!-- ITEM 07: DESTAQUE PRINCIPAL - PRODUÇÃO DIÁRIA, CONSOLIDADA E MÉDIA POR EXECUTOR -->
                 <div class="bg-white rounded-2xl shadow-md border-2 border-blue-900/20 overflow-hidden">
                     <div class="bg-blue-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
@@ -330,7 +342,6 @@
                     </div>
 
                     <div class="p-5 space-y-6">
-                        <!-- 3 Cards Executivos de Resumo por Grupo (Vistoriador, Instalador, Ativador) -->
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <!-- Card Vistoriadores -->
                             <div class="bg-purple-50/70 border-2 border-purple-200 p-4 rounded-xl space-y-2">
@@ -402,7 +413,6 @@
                             </div>
                         </div>
 
-                        <!-- Gráfico Principal: Produção Consolidada, Diária e Média por Executor -->
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
                                 <div>
@@ -419,7 +429,6 @@
                             <div class="relative h-80"><canvas id="graficoPrincipalExecutores"></canvas></div>
                         </div>
 
-                        <!-- Tabela Principal Objetiva por Executor (Separada por Setor com Médias) -->
                         <div class="overflow-x-auto border border-slate-200 rounded-xl">
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
@@ -441,7 +450,7 @@
                     </div>
                 </div>
 
-                <!-- ================= ITEM 08: EVOLUÇÃO DOS PROJETOS (MALLING vs PROJETO F) E CRUZAMENTO DE EXECUTORES ================= -->
+                <!-- ITEM 08: EVOLUÇÃO DOS PROJETOS (MALLING vs PROJETO F) E CRUZAMENTO DE EXECUTORES -->
                 <div class="bg-white rounded-2xl shadow-md border-2 border-indigo-900/20 overflow-hidden">
                     <div class="bg-indigo-950 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
@@ -455,7 +464,6 @@
                     </div>
 
                     <div class="p-5 space-y-6">
-                        <!-- Gráficos Lado a Lado: Grupo MALLING e Grupo PROJETO F -->
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
                                 <div class="flex justify-between items-start mb-2">
@@ -480,21 +488,15 @@
                             </div>
                         </div>
 
-                        <!-- Gráfico de Evolução Diária (Linha do Tempo): MALLING vs PROJETO F -->
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                             <h4 class="text-xs font-black text-slate-800 uppercase mb-1">📅 Curva de Evolução Diária: MALLING vs. PROJETO F</h4>
                             <p class="text-[11px] text-slate-500 mb-3">Acompanhamento dia a dia do ritmo de entregas de cada macrogrupo de projeto</p>
                             <div class="relative h-64"><canvas id="graficoEvolucaoGrupos"></canvas></div>
                         </div>
 
-                        <!-- Matriz de Cruzamento: Executores x Projetos (MALLING & PROJETO F) -->
                         <div class="space-y-2">
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento: Executores × Projetos (MALLING & PROJETO F)</h4>
-                                    <p class="text-[11px] text-slate-500">Visão cruzada de quantas atividades cada executor realizou em cada projeto e macrogrupo</p>
-                                </div>
-                            </div>
+                            <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento: Executores × Projetos (MALLING & PROJETO F)</h4>
+                            <p class="text-[11px] text-slate-500">Visão cruzada de quantas atividades cada executor realizou em cada projeto e macrogrupo</p>
                             <div class="overflow-x-auto border border-slate-200 rounded-xl">
                                 <table class="w-full text-left border-collapse text-[11px]">
                                     <thead>
@@ -840,7 +842,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Equipes (ITEM 04: VISTORIADOR, INSTALADOR E ATIVADOR) -->
+            <!-- Sub-Aba: Equipes -->
             <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
@@ -975,8 +977,8 @@
         </main>
 
         <!-- ================= MODO CAMPO ================= -->
-        <main id="view-campo" class="flex-1 p-4 bg-slate-50 flex justify-center items-center">
-            <div class="w-full max-w-md bg-white shadow-lg rounded-2xl p-4 space-y-4 border border-slate-200 max-h-[92vh] overflow-y-auto">
+        <main id="view-campo" class="flex-1 p-4 bg-slate-50 flex justify-center items-start sm:items-center">
+            <div class="w-full max-w-md bg-white shadow-lg rounded-2xl p-4 space-y-4 border border-slate-200">
                 <div class="flex justify-between items-center border-b pb-2">
                     <div>
                         <h2 class="font-bold text-slate-800 text-sm">GPD - Lançamento de Campo</h2>
@@ -1021,7 +1023,6 @@
                             <label class="block text-xs font-semibold text-slate-600">Projeto / Atividade</label>
                             <span id="badge-setor-campo" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">Aguardando técnico...</span>
                         </div>
-                        <!-- ITENS 05 e 06: Carrega dinamicamente apenas os projetos amarrados ao grupo do técnico -->
                         <select id="sel-projeto" onchange="mudarTipoProjeto(); salvarRascunhoCampo()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none font-bold text-blue-950">
                             <option value="">Selecione primeiro o técnico acima...</option>
                         </select>
@@ -1258,7 +1259,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE EQUIPE (ITEM 04: VISTORIADOR, INSTALADOR E ATIVADOR) -->
+    <!-- MODAL DE EQUIPE -->
     <div id="modal-equipe" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
@@ -1330,7 +1331,7 @@
             </div>
         </div>
     </div>
-<!-- Script Principal - Parte 1 de 2 (Itens 04, 05, 06, 07 e 08 Integrados) -->
+<!-- Script Principal - Parte 1 de 2 (Layout Fixo e Clean Integrado) -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1381,7 +1382,6 @@
             "ATIVAÇÃO F"
         ];
 
-        // Normaliza nomes de projetos antigos já salvos no banco para os novos nomes padronizados
         function normalizarNomeProjeto(projBruto) {
             const p = (projBruto || '').toUpperCase().trim();
             if (p === 'ATIVAÇÃO ON GOIG') return 'ATIVAÇÃO ON GOING';
@@ -1488,7 +1488,6 @@
         let usuarioLogado = sessionStorage.getItem('gpd_user_logado') || null;
         let nivelUsuarioLogado = "Visualizador";
 
-        // Instâncias dos Gráficos
         let graficoPrincipalExecutoresInstancia = null;
         let graficoGrupoMallingInstancia = null;
         let graficoGrupoProjetoFInstancia = null;
@@ -2095,7 +2094,6 @@
             }
         }
 
-        // ITENS 05 e 06: Atualiza o dropdown de projetos do Modo Campo exibindo apenas os pertinentes ao grupo do técnico
         function atualizarProjetosPermitidosCampo(nomeEquipe, projetoPreSelecionado = null) {
             const selProj = document.getElementById('sel-projeto');
             const badgeSetor = document.getElementById('badge-setor-campo');
@@ -2129,8 +2127,11 @@
 
             selProj.innerHTML = listaProjetos.map(p => `<option value="${p}">${p}</option>`).join('');
 
-            if (projetoPreSelecionado && listaProjetos.includes(projetoPreSelecionado)) {
-                selProj.value = projetoPreSelecionado;
+            const projNorm = projetoPreSelecionado ? normalizarNomeProjeto(projetoPreSelecionado) : null;
+            if (projNorm && listaProjetos.includes(projNorm)) {
+                selProj.value = projNorm;
+            } else {
+                selProj.value = listaProjetos[0];
             }
             mudarTipoProjeto();
         }
@@ -2154,7 +2155,8 @@
                     dadosAtendimento.gpsEntrada = r.gpsEntrada;
                     dadosAtendimento.blocos = (Array.isArray(r.blocos) && r.blocos.length > 0) ? r.blocos : [criarObjetoBlocoPadrao(1)];
 
-                    document.getElementById('lbl-imovel-aberto').innerText = `${r.imovel} (${r.projeto})`;
+                    const projAberto = document.getElementById('sel-projeto').value || normalizarNomeProjeto(r.projeto);
+                    document.getElementById('lbl-imovel-aberto').innerText = `${r.imovel} (${projAberto})`;
                     document.getElementById('lbl-h-entrada').innerText = r.hEntrada || '-';
                     document.getElementById('lbl-gps-entrada').innerText = r.gpsEntrada || '-';
 
@@ -2431,7 +2433,7 @@
             const valorAtualCampo = selCampo ? selCampo.value : "";
             
             if (selCampo) selCampo.innerHTML = '<option value="">Selecione a Equipe...</option>';
-            if (selFiltro) selFiltro.innerHTML = '<option value="">Todas as Equipes</option>';
+            if (selFiltro) selFiltro.innerHTML = '<option value="">👥 Todas as Equipes</option>';
 
             equipesSistema.forEach(eq => {
                 let setorTag = '🛠️ Instalador';
@@ -2502,12 +2504,15 @@
             alert("Sessão encerrada com segurança.");
         }
 
+        // Atualizado para exibir/ocultar as barras fixas do cabeçalho Gestor (Itens 01, 03 e 04)
         function alternarVisao(visao) {
             const vGestor = document.getElementById('view-gestor');
             const vCampo = document.getElementById('view-campo');
             const btnGestor = document.getElementById('btn-modo-gestor');
             const btnCampo = document.getElementById('btn-modo-campo');
             const subtitle = document.getElementById('header-subtitle');
+            const barraAcoesHeader = document.getElementById('header-gestor-acoes');
+            const subBarraFixa = document.getElementById('header-gestor-subbarra');
 
             if (visao === 'gestor') {
                 if (!usuarioLogado) {
@@ -2516,8 +2521,11 @@
                 }
                 vGestor.classList.remove('hidden');
                 vCampo.classList.add('hidden');
-                btnGestor.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold";
-                btnCampo.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-cyan-200 hover:text-white";
+                if (barraAcoesHeader) barraAcoesHeader.classList.remove('hidden');
+                if (subBarraFixa) subBarraFixa.classList.remove('hidden');
+
+                btnGestor.className = "px-3 py-1.5 text-xs font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold";
+                btnCampo.className = "px-3 py-1.5 text-xs font-medium rounded-lg transition text-cyan-200 hover:text-white";
                 subtitle.innerText = "Painel Gerencial - Setor Construção MDU • PROCISA RJ";
                 
                 aplicarRestricoesInterface();
@@ -2525,8 +2533,11 @@
             } else {
                 vGestor.classList.add('hidden');
                 vCampo.classList.remove('hidden');
-                btnCampo.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold";
-                btnGestor.className = "px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition text-cyan-200 hover:text-white";
+                if (barraAcoesHeader) barraAcoesHeader.classList.add('hidden');
+                if (subBarraFixa) subBarraFixa.classList.add('hidden');
+
+                btnCampo.className = "px-3 py-1.5 text-xs font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold";
+                btnGestor.className = "px-3 py-1.5 text-xs font-medium rounded-lg transition text-cyan-200 hover:text-white";
                 subtitle.innerText = "Setor Construção MDU • PROCISA RJ";
                 verificarImprevistoAtivoEquipeCampo();
             }
@@ -3263,7 +3274,7 @@
             const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
 
             setTxt('kpi-proj-andamento', qtdEmAndamento);
-            setTxt('badge-aba-andamento', `${qtdEmAndamento} em andamento`);
+            setTxt('badge-aba-andamento', `${qtdEmAndamento} ativas`);
             setTxt('kpi-proj-imprevistos', listaImprevistos.length);
             setTxt('badge-aba-imprevistos', listaImprevistos.length);
             setTxt('contador-imprevistos', `${listaImprevistos.length} imprevisto(s) (${imprevistosAbertos} ativo(s))`);
@@ -3322,7 +3333,6 @@
 
             const finalizadas = filtrados.filter(i => i.desfecho !== 'EM ANDAMENTO');
 
-            // Atualiza KPIs (Suporta tanto os IDs novos quanto os anteriores)
             setTxt('kpi-proj-vistoria', finalizadas.filter(i => i.projeto === 'VISTORIA').length);
             setTxt('kpi-proj-const-f', finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO F').length);
             setTxt('kpi-proj-const-ongoing', finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO ON GOING').length);
@@ -3491,7 +3501,6 @@
                 });
             }
 
-            // RENDERIZA OS PAINÉIS DE GRÁFICOS E RANKINGS COM PROTEÇÃO CONTRA ERROS
             try { renderizarPainelPrincipalExecutores(finalizadas); } catch (e) { console.warn("Aviso Painel Executores:", e); }
             try { renderizarPainelMallingEProjetoF(finalizadas); } catch (e) { console.warn("Aviso Painel Malling/ProjF:", e); }
             try { renderizarGraficos(finalizadas); } catch (e) { console.warn("Aviso Gráficos Gerais:", e); }
@@ -5004,19 +5013,20 @@
             }
         }
 
+        // Atualizado para o novo estilo compacto da barra de abas fixa no topo
         function mudarSubAbaGestor(aba) {
             const subs = ['atividades', 'disponibilidade', 'graficos', 'imprevistos', 'materiais', 'financeiro', 'equipes', 'opcoes', 'usuarios', 'bonificacao', 'auditoria'];
             subs.forEach(s => {
                 const el = document.getElementById(`subview-${s}`);
                 const btn = document.getElementById(`subtab-btn-${s}`);
                 if (el) el.classList.add('hidden');
-                if (btn) btn.className = "px-4 py-2 text-xs font-bold rounded-lg transition text-slate-700 hover:bg-slate-100 flex items-center gap-1.5";
+                if (btn) btn.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1";
             });
             
             const targetView = document.getElementById(`subview-${aba}`);
             const targetBtn = document.getElementById(`subtab-btn-${aba}`);
             if (targetView) targetView.classList.remove('hidden');
-            if (targetBtn) targetBtn.className = "px-4 py-2 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1.5";
+            if (targetBtn) targetBtn.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1";
 
             if (aba === 'usuarios') renderizarTabelaUsuariosPermissao();
             if (aba === 'equipes') renderizarTabelaEquipes();
