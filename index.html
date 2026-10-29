@@ -4770,7 +4770,199 @@
                 tbodyCruz.appendChild(tr);
             });
         }
-// ================= PARTE 03 (BLOCO 3B) - FECHAMENTO DO SCRIPT E DO ARQUIVO =================
+// ================= PARTE 03 (BLOCO 3B) - SISTEMA DE PIN TÉCNICO, OFENSORES, RANKINGS E FECHAMENTO =================
+
+        // --- SISTEMA DE AUTENTICAÇÃO POR PIN (4 DÍGITOS) PARA OS TÉCNICOS ---
+        let equipeAutenticadaSessao = sessionStorage.getItem('gpd_equipe_autenticada_pin') || "";
+
+        function obterPinDaEquipe(eqObj) {
+            return (eqObj && eqObj.pin && String(eqObj.pin).trim().length >= 4) ? String(eqObj.pin).trim() : "1234";
+        }
+
+        function atualizarBarraSegurancaPinCampo() {
+            const selEq = document.getElementById('sel-equipe');
+            if (!selEq) return;
+
+            let barraPin = document.getElementById('barra-seguranca-pin-campo');
+            if (!barraPin) {
+                barraPin = document.createElement('div');
+                barraPin.id = 'barra-seguranca-pin-campo';
+                barraPin.className = 'mt-1.5 flex items-center justify-between bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] hidden';
+                selEq.parentNode.appendChild(barraPin);
+            }
+
+            if (selEq.value && equipeAutenticadaSessao === selEq.value) {
+                selEq.disabled = true;
+                selEq.classList.add('bg-slate-100', 'font-bold', 'text-blue-950');
+                barraPin.classList.remove('hidden');
+                barraPin.innerHTML = `
+                    <span class="text-emerald-800 font-bold flex items-center gap-1">🔒 PIN Autenticado</span>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="alterarPinPeloTecnicoCampo()" class="bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded border border-blue-300 transition">
+                            🔑 Alterar Meu PIN
+                        </button>
+                        <button type="button" onclick="desbloquearTrocaEquipeCampo()" class="bg-red-50 hover:bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded border border-red-200 transition">
+                            🚪 Sair
+                        </button>
+                    </div>
+                `;
+            } else {
+                selEq.disabled = false;
+                selEq.classList.remove('bg-slate-100', 'font-bold', 'text-blue-950');
+                barraPin.classList.add('hidden');
+            }
+        }
+
+        // Sobrescreve a seleção de equipe no Modo Campo para exigir o PIN de 4 dígitos
+        function aoSelecionarEquipeCampo() {
+            const selEq = document.getElementById('sel-equipe');
+            const eq = selEq ? selEq.value : "";
+
+            if (!eq) {
+                equipeAutenticadaSessao = "";
+                sessionStorage.removeItem('gpd_equipe_autenticada_pin');
+                document.getElementById('current-user-team').innerText = "Selecione Equipe";
+                atualizarProjetosPermitidosCampo("");
+                atualizarBarraSegurancaPinCampo();
+                verificarImprevistoAtivoEquipeCampo();
+                verificarPendenciasReabertasEProgramadasCampo();
+                return;
+            }
+
+            const eqObj = equipesSistema.find(e => e.nome === eq);
+            const pinCorreto = obterPinDaEquipe(eqObj);
+
+            if (equipeAutenticadaSessao !== eq) {
+                const pinDigitado = prompt(`🔒 AUTENTICAÇÃO DO TÉCNICO\n\nOlá, ${eq}!\nDigite o seu PIN de 4 dígitos para acessar suas atividades:\n(Se for seu primeiro acesso, o PIN padrão é 1234)`);
+                
+                if (pinDigitado === null || pinDigitado.trim() !== pinCorreto) {
+                    if (pinDigitado !== null) {
+                        alert("❌ PIN incorreto! Acesso negado às atividades deste técnico.");
+                    }
+                    selEq.value = "";
+                    equipeAutenticadaSessao = "";
+                    sessionStorage.removeItem('gpd_equipe_autenticada_pin');
+                    document.getElementById('current-user-team').innerText = "Selecione Equipe";
+                    atualizarProjetosPermitidosCampo("");
+                    atualizarBarraSegurancaPinCampo();
+                    verificarImprevistoAtivoEquipeCampo();
+                    verificarPendenciasReabertasEProgramadasCampo();
+                    return;
+                }
+
+                equipeAutenticadaSessao = eq;
+                sessionStorage.setItem('gpd_equipe_autenticada_pin', eq);
+            }
+
+            document.getElementById('current-user-team').innerText = eq;
+            atualizarProjetosPermitidosCampo(eq);
+            atualizarBarraSegurancaPinCampo();
+            salvarRascunhoCampo();
+            verificarImprevistoAtivoEquipeCampo();
+            verificarPendenciasReabertasEProgramadasCampo();
+        }
+
+        function desbloquearTrocaEquipeCampo() {
+            const posAberturaVisivel = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
+            if (posAberturaVisivel) {
+                alert("⚠️ Você possui um atendimento aberto na tela. Finalize ou cancele o atendimento antes de trocar de técnico.");
+                return;
+            }
+            if (!confirm("Deseja encerrar sua sessão atual e liberar a seleção para outro técnico?")) return;
+
+            equipeAutenticadaSessao = "";
+            sessionStorage.removeItem('gpd_equipe_autenticada_pin');
+            localStorage.removeItem('gpd_rascunho_campo_ativo');
+            const selEq = document.getElementById('sel-equipe');
+            if (selEq) {
+                selEq.disabled = false;
+                selEq.value = "";
+            }
+            document.getElementById('current-user-team').innerText = "Selecione Equipe";
+            atualizarProjetosPermitidosCampo("");
+            atualizarBarraSegurancaPinCampo();
+            verificarImprevistoAtivoEquipeCampo();
+            verificarPendenciasReabertasEProgramadasCampo();
+        }
+
+        async function alterarPinPeloTecnicoCampo() {
+            const nomeEq = document.getElementById('sel-equipe')?.value;
+            if (!nomeEq) return;
+
+            const eqObj = equipesSistema.find(e => e.nome === nomeEq);
+            if (!eqObj) return;
+
+            const pinAtualCorreto = obterPinDaEquipe(eqObj);
+            const pinAtualInformado = prompt(`🔑 ALTERAR MEU PIN (${nomeEq})\n\nDigite o seu PIN ATUAL:`);
+            if (pinAtualInformado === null) return;
+
+            if (pinAtualInformado.trim() !== pinAtualCorreto) {
+                alert("❌ O PIN atual informado está incorreto.");
+                return;
+            }
+
+            const novoPin = prompt("🔑 Digite o NOVO PIN desejado (Exatamente 4 números, ex: 4580):");
+            if (novoPin === null) return;
+
+            const novoPinLimpo = novoPin.trim();
+            if (!/^\d{4}$/.test(novoPinLimpo)) {
+                alert("⚠️ O novo PIN deve conter exatamente 4 dígitos numéricos (ex: 2580).");
+                return;
+            }
+
+            const confPin = prompt("🔑 Confirme digitando novamente o seu NOVO PIN de 4 dígitos:");
+            if (confPin === null || confPin.trim() !== novoPinLimpo) {
+                alert("❌ A confirmação não coincide com o novo PIN. Operação cancelada.");
+                return;
+            }
+
+            eqObj.pin = novoPinLimpo;
+            registrarLogAuditoria("ALTERAÇÃO DE PIN (CAMPO)", `O técnico ${eqObj.nome} alterou seu próprio PIN de acesso no Modo Campo.`);
+            await sincronizarEquipesNaNuvem();
+            renderizarTabelaEquipes();
+            alert("✅ Seu novo PIN de 4 dígitos foi salvo e sincronizado na nuvem com sucesso!");
+        }
+
+        async function resetarPinEquipeGestor(idEquipe) {
+            if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
+                alert("⚠️ Apenas Gestores (Master ou Operador) podem resetar o PIN de um técnico.");
+                return;
+            }
+
+            const eqObj = equipesSistema.find(e => e.id === idEquipe);
+            if (!eqObj) return;
+
+            const pinAtual = obterPinDaEquipe(eqObj);
+            const novoPinGestor = prompt(
+                `🔄 RESETAR PIN DO TÉCNICO: ${eqObj.nome}\n\nPIN Atual: ${pinAtual}\n\nDigite o novo PIN de 4 dígitos para este técnico (ou mantenha 1234 para o padrão):`,
+                "1234"
+            );
+            if (novoPinGestor === null) return;
+
+            const pinLimpo = novoPinGestor.trim();
+            if (!/^\d{4}$/.test(pinLimpo)) {
+                alert("⚠️ O PIN deve ter exatamente 4 números (ex: 1234).");
+                return;
+            }
+
+            eqObj.pin = pinLimpo;
+            registrarLogAuditoria("RESET DE PIN (GESTOR)", `Gestor ${usuarioLogado} redefiniu o PIN do técnico ${eqObj.nome} para '${pinLimpo}'.`);
+            await sincronizarEquipesNaNuvem();
+            renderizarTabelaEquipes();
+            alert(`✅ O PIN do técnico ${eqObj.nome} foi redefinido para "${pinLimpo}" com sucesso!`);
+        }
+
+        // Garante que se o técnico já tinha rascunho aberto na sessão, a barra de PIN apareça travada
+        setTimeout(() => {
+            const selEq = document.getElementById('sel-equipe');
+            if (selEq && selEq.value) {
+                equipeAutenticadaSessao = selEq.value;
+                sessionStorage.setItem('gpd_equipe_autenticada_pin', selEq.value);
+                atualizarBarraSegurancaPinCampo();
+            }
+        }, 600);
+
+        // --- DEMAIS FUNÇÕES ANALÍTICAS, TABELAS E FECHAMENTO ---
         function renderizarOfensoresMalogro(dados) {
             const tbody = document.getElementById('tabela-ofensores-malogro-corpo');
             const badgeTotal = document.getElementById('badge-total-ocorrencias-malogro');
@@ -5791,10 +5983,11 @@
                     eq.nome = nome; 
                     eq.setor = setor;
                     eq.status = status; 
+                    if (!eq.pin) eq.pin = "1234";
                 }
             } else {
-                registrarLogAuditoria("CADASTRO DE EQUIPE", `Nova equipe cadastrada: ${nome} | Setor(es): ${setor} (${status})`);
-                equipesSistema.push({ id: Date.now(), nome, setor, status });
+                registrarLogAuditoria("CADASTRO DE EQUIPE", `Nova equipe cadastrada: ${nome} | Setor(es): ${setor} (${status}) | PIN inicial: 1234`);
+                equipesSistema.push({ id: Date.now(), nome, setor, status, pin: "1234" });
             }
 
             await sincronizarEquipesNaNuvem();
@@ -5830,12 +6023,14 @@
             renderizarPainelDisponibilidade();
         }
 
+        // Tabela de Equipes atualizada com exibição de PIN e botão de Reset de PIN para o Gestor
         function renderizarTabelaEquipes() {
             const corpo = document.getElementById('tabela-equipes-corpo');
             if (!corpo) return;
             corpo.innerHTML = "";
             equipesSistema.forEach(eq => {
                 const setoresAtuais = obterArraySetores(eq.setor);
+                const pinAtual = obterPinDaEquipe(eq);
                 const chaveSetorHtml = `
                     <div class="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-300 gap-1">
                         <button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Vistoriador')" class="px-2 py-1 rounded-md text-[10px] font-bold transition ${setoresAtuais.includes('Vistoriador') ? 'bg-purple-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 bg-white'}">
@@ -5852,8 +6047,13 @@
 
                 const projsHabilitados = obterProjetosPermitidosParaSetores(setoresAtuais).map(p => `<span class="bg-slate-100 border border-slate-300 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded">${p}</span>`).join(' ');
 
+                const badgePin = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador')
+                    ? `<div class="mt-1"><span class="bg-amber-50 text-amber-900 border border-amber-300 font-mono font-bold text-[10px] px-2 py-0.5 rounded">🔑 PIN: ${pinAtual}</span></div>`
+                    : '';
+
                 let acoesEq = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') ? 
-                    `<button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>` :
+                    `<button onclick="resetarPinEquipeGestor(${eq.id})" class="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 font-bold text-[10px] px-2.5 py-1 rounded" title="Redefinir ou alterar o PIN de 4 dígitos deste técnico">🔄 Resetar PIN</button>
+                     <button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>` :
                     `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
 
                 if (nivelUsuarioLogado === 'Master') {
@@ -5862,7 +6062,10 @@
 
                 corpo.innerHTML += `
                     <tr class="hover:bg-slate-50 border-b">
-                        <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
+                        <td class="p-3">
+                            <div class="font-bold text-slate-800">${eq.nome}</div>
+                            ${badgePin}
+                        </td>
                         <td class="p-3">${chaveSetorHtml}</td>
                         <td class="p-3"><div class="flex flex-wrap gap-1">${projsHabilitados}</div></td>
                         <td class="p-3">
@@ -5870,7 +6073,7 @@
                                 ${eq.status}
                             </span>
                         </td>
-                        <td class="p-3 space-x-1">${acoesEq}</td>
+                        <td class="p-3 space-x-1 whitespace-nowrap">${acoesEq}</td>
                     </tr>
                 `;
             });
@@ -5990,7 +6193,7 @@
                 return;
             }
             trilhaAuditoria.forEach(log => {
-                const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO")
+                const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO") || log.acao.includes("PIN")
                     ? "bg-purple-100 text-purple-900 border border-purple-300"
                     : "bg-slate-100 text-slate-800";
 
