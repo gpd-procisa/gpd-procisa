@@ -3589,8 +3589,7 @@
             resetarFormularioCampo();
             await carregarRegistrosDaNuvem();
             verificarPendenciasReabertasEProgramadasCampo();
-        }
-// ================= PARTE 03 (BLOCO 3A) - CONTINUAÇÃO EXATA DA PARTE 02 =================
+        }// ================= PARTE 03 (BLOCO 3A) - EXPANSOR DE GRÁFICOS E TABELAS EM TELA CHEIA =================
         function converterHorarioParaMinutos(strHora) {
             if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
             const partes = strHora.trim().split(':');
@@ -3614,7 +3613,7 @@
             return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
         }
 
-        // Expande qualquer gráfico em Tela Cheia (Modo Apresentação)
+        // 1. Expansor de Gráficos em Tela Cheia (Modo Apresentação)
         let graficoExpandidoInstancia = null;
         function expandirGraficoModal(idCanvasOrigem, tituloJanela) {
             const modal = document.getElementById('modal-expandir-grafico');
@@ -3660,6 +3659,151 @@
             }
         }
 
+        // 2. Expansor de Tabelas em Tela Cheia (Injetado via JS para não alterar a Parte 01)
+        function garantirModalExpandirTabela() {
+            if (document.getElementById('modal-expandir-tabela')) return;
+            const modalHtml = `
+                <div id="modal-expandir-tabela" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center p-2 sm:p-6 hidden z-[66]">
+                    <div class="bg-white w-full max-w-7xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col h-[90vh]">
+                        <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-cyan-400">
+                            <div>
+                                <span class="bg-cyan-400 text-blue-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Modo Apresentação Executiva • Tabela Ampliada</span>
+                                <h3 class="font-bold text-sm sm:text-base mt-0.5" id="modal-tabela-expandida-titulo">Visualização Ampliada da Tabela</h3>
+                            </div>
+                            <button onclick="fecharModalTabelaExpandida()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow">
+                                ✕ Fechar Tela Cheia
+                            </button>
+                        </div>
+                        <div class="p-4 sm:p-6 flex-1 bg-slate-50 overflow-auto">
+                            <div id="container-tabela-expandida" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto"></div>
+                        </div>
+                        <div class="bg-white px-5 py-2.5 border-t flex justify-between items-center text-[11px] text-slate-500">
+                            <span>💡 Clique em qualquer linha ou item interativo da tabela ampliada para explodir os detalhes dos imóveis.</span>
+                            <button onclick="fecharModalTabelaExpandida()" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-4 py-1.5 rounded-lg font-bold">Fechar</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+
+        function expandirTabelaModal(idTbodyOrigem, tituloJanela) {
+            garantirModalExpandirTabela();
+            const modal = document.getElementById('modal-expandir-tabela');
+            const titulo = document.getElementById('modal-tabela-expandida-titulo');
+            const container = document.getElementById('container-tabela-expandida');
+            const tbodyOrigem = document.getElementById(idTbodyOrigem);
+            if (!modal || !container || !tbodyOrigem) return;
+
+            const tabelaOriginal = tbodyOrigem.closest('table');
+            if (!tabelaOriginal) return;
+
+            if (titulo) titulo.innerText = tituloJanela;
+            container.innerHTML = "";
+
+            const tabelaClone = tabelaOriginal.cloneNode(true);
+            tabelaClone.className = "w-full text-left border-collapse text-xs sm:text-sm";
+            const theadClone = tabelaClone.querySelector('thead');
+            if (theadClone) {
+                theadClone.classList.add('sticky', 'top-0', 'z-10', 'shadow-sm');
+            }
+
+            // Preserva os eventos de clique (Modo Explosão) de cada linha da tabela original
+            const linhasOriginais = tbodyOrigem.querySelectorAll('tr');
+            const tbodyClone = tabelaClone.querySelector('tbody');
+            if (tbodyClone) {
+                tbodyClone.removeAttribute('id');
+                const linhasClonadas = tbodyClone.querySelectorAll('tr');
+                linhasClonadas.forEach((trClone, idx) => {
+                    const trOrig = linhasOriginais[idx];
+                    if (trOrig && typeof trOrig.onclick === 'function') {
+                        trClone.onclick = (ev) => {
+                            fecharModalTabelaExpandida();
+                            trOrig.onclick(ev);
+                        };
+                    }
+                });
+            }
+
+            container.appendChild(tabelaClone);
+            modal.classList.remove('hidden');
+        }
+
+        function fecharModalTabelaExpandida() {
+            const modal = document.getElementById('modal-expandir-tabela');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        // Injeta automaticamente os botões "⛶ Expandir Tabela" em todas as tabelas da aba Gráficos & Indicadores
+        function injetarBotoesExpansaoTabelasGraficos() {
+            garantirModalExpandirTabela();
+
+            const configsTabelas = [
+                {
+                    idTbody: 'tabela-principal-executores-corpo',
+                    titulo: '🏆 Tabela Principal: Produção Diária, Consolidada e Média por Executor',
+                    corBtn: 'bg-blue-900 hover:bg-blue-950 text-white'
+                },
+                {
+                    idTbody: 'tabela-cruzamento-executores-corpo',
+                    titulo: '🔀 Matriz de Cruzamento: Executores × Projetos (MALLING & PROJETO F)',
+                    corBtn: 'bg-indigo-900 hover:bg-indigo-950 text-white'
+                },
+                {
+                    idTbody: 'tabela-ofensores-malogro-corpo',
+                    titulo: '🛑 Ranking Detalhado dos Ofensores de Malogro',
+                    corBtn: 'bg-red-700 hover:bg-red-800 text-white'
+                },
+                {
+                    idTbody: 'tabela-ranking-tecnicos-corpo',
+                    titulo: '⏱️ Monitoramento de Horários (Abertura, Fechamento e TMA) por Técnico',
+                    corBtn: 'bg-blue-900 hover:bg-blue-950 text-white'
+                },
+                {
+                    idTbody: 'tabela-rank-concluida',
+                    titulo: '🟢 Ranking por Projeto: Atividades Concluídas',
+                    corBtn: 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                },
+                {
+                    idTbody: 'tabela-rank-pendente',
+                    titulo: '🟡 Ranking por Projeto: Atividades Pendentes',
+                    corBtn: 'bg-amber-600 hover:bg-amber-700 text-white'
+                },
+                {
+                    idTbody: 'tabela-rank-malograda',
+                    titulo: '🔴 Ranking por Projeto: Atividades Malogradas',
+                    corBtn: 'bg-red-700 hover:bg-red-800 text-white'
+                },
+                {
+                    idTbody: 'tabela-consolidada-corpo',
+                    titulo: '📋 Tabela Consolidada de Números Reais (Para a Diretoria)',
+                    corBtn: 'bg-slate-800 hover:bg-slate-900 text-white'
+                }
+            ];
+
+            configsTabelas.forEach(cfg => {
+                const tbody = document.getElementById(cfg.idTbody);
+                if (!tbody) return;
+                const tabela = tbody.closest('table');
+                if (!tabela) return;
+
+                const idBtn = `btn-exp-tab-${cfg.idTbody}`;
+                if (document.getElementById(idBtn)) return;
+
+                const wrapper = tabela.parentElement;
+                if (!wrapper) return;
+
+                const barraTopo = document.createElement('div');
+                barraTopo.className = "flex justify-end items-center px-3 py-1.5 bg-slate-100/80 border-b border-slate-200";
+                barraTopo.innerHTML = `
+                    <button type="button" id="${idBtn}" onclick="expandirTabelaModal('${cfg.idTbody}', '${cfg.titulo}')" class="${cfg.corBtn} font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap" title="Expandir tabela em tela cheia para apresentação">
+                        ⛶ Expandir Tabela
+                    </button>
+                `;
+                wrapper.insertBefore(barraTopo, tabela);
+            });
+        }
+
         // Autorização do Gestor para Reabrir Atividade para o Técnico com Registro em Auditoria
         async function autorizarReaberturaCampo(id) {
             if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
@@ -3693,7 +3837,6 @@
             await recarregarDadosGestor();
         }
 
-        // Importação de Planilha / Carga Programada Completa (11 Colunas)
         function abrirModalImportarPlanilha() {
             if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
                 alert("⚠️ Permissão insuficiente para importar planilha de atividades.");
@@ -4222,6 +4365,7 @@
             try { renderizarTabelaConsolidada(finalizadas); } catch (e) { console.warn("Aviso Tabela Consolidada:", e); }
             try { renderizarRankingsSeparados(finalizadas); } catch (e) { console.warn("Aviso Rankings Separados:", e); }
             try { renderizarTabelaUsuariosPermissao(); } catch (e) { console.warn("Aviso Tabela Usuários:", e); }
+            try { injetarBotoesExpansaoTabelasGraficos(); } catch (e) { console.warn("Aviso Botões Expansão Tabelas:", e); }
         }
 
         function renderizarPainelPrincipalExecutores(dados) {
