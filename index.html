@@ -13,16 +13,16 @@
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col items-center justify-start p-0 sm:p-4">
 
-    <!-- Container Principal (Sem overflow-hidden para permitir o cabeçalho Sticky travado na rolagem) -->
+    <!-- Container Principal -->
     <div class="w-full max-w-7xl bg-white shadow-2xl sm:rounded-2xl flex flex-col border border-slate-200 min-h-[95vh]">
         
         <!-- ================= BLOCO SUPERIOR FIXO / CONGELADO NA ROLAGEM ================= -->
         <div class="sticky top-0 z-40 shadow-md sm:rounded-t-2xl bg-white">
             
-            <!-- Cabeçalho Azul Compacto + Barra de Pesquisa e Ações abaixo do botão Sair -->
+            <!-- Cabeçalho Azul Compacto -->
             <header class="bg-blue-900 text-white px-4 py-3 sm:px-6 sm:py-3.5 border-b-4 border-cyan-400 sm:rounded-t-2xl space-y-2.5">
                 
-                <!-- Linha 1 do Cabeçalho: Título + Botões de Modo + Sair/Bloquear -->
+                <!-- Linha 1 do Cabeçalho -->
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <div>
                         <div class="flex items-center gap-2">
@@ -52,7 +52,7 @@
                     </div>
                 </div>
 
-                <!-- Linha 2 do Cabeçalho: Pesquisa + Importar Planilha, WhatsApp, Excel e Atualizar -->
+                <!-- Linha 2 do Cabeçalho: Pesquisa e Ações Rápidas -->
                 <div id="header-gestor-acoes" class="pt-2 border-t border-blue-800/80 flex flex-col lg:flex-row justify-between items-center gap-2 hidden">
                     <div class="w-full lg:w-80">
                         <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, endereço, equipe, projeto..." class="w-full text-xs text-slate-800 border border-blue-700 rounded-lg px-3 py-1.5 outline-none bg-white focus:ring-2 focus:ring-cyan-400 transition">
@@ -77,10 +77,9 @@
                 </div>
             </header>
 
-            <!-- Sub-Cabeçalho Fixo do Gestor: Atalhos Rápidos + Filtros Compactos (c/ Filtro de Status) + Menu de Abas -->
+            <!-- Sub-Cabeçalho Fixo do Gestor: Atalhos Rápidos + 5 Filtros + Abas -->
             <div id="header-gestor-subbarra" class="bg-slate-100 border-b border-slate-300 px-4 py-2 space-y-2 hidden">
                 
-                <!-- Linha de Atalhos Rápidos de Período + 5 Filtros em Linha Única -->
                 <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
                     <div class="flex flex-wrap items-center gap-1.5">
                         <span class="text-[11px] font-black text-blue-950 uppercase mr-1">⚡ Período:</span>
@@ -91,7 +90,6 @@
                         <button onclick="aplicarAtalhoPeriodo('tudo')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-md transition">🔄 Tudo</button>
                     </div>
 
-                    <!-- Grid com 5 filtros incluindo Status/Desfecho -->
                     <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 w-full xl:w-auto">
                         <div class="flex items-center gap-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1">
                             <span class="text-[10px] font-bold text-slate-500">De:</span>
@@ -106,7 +104,7 @@
                         </select>
                         <select id="gestor-filtro-projeto" onchange="atualizarDashboardGestor()" class="w-full text-[11px] border border-slate-300 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-700">
                             <option value="">🏗️ Todos os Projetos</option>
-                            <optgroup label="Grupo MALLING">
+                            <optgroup label="Grupo ON GOING">
                                 <option value="VISTORIA">VISTORIA (Vistoriador)</option>
                                 <option value="CONSTRUÇÃO ON GOING">CONSTRUÇÃO ON GOING (Instalador)</option>
                                 <option value="CONSTRUÇÃO NAP LOTADA">CONSTRUÇÃO NAP LOTADA (Instalador)</option>
@@ -130,7 +128,7 @@
                     </div>
                 </div>
 
-                <!-- Menu de Abas do Gestor Compacto e Sempre Visível -->
+                <!-- Menu de Abas do Gestor -->
                 <div class="flex flex-wrap gap-1.5 items-center pt-0.5">
                     <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1">
                         📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
@@ -197,7 +195,7 @@
             <!-- Sub-Aba: Atividades -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-3.5 bg-slate-50 border-b border-slate-200 font-bold text-slate-800 text-xs sm:text-sm flex flex-wrap justify-between items-center gap-2">
-                    <span>📋 Atividades em Campo, Programadas e Finalizadas (Clique na linha para ver detalhes e fotos 📷)</span>
+                    <span>📋 Atividades em Campo, Programadas e Finalizadas (Imóveis multi-bloco agrupados automaticamente)</span>
                     <span class="text-xs font-bold bg-blue-100 text-blue-900 px-2.5 py-1 rounded-lg" id="contador-resultados">0 registros</span>
                 </div>
                 <div class="overflow-x-auto">
@@ -295,14 +293,13 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos & Indicadores (Todos os gráficos agora possuem botão ⛶ Expandir) -->
+            <!-- Sub-Aba: Gráficos & Indicadores -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 
-                <!-- Cards de Números Gerais exclusivos na aba Gráficos & Indicadores -->
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-2.5">
                     <div class="flex flex-wrap justify-between items-center gap-2">
                         <span class="text-xs font-black text-slate-700 uppercase">📌 Resumo Geral de Volumes por Projeto (Período Filtrado)</span>
-                        <span class="text-[11px] text-blue-800 font-medium">💡 Use o botão <b>⛶ Expandir</b> em qualquer gráfico para apresentação em tela cheia</span>
+                        <span class="text-[11px] text-blue-800 font-medium">💡 Use o botão <b>⛶ Expandir</b> em qualquer gráfico ou tabela para apresentação em tela cheia</span>
                     </div>
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
                         <div class="bg-blue-50 p-3 rounded-xl shadow-sm border border-blue-300 flex flex-col justify-between">
@@ -344,7 +341,7 @@
                     </div>
                 </div>
 
-                <!-- DESTAQUE PRINCIPAL - PRODUÇÃO DIÁRIA, CONSOLIDADA E MÉDIA POR EXECUTOR -->
+                <!-- DESTAQUE PRINCIPAL - PRODUÇÃO POR EXECUTOR -->
                 <div class="bg-white rounded-2xl shadow-md border-2 border-blue-900/20 overflow-hidden">
                     <div class="bg-blue-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
@@ -440,7 +437,7 @@
                                         <option value="Instalador">🛠️ Apenas Instaladores</option>
                                         <option value="Ativador">⚡ Apenas Ativadores</option>
                                     </select>
-                                    <button type="button" onclick="expandirGraficoModal('graficoPrincipalExecutores', '🏆 Produção Consolidada, Diária e Média por Executor')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap" title="Expandir gráfico para apresentação">
+                                    <button type="button" onclick="expandirGraficoModal('graficoPrincipalExecutores', '🏆 Produção Consolidada, Diária e Média por Executor')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
                                         ⛶ Expandir
                                     </button>
                                 </div>
@@ -449,6 +446,11 @@
                         </div>
 
                         <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                            <div class="flex justify-end items-center px-3 py-1.5 bg-slate-100 border-b border-slate-200">
+                                <button type="button" onclick="expandirTabelaModal('tabela-principal-executores-corpo', '🏆 Tabela Principal: Produção Diária, Consolidada e Média por Executor')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition flex items-center gap-1">
+                                    ⛶ Expandir Tabela
+                                </button>
+                            </div>
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
                                     <tr class="bg-slate-800 text-white uppercase font-bold text-[10px] tracking-wider">
@@ -469,14 +471,14 @@
                     </div>
                 </div>
 
-                <!-- EVOLUÇÃO DOS PROJETOS (MALLING vs PROJETO F) E CRUZAMENTO DE EXECUTORES -->
+                <!-- EVOLUÇÃO DOS PROJETOS (ON GOING vs PROJETO F) E CRUZAMENTO DE EXECUTORES -->
                 <div class="bg-white rounded-2xl shadow-md border-2 border-indigo-900/20 overflow-hidden">
                     <div class="bg-indigo-950 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
                             <span class="bg-amber-400 text-indigo-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Análise por Grupos de Projeto</span>
-                            <h3 class="font-bold text-base mt-1">📈 Evolução e Cruzamento: Grupo MALLING vs. Grupo PROJETO F</h3>
+                            <h3 class="font-bold text-base mt-1">📈 Evolução e Cruzamento: Grupo ON GOING vs. Grupo PROJETO F</h3>
                             <p class="text-xs text-indigo-200">
-                                <b>MALLING:</b> Vistoria, Constr. On Going, Constr. Nap Lotada, Ativ. On Going, Ativ. Nap Lotada &nbsp;|&nbsp;
+                                <b>ON GOING:</b> Vistoria, Constr. On Going, Constr. Nap Lotada, Ativ. On Going, Ativ. Nap Lotada &nbsp;|&nbsp;
                                 <b>PROJETO F:</b> Construção F e Ativação F
                             </p>
                         </div>
@@ -484,16 +486,16 @@
 
                     <div class="p-5 space-y-6">
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <!-- Gráfico 2: Grupo Malling -->
+                            <!-- Gráfico 2: Grupo ON GOING -->
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
                                 <div class="flex justify-between items-start mb-2 gap-2">
                                     <div>
-                                        <h4 class="text-xs font-black text-blue-950 uppercase">🏢 Grupo MALLING (Volume e Desfecho por Projeto)</h4>
+                                        <h4 class="text-xs font-black text-blue-950 uppercase">🏢 Grupo ON GOING (Volume e Desfecho por Projeto)</h4>
                                         <p class="text-[10px] text-slate-500">Vistoria • Constr. On Going • Constr. Nap Lotada • Ativ. On Going • Ativ. Nap Lotada</p>
                                     </div>
                                     <div class="flex items-center gap-1.5">
                                         <span id="badge-total-malling" class="bg-blue-100 text-blue-900 font-black text-xs px-2.5 py-1 rounded-lg whitespace-nowrap">0 total</span>
-                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoMalling', '🏢 Grupo MALLING - Volume e Desfecho por Projeto')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
+                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoMalling', '🏢 Grupo ON GOING - Volume e Desfecho por Projeto')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
                                             ⛶ Expandir
                                         </button>
                                     </div>
@@ -523,10 +525,10 @@
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                             <div class="flex justify-between items-start mb-3 gap-2">
                                 <div>
-                                    <h4 class="text-xs font-black text-slate-800 uppercase mb-0.5">📅 Curva de Evolução Diária: MALLING vs. PROJETO F</h4>
+                                    <h4 class="text-xs font-black text-slate-800 uppercase mb-0.5">📅 Curva de Evolução Diária: ON GOING vs. PROJETO F</h4>
                                     <p class="text-[11px] text-slate-500">Acompanhamento dia a dia do ritmo de entregas de cada macrogrupo de projeto</p>
                                 </div>
-                                <button type="button" onclick="expandirGraficoModal('graficoEvolucaoGrupos', '📅 Curva de Evolução Diária: MALLING vs. PROJETO F')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                <button type="button" onclick="expandirGraficoModal('graficoEvolucaoGrupos', '📅 Curva de Evolução Diária: ON GOING vs. PROJETO F')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
                                     ⛶ Expandir
                                 </button>
                             </div>
@@ -534,8 +536,15 @@
                         </div>
 
                         <div class="space-y-2">
-                            <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento: Executores × Projetos (MALLING & PROJETO F)</h4>
-                            <p class="text-[11px] text-slate-500">Visão cruzada de quantas atividades cada executor realizou em cada projeto e macrogrupo</p>
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento: Executores × Projetos (ON GOING & PROJETO F)</h4>
+                                    <p class="text-[11px] text-slate-500">Visão cruzada de quantas atividades cada executor realizou em cada projeto e macrogrupo</p>
+                                </div>
+                                <button type="button" onclick="expandirTabelaModal('tabela-cruzamento-executores-corpo', '🔀 Matriz de Cruzamento: Executores × Projetos (ON GOING & PROJETO F)')" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
+                                    ⛶ Expandir Tabela
+                                </button>
+                            </div>
                             <div class="overflow-x-auto border border-slate-200 rounded-xl">
                                 <table class="w-full text-left border-collapse text-[11px]">
                                     <thead>
@@ -547,7 +556,7 @@
                                             <th class="p-2 text-center bg-blue-50 text-blue-900">Const. Nap Lot.</th>
                                             <th class="p-2 text-center bg-blue-50 text-blue-900">Ativ. On Going</th>
                                             <th class="p-2 text-center bg-blue-50 text-blue-900">Ativ. Nap Lot.</th>
-                                            <th class="p-2 text-center bg-blue-200 text-blue-950 font-black">Subtotal MALLING</th>
+                                            <th class="p-2 text-center bg-blue-200 text-blue-950 font-black">Subtotal ON GOING</th>
                                             <th class="p-2 text-center bg-indigo-50 text-indigo-900">Construção F</th>
                                             <th class="p-2 text-center bg-indigo-50 text-indigo-900">Ativação F</th>
                                             <th class="p-2 text-center bg-indigo-200 text-indigo-950 font-black">Subtotal PROJ. F</th>
@@ -656,7 +665,7 @@
                     </div>
                 </div>
 
-                <!-- Gráfico 9: Ofensores de Malogro -->
+                <!-- Gráfico 9 e Tabela: Ofensores de Malogro -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-red-200 flex flex-col justify-between">
                         <div>
@@ -675,11 +684,14 @@
                     </div>
 
                     <div class="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden flex flex-col">
-                        <div class="bg-red-50 p-4 border-b border-red-200 flex justify-between items-center">
+                        <div class="bg-red-50 p-4 border-b border-red-200 flex justify-between items-center gap-2">
                             <div>
                                 <h3 class="font-bold text-red-900 text-sm">🛑 Ranking Detalhado dos Ofensores de Malogro</h3>
                                 <p class="text-[11px] text-red-700">Clique sobre qualquer ofensor para listar os imóveis afetados</p>
                             </div>
+                            <button type="button" onclick="expandirTabelaModal('tabela-ofensores-malogro-corpo', '🛑 Ranking Detalhado dos Ofensores de Malogro')" class="bg-red-700 hover:bg-red-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
+                                ⛶ Expandir Tabela
+                            </button>
                         </div>
                         <div class="p-3 overflow-y-auto max-h-72 flex-1">
                             <table class="w-full text-left text-xs">
@@ -704,7 +716,12 @@
                             <h3 class="font-bold text-slate-800 text-sm">⏱️ Monitoramento de Horários (Abertura, Fechamento e TMA) por Técnico</h3>
                             <p class="text-[11px] text-slate-500">Clique na linha de qualquer técnico para explodir as atividades realizadas por ele no período</p>
                         </div>
-                        <span id="contador-tecnicos-ativos" class="bg-blue-100 text-blue-900 font-bold px-3 py-1 rounded-lg text-xs">0 técnicos acionados</span>
+                        <div class="flex items-center gap-2">
+                            <span id="contador-tecnicos-ativos" class="bg-blue-100 text-blue-900 font-bold px-3 py-1 rounded-lg text-xs">0 técnicos acionados</span>
+                            <button type="button" onclick="expandirTabelaModal('tabela-ranking-tecnicos-corpo', '⏱️ Monitoramento de Horários (Abertura, Fechamento e TMA) por Técnico')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                ⛶ Expandir Tabela
+                            </button>
+                        </div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse text-xs">
@@ -730,9 +747,12 @@
                 <!-- Rankings Separados por Desfecho -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div class="bg-white rounded-xl shadow-sm border border-emerald-200 overflow-hidden">
-                        <div class="bg-emerald-50 p-3 border-b border-emerald-200 font-bold text-emerald-900 text-xs flex justify-between items-center">
+                        <div class="bg-emerald-50 p-3 border-b border-emerald-200 font-bold text-emerald-900 text-xs flex justify-between items-center gap-1">
                             <span>🟢 Ranking: Concluídas</span>
-                            <span id="rank-conc-total" class="bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded text-[10px]">0 total</span>
+                            <div class="flex items-center gap-1">
+                                <span id="rank-conc-total" class="bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded text-[10px]">0 total</span>
+                                <button type="button" onclick="expandirTabelaModal('tabela-rank-concluida', '🟢 Ranking por Projeto: Concluídas')" class="bg-emerald-700 text-white text-[9px] px-2 py-0.5 rounded">⛶</button>
+                            </div>
                         </div>
                         <div class="p-3">
                             <table class="w-full text-left text-xs">
@@ -749,9 +769,12 @@
                     </div>
 
                     <div class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden">
-                        <div class="bg-amber-50 p-3 border-b border-amber-200 font-bold text-amber-900 text-xs flex justify-between items-center">
+                        <div class="bg-amber-50 p-3 border-b border-amber-200 font-bold text-amber-900 text-xs flex justify-between items-center gap-1">
                             <span>🟡 Ranking: Pendentes</span>
-                            <span id="rank-pend-total" class="bg-amber-200 text-amber-900 px-2 py-0.5 rounded text-[10px]">0 total</span>
+                            <div class="flex items-center gap-1">
+                                <span id="rank-pend-total" class="bg-amber-200 text-amber-900 px-2 py-0.5 rounded text-[10px]">0 total</span>
+                                <button type="button" onclick="expandirTabelaModal('tabela-rank-pendente', '🟡 Ranking por Projeto: Pendentes')" class="bg-amber-600 text-white text-[9px] px-2 py-0.5 rounded">⛶</button>
+                            </div>
                         </div>
                         <div class="p-3">
                             <table class="w-full text-left text-xs">
@@ -768,9 +791,12 @@
                     </div>
 
                     <div class="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden">
-                        <div class="bg-red-50 p-3 border-b border-red-200 font-bold text-red-900 text-xs flex justify-between items-center">
+                        <div class="bg-red-50 p-3 border-b border-red-200 font-bold text-red-900 text-xs flex justify-between items-center gap-1">
                             <span>🔴 Ranking: Malogradas</span>
-                            <span id="rank-malo-total" class="bg-red-200 text-red-900 px-2 py-0.5 rounded text-[10px]">0 total</span>
+                            <div class="flex items-center gap-1">
+                                <span id="rank-malo-total" class="bg-red-200 text-red-900 px-2 py-0.5 rounded text-[10px]">0 total</span>
+                                <button type="button" onclick="expandirTabelaModal('tabela-rank-malograda', '🔴 Ranking por Projeto: Malogradas')" class="bg-red-700 text-white text-[9px] px-2 py-0.5 rounded">⛶</button>
+                            </div>
                         </div>
                         <div class="p-3">
                             <table class="w-full text-left text-xs">
@@ -788,7 +814,12 @@
                 </div>
 
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm">📋 Tabela Consolidada de Números Reais (Para a Diretoria)</div>
+                    <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
+                        <span>📋 Tabela Consolidada de Números Reais (Para a Diretoria)</span>
+                        <button type="button" onclick="expandirTabelaModal('tabela-consolidada-corpo', '📋 Tabela Consolidada de Números Reais (Para a Diretoria)')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition">
+                            ⛶ Expandir Tabela
+                        </button>
+                    </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse text-xs">
                             <thead>
@@ -911,8 +942,8 @@
             <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
-                        <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos e Setor de Atuação</h3>
-                        <p class="text-[11px] text-slate-500">Defina se o técnico atua como <b>Vistoriador</b>, <b>Instalador</b> e/ou <b>Ativador</b> (suporta marcação múltipla)</p>
+                        <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos, Setor de Atuação e PIN</h3>
+                        <p class="text-[11px] text-slate-500">Defina se o técnico atua como <b>Vistoriador</b>, <b>Instalador</b> e/ou <b>Ativador</b> e gerencie o PIN de acesso ao Modo Campo</p>
                     </div>
                     <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-nova-equipe">+ Nova Equipe</button>
                 </div>
@@ -920,11 +951,11 @@
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
-                                <th class="p-3">Nome do Técnico / Equipe</th>
+                                <th class="p-3">Nome do Técnico / Equipe & PIN</th>
                                 <th class="p-3">Setor de Atuação (Vistoriador / Instalador / Ativador)</th>
                                 <th class="p-3">Projetos Habilitados no Campo</th>
                                 <th class="p-3">Status</th>
-                                <th class="p-3" id="th-equipe-acoes">Ações</th>
+                                <th class="p-3" id="th-equipe-acoes">Ações / Reset de PIN</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-equipes-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -1052,7 +1083,7 @@
                     <span class="text-[11px] bg-blue-50 text-blue-900 px-2.5 py-1 rounded-lg font-bold" id="current-user-team">Selecione Equipe</span>
                 </div>
 
-                <!-- Alerta de Atividades Reabertas pelo Gestor para Correção do Técnico -->
+                <!-- Alerta de Atividades Reabertas pelo Gestor -->
                 <div id="box-reabertas-campo" class="bg-purple-50 border-2 border-purple-400 p-3.5 rounded-xl space-y-2 hidden shadow-sm">
                     <div class="flex items-start gap-2">
                         <span class="text-lg">🔄</span>
@@ -1064,7 +1095,7 @@
                     <div id="lista-reabertas-campo" class="space-y-1.5 pt-1"></div>
                 </div>
 
-                <!-- Caixa de Atividades Programadas via Planilha para o Técnico -->
+                <!-- Caixa de Atividades Programadas via Planilha -->
                 <div id="box-programadas-campo" class="bg-cyan-50 border-2 border-cyan-400 p-3.5 rounded-xl space-y-2 hidden shadow-sm">
                     <div class="flex items-start gap-2">
                         <span class="text-lg">📋</span>
@@ -1105,6 +1136,7 @@
                         <select id="sel-equipe" onchange="aoSelecionarEquipeCampo()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
                             <option value="">Selecione a Equipe...</option>
                         </select>
+                        <div id="barra-seguranca-pin-campo" class="mt-1.5 flex items-center justify-between bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] hidden"></div>
                     </div>
 
                     <div>
@@ -1188,7 +1220,7 @@
 
     <!-- ================= MODAIS DO SISTEMA ================= -->
 
-    <!-- NOVO MODAL DE EXPANSÃO DE GRÁFICO EM TELA CHEIA (MODO APRESENTAÇÃO) -->
+    <!-- MODAL DE EXPANSÃO DE GRÁFICO EM TELA CHEIA -->
     <div id="modal-expandir-grafico" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center p-2 sm:p-6 hidden z-[65]">
         <div class="bg-white w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col h-[88vh]">
             <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-cyan-400">
@@ -1206,13 +1238,35 @@
                 </div>
             </div>
             <div class="bg-white px-5 py-2.5 border-t flex justify-between items-center text-[11px] text-slate-500">
-                <span>💡 Você também pode clicar nas barras/fatias deste gráfico ampliado para explodir a listagem de imóveis.</span>
+                <span>💡 Clique nas barras ou fatias do gráfico ampliado para explodir a listagem de imóveis.</span>
                 <button onclick="fecharModalGraficoExpandido()" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-4 py-1.5 rounded-lg font-bold">Fechar</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL DE IMPORTAÇÃO DE CARGA DE ATIVIDADES VIA PLANILHA (11 COLUNAS COMPLETAS) -->
+    <!-- MODAL DE EXPANSÃO DE TABELA EM TELA CHEIA -->
+    <div id="modal-expandir-tabela" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center p-2 sm:p-6 hidden z-[66]">
+        <div class="bg-white w-full max-w-7xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col h-[90vh]">
+            <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-cyan-400">
+                <div>
+                    <span class="bg-cyan-400 text-blue-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Modo Apresentação Executiva • Tabela Ampliada</span>
+                    <h3 class="font-bold text-sm sm:text-base mt-0.5" id="modal-tabela-expandida-titulo">Visualização Ampliada da Tabela</h3>
+                </div>
+                <button onclick="fecharModalTabelaExpandida()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow">
+                    ✕ Fechar Tela Cheia
+                </button>
+            </div>
+            <div class="p-4 sm:p-6 flex-1 bg-slate-50 overflow-auto">
+                <div id="container-tabela-expandida" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto"></div>
+            </div>
+            <div class="bg-white px-5 py-2.5 border-t flex justify-between items-center text-[11px] text-slate-500">
+                <span>💡 Clique em qualquer linha interativa da tabela ampliada para explodir os detalhes dos imóveis.</span>
+                <button onclick="fecharModalTabelaExpandida()" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-4 py-1.5 rounded-lg font-bold">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE IMPORTAÇÃO DE CARGA DE ATIVIDADES VIA PLANILHA -->
     <div id="modal-importar-planilha" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
         <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
             <div class="bg-purple-800 text-white p-4 flex justify-between items-center">
@@ -1490,7 +1544,7 @@
             </div>
         </div>
     </div>
-<!-- Script Principal - Parte 02 -->
+<!-- ================= BLOCO 02 DE 04 - LÓGICA DE CAMPO, SUPABASE, PIN E ALERTA SONORO ================= -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1599,7 +1653,7 @@
         function obterMacroGrupoProjeto(projeto) {
             const p = normalizarNomeProjeto(projeto);
             if (PROJETOS_GRUPO_PROJETO_F.includes(p)) return "PROJETO F";
-            if (PROJETOS_GRUPO_MALLING.includes(p)) return "MALLING";
+            if (PROJETOS_GRUPO_MALLING.includes(p)) return "ON GOING";
             return "OUTROS";
         }
 
@@ -1677,15 +1731,17 @@
             id: index + 1,
             nome: nome,
             setor: "Instalador",
-            status: "Ativo"
+            status: "Ativo",
+            pin: "1234"
         }));
 
         equipesSistema = equipesSistema.map(eq => ({
             ...eq,
-            setor: formatarSetoresString(eq.setor || "Instalador")
+            setor: formatarSetoresString(eq.setor || "Instalador"),
+            pin: (eq.pin && String(eq.pin).trim().length >= 4) ? String(eq.pin).trim() : "1234"
         }));
 
-        let dadosAtendimento = { idEmAndamento: null, eraReaberta: false, hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, blocos: [] };
+        let dadosAtendimento = { idEmAndamento: null, eraReaberta: false, eraProgramada: false, hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, blocos: [] };
         let registrosSalvos = [];
         let usuariosSistema = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [
             { id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", senha: "Leo290301@", nivel: "Master", status: "Ativo" }
@@ -1693,6 +1749,8 @@
         let trilhaAuditoria = JSON.parse(localStorage.getItem('gpd_trilha_auditoria')) || [];
         let usuarioLogado = sessionStorage.getItem('gpd_user_logado') || null;
         let nivelUsuarioLogado = "Visualizador";
+        let equipeAutenticadaSessao = sessionStorage.getItem('gpd_equipe_autenticada_pin') || "";
+        let idsNotificadosNoCelular = new Set();
 
         let graficoPrincipalExecutoresInstancia = null;
         let graficoGrupoMallingInstancia = null;
@@ -1703,6 +1761,7 @@
         let graficoHorasPicoInstancia = null;
         let graficoTempoProjetoInstancia = null;
         let graficoOfensoresMalogroInstancia = null;
+        let graficoExpandidoInstancia = null;
 
         let dadosFiltradosAtuais = [];
         let listaImprevistosAtuais = [];
@@ -1723,6 +1782,65 @@
             "CX SOBREPOR": { codigo: "1.10", desc: "INSTALAÇÃO DE CAIXA - SOPREPOR", unidade: "Unidade", valor: 83.76 },
             "CX EMBUTIDA": { codigo: "1.11", desc: "INSTALAÇÃO DE CAIXA - EMBUTIDA", unidade: "Unidade", valor: 150.76 }
         };
+
+        function obterPinDaEquipe(eqObj) {
+            return (eqObj && eqObj.pin && String(eqObj.pin).trim().length >= 4) ? String(eqObj.pin).trim() : "1234";
+        }
+
+        function atualizarBarraSegurancaPinCampo() {
+            const selEq = document.getElementById('sel-equipe');
+            const barraPin = document.getElementById('barra-seguranca-pin-campo');
+            if (!selEq || !barraPin) return;
+
+            if (selEq.value && equipeAutenticadaSessao === selEq.value) {
+                selEq.disabled = true;
+                selEq.classList.add('bg-slate-100', 'font-bold', 'text-blue-950');
+                barraPin.classList.remove('hidden');
+                barraPin.innerHTML = `
+                    <span class="text-emerald-800 font-bold flex items-center gap-1">🔒 PIN Autenticado</span>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" onclick="alterarPinPeloTecnicoCampo()" class="bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded border border-blue-300 transition">
+                            🔑 Alterar Meu PIN
+                        </button>
+                        <button type="button" onclick="desbloquearTrocaEquipeCampo()" class="bg-red-50 hover:bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded border border-red-200 transition">
+                            🚪 Sair
+                        </button>
+                    </div>
+                `;
+            } else {
+                selEq.disabled = false;
+                selEq.classList.remove('bg-slate-100', 'font-bold', 'text-blue-950');
+                barraPin.classList.add('hidden');
+            }
+        }
+
+        // PONTO 03: Alerta sonoro automático no smartphone via Web Audio API + Vibração
+        function tocarAlertaSonoroCelular() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+
+                const tocarNota = (freq, inicio, duracao) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + inicio);
+                    gain.gain.setValueAtTime(0.22, ctx.currentTime + inicio);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + inicio + duracao);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + inicio);
+                    osc.stop(ctx.currentTime + inicio + duracao);
+                };
+
+                tocarNota(659.25, 0, 0.16);
+                tocarNota(880.00, 0.18, 0.28);
+                if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            } catch (e) {
+                console.warn("Aviso de áudio:", e);
+            }
+        }
 
         async function sincronizarUsuariosNaNuvem() {
             try {
@@ -1932,6 +2050,9 @@
             if (d === 'MALOGRADA') {
                 return 'bg-red-100 text-red-800 border border-red-300';
             }
+            if (d === 'MÚLTIPLO') {
+                return 'bg-indigo-100 text-indigo-900 border border-indigo-300 font-black';
+            }
             return 'bg-slate-100 text-slate-700 border border-slate-300';
         }
 
@@ -1946,7 +2067,7 @@
             verificarPermissoesSessao();
             restaurarRascunhoCampo();
             verificarImprevistoAtivoEquipeCampo();
-            verificarPendenciasReabertasEProgramadasCampo();
+            verificarPendenciasReabertasEProgramadasCampo(false);
 
             if (usuarioLogado) {
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
@@ -1958,6 +2079,7 @@
                 alternarVisao('campo');
             }
 
+            // Sincronização automática do Painel do Gestor a cada 180s
             setInterval(async () => {
                 const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
                 const algumModalAberto = 
@@ -1969,7 +2091,8 @@
                     !document.getElementById('modal-usuario').classList.contains('hidden') ||
                     !document.getElementById('modal-imprevisto').classList.contains('hidden') ||
                     !document.getElementById('modal-importar-planilha').classList.contains('hidden') ||
-                    !document.getElementById('modal-expandir-grafico').classList.contains('hidden');
+                    !document.getElementById('modal-expandir-grafico').classList.contains('hidden') ||
+                    !document.getElementById('modal-expandir-tabela').classList.contains('hidden');
 
                 if (usuarioLogado && viewGestorAtiva && !algumModalAberto) {
                     await carregarRegistrosDaNuvem();
@@ -1978,6 +2101,17 @@
                     if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
                 }
             }, 180000);
+
+            // PONTO 03: Radar em segundo plano no celular do técnico a cada 35s para tocar alerta sonoro ao receber atividade
+            setInterval(async () => {
+                const viewCampoAtiva = !document.getElementById('view-campo').classList.contains('hidden');
+                const formAberto = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
+                if (viewCampoAtiva && equipeAutenticadaSessao && !formAberto) {
+                    await carregarRegistrosDaNuvem();
+                    verificarImprevistoAtivoEquipeCampo();
+                    verificarPendenciasReabertasEProgramadasCampo(true);
+                }
+            }, 35000);
         };
 
         function comprimirImagemBase64(file, maxWidth = 780, quality = 0.60) {
@@ -2290,7 +2424,6 @@
                         </div>
                     </div>
 
-                    <!-- Até 10 Fotos por Bloco -->
                     <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
                         <div class="flex justify-between items-center">
                             <label class="text-[11px] font-bold text-blue-950 flex items-center gap-1">📷 Fotos do Fechamento (${b.fotos.length}/10)</label>
@@ -2320,6 +2453,7 @@
                 emAndamento: posAberturaVisivel,
                 idEmAndamento: dadosAtendimento.idEmAndamento,
                 eraReaberta: dadosAtendimento.eraReaberta || false,
+                eraProgramada: dadosAtendimento.eraProgramada || false,
                 equipe: document.getElementById('sel-equipe').value,
                 projeto: document.getElementById('sel-projeto').value,
                 imovel: document.getElementById('inp-imovel').value,
@@ -2386,19 +2520,32 @@
         function restaurarRascunhoCampo() {
             try {
                 const salvo = localStorage.getItem('gpd_rascunho_campo_ativo');
-                if (!salvo) return;
+                if (!salvo) {
+                    if (equipeAutenticadaSessao) {
+                        const selEq = document.getElementById('sel-equipe');
+                        if (selEq) selEq.value = equipeAutenticadaSessao;
+                        document.getElementById('current-user-team').innerText = equipeAutenticadaSessao;
+                        atualizarProjetosPermitidosCampo(equipeAutenticadaSessao);
+                        atualizarBarraSegurancaPinCampo();
+                    }
+                    return;
+                }
                 const r = JSON.parse(salvo);
 
                 if (r.equipe) {
                     document.getElementById('sel-equipe').value = r.equipe;
                     document.getElementById('current-user-team').innerText = r.equipe;
+                    equipeAutenticadaSessao = r.equipe;
+                    sessionStorage.setItem('gpd_equipe_autenticada_pin', r.equipe);
                     atualizarProjetosPermitidosCampo(r.equipe, r.projeto);
+                    atualizarBarraSegurancaPinCampo();
                 }
                 if (r.imovel) document.getElementById('inp-imovel').value = r.imovel;
 
                 if (r.emAndamento) {
                     dadosAtendimento.idEmAndamento = r.idEmAndamento || null;
                     dadosAtendimento.eraReaberta = r.eraReaberta || false;
+                    dadosAtendimento.eraProgramada = r.eraProgramada || false;
                     dadosAtendimento.hEntrada = r.hEntrada;
                     dadosAtendimento.gpsEntrada = r.gpsEntrada;
                     dadosAtendimento.blocos = (Array.isArray(r.blocos) && r.blocos.length > 0) ? r.blocos : [criarObjetoBlocoPadrao(1)];
@@ -2424,29 +2571,179 @@
             }
         }
 
+        // PONTO 01: Cancelamento de abertura devolve a atividade para a fila do técnico e mantém o perfil autenticado
         async function cancelarCheckinAberto() {
-            if (confirm("Deseja realmente cancelar a edição/abertura atual?")) {
-                if (dadosAtendimento.idEmAndamento && !dadosAtendimento.eraReaberta) {
-                    await supabaseClient.from('registros_producao').delete().eq('id', dadosAtendimento.idEmAndamento);
+            if (!confirm("Deseja realmente cancelar a abertura atual e retornar ao seu perfil no Modo Campo?")) return;
+
+            const idAtivo = dadosAtendimento.idEmAndamento;
+            if (idAtivo) {
+                const regNuvem = registrosSalvos.find(r => r.id === idAtivo);
+                const veioDeProgramada = dadosAtendimento.eraProgramada ||
+                    (regNuvem && ((regNuvem.motivoDesfecho || '').includes('[ORIGEM:PROGRAMADA]') || (regNuvem.motivoDesfecho || '').includes('programada iniciada')));
+
+                if (dadosAtendimento.eraReaberta) {
+                    await supabaseClient.from('registros_producao').update({
+                        desfecho: "REABERTA"
+                    }).eq('id', idAtivo);
+                } else if (veioDeProgramada) {
+                    await supabaseClient.from('registros_producao').update({
+                        desfecho: "PROGRAMADA",
+                        h_entrada: "Programada",
+                        h_saida: "Aguardando",
+                        gps_entrada: "Carga Gestor",
+                        motivo_desfecho: "Carga Programada (Retornada à fila pelo técnico)"
+                    }).eq('id', idAtivo);
+                } else {
+                    await supabaseClient.from('registros_producao').delete().eq('id', idAtivo);
                 }
-                localStorage.removeItem('gpd_rascunho_campo_ativo');
-                resetarFormularioCampo();
-                await carregarRegistrosDaNuvem();
-                verificarPendenciasReabertasEProgramadasCampo();
             }
+
+            resetarFormularioCampo();
+            await carregarRegistrosDaNuvem();
+            verificarImprevistoAtivoEquipeCampo();
+            verificarPendenciasReabertasEProgramadasCampo(false);
         }
 
         function aoSelecionarEquipeCampo() {
-            const eq = document.getElementById('sel-equipe').value;
-            document.getElementById('current-user-team').innerText = eq || "Selecione Equipe";
+            const selEq = document.getElementById('sel-equipe');
+            const eq = selEq ? selEq.value : "";
+
+            if (!eq) {
+                equipeAutenticadaSessao = "";
+                sessionStorage.removeItem('gpd_equipe_autenticada_pin');
+                document.getElementById('current-user-team').innerText = "Selecione Equipe";
+                atualizarProjetosPermitidosCampo("");
+                atualizarBarraSegurancaPinCampo();
+                verificarImprevistoAtivoEquipeCampo();
+                verificarPendenciasReabertasEProgramadasCampo(false);
+                return;
+            }
+
+            const eqObj = equipesSistema.find(e => e.nome === eq);
+            const pinCorreto = obterPinDaEquipe(eqObj);
+
+            if (equipeAutenticadaSessao !== eq) {
+                const pinDigitado = prompt(`🔒 AUTENTICAÇÃO DO TÉCNICO\n\nOlá, ${eq}!\nDigite o seu PIN de 4 dígitos para acessar suas atividades:\n(Se for seu primeiro acesso, o PIN padrão é 1234)`);
+                
+                if (pinDigitado === null || pinDigitado.trim() !== pinCorreto) {
+                    if (pinDigitado !== null) {
+                        alert("❌ PIN incorreto! Acesso negado às atividades deste técnico.");
+                    }
+                    selEq.value = "";
+                    equipeAutenticadaSessao = "";
+                    sessionStorage.removeItem('gpd_equipe_autenticada_pin');
+                    document.getElementById('current-user-team').innerText = "Selecione Equipe";
+                    atualizarProjetosPermitidosCampo("");
+                    atualizarBarraSegurancaPinCampo();
+                    verificarImprevistoAtivoEquipeCampo();
+                    verificarPendenciasReabertasEProgramadasCampo(false);
+                    return;
+                }
+
+                equipeAutenticadaSessao = eq;
+                sessionStorage.setItem('gpd_equipe_autenticada_pin', eq);
+            }
+
+            document.getElementById('current-user-team').innerText = eq;
             atualizarProjetosPermitidosCampo(eq);
+            atualizarBarraSegurancaPinCampo();
             salvarRascunhoCampo();
             verificarImprevistoAtivoEquipeCampo();
-            verificarPendenciasReabertasEProgramadasCampo();
+            verificarPendenciasReabertasEProgramadasCampo(true);
         }
 
-        function verificarPendenciasReabertasEProgramadasCampo() {
-            const equipeSelecionada = document.getElementById('sel-equipe').value;
+        function desbloquearTrocaEquipeCampo() {
+            const posAberturaVisivel = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
+            if (posAberturaVisivel) {
+                alert("⚠️ Você possui um atendimento aberto na tela. Finalize ou cancele o atendimento antes de trocar de técnico.");
+                return;
+            }
+            if (!confirm("Deseja encerrar sua sessão atual e liberar a seleção para outro técnico?")) return;
+
+            equipeAutenticadaSessao = "";
+            sessionStorage.removeItem('gpd_equipe_autenticada_pin');
+            localStorage.removeItem('gpd_rascunho_campo_ativo');
+            const selEq = document.getElementById('sel-equipe');
+            if (selEq) {
+                selEq.disabled = false;
+                selEq.value = "";
+            }
+            document.getElementById('current-user-team').innerText = "Selecione Equipe";
+            atualizarProjetosPermitidosCampo("");
+            atualizarBarraSegurancaPinCampo();
+            verificarImprevistoAtivoEquipeCampo();
+            verificarPendenciasReabertasEProgramadasCampo(false);
+        }
+
+        async function alterarPinPeloTecnicoCampo() {
+            const nomeEq = document.getElementById('sel-equipe')?.value;
+            if (!nomeEq) return;
+
+            const eqObj = equipesSistema.find(e => e.nome === nomeEq);
+            if (!eqObj) return;
+
+            const pinAtualCorreto = obterPinDaEquipe(eqObj);
+            const pinAtualInformado = prompt(`🔑 ALTERAR MEU PIN (${nomeEq})\n\nDigite o seu PIN ATUAL:`);
+            if (pinAtualInformado === null) return;
+
+            if (pinAtualInformado.trim() !== pinAtualCorreto) {
+                alert("❌ O PIN atual informado está incorreto.");
+                return;
+            }
+
+            const novoPin = prompt("🔑 Digite o NOVO PIN desejado (Exatamente 4 números, ex: 4580):");
+            if (novoPin === null) return;
+
+            const novoPinLimpo = novoPin.trim();
+            if (!/^\d{4}$/.test(novoPinLimpo)) {
+                alert("⚠️ O novo PIN deve conter exatamente 4 dígitos numéricos (ex: 2580).");
+                return;
+            }
+
+            const confPin = prompt("🔑 Confirme digitando novamente o seu NOVO PIN de 4 dígitos:");
+            if (confPin === null || confPin.trim() !== novoPinLimpo) {
+                alert("❌ A confirmação não coincide com o novo PIN. Operação cancelada.");
+                return;
+            }
+
+            eqObj.pin = novoPinLimpo;
+            registrarLogAuditoria("ALTERAÇÃO DE PIN (CAMPO)", `O técnico ${eqObj.nome} alterou seu próprio PIN de acesso no Modo Campo.`);
+            await sincronizarEquipesNaNuvem();
+            renderizarTabelaEquipes();
+            alert("✅ Seu novo PIN de 4 dígitos foi salvo e sincronizado na nuvem com sucesso!");
+        }
+
+        async function resetarPinEquipeGestor(idEquipe) {
+            if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
+                alert("⚠️ Apenas Gestores (Master ou Operador) podem resetar o PIN de um técnico.");
+                return;
+            }
+
+            const eqObj = equipesSistema.find(e => e.id === idEquipe);
+            if (!eqObj) return;
+
+            const pinAtual = obterPinDaEquipe(eqObj);
+            const novoPinGestor = prompt(
+                `🔄 RESETAR PIN DO TÉCNICO: ${eqObj.nome}\n\nPIN Atual: ${pinAtual}\n\nDigite o novo PIN de 4 dígitos para este técnico (ou mantenha 1234 para o padrão):`,
+                "1234"
+            );
+            if (novoPinGestor === null) return;
+
+            const pinLimpo = novoPinGestor.trim();
+            if (!/^\d{4}$/.test(pinLimpo)) {
+                alert("⚠️ O PIN deve ter exatamente 4 números (ex: 1234).");
+                return;
+            }
+
+            eqObj.pin = pinLimpo;
+            registrarLogAuditoria("RESET DE PIN (GESTOR)", `Gestor ${usuarioLogado} redefiniu o PIN do técnico ${eqObj.nome} para '${pinLimpo}'.`);
+            await sincronizarEquipesNaNuvem();
+            renderizarTabelaEquipes();
+            alert(`✅ O PIN do técnico ${eqObj.nome} foi redefinido para "${pinLimpo}" com sucesso!`);
+        }
+
+        function verificarPendenciasReabertasEProgramadasCampo(permitirSom = true) {
+            const equipeSelecionada = document.getElementById('sel-equipe')?.value;
             const boxReab = document.getElementById('box-reabertas-campo');
             const listaReab = document.getElementById('lista-reabertas-campo');
             const boxProg = document.getElementById('box-programadas-campo');
@@ -2459,6 +2756,21 @@
             }
 
             const reabertas = registrosSalvos.filter(r => r.equipe === equipeSelecionada && r.desfecho === 'REABERTA');
+            const programadas = registrosSalvos.filter(r => r.equipe === equipeSelecionada && r.desfecho === 'PROGRAMADA');
+
+            let chegouNova = false;
+            [...reabertas, ...programadas].forEach(item => {
+                const chaveNotif = `${item.id}_${item.desfecho}`;
+                if (!idsNotificadosNoCelular.has(chaveNotif)) {
+                    idsNotificadosNoCelular.add(chaveNotif);
+                    chegouNova = true;
+                }
+            });
+
+            if (chegouNova && permitirSom) {
+                tocarAlertaSonoroCelular();
+            }
+
             if (boxReab && listaReab) {
                 if (reabertas.length > 0) {
                     listaReab.innerHTML = reabertas.map(r => `
@@ -2478,7 +2790,6 @@
                 }
             }
 
-            const programadas = registrosSalvos.filter(r => r.equipe === equipeSelecionada && r.desfecho === 'PROGRAMADA');
             if (boxProg && listaProg) {
                 if (programadas.length > 0) {
                     listaProg.innerHTML = programadas.map(r => {
@@ -2516,6 +2827,7 @@
 
             dadosAtendimento.idEmAndamento = r.id;
             dadosAtendimento.eraReaberta = true;
+            dadosAtendimento.eraProgramada = false;
             dadosAtendimento.hEntrada = r.hEntrada || new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             dadosAtendimento.gpsEntrada = r.gpsEntrada || "Mantido da abertura";
 
@@ -2591,11 +2903,12 @@
                 h_saida: "Em Andamento",
                 gps_entrada: coordReal,
                 desfecho: "EM ANDAMENTO",
-                motivo_desfecho: "Atividade programada iniciada em campo"
+                motivo_desfecho: "[ORIGEM:PROGRAMADA] Atividade programada iniciada em campo"
             }).eq('id', r.id);
 
             dadosAtendimento.idEmAndamento = r.id;
             dadosAtendimento.eraReaberta = false;
+            dadosAtendimento.eraProgramada = true;
             dadosAtendimento.hEntrada = horaEntradaAtual;
             dadosAtendimento.gpsEntrada = coordReal;
 
@@ -2807,7 +3120,7 @@
             const impr = listaImprevistosAtuais.length;
             const efic = totalObras > 0 ? ((conc / totalObras) * 100).toFixed(1) : "0.0";
 
-            const totMalling = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'MALLING').length;
+            const totOnGoing = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'ON GOING').length;
             const totProjF = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'PROJETO F').length;
 
             const dIni = document.getElementById('gestor-filtro-data-inicio').value;
@@ -2829,7 +3142,7 @@
                 `🔴 *Malogradas:* ${malo}`,
                 `⚠️ *Imprevistos Reportados:* ${impr}`,
                 `────────────────────`,
-                `🏢 *Grupo MALLING:* ${totMalling} ativ.`,
+                `🏢 *Grupo ON GOING:* ${totOnGoing} ativ.`,
                 `🚀 *Grupo PROJETO F:* ${totProjF} ativ.`,
                 `────────────────────`,
                 `⏱️ *Tempo Médio (TMA):* ${tmaStr}`,
@@ -2885,9 +3198,11 @@
                 }
             });
 
-            if (selCampo && valorAtualCampo) {
-                selCampo.value = valorAtualCampo;
-                atualizarProjetosPermitidosCampo(valorAtualCampo);
+            if (selCampo && (valorAtualCampo || equipeAutenticadaSessao)) {
+                const eqRestaurar = valorAtualCampo || equipeAutenticadaSessao;
+                selCampo.value = eqRestaurar;
+                atualizarProjetosPermitidosCampo(eqRestaurar);
+                atualizarBarraSegurancaPinCampo();
             }
         }
 
@@ -2975,8 +3290,9 @@
                 btnCampo.className = "px-3 py-1.5 text-xs font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold";
                 btnGestor.className = "px-3 py-1.5 text-xs font-medium rounded-lg transition text-cyan-200 hover:text-white";
                 subtitle.innerText = "Setor Construção MDU • PROCISA RJ";
+                atualizarBarraSegurancaPinCampo();
                 verificarImprevistoAtivoEquipeCampo();
-                verificarPendenciasReabertasEProgramadasCampo();
+                verificarPendenciasReabertasEProgramadasCampo(false);
             }
         }
 
@@ -3041,7 +3357,11 @@
                         try {
                             const nuvemEq = JSON.parse(rowEquipes.observacoes);
                             if (Array.isArray(nuvemEq) && nuvemEq.length > 0) {
-                                equipesSistema = nuvemEq.map(eq => ({ ...eq, setor: formatarSetoresString(eq.setor || "Instalador") }));
+                                equipesSistema = nuvemEq.map(eq => ({
+                                    ...eq,
+                                    setor: formatarSetoresString(eq.setor || "Instalador"),
+                                    pin: (eq.pin && String(eq.pin).trim().length >= 4) ? String(eq.pin).trim() : "1234"
+                                }));
                                 localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
                             }
                         } catch (e) { console.warn("Erro ao ler JSON de equipes da nuvem:", e); }
@@ -3161,10 +3481,11 @@
         function mudarTipoProjeto() {
             const projeto = document.getElementById('sel-projeto').value;
             const titulo = document.getElementById('titulo-form-dinamico');
+            if (!titulo) return;
             if (!projeto) {
                 titulo.innerText = "1. Dados Gerais do Condomínio / Imóvel";
             } else if (projeto === 'VISTORIA') {
-                titulo.innerText = "1. Dados Gerais da Vistoria e Endereço (MALLING)";
+                titulo.innerText = "1. Dados Gerais da Vistoria e Endereço (ON GOING)";
             } else {
                 titulo.innerText = `1. Dados Gerais do Imóvel (${projeto} • ${obterMacroGrupoProjeto(projeto)})`;
             }
@@ -3264,6 +3585,7 @@
             } else {
                 dadosAtendimento.idEmAndamento = idTemp;
                 dadosAtendimento.eraReaberta = false;
+                dadosAtendimento.eraProgramada = false;
             }
 
             if (btnCheckin) {
@@ -3399,9 +3721,12 @@
             verificarImprevistoAtivoEquipeCampo();
         }
 
+        // PONTO 01: Reseta apenas os campos do imóvel mantendo a equipe logada no perfil do Modo Campo
         function resetarFormularioCampo() {
+            const equipeAtual = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '';
             dadosAtendimento.idEmAndamento = null;
             dadosAtendimento.eraReaberta = false;
+            dadosAtendimento.eraProgramada = false;
             dadosAtendimento.gpsEntrada = null;
             dadosAtendimento.gpsSaida = null;
             dadosAtendimento.blocos = [];
@@ -3418,6 +3743,14 @@
             document.getElementById('bloco-pos-abertura').classList.add('hidden');
             document.getElementById('form-campo-container').classList.remove('hidden');
             localStorage.removeItem('gpd_rascunho_campo_ativo');
+
+            if (equipeAtual) {
+                const selEq = document.getElementById('sel-equipe');
+                if (selEq) selEq.value = equipeAtual;
+                document.getElementById('current-user-team').innerText = equipeAtual;
+                atualizarProjetosPermitidosCampo(equipeAtual);
+                atualizarBarraSegurancaPinCampo();
+            }
         }
 
         async function salvarRegistro() {
@@ -3588,90 +3921,9 @@
             alert(`✅ Atendimento finalizado (${qtdBlocos} bloco(s) e ${todasFotos.length} foto(s)) e sincronizado com sucesso!`);
             resetarFormularioCampo();
             await carregarRegistrosDaNuvem();
-            verificarPendenciasReabertasEProgramadasCampo();
+            verificarPendenciasReabertasEProgramadasCampo(false);
         }
-// ================= PARTE 03 (BLOCO 3A) - GRUPO "ON GOING" + EXPANSOR DE GRÁFICOS E TABELAS =================
-
-        // 0. Sobrescreve as referências de "MALLING" para "ON GOING" (Sem precisar alterar a Parte 01 e a Parte 02)
-        function obterMacroGrupoProjeto(projeto) {
-            const p = normalizarNomeProjeto(projeto);
-            if (PROJETOS_GRUPO_PROJETO_F.includes(p)) return "PROJETO F";
-            if (PROJETOS_GRUPO_MALLING.includes(p)) return "ON GOING";
-            return "OUTROS";
-        }
-
-        function mudarTipoProjeto() {
-            const projeto = document.getElementById('sel-projeto').value;
-            const titulo = document.getElementById('titulo-form-dinamico');
-            if (!titulo) return;
-            if (!projeto) {
-                titulo.innerText = "1. Dados Gerais do Condomínio / Imóvel";
-            } else if (projeto === 'VISTORIA') {
-                titulo.innerText = "1. Dados Gerais da Vistoria e Endereço (ON GOING)";
-            } else {
-                titulo.innerText = `1. Dados Gerais do Imóvel (${projeto} • ${obterMacroGrupoProjeto(projeto)})`;
-            }
-        }
-
-        function copiarBoletimGestorWhatsApp() {
-            const emAndamento = dadosFiltradosAtuais.filter(i => i.desfecho === 'EM ANDAMENTO').length;
-            const programadas = dadosFiltradosAtuais.filter(i => i.desfecho === 'PROGRAMADA').length;
-            const finalizadas = dadosFiltradosAtuais.filter(i => !['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
-            const totalObras = finalizadas.length;
-            const conc = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
-            const pend = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
-            const malo = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
-            const impr = listaImprevistosAtuais.length;
-            const efic = totalObras > 0 ? ((conc / totalObras) * 100).toFixed(1) : "0.0";
-
-            const totOnGoing = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'ON GOING').length;
-            const totProjF = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'PROJETO F').length;
-
-            const dIni = document.getElementById('gestor-filtro-data-inicio').value;
-            const dFim = document.getElementById('gestor-filtro-data-fim').value;
-            const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Período Geral';
-
-            const tmaStr = document.getElementById('ind-tempo-medio')?.innerText || '--';
-            const medTotal = document.getElementById('fin-total-geral')?.innerText || 'R$ 0,00';
-
-            const textoBoletim = [
-                `📊 *BOLETIM OPERACIONAL GPD • MDU PROCISA RJ*`,
-                `📅 *Período:* ${periodoStr}`,
-                `────────────────────`,
-                `📋 *Programadas na Fila:* ${programadas}`,
-                `🔵 *Em Andamento Agora:* ${emAndamento}`,
-                `🏗️ *Total Finalizadas:* ${totalObras}`,
-                `🟢 *Concluídas:* ${conc} (${efic}%)`,
-                `🟡 *Pendentes:* ${pend}`,
-                `🔴 *Malogradas:* ${malo}`,
-                `⚠️ *Imprevistos Reportados:* ${impr}`,
-                `────────────────────`,
-                `🏢 *Grupo ON GOING:* ${totOnGoing} ativ.`,
-                `🚀 *Grupo PROJETO F:* ${totProjF} ativ.`,
-                `────────────────────`,
-                `⏱️ *Tempo Médio (TMA):* ${tmaStr}`,
-                `💰 *Medição Estimada:* ${medTotal}`
-            ].join('\n');
-
-            copiarTextoAreaTransferencia(textoBoletim, "📲 Boletim Operacional copiado! Pronto para colar no WhatsApp da diretoria/supervisão.");
-        }
-
-        // Atualiza automaticamente os rótulos fixos do HTML da Parte 01 de "MALLING" para "ON GOING"
-        function atualizarTextosMallingParaOnGoingDOM() {
-            const optGroup = document.querySelector('#gestor-filtro-projeto optgroup[label*="MALLING"]');
-            if (optGroup) optGroup.label = "Grupo ON GOING";
-
-            const elementosTexto = document.querySelectorAll('#subview-graficos h3, #subview-graficos h4, #subview-graficos p, #subview-graficos th, #subview-graficos button');
-            elementosTexto.forEach(el => {
-                if (el.innerHTML && el.innerHTML.includes('MALLING')) {
-                    el.innerHTML = el.innerHTML.replace(/MALLING/g, 'ON GOING');
-                }
-                const onclickAttr = el.getAttribute('onclick');
-                if (onclickAttr && onclickAttr.includes('MALLING')) {
-                    el.setAttribute('onclick', onclickAttr.replace(/MALLING/g, 'ON GOING'));
-                }
-            });
-        }
+// ================= BLOCO 03-A DE 04 - DASHBOARD GESTOR, AGRUPAMENTO DE BLOCOS E GRÁFICOS =================
 
         function converterHorarioParaMinutos(strHora) {
             if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
@@ -3696,8 +3948,32 @@
             return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
         }
 
+        function stringParaHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return hash;
+        }
+
+        // PONTO 02: Alterna a exibição (Expandir / Ocultar) dos blocos agrupados na tabela de Atividades
+        function alternarVisualizacaoBlocosAgrupados(idElemento, btnEl) {
+            const el = document.getElementById(idElemento);
+            if (!el) return;
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                btnEl.innerText = "📂 Ocultar Blocos";
+                btnEl.className = "mt-1.5 bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition";
+            } else {
+                el.classList.add('hidden');
+                const qtd = el.dataset.qtdBlocos || el.querySelectorAll('.card-bloco-interno').length;
+                btnEl.innerText = `📂 Expandir Blocos (${qtd})`;
+                btnEl.className = "mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition";
+            }
+        }
+
         // 1. Expansor de Gráficos em Tela Cheia (Modo Apresentação)
-        let graficoExpandidoInstancia = null;
         function expandirGraficoModal(idCanvasOrigem, tituloJanela) {
             const modal = document.getElementById('modal-expandir-grafico');
             const titulo = document.getElementById('modal-grafico-expandido-titulo');
@@ -3705,7 +3981,7 @@
             const canvasAlvo = document.getElementById('canvasGraficoExpandido');
             if (!modal || !canvasOrigem || !canvasAlvo) return;
 
-            if (titulo) titulo.innerText = tituloJanela.replace(/MALLING/g, 'ON GOING');
+            if (titulo) titulo.innerText = tituloJanela;
             modal.classList.remove('hidden');
 
             const chartOriginal = Chart.getChart(canvasOrigem);
@@ -3742,36 +4018,8 @@
             }
         }
 
-        // 2. Expansor de Tabelas em Tela Cheia
-        function garantirModalExpandirTabela() {
-            if (document.getElementById('modal-expandir-tabela')) return;
-            const modalHtml = `
-                <div id="modal-expandir-tabela" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center p-2 sm:p-6 hidden z-[66]">
-                    <div class="bg-white w-full max-w-7xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col h-[90vh]">
-                        <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-cyan-400">
-                            <div>
-                                <span class="bg-cyan-400 text-blue-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Modo Apresentação Executiva • Tabela Ampliada</span>
-                                <h3 class="font-bold text-sm sm:text-base mt-0.5" id="modal-tabela-expandida-titulo">Visualização Ampliada da Tabela</h3>
-                            </div>
-                            <button onclick="fecharModalTabelaExpandida()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow">
-                                ✕ Fechar Tela Cheia
-                            </button>
-                        </div>
-                        <div class="p-4 sm:p-6 flex-1 bg-slate-50 overflow-auto">
-                            <div id="container-tabela-expandida" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto"></div>
-                        </div>
-                        <div class="bg-white px-5 py-2.5 border-t flex justify-between items-center text-[11px] text-slate-500">
-                            <span>💡 Clique em qualquer linha ou item interativo da tabela ampliada para explodir os detalhes dos imóveis.</span>
-                            <button onclick="fecharModalTabelaExpandida()" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-4 py-1.5 rounded-lg font-bold">Fechar</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-        }
-
+        // 2. Expansor de Tabelas em Tela Cheia (Modo Apresentação)
         function expandirTabelaModal(idTbodyOrigem, tituloJanela) {
-            garantirModalExpandirTabela();
             const modal = document.getElementById('modal-expandir-tabela');
             const titulo = document.getElementById('modal-tabela-expandida-titulo');
             const container = document.getElementById('container-tabela-expandida');
@@ -3781,7 +4029,7 @@
             const tabelaOriginal = tbodyOrigem.closest('table');
             if (!tabelaOriginal) return;
 
-            if (titulo) titulo.innerText = tituloJanela.replace(/MALLING/g, 'ON GOING');
+            if (titulo) titulo.innerText = tituloJanela;
             container.innerHTML = "";
 
             const tabelaClone = tabelaOriginal.cloneNode(true);
@@ -3816,75 +4064,7 @@
             if (modal) modal.classList.add('hidden');
         }
 
-        function injetarBotoesExpansaoTabelasGraficos() {
-            garantirModalExpandirTabela();
-
-            const configsTabelas = [
-                {
-                    idTbody: 'tabela-principal-executores-corpo',
-                    titulo: '🏆 Tabela Principal: Produção Diária, Consolidada e Média por Executor',
-                    corBtn: 'bg-blue-900 hover:bg-blue-950 text-white'
-                },
-                {
-                    idTbody: 'tabela-cruzamento-executores-corpo',
-                    titulo: '🔀 Matriz de Cruzamento: Executores × Projetos (ON GOING & PROJETO F)',
-                    corBtn: 'bg-indigo-900 hover:bg-indigo-950 text-white'
-                },
-                {
-                    idTbody: 'tabela-ofensores-malogro-corpo',
-                    titulo: '🛑 Ranking Detalhado dos Ofensores de Malogro',
-                    corBtn: 'bg-red-700 hover:bg-red-800 text-white'
-                },
-                {
-                    idTbody: 'tabela-ranking-tecnicos-corpo',
-                    titulo: '⏱️ Monitoramento de Horários (Abertura, Fechamento e TMA) por Técnico',
-                    corBtn: 'bg-blue-900 hover:bg-blue-950 text-white'
-                },
-                {
-                    idTbody: 'tabela-rank-concluida',
-                    titulo: '🟢 Ranking por Projeto: Atividades Concluídas',
-                    corBtn: 'bg-emerald-700 hover:bg-emerald-800 text-white'
-                },
-                {
-                    idTbody: 'tabela-rank-pendente',
-                    titulo: '🟡 Ranking por Projeto: Atividades Pendentes',
-                    corBtn: 'bg-amber-600 hover:bg-amber-700 text-white'
-                },
-                {
-                    idTbody: 'tabela-rank-malograda',
-                    titulo: '🔴 Ranking por Projeto: Atividades Malogradas',
-                    corBtn: 'bg-red-700 hover:bg-red-800 text-white'
-                },
-                {
-                    idTbody: 'tabela-consolidada-corpo',
-                    titulo: '📋 Tabela Consolidada de Números Reais (Para a Diretoria)',
-                    corBtn: 'bg-slate-800 hover:bg-slate-900 text-white'
-                }
-            ];
-
-            configsTabelas.forEach(cfg => {
-                const tbody = document.getElementById(cfg.idTbody);
-                if (!tbody) return;
-                const tabela = tbody.closest('table');
-                if (!tabela) return;
-
-                const idBtn = `btn-exp-tab-${cfg.idTbody}`;
-                if (document.getElementById(idBtn)) return;
-
-                const wrapper = tabela.parentElement;
-                if (!wrapper) return;
-
-                const barraTopo = document.createElement('div');
-                barraTopo.className = "flex justify-end items-center px-3 py-1.5 bg-slate-100/80 border-b border-slate-200";
-                barraTopo.innerHTML = `
-                    <button type="button" id="${idBtn}" onclick="expandirTabelaModal('${cfg.idTbody}', '${cfg.titulo}')" class="${cfg.corBtn} font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap" title="Expandir tabela em tela cheia para apresentação">
-                        ⛶ Expandir Tabela
-                    </button>
-                `;
-                wrapper.insertBefore(barraTopo, tabela);
-            });
-        }
-
+        // Autorização do Gestor para Reabrir Atividade para o Técnico com Registro em Auditoria
         async function autorizarReaberturaCampo(id) {
             if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
                 alert("⚠️ Apenas Gestores (Master ou Operador) podem autorizar a reabertura de uma atividade.");
@@ -3917,6 +4097,7 @@
             await recarregarDadosGestor();
         }
 
+        // Importação de Planilha / Carga Programada Completa (11 Colunas)
         function abrirModalImportarPlanilha() {
             if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
                 alert("⚠️ Permissão insuficiente para importar planilha de atividades.");
@@ -4127,8 +4308,6 @@
         }
 
         async function atualizarDashboardGestor() {
-            atualizarTextosMallingParaOnGoingDOM();
-
             if (!registrosSalvos || registrosSalvos.length === 0) {
                 await carregarRegistrosDaNuvem();
             }
@@ -4312,6 +4491,7 @@
             };
             renderizarTabelaFinanceiro(totaisFinanceirosAtuais);
 
+            // PONTO 02: Renderização da Tabela de Atividades com Agrupamento Automático de Imóveis Multi-Bloco
             if (filtrados.length === 0) {
                 if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este filtro/período.</td></tr>`;
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
@@ -4324,118 +4504,216 @@
                     return b.id - a.id;
                 });
 
+                const mapaAgrupado = {};
                 filtradosOrdenados.forEach(item => {
+                    let codigoBase = (item.imovel || "").trim();
+                    const idxTraco = codigoBase.toUpperCase().lastIndexOf(" - BLOCO");
+                    if (idxTraco !== -1) {
+                        codigoBase = codigoBase.substring(0, idxTraco).trim();
+                    }
+
+                    const chaveAgrupamento = `${item.dataRegistro}_${item.equipe}_${codigoBase.toUpperCase()}_${item.projeto}`;
+                    if (!mapaAgrupado[chaveAgrupamento]) {
+                        mapaAgrupado[chaveAgrupamento] = {
+                            codigoBase: codigoBase,
+                            projeto: item.projeto,
+                            equipe: item.equipe,
+                            dataRegistro: item.dataRegistro,
+                            endereco: item.endereco,
+                            hEntrada: item.hEntrada,
+                            hSaida: item.hSaida,
+                            gpsEntrada: item.gpsEntrada,
+                            gpsSaida: item.gpsSaida,
+                            itens: []
+                        };
+                    }
+                    mapaAgrupado[chaveAgrupamento].itens.push(item);
+                });
+
+                Object.values(mapaAgrupado).forEach(grupo => {
                     if (corpoAtiv) {
-                        const tr = document.createElement('tr');
-                        tr.className = (item.desfecho === 'EM ANDAMENTO' || item.desfecho === 'REABERTA')
+                        const qtdBlocosNoGrupo = grupo.itens.length;
+                        const itemMaster = grupo.itens[0];
+                        const idGrupoUnico = `grupo_bloco_${Math.abs(stringParaHash(grupo.codigoBase + grupo.dataRegistro + grupo.equipe + grupo.projeto))}`;
+
+                        let desfechoExibicao = itemMaster.desfecho;
+                        if (qtdBlocosNoGrupo > 1) {
+                            const desfechosUnicos = [...new Set(grupo.itens.map(i => i.desfecho))];
+                            desfechoExibicao = desfechosUnicos.length === 1 ? desfechosUnicos[0] : "MÚLTIPLO";
+                        }
+
+                        const somaAndares = grupo.itens.reduce((acc, i) => acc + (Number(i.andares) || 0), 0);
+                        const somaHps = grupo.itens.reduce((acc, i) => acc + (Number(i.hps) || 0), 0);
+                        const totalFotosGrupo = grupo.itens.reduce((acc, i) => acc + (Array.isArray(i.fotos) ? i.fotos.length : 0), 0);
+                        const todasOpcoesGrupo = [...new Set(grupo.itens.flatMap(i => Array.isArray(i.malogros) ? i.malogros : []))];
+
+                        const trPrincipal = document.createElement('tr');
+                        trPrincipal.className = (itemMaster.desfecho === 'EM ANDAMENTO' || itemMaster.desfecho === 'REABERTA')
                             ? "bg-blue-50/70 hover:bg-blue-100/60 border-b cursor-pointer transition" 
-                            : (item.desfecho === 'PROGRAMADA' ? "bg-cyan-50/40 hover:bg-cyan-100/50 border-b cursor-pointer transition" : "hover:bg-blue-50/50 border-b cursor-pointer transition");
-                        tr.title = "Clique para ver todos os detalhes e fotos";
-                        tr.onclick = () => abrirDetalhesAtividade(item);
+                            : (itemMaster.desfecho === 'PROGRAMADA' ? "bg-cyan-50/40 hover:bg-cyan-100/50 border-b cursor-pointer transition" : "hover:bg-blue-50/50 border-b cursor-pointer transition");
+                        trPrincipal.title = qtdBlocosNoGrupo > 1 ? "Clique em 'Expandir Blocos' para ver cada bloco individualmente ou clique na linha para ver o resumo" : "Clique para ver todos os detalhes e fotos";
+                        trPrincipal.onclick = () => abrirDetalhesAtividade(itemMaster);
                         
                         let botoesAcao = "";
                         if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
-                            const btnReabrir = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(item.desfecho)
-                                ? `<button onclick="autorizarReaberturaCampo(${item.id})" class="text-purple-800 hover:bg-purple-200 font-bold text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded mr-1" title="Autorizar que o técnico reabra e edite esta atividade no Modo Campo">🔓 Reabrir p/ Campo</button>`
+                            const btnReabrir = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(itemMaster.desfecho)
+                                ? `<button onclick="autorizarReaberturaCampo(${itemMaster.id})" class="text-purple-800 hover:bg-purple-200 font-bold text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded mr-1" title="Autorizar que o técnico reabra e edite esta atividade no Modo Campo">🔓 Reabrir p/ Campo</button>`
                                 : '';
 
                             botoesAcao = `
                                 <div class="flex flex-wrap gap-1">
                                     ${btnReabrir}
-                                    <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded">✏️ Editar</button>
-                                    <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 border border-red-200 px-2 py-1 rounded">Excluir</button>
+                                    <button onclick="abrirModalEdicao(${itemMaster.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded">✏️ Editar</button>
+                                    <button onclick="excluirRegistro(${itemMaster.id}, '${itemMaster.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 border border-red-200 px-2 py-1 rounded">Excluir</button>
                                 </div>
                             `;
                         } else {
                             botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
                         }
 
-                        const minIn = converterHorarioParaMinutos(item.hEntrada);
-                        const minOut = converterHorarioParaMinutos(item.hSaida);
+                        const minIn = converterHorarioParaMinutos(grupo.hEntrada);
+                        const minOut = converterHorarioParaMinutos(grupo.hSaida);
                         let duracaoStr = "-";
                         if (minIn !== null && minOut !== null && minOut >= minIn) {
                             duracaoStr = formatarDuracaoTexto(minOut - minIn);
-                        } else if (item.desfecho === 'EM ANDAMENTO') {
+                        } else if (itemMaster.desfecho === 'EM ANDAMENTO') {
                             duracaoStr = '⏳ Em execução';
-                        } else if (item.desfecho === 'REABERTA') {
+                        } else if (itemMaster.desfecho === 'REABERTA') {
                             duracaoStr = '🔄 Aguardando edição';
-                        } else if (item.desfecho === 'PROGRAMADA') {
-                            duracaoStr = `📋 Na fila (${item.qtdBlocosProgramados || 1} Bloco${(item.qtdBlocosProgramados || 1) > 1 ? 's' : ''})`;
+                        } else if (itemMaster.desfecho === 'PROGRAMADA') {
+                            duracaoStr = `📋 Na fila (${itemMaster.qtdBlocosProgramados || 1} Bloco${(itemMaster.qtdBlocosProgramados || 1) > 1 ? 's' : ''})`;
                         }
 
-                        const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
-
-                        const eqObj = equipesSistema.find(e => e.nome === item.equipe);
+                        const classeCorDesfecho = obterClasseCorDesfecho(desfechoExibicao);
+                        const eqObj = equipesSistema.find(e => e.nome === grupo.equipe);
                         const setorStr = eqObj ? eqObj.setor : "Instalador";
-                        const macroGrupo = obterMacroGrupoProjeto(item.projeto);
+                        const macroGrupo = obterMacroGrupoProjeto(grupo.projeto);
                         const badgeGrupoCor = macroGrupo === 'PROJETO F' ? 'bg-indigo-100 text-indigo-900 border border-indigo-300' : 'bg-cyan-50 text-cyan-900 border border-cyan-200';
 
-                        const tagsOpcoesHtml = (item.malogros && item.malogros.length > 0)
-                            ? `<div class="mt-1 flex flex-wrap gap-1">${item.malogros.map(op => `<span class="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">${op}</span>`).join('')}</div>`
+                        const tagsOpcoesHtml = (todasOpcoesGrupo.length > 0)
+                            ? `<div class="mt-1 flex flex-wrap gap-1">${todasOpcoesGrupo.map(op => `<span class="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">${op}</span>`).join('')}</div>`
                             : '';
 
-                        const badgeFotosHtml = (item.fotos && item.fotos.length > 0)
-                            ? `<span class="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-300 font-bold px-2 py-0.5 rounded-md text-[10px] inline-block" title="Clique para ver e baixar as fotos">📷 ${item.fotos.length} foto(s)</span>`
+                        const badgeFotosHtml = (totalFotosGrupo > 0)
+                            ? `<span class="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-300 font-bold px-2 py-0.5 rounded-md text-[10px] inline-block" title="Clique para ver e baixar as fotos">📷 ${totalFotosGrupo} foto(s)</span>`
                             : '';
 
-                        tr.innerHTML = `
+                        const botaoExpandirBlocos = qtdBlocosNoGrupo > 1 ? `
+                            <button type="button" onclick="event.stopPropagation(); alternarVisualizacaoBlocosAgrupados('${idGrupoUnico}', this)" class="mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition">
+                                📂 Expandir Blocos (${qtdBlocosNoGrupo})
+                            </button>
+                        ` : '';
+
+                        trPrincipal.innerHTML = `
                             <td class="p-3">
-                                <div class="font-bold text-slate-800">${item.imovel}</div>
-                                <div class="text-[10px] text-blue-900 font-medium truncate max-w-[200px]" title="${item.endereco || ''}">📍 ${item.endereco || 'Endereço não informado'}</div>
-                                <div class="text-[10px] text-slate-400">${item.dataRegistro}</div>
+                                <div class="font-black text-slate-800">${qtdBlocosNoGrupo > 1 ? `${grupo.codigoBase} <span class="text-blue-700 font-bold text-[11px]">(${qtdBlocosNoGrupo} Blocos)</span>` : itemMaster.imovel}</div>
+                                <div class="text-[10px] text-blue-900 font-medium truncate max-w-[200px]" title="${grupo.endereco || ''}">📍 ${grupo.endereco || 'Endereço não informado'}</div>
+                                <div class="text-[10px] text-slate-400">${grupo.dataRegistro}</div>
+                                ${botaoExpandirBlocos}
                             </td>
                             <td class="p-3">
-                                <div class="font-semibold text-slate-800 mb-0.5">${item.equipe}</div>
+                                <div class="font-semibold text-slate-800 mb-0.5">${grupo.equipe}</div>
                                 ${obterBadgeSetorHtml(setorStr)}
                             </td>
                             <td class="p-3">
                                 <div class="flex flex-wrap items-center gap-1">
-                                    <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px] inline-block">${item.projeto}</span>
+                                    <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px] inline-block">${grupo.projeto}</span>
                                     <span class="font-bold px-1.5 py-0.5 rounded text-[9px] ${badgeGrupoCor}">${macroGrupo}</span>
                                 </div>
-                                <div class="text-[10px] text-slate-500 mt-1 font-semibold">🏢 Andares: <b>${item.andares || 0}</b> | HPs: <b>${item.hps || 0}</b></div>
+                                <div class="text-[10px] text-slate-500 mt-1 font-semibold">🏢 Andares: <b>${somaAndares}</b> | HPs: <b>${somaHps}</b></div>
                             </td>
                             <td class="p-3">
                                 <div class="flex flex-wrap items-center gap-1">
-                                    <span class="font-bold px-2.5 py-1 rounded-md text-[10px] inline-block ${classeCorDesfecho}">${item.desfecho}</span>
+                                    <span class="font-bold px-2.5 py-1 rounded-md text-[10px] inline-block ${classeCorDesfecho}">${desfechoExibicao}</span>
                                     ${badgeFotosHtml}
                                 </div>
                                 ${tagsOpcoesHtml}
                             </td>
                             <td class="p-3">
-                                <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
-                                <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
+                                <div class="text-[11px]">🟢 Início: <b>${grupo.hEntrada}</b></div>
+                                <div class="text-[11px]">🔴 Fim: <b>${grupo.hSaida}</b></div>
                                 <div class="text-[10px] text-emerald-700 font-bold mt-0.5">⏱️ ${duracaoStr}</div>
                             </td>
                             <td class="p-3 text-[10px] font-mono text-slate-600">
-                                <div>In: ${item.gpsEntrada}</div>
-                                <div>Out: ${item.gpsSaida}</div>
+                                <div>In: ${grupo.gpsEntrada}</div>
+                                <div>Out: ${grupo.gpsSaida}</div>
                             </td>
                             <td class="p-3" onclick="event.stopPropagation()">
                                 ${botoesAcao}
                             </td>
                         `;
-                        corpoAtiv.appendChild(tr);
+                        corpoAtiv.appendChild(trPrincipal);
+
+                        // Linha expansível com todos os blocos detalhados individualmente
+                        if (qtdBlocosNoGrupo > 1) {
+                            const trDetalheBlocos = document.createElement('tr');
+                            trDetalheBlocos.id = idGrupoUnico;
+                            trDetalheBlocos.dataset.qtdBlocos = qtdBlocosNoGrupo;
+                            trDetalheBlocos.className = "hidden bg-slate-100/90 border-b";
+
+                            let cardsBlocosHtml = grupo.itens.map(blocoItem => {
+                                const corDesfB = obterClasseCorDesfecho(blocoItem.desfecho);
+                                const qtdFotosB = Array.isArray(blocoItem.fotos) ? blocoItem.fotos.length : 0;
+                                const acoesIndividuais = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') ? `
+                                    <div class="flex flex-wrap gap-1 pt-2 border-t border-slate-200 mt-1.5" onclick="event.stopPropagation()">
+                                        ${['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(blocoItem.desfecho) ? `<button onclick="autorizarReaberturaCampo(${blocoItem.id})" class="bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 font-bold text-[9px] px-2 py-0.5 rounded">🔓 Reabrir</button>` : ''}
+                                        <button onclick="abrirModalEdicao(${blocoItem.id})" class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold text-[9px] px-2 py-0.5 rounded">✏️ Editar</button>
+                                        <button onclick="excluirRegistro(${blocoItem.id}, '${blocoItem.imovel}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-[9px] px-2 py-0.5 rounded">🗑️ Excluir</button>
+                                    </div>
+                                ` : '';
+
+                                return `
+                                    <div class="card-bloco-interno bg-white p-3 rounded-xl border border-blue-200 shadow-sm space-y-1 cursor-pointer hover:border-blue-500 transition" onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${blocoItem.id}))">
+                                        <div class="flex justify-between items-center gap-1">
+                                            <span class="font-black text-blue-950 text-xs">🏢 ${blocoItem.imovel}</span>
+                                            <span class="px-2 py-0.5 rounded text-[9px] font-bold ${corDesfB}">${blocoItem.desfecho}</span>
+                                        </div>
+                                        <div class="text-[10px] text-slate-600 font-semibold">Andares: <b>${blocoItem.andares || 0}</b> | HPs: <b>${blocoItem.hps || 0}</b> ${qtdFotosB > 0 ? `| 📷 <b>${qtdFotosB} foto(s)</b>` : ''}</div>
+                                        <div class="text-[10px] text-slate-500">📦 RL: <b>${blocoItem.caboRL}m</b> | Drop: <b>${blocoItem.caboDrop}m</b> | Conect: <b>${blocoItem.conectores}</b> | Fusões: <b>${blocoItem.fusoes}</b> | NAP: <b>${blocoItem.nap}</b> | DIO: <b>${blocoItem.dio}</b></div>
+                                        ${blocoItem.motivoDesfecho ? `<div class="text-[10px] text-amber-900 bg-amber-50 px-2 py-1 rounded">💬 ${blocoItem.motivoDesfecho}</div>` : ''}
+                                        ${acoesIndividuais}
+                                    </div>
+                                `;
+                            }).join('');
+
+                            trDetalheBlocos.innerHTML = `
+                                <td colspan="7" class="p-3 pl-6">
+                                    <div class="bg-blue-50/60 p-3 rounded-xl border border-blue-200 space-y-2">
+                                        <div class="flex justify-between items-center border-b border-blue-200 pb-1.5">
+                                            <span class="font-black text-blue-950 text-xs uppercase">📂 Detalhamento Individual dos ${qtdBlocosNoGrupo} Blocos do Imóvel ${grupo.codigoBase}</span>
+                                            <span class="text-[10px] text-blue-800">Clique em qualquer bloco abaixo para abrir detalhes e fotos</span>
+                                        </div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                            ${cardsBlocosHtml}
+                                        </div>
+                                    </div>
+                                </td>
+                            `;
+                            corpoAtiv.appendChild(trDetalheBlocos);
+                        }
                     }
 
-                    if (!['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(item.desfecho) && corpoMat) {
-                        const trMat = document.createElement('tr');
-                        trMat.className = "hover:bg-slate-50 border-b transition";
-                        trMat.innerHTML = `
-                            <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
-                            <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
-                            <td class="p-2.5 font-semibold">${item.caboRL} m</td>
-                            <td class="p-2.5 font-semibold">${item.conectores}</td>
-                            <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
-                            <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
-                            <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
-                            <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
-                            <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
-                            <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
-                            <td class="p-2.5 font-semibold">${item.fusoes}</td>
-                        `;
-                        corpoMat.appendChild(trMat);
-                    }
+                    // Preenche a aba Materiais com cada bloco individualmente
+                    grupo.itens.forEach(item => {
+                        if (!['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(item.desfecho) && corpoMat) {
+                            const trMat = document.createElement('tr');
+                            trMat.className = "hover:bg-slate-50 border-b transition";
+                            trMat.innerHTML = `
+                                <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
+                                <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
+                                <td class="p-2.5 font-semibold">${item.caboRL} m</td>
+                                <td class="p-2.5 font-semibold">${item.conectores}</td>
+                                <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
+                                <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
+                                <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
+                                <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
+                                <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
+                                <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
+                                <td class="p-2.5 font-semibold">${item.fusoes}</td>
+                            `;
+                            corpoMat.appendChild(trMat);
+                        }
+                    });
                 });
             }
 
@@ -4447,7 +4725,6 @@
             try { renderizarTabelaConsolidada(finalizadas); } catch (e) { console.warn("Aviso Tabela Consolidada:", e); }
             try { renderizarRankingsSeparados(finalizadas); } catch (e) { console.warn("Aviso Rankings Separados:", e); }
             try { renderizarTabelaUsuariosPermissao(); } catch (e) { console.warn("Aviso Tabela Usuários:", e); }
-            try { injetarBotoesExpansaoTabelasGraficos(); } catch (e) { console.warn("Aviso Botões Expansão Tabelas:", e); }
         }
 
         function renderizarPainelPrincipalExecutores(dados) {
@@ -4615,8 +4892,6 @@
         }
 
         function renderizarPainelMallingEProjetoF(dados) {
-            atualizarTextosMallingParaOnGoingDOM();
-
             const dadosOnGoing = dados.filter(d => obterMacroGrupoProjeto(d.projeto) === 'ON GOING');
             const badgeOnGoing = document.getElementById('badge-total-malling');
             if (badgeOnGoing) badgeOnGoing.innerText = `${dadosOnGoing.length} total`;
@@ -4770,199 +5045,8 @@
                 tbodyCruz.appendChild(tr);
             });
         }
-// ================= PARTE 03 (BLOCO 3B) - SISTEMA DE PIN TÉCNICO, OFENSORES, RANKINGS E FECHAMENTO =================
+// ================= BLOCO 03-B DE 04 - OFENSORES, RANKINGS, EQUIPES E FECHAMENTO =================
 
-        // --- SISTEMA DE AUTENTICAÇÃO POR PIN (4 DÍGITOS) PARA OS TÉCNICOS ---
-        let equipeAutenticadaSessao = sessionStorage.getItem('gpd_equipe_autenticada_pin') || "";
-
-        function obterPinDaEquipe(eqObj) {
-            return (eqObj && eqObj.pin && String(eqObj.pin).trim().length >= 4) ? String(eqObj.pin).trim() : "1234";
-        }
-
-        function atualizarBarraSegurancaPinCampo() {
-            const selEq = document.getElementById('sel-equipe');
-            if (!selEq) return;
-
-            let barraPin = document.getElementById('barra-seguranca-pin-campo');
-            if (!barraPin) {
-                barraPin = document.createElement('div');
-                barraPin.id = 'barra-seguranca-pin-campo';
-                barraPin.className = 'mt-1.5 flex items-center justify-between bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] hidden';
-                selEq.parentNode.appendChild(barraPin);
-            }
-
-            if (selEq.value && equipeAutenticadaSessao === selEq.value) {
-                selEq.disabled = true;
-                selEq.classList.add('bg-slate-100', 'font-bold', 'text-blue-950');
-                barraPin.classList.remove('hidden');
-                barraPin.innerHTML = `
-                    <span class="text-emerald-800 font-bold flex items-center gap-1">🔒 PIN Autenticado</span>
-                    <div class="flex items-center gap-1.5">
-                        <button type="button" onclick="alterarPinPeloTecnicoCampo()" class="bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded border border-blue-300 transition">
-                            🔑 Alterar Meu PIN
-                        </button>
-                        <button type="button" onclick="desbloquearTrocaEquipeCampo()" class="bg-red-50 hover:bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded border border-red-200 transition">
-                            🚪 Sair
-                        </button>
-                    </div>
-                `;
-            } else {
-                selEq.disabled = false;
-                selEq.classList.remove('bg-slate-100', 'font-bold', 'text-blue-950');
-                barraPin.classList.add('hidden');
-            }
-        }
-
-        // Sobrescreve a seleção de equipe no Modo Campo para exigir o PIN de 4 dígitos
-        function aoSelecionarEquipeCampo() {
-            const selEq = document.getElementById('sel-equipe');
-            const eq = selEq ? selEq.value : "";
-
-            if (!eq) {
-                equipeAutenticadaSessao = "";
-                sessionStorage.removeItem('gpd_equipe_autenticada_pin');
-                document.getElementById('current-user-team').innerText = "Selecione Equipe";
-                atualizarProjetosPermitidosCampo("");
-                atualizarBarraSegurancaPinCampo();
-                verificarImprevistoAtivoEquipeCampo();
-                verificarPendenciasReabertasEProgramadasCampo();
-                return;
-            }
-
-            const eqObj = equipesSistema.find(e => e.nome === eq);
-            const pinCorreto = obterPinDaEquipe(eqObj);
-
-            if (equipeAutenticadaSessao !== eq) {
-                const pinDigitado = prompt(`🔒 AUTENTICAÇÃO DO TÉCNICO\n\nOlá, ${eq}!\nDigite o seu PIN de 4 dígitos para acessar suas atividades:\n(Se for seu primeiro acesso, o PIN padrão é 1234)`);
-                
-                if (pinDigitado === null || pinDigitado.trim() !== pinCorreto) {
-                    if (pinDigitado !== null) {
-                        alert("❌ PIN incorreto! Acesso negado às atividades deste técnico.");
-                    }
-                    selEq.value = "";
-                    equipeAutenticadaSessao = "";
-                    sessionStorage.removeItem('gpd_equipe_autenticada_pin');
-                    document.getElementById('current-user-team').innerText = "Selecione Equipe";
-                    atualizarProjetosPermitidosCampo("");
-                    atualizarBarraSegurancaPinCampo();
-                    verificarImprevistoAtivoEquipeCampo();
-                    verificarPendenciasReabertasEProgramadasCampo();
-                    return;
-                }
-
-                equipeAutenticadaSessao = eq;
-                sessionStorage.setItem('gpd_equipe_autenticada_pin', eq);
-            }
-
-            document.getElementById('current-user-team').innerText = eq;
-            atualizarProjetosPermitidosCampo(eq);
-            atualizarBarraSegurancaPinCampo();
-            salvarRascunhoCampo();
-            verificarImprevistoAtivoEquipeCampo();
-            verificarPendenciasReabertasEProgramadasCampo();
-        }
-
-        function desbloquearTrocaEquipeCampo() {
-            const posAberturaVisivel = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
-            if (posAberturaVisivel) {
-                alert("⚠️ Você possui um atendimento aberto na tela. Finalize ou cancele o atendimento antes de trocar de técnico.");
-                return;
-            }
-            if (!confirm("Deseja encerrar sua sessão atual e liberar a seleção para outro técnico?")) return;
-
-            equipeAutenticadaSessao = "";
-            sessionStorage.removeItem('gpd_equipe_autenticada_pin');
-            localStorage.removeItem('gpd_rascunho_campo_ativo');
-            const selEq = document.getElementById('sel-equipe');
-            if (selEq) {
-                selEq.disabled = false;
-                selEq.value = "";
-            }
-            document.getElementById('current-user-team').innerText = "Selecione Equipe";
-            atualizarProjetosPermitidosCampo("");
-            atualizarBarraSegurancaPinCampo();
-            verificarImprevistoAtivoEquipeCampo();
-            verificarPendenciasReabertasEProgramadasCampo();
-        }
-
-        async function alterarPinPeloTecnicoCampo() {
-            const nomeEq = document.getElementById('sel-equipe')?.value;
-            if (!nomeEq) return;
-
-            const eqObj = equipesSistema.find(e => e.nome === nomeEq);
-            if (!eqObj) return;
-
-            const pinAtualCorreto = obterPinDaEquipe(eqObj);
-            const pinAtualInformado = prompt(`🔑 ALTERAR MEU PIN (${nomeEq})\n\nDigite o seu PIN ATUAL:`);
-            if (pinAtualInformado === null) return;
-
-            if (pinAtualInformado.trim() !== pinAtualCorreto) {
-                alert("❌ O PIN atual informado está incorreto.");
-                return;
-            }
-
-            const novoPin = prompt("🔑 Digite o NOVO PIN desejado (Exatamente 4 números, ex: 4580):");
-            if (novoPin === null) return;
-
-            const novoPinLimpo = novoPin.trim();
-            if (!/^\d{4}$/.test(novoPinLimpo)) {
-                alert("⚠️ O novo PIN deve conter exatamente 4 dígitos numéricos (ex: 2580).");
-                return;
-            }
-
-            const confPin = prompt("🔑 Confirme digitando novamente o seu NOVO PIN de 4 dígitos:");
-            if (confPin === null || confPin.trim() !== novoPinLimpo) {
-                alert("❌ A confirmação não coincide com o novo PIN. Operação cancelada.");
-                return;
-            }
-
-            eqObj.pin = novoPinLimpo;
-            registrarLogAuditoria("ALTERAÇÃO DE PIN (CAMPO)", `O técnico ${eqObj.nome} alterou seu próprio PIN de acesso no Modo Campo.`);
-            await sincronizarEquipesNaNuvem();
-            renderizarTabelaEquipes();
-            alert("✅ Seu novo PIN de 4 dígitos foi salvo e sincronizado na nuvem com sucesso!");
-        }
-
-        async function resetarPinEquipeGestor(idEquipe) {
-            if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
-                alert("⚠️ Apenas Gestores (Master ou Operador) podem resetar o PIN de um técnico.");
-                return;
-            }
-
-            const eqObj = equipesSistema.find(e => e.id === idEquipe);
-            if (!eqObj) return;
-
-            const pinAtual = obterPinDaEquipe(eqObj);
-            const novoPinGestor = prompt(
-                `🔄 RESETAR PIN DO TÉCNICO: ${eqObj.nome}\n\nPIN Atual: ${pinAtual}\n\nDigite o novo PIN de 4 dígitos para este técnico (ou mantenha 1234 para o padrão):`,
-                "1234"
-            );
-            if (novoPinGestor === null) return;
-
-            const pinLimpo = novoPinGestor.trim();
-            if (!/^\d{4}$/.test(pinLimpo)) {
-                alert("⚠️ O PIN deve ter exatamente 4 números (ex: 1234).");
-                return;
-            }
-
-            eqObj.pin = pinLimpo;
-            registrarLogAuditoria("RESET DE PIN (GESTOR)", `Gestor ${usuarioLogado} redefiniu o PIN do técnico ${eqObj.nome} para '${pinLimpo}'.`);
-            await sincronizarEquipesNaNuvem();
-            renderizarTabelaEquipes();
-            alert(`✅ O PIN do técnico ${eqObj.nome} foi redefinido para "${pinLimpo}" com sucesso!`);
-        }
-
-        // Garante que se o técnico já tinha rascunho aberto na sessão, a barra de PIN apareça travada
-        setTimeout(() => {
-            const selEq = document.getElementById('sel-equipe');
-            if (selEq && selEq.value) {
-                equipeAutenticadaSessao = selEq.value;
-                sessionStorage.setItem('gpd_equipe_autenticada_pin', selEq.value);
-                atualizarBarraSegurancaPinCampo();
-            }
-        }, 600);
-
-        // --- DEMAIS FUNÇÕES ANALÍTICAS, TABELAS E FECHAMENTO ---
         function renderizarOfensoresMalogro(dados) {
             const tbody = document.getElementById('tabela-ofensores-malogro-corpo');
             const badgeTotal = document.getElementById('badge-total-ocorrencias-malogro');
@@ -5515,7 +5599,7 @@
                     let detalheInfo = item.malogros && item.malogros.length > 0 ? `Opções: ${item.malogros.join(' + ')}` : (item.motivoDesfecho || 'Concluído sem pendências');
                     const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
                     corpo.innerHTML += `
-                        <tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); fecharModalGraficoExpandido(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))">
+                        <tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); fecharModalGraficoExpandido(); fecharModalTabelaExpandida(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))">
                             <td class="p-2.5 font-mono text-slate-600 font-bold">${item.dataRegistro}</td>
                             <td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'}</div></td>
                             <td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td>
@@ -6023,7 +6107,6 @@
             renderizarPainelDisponibilidade();
         }
 
-        // Tabela de Equipes atualizada com exibição de PIN e botão de Reset de PIN para o Gestor
         function renderizarTabelaEquipes() {
             const corpo = document.getElementById('tabela-equipes-corpo');
             if (!corpo) return;
