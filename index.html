@@ -91,7 +91,7 @@
                         <button onclick="aplicarAtalhoPeriodo('tudo')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-md transition">🔄 Tudo</button>
                     </div>
 
-                    <!-- ITEM 02: Grid agora com 5 filtros incluindo Status/Desfecho -->
+                    <!-- Grid com 5 filtros incluindo Status/Desfecho -->
                     <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 w-full xl:w-auto">
                         <div class="flex items-center gap-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1">
                             <span class="text-[10px] font-bold text-slate-500">De:</span>
@@ -295,14 +295,14 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos & Indicadores -->
+            <!-- Sub-Aba: Gráficos & Indicadores (Todos os gráficos agora possuem botão ⛶ Expandir) -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 
                 <!-- Cards de Números Gerais exclusivos na aba Gráficos & Indicadores -->
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-2.5">
-                    <div class="flex justify-between items-center">
+                    <div class="flex flex-wrap justify-between items-center gap-2">
                         <span class="text-xs font-black text-slate-700 uppercase">📌 Resumo Geral de Volumes por Projeto (Período Filtrado)</span>
-                        <span class="text-[11px] text-blue-800 font-medium">💡 Clique nos gráficos abaixo para explodir detalhes</span>
+                        <span class="text-[11px] text-blue-800 font-medium">💡 Use o botão <b>⛶ Expandir</b> em qualquer gráfico para apresentação em tela cheia</span>
                     </div>
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
                         <div class="bg-blue-50 p-3 rounded-xl shadow-sm border border-blue-300 flex flex-col justify-between">
@@ -426,18 +426,24 @@
                             </div>
                         </div>
 
+                        <!-- Gráfico 1: Principal Executores -->
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
                                 <div>
                                     <h4 class="text-xs font-black text-slate-800 uppercase">📊 Gráfico Principal: Produção Consolidada vs. Produção Diária e Média por Executor</h4>
                                     <p class="text-[11px] text-slate-500">Comparativo direto entre todos os Vistoriadores, Instaladores e Ativadores acionados</p>
                                 </div>
-                                <select id="filtro-setor-grafico-principal" onchange="atualizarDashboardGestor()" class="text-xs border border-slate-300 rounded-lg p-1.5 bg-white font-bold text-blue-950 outline-none">
-                                    <option value="TODOS">Mostrar Todos os Setores</option>
-                                    <option value="Vistoriador">🔍 Apenas Vistoriadores</option>
-                                    <option value="Instalador">🛠️ Apenas Instaladores</option>
-                                    <option value="Ativador">⚡ Apenas Ativadores</option>
-                                </select>
+                                <div class="flex items-center gap-2">
+                                    <select id="filtro-setor-grafico-principal" onchange="atualizarDashboardGestor()" class="text-xs border border-slate-300 rounded-lg p-1.5 bg-white font-bold text-blue-950 outline-none">
+                                        <option value="TODOS">Mostrar Todos os Setores</option>
+                                        <option value="Vistoriador">🔍 Apenas Vistoriadores</option>
+                                        <option value="Instalador">🛠️ Apenas Instaladores</option>
+                                        <option value="Ativador">⚡ Apenas Ativadores</option>
+                                    </select>
+                                    <button type="button" onclick="expandirGraficoModal('graficoPrincipalExecutores', '🏆 Produção Consolidada, Diária e Média por Executor')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap" title="Expandir gráfico para apresentação">
+                                        ⛶ Expandir
+                                    </button>
+                                </div>
                             </div>
                             <div class="relative h-80"><canvas id="graficoPrincipalExecutores"></canvas></div>
                         </div>
@@ -478,32 +484,52 @@
 
                     <div class="p-5 space-y-6">
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Gráfico 2: Grupo Malling -->
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
-                                <div class="flex justify-between items-start mb-2">
+                                <div class="flex justify-between items-start mb-2 gap-2">
                                     <div>
                                         <h4 class="text-xs font-black text-blue-950 uppercase">🏢 Grupo MALLING (Volume e Desfecho por Projeto)</h4>
                                         <p class="text-[10px] text-slate-500">Vistoria • Constr. On Going • Constr. Nap Lotada • Ativ. On Going • Ativ. Nap Lotada</p>
                                     </div>
-                                    <span id="badge-total-malling" class="bg-blue-100 text-blue-900 font-black text-xs px-2.5 py-1 rounded-lg">0 total</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <span id="badge-total-malling" class="bg-blue-100 text-blue-900 font-black text-xs px-2.5 py-1 rounded-lg whitespace-nowrap">0 total</span>
+                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoMalling', '🏢 Grupo MALLING - Volume e Desfecho por Projeto')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
+                                            ⛶ Expandir
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="relative h-72"><canvas id="graficoGrupoMalling"></canvas></div>
                             </div>
 
+                            <!-- Gráfico 3: Grupo Projeto F -->
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
-                                <div class="flex justify-between items-start mb-2">
+                                <div class="flex justify-between items-start mb-2 gap-2">
                                     <div>
                                         <h4 class="text-xs font-black text-indigo-950 uppercase">🚀 Grupo PROJETO F (Volume e Desfecho por Projeto)</h4>
                                         <p class="text-[10px] text-slate-500">Construção F (Instalador) • Ativação F (Ativador)</p>
                                     </div>
-                                    <span id="badge-total-projetof" class="bg-indigo-100 text-indigo-900 font-black text-xs px-2.5 py-1 rounded-lg">0 total</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <span id="badge-total-projetof" class="bg-indigo-100 text-indigo-900 font-black text-xs px-2.5 py-1 rounded-lg whitespace-nowrap">0 total</span>
+                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoProjetoF', '🚀 Grupo PROJETO F - Volume e Desfecho por Projeto')" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
+                                            ⛶ Expandir
+                                        </button>
+                                    </div>
                                 </div>
                                 <div class="relative h-72"><canvas id="graficoGrupoProjetoF"></canvas></div>
                             </div>
                         </div>
 
+                        <!-- Gráfico 4: Curva de Evolução Diária -->
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <h4 class="text-xs font-black text-slate-800 uppercase mb-1">📅 Curva de Evolução Diária: MALLING vs. PROJETO F</h4>
-                            <p class="text-[11px] text-slate-500 mb-3">Acompanhamento dia a dia do ritmo de entregas de cada macrogrupo de projeto</p>
+                            <div class="flex justify-between items-start mb-3 gap-2">
+                                <div>
+                                    <h4 class="text-xs font-black text-slate-800 uppercase mb-0.5">📅 Curva de Evolução Diária: MALLING vs. PROJETO F</h4>
+                                    <p class="text-[11px] text-slate-500">Acompanhamento dia a dia do ritmo de entregas de cada macrogrupo de projeto</p>
+                                </div>
+                                <button type="button" onclick="expandirGraficoModal('graficoEvolucaoGrupos', '📅 Curva de Evolução Diária: MALLING vs. PROJETO F')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                    ⛶ Expandir
+                                </button>
+                            </div>
                             <div class="relative h-64"><canvas id="graficoEvolucaoGrupos"></canvas></div>
                         </div>
 
@@ -574,48 +600,74 @@
                     </div>
                 </div>
 
-                <!-- Gráficos de Projetos e Desfechos -->
+                <!-- Gráficos 5 e 6: Projetos e Desfechos -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase">📊 Volume Geral por Projeto (Clique para Explodir)</h3>
-                            <p class="text-xs text-slate-500 mb-4">Comparativo entre os 7 projetos ativos</p>
+                        <div class="flex justify-between items-start mb-4 gap-2">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800 uppercase">📊 Volume Geral por Projeto (Clique para Explodir)</h3>
+                                <p class="text-xs text-slate-500">Comparativo entre os 7 projetos ativos</p>
+                            </div>
+                            <button type="button" onclick="expandirGraficoModal('graficoProjetos', '📊 Volume Geral por Projeto')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                ⛶ Expandir
+                            </button>
                         </div>
                         <div class="relative h-80"><canvas id="graficoProjetos"></canvas></div>
                     </div>
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase">🎯 Eficácia e Desfechos (Clique para Explodir)</h3>
-                            <p class="text-xs text-slate-500 mb-4">Proporção detalhada entre Concluídas, Pendentes e Malogradas</p>
+                        <div class="flex justify-between items-start mb-4 gap-2">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800 uppercase">🎯 Eficácia e Desfechos (Clique para Explodir)</h3>
+                                <p class="text-xs text-slate-500">Proporção detalhada entre Concluídas, Pendentes e Malogradas</p>
+                            </div>
+                            <button type="button" onclick="expandirGraficoModal('graficoDesfechos', '🎯 Eficácia e Desfechos Operacionais')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                ⛶ Expandir
+                            </button>
                         </div>
                         <div class="relative h-80"><canvas id="graficoDesfechos"></canvas></div>
                     </div>
                 </div>
 
+                <!-- Gráficos 7 e 8: Horas de Pico e TMA por Projeto -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase">⏰ Curva de Picos por Horário (Abertura vs. Fechamento)</h3>
-                            <p class="text-xs text-slate-500 mb-4">Concentração de início e término de atividades ao longo das horas do dia</p>
+                        <div class="flex justify-between items-start mb-4 gap-2">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800 uppercase">⏰ Curva de Picos por Horário (Abertura vs. Fechamento)</h3>
+                                <p class="text-xs text-slate-500">Concentração de início e término de atividades ao longo das horas do dia</p>
+                            </div>
+                            <button type="button" onclick="expandirGraficoModal('graficoHorasPico', '⏰ Curva de Picos por Horário (Abertura vs. Fechamento)')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                ⛶ Expandir
+                            </button>
                         </div>
                         <div class="relative h-72"><canvas id="graficoHorasPico"></canvas></div>
                     </div>
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-800 uppercase">⏳ Tempo Médio de Execução por Projeto (Minutos)</h3>
-                            <p class="text-xs text-slate-500 mb-4">Duração média cronometrada entre o check-in e o check-out de cada frente</p>
+                        <div class="flex justify-between items-start mb-4 gap-2">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800 uppercase">⏳ Tempo Médio de Execução por Projeto (Minutos)</h3>
+                                <p class="text-xs text-slate-500">Duração média cronometrada entre o check-in e o check-out de cada frente</p>
+                            </div>
+                            <button type="button" onclick="expandirGraficoModal('graficoTempoProjeto', '⏳ Tempo Médio de Execução por Projeto (Minutos)')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                ⛶ Expandir
+                            </button>
                         </div>
                         <div class="relative h-72"><canvas id="graficoTempoProjeto"></canvas></div>
                     </div>
                 </div>
 
-                <!-- Ofensores de Malogro -->
+                <!-- Gráfico 9: Ofensores de Malogro -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-red-200 flex flex-col justify-between">
                         <div>
-                            <div class="flex justify-between items-center">
+                            <div class="flex justify-between items-center gap-2">
                                 <h3 class="text-sm font-bold text-red-900 uppercase">🚨 Gráfico de Ofensores de Malogro (Clique para Explodir)</h3>
-                                <span id="badge-total-ocorrencias-malogro" class="bg-red-100 text-red-800 text-[10px] font-bold px-2.5 py-0.5 rounded">0 ocorrências</span>
+                                <div class="flex items-center gap-1.5">
+                                    <span id="badge-total-ocorrencias-malogro" class="bg-red-100 text-red-800 text-[10px] font-bold px-2.5 py-1 rounded whitespace-nowrap">0 ocorrências</span>
+                                    <button type="button" onclick="expandirGraficoModal('graficoOfensoresMalogro', '🚨 Incidência Acumulada de Ofensores de Malogro')" class="bg-red-700 hover:bg-red-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
+                                        ⛶ Expandir
+                                    </button>
+                                </div>
                             </div>
                             <p class="text-xs text-slate-500 mb-4">Incidência acumulada por tipo de impedimento relatado nas atividades em campo</p>
                         </div>
@@ -1000,7 +1052,7 @@
                     <span class="text-[11px] bg-blue-50 text-blue-900 px-2.5 py-1 rounded-lg font-bold" id="current-user-team">Selecione Equipe</span>
                 </div>
 
-                <!-- ITEM 01: Alerta de Atividades Reabertas pelo Gestor para Correção do Técnico -->
+                <!-- Alerta de Atividades Reabertas pelo Gestor para Correção do Técnico -->
                 <div id="box-reabertas-campo" class="bg-purple-50 border-2 border-purple-400 p-3.5 rounded-xl space-y-2 hidden shadow-sm">
                     <div class="flex items-start gap-2">
                         <span class="text-lg">🔄</span>
@@ -1012,16 +1064,16 @@
                     <div id="lista-reabertas-campo" class="space-y-1.5 pt-1"></div>
                 </div>
 
-                <!-- ITEM 04: Caixa de Atividades Programadas via Planilha para o Técnico -->
+                <!-- Caixa de Atividades Programadas via Planilha para o Técnico -->
                 <div id="box-programadas-campo" class="bg-cyan-50 border-2 border-cyan-400 p-3.5 rounded-xl space-y-2 hidden shadow-sm">
                     <div class="flex items-start gap-2">
                         <span class="text-lg">📋</span>
                         <div>
                             <h4 class="text-xs font-black text-cyan-950 uppercase">Suas Atividades Programadas pela Gestão</h4>
-                            <p class="text-[11px] text-cyan-800">Clique em Iniciar para carregar o imóvel automaticamente:</p>
+                            <p class="text-[11px] text-cyan-800">Clique em Iniciar para carregar o imóvel e a quantidade de blocos automaticamente:</p>
                         </div>
                     </div>
-                    <div id="lista-programadas-campo" class="space-y-1.5 pt-1 max-h-48 overflow-y-auto"></div>
+                    <div id="lista-programadas-campo" class="space-y-1.5 pt-1 max-h-56 overflow-y-auto"></div>
                 </div>
 
                 <div id="box-imprevisto-ativo-campo" class="bg-amber-50 border-2 border-amber-400 p-3.5 rounded-xl space-y-2.5 hidden shadow-sm">
@@ -1134,27 +1186,53 @@
 
     </div>
 
-    <!-- Modais -->
-    <!-- ITEM 04: NOVO MODAL DE IMPORTAÇÃO DE CARGA DE ATIVIDADES VIA PLANILHA -->
+    <!-- ================= MODAIS DO SISTEMA ================= -->
+
+    <!-- NOVO MODAL DE EXPANSÃO DE GRÁFICO EM TELA CHEIA (MODO APRESENTAÇÃO) -->
+    <div id="modal-expandir-grafico" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center p-2 sm:p-6 hidden z-[65]">
+        <div class="bg-white w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col h-[88vh]">
+            <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-cyan-400">
+                <div>
+                    <span class="bg-cyan-400 text-blue-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Modo Apresentação Executiva</span>
+                    <h3 class="font-bold text-sm sm:text-base mt-0.5" id="modal-grafico-expandido-titulo">Visualização Ampliada do Gráfico</h3>
+                </div>
+                <button onclick="fecharModalGraficoExpandido()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow">
+                    ✕ Fechar Tela Cheia
+                </button>
+            </div>
+            <div class="p-4 sm:p-6 flex-1 bg-slate-50 flex flex-col justify-center items-center relative">
+                <div class="w-full h-full bg-white p-4 rounded-xl border border-slate-200 shadow-inner relative">
+                    <canvas id="canvasGraficoExpandido"></canvas>
+                </div>
+            </div>
+            <div class="bg-white px-5 py-2.5 border-t flex justify-between items-center text-[11px] text-slate-500">
+                <span>💡 Você também pode clicar nas barras/fatias deste gráfico ampliado para explodir a listagem de imóveis.</span>
+                <button onclick="fecharModalGraficoExpandido()" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-4 py-1.5 rounded-lg font-bold">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE IMPORTAÇÃO DE CARGA DE ATIVIDADES VIA PLANILHA (11 COLUNAS COMPLETAS) -->
     <div id="modal-importar-planilha" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
-        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+        <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
             <div class="bg-purple-800 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-sm">📤 Importar Planilha de Atividades para os Técnicos</h3>
+                <h3 class="font-bold text-sm">📤 Importar Planilha Completa de Atividades para os Técnicos</h3>
                 <button onclick="fecharModalImportarPlanilha()" class="text-white font-bold text-lg">✕</button>
             </div>
             <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
                 <div class="bg-purple-50 border border-purple-200 p-3 rounded-xl space-y-2">
-                    <div class="flex justify-between items-center">
-                        <span class="font-bold text-purple-950">📋 Como funciona a Carga Programada:</span>
-                        <button onclick="baixarModeloPlanilhaCSV()" class="bg-purple-700 hover:bg-purple-800 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg shadow-sm">
-                            ⬇️ Baixar Planilha Modelo (.CSV)
+                    <div class="flex flex-wrap justify-between items-center gap-2">
+                        <span class="font-bold text-purple-950">📋 Carga Programada com Quantidade de Blocos:</span>
+                        <button onclick="baixarModeloPlanilhaCSV()" class="bg-purple-700 hover:bg-purple-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm">
+                            ⬇️ Baixar Planilha Modelo Completa (.CSV)
                         </button>
                     </div>
                     <p class="text-[11px] text-purple-900 leading-relaxed">
-                        Você pode subir um arquivo <b>.CSV</b> salvo no Excel ou simplesmente <b>copiar e colar as linhas do Excel</b> na caixa abaixo. Cada linha será enviada direto para a tela do técnico responsável com status <b>PROGRAMADA</b>.
+                        Baixe a planilha modelo acima, preencha no Excel e envie o arquivo (ou copie e cole as linhas abaixo). O campo <b>QTD_BLOCOS</b> alterará automaticamente o número de blocos a serem preenchidos pelo técnico no Modo Campo!
                     </p>
-                    <p class="text-[10px] font-mono bg-white p-2 rounded border border-purple-200 text-slate-600">
-                        Formato das colunas: <b>IMOVEL ; ENDERECO ; PROJETO ; TECNICO ; ANDARES ; HPS</b>
+                    <p class="text-[10px] font-mono bg-white p-2 rounded border border-purple-200 text-slate-700 leading-relaxed">
+                        Ordem das 11 Colunas:<br>
+                        <b>1. IMOVEL ; 2. ENDERECO ; 3. PROJETO ; 4. TECNICO ; <span class="bg-purple-200 text-purple-950 px-1 rounded">5. QTD_BLOCOS</span> ; 6. ANDARES ; 7. HPS ; 8. RESPONSAVEL ; 9. CONTATO ; 10. EMAIL ; 11. OBSERVACOES</b>
                     </p>
                 </div>
 
@@ -1165,7 +1243,7 @@
 
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Opção 2: Ou cole aqui as linhas copiadas direto do Excel (1 imóvel por linha):</label>
-                    <textarea id="txt-linhas-planilha" rows="6" class="w-full font-mono text-[11px] border border-slate-300 rounded-xl p-2.5 outline-none" placeholder="IMO-1020;Rua das Flores 120 - Tijuca;VISTORIA;ANDREO FAGUNDES;10;40&#10;IMO-3040;Av Atlântica 500 - Copacabana;CONSTRUÇÃO F;BRUNO SOARES DA SILVA;12;60"></textarea>
+                    <textarea id="txt-linhas-planilha" rows="6" class="w-full font-mono text-[11px] border border-slate-300 rounded-xl p-2.5 outline-none" placeholder="IMO-1001;Rua Conde de Bonfim 450 - Tijuca;VISTORIA;ANDREO FAGUNDES;2;10;40;Sr. Carlos;21 99888-7766;sindico@cond.com;Condomínio com 2 blocos&#10;IMO-2002;Av Atlântica 500 - Copacabana;CONSTRUÇÃO F;BRUNO SOARES DA SILVA;3;12;60;Dona Maria;21 98777-6655;adm@copa.com;3 Blocos independentes"></textarea>
                 </div>
             </div>
             <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
@@ -1278,7 +1356,7 @@
     </div>
 
     <!-- MODAL DE EXPLOSÃO -->
-    <div id="modal-explosao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+    <div id="modal-explosao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[70]">
         <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
             <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
                 <h3 class="font-bold text-sm" id="modal-explosao-titulo">Detalhamento da Categoria</h3>
@@ -1325,7 +1403,7 @@
     </div>
 
     <!-- MODAL DE ZOOM DE FOTO -->
-    <div id="modal-zoom-foto" class="fixed inset-0 bg-black/85 backdrop-blur-sm flex flex-col justify-center items-center p-4 hidden z-[60]">
+    <div id="modal-zoom-foto" class="fixed inset-0 bg-black/85 backdrop-blur-sm flex flex-col justify-center items-center p-4 hidden z-[75]">
         <div class="w-full max-w-3xl flex justify-between items-center text-white mb-3 px-2">
             <span class="font-bold text-sm" id="lbl-titulo-zoom-foto">📷 Visualização da Foto</span>
             <div class="flex items-center gap-2">
@@ -1412,7 +1490,7 @@
             </div>
         </div>
     </div>
-<!-- Script Principal - Parte 1 de 2 (Reabertura, Filtro Status, 10 Fotos e Carga via Planilha) -->
+<!-- Script Principal - Parte 02 -->
     <script>
         const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
@@ -1890,7 +1968,8 @@
                     !document.getElementById('modal-equipe').classList.contains('hidden') ||
                     !document.getElementById('modal-usuario').classList.contains('hidden') ||
                     !document.getElementById('modal-imprevisto').classList.contains('hidden') ||
-                    !document.getElementById('modal-importar-planilha').classList.contains('hidden');
+                    !document.getElementById('modal-importar-planilha').classList.contains('hidden') ||
+                    !document.getElementById('modal-expandir-grafico').classList.contains('hidden');
 
                 if (usuarioLogado && viewGestorAtiva && !algumModalAberto) {
                     await carregarRegistrosDaNuvem();
@@ -1901,7 +1980,6 @@
             }, 180000);
         };
 
-        // ITEM 03: Compressão otimizada para suportar até 10 fotos sem impacto de performance
         function comprimirImagemBase64(file, maxWidth = 780, quality = 0.60) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -2212,7 +2290,7 @@
                         </div>
                     </div>
 
-                    <!-- ITEM 03: Até 10 Fotos por Bloco -->
+                    <!-- Até 10 Fotos por Bloco -->
                     <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
                         <div class="flex justify-between items-center">
                             <label class="text-[11px] font-bold text-blue-950 flex items-center gap-1">📷 Fotos do Fechamento (${b.fotos.length}/10)</label>
@@ -2367,7 +2445,6 @@
             verificarPendenciasReabertasEProgramadasCampo();
         }
 
-        // ITEM 01 e ITEM 04: Verifica se o técnico possui atividades REABERTAS pelo gestor ou PROGRAMADAS via planilha
         function verificarPendenciasReabertasEProgramadasCampo() {
             const equipeSelecionada = document.getElementById('sel-equipe').value;
             const boxReab = document.getElementById('box-reabertas-campo');
@@ -2381,7 +2458,6 @@
                 return;
             }
 
-            // 1. Atividades Reabertas pelo Gestor
             const reabertas = registrosSalvos.filter(r => r.equipe === equipeSelecionada && r.desfecho === 'REABERTA');
             if (boxReab && listaReab) {
                 if (reabertas.length > 0) {
@@ -2402,22 +2478,27 @@
                 }
             }
 
-            // 2. Atividades Programadas via Planilha pela Gestão
             const programadas = registrosSalvos.filter(r => r.equipe === equipeSelecionada && r.desfecho === 'PROGRAMADA');
             if (boxProg && listaProg) {
                 if (programadas.length > 0) {
-                    listaProg.innerHTML = programadas.map(r => `
+                    listaProg.innerHTML = programadas.map(r => {
+                        const qtdB = r.qtdBlocosProgramados || 1;
+                        return `
                         <div class="bg-white p-2.5 rounded-lg border border-cyan-300 flex justify-between items-center gap-2">
                             <div>
-                                <div class="font-bold text-cyan-950 text-xs">🏢 ${r.imovel} <span class="bg-cyan-100 text-cyan-900 px-1.5 py-0.5 rounded text-[9px]">${r.projeto}</span></div>
-                                <div class="text-[10px] text-slate-600">📍 ${r.endereco || 'Endereço a confirmar'}</div>
-                                <div class="text-[9px] text-slate-400">Andares: ${r.andares || '-'} | HPs: ${r.hps || '-'}</div>
+                                <div class="font-bold text-cyan-950 text-xs flex items-center gap-1 flex-wrap">
+                                    <span>🏢 ${r.imovel}</span>
+                                    <span class="bg-cyan-100 text-cyan-900 px-1.5 py-0.5 rounded text-[9px]">${r.projeto}</span>
+                                    <span class="bg-blue-900 text-white px-1.5 py-0.5 rounded text-[9px] font-black">${qtdB} Bloco(s)</span>
+                                </div>
+                                <div class="text-[10px] text-slate-600 mt-0.5">📍 ${r.endereco || 'Endereço a confirmar'}</div>
+                                <div class="text-[9px] text-slate-500">Andares: <b>${r.andares || '-'}</b> | HPs: <b>${r.hps || '-'}</b> ${r.responsavel ? `| Resp: <b>${r.responsavel}</b>` : ''}</div>
                             </div>
                             <button type="button" onclick="iniciarAtividadeProgramadaCampo(${r.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
                                 🚀 Iniciar
                             </button>
                         </div>
-                    `).join('');
+                    `}).join('');
                     boxProg.classList.remove('hidden');
                 } else {
                     boxProg.classList.add('hidden');
@@ -2425,7 +2506,6 @@
             }
         }
 
-        // ITEM 01: Carrega a atividade reaberta de volta no formulário do técnico
         function retomarAtividadeReabertaCampo(idReg) {
             const r = registrosSalvos.find(item => item.id === idReg);
             if (!r) return;
@@ -2486,7 +2566,6 @@
             salvarRascunhoCampo();
         }
 
-        // ITEM 04: Inicia uma atividade que veio programada da planilha do gestor
         async function iniciarAtividadeProgramadaCampo(idReg) {
             const r = registrosSalvos.find(item => item.id === idReg);
             if (!r) return;
@@ -2520,12 +2599,17 @@
             dadosAtendimento.hEntrada = horaEntradaAtual;
             dadosAtendimento.gpsEntrada = coordReal;
 
-            const blocoInicial = criarObjetoBlocoPadrao(1);
-            if (r.andares) blocoInicial.andares = r.andares;
-            if (r.hps) blocoInicial.hps = r.hps;
-            dadosAtendimento.blocos = [blocoInicial];
+            const totalBlocos = Math.max(1, Math.min(20, Number(r.qtdBlocosProgramados) || 1));
+            dadosAtendimento.blocos = [];
+            for (let i = 1; i <= totalBlocos; i++) {
+                const novoBloco = criarObjetoBlocoPadrao(i);
+                if (r.andares) novoBloco.andares = r.andares;
+                if (r.hps) novoBloco.hps = r.hps;
+                if (r.observacoes) novoBloco.observacoes = r.observacoes;
+                dadosAtendimento.blocos.push(novoBloco);
+            }
 
-            document.getElementById('lbl-status-execucao-campo').innerText = "Status: Em Andamento no Painel";
+            document.getElementById('lbl-status-execucao-campo').innerText = `Status: Em Andamento (${totalBlocos} Bloco${totalBlocos > 1 ? 's' : ''})`;
             document.getElementById('lbl-imovel-aberto').innerText = `${r.imovel} (${r.projeto})`;
             document.getElementById('lbl-h-entrada').innerText = horaEntradaAtual;
             document.getElementById('lbl-gps-entrada').innerText = coordReal;
@@ -2534,7 +2618,7 @@
             document.getElementById('form-responsavel').value = r.responsavel || '';
             document.getElementById('form-contato').value = r.contato || '';
             document.getElementById('form-email').value = r.email || '';
-            document.getElementById('inp-qtd-blocos').value = 1;
+            document.getElementById('inp-qtd-blocos').value = totalBlocos;
 
             document.getElementById('form-campo-container').classList.add('hidden');
             document.getElementById('box-programadas-campo').classList.add('hidden');
@@ -2992,6 +3076,7 @@
                         let obsBruta = r.observacoes || '';
                         let endExtraido = '';
                         let fotosExtraidas = [];
+                        let qtdBlocosExtraida = 1;
 
                         const posFotos = obsBruta.indexOf('[FOTOS:');
                         if (posFotos !== -1) {
@@ -3003,6 +3088,12 @@
                                 } catch (e) { console.warn("Erro ao extrair fotos:", e); }
                                 obsBruta = (obsBruta.substring(0, posFotos) + obsBruta.substring(fimFotos + 1)).trim();
                             }
+                        }
+
+                        const matchBlocos = obsBruta.match(/\[BLOCOS:\s*(\d+)\]/i);
+                        if (matchBlocos) {
+                            qtdBlocosExtraida = Math.max(1, Math.min(20, parseInt(matchBlocos[1], 10) || 1));
+                            obsBruta = obsBruta.replace(matchBlocos[0], '').trim();
                         }
 
                         if (obsBruta.startsWith('[END:')) {
@@ -3024,6 +3115,7 @@
                             projeto: projNorm,
                             imovel: r.imovel || '',
                             endereco: endExtraido,
+                            qtdBlocosProgramados: qtdBlocosExtraida,
                             fotos: Array.isArray(fotosExtraidas) ? fotosExtraidas : [],
                             hEntrada: r.h_entrada || '',
                             hSaida: r.h_saida || '',
@@ -3522,7 +3614,53 @@
             return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
         }
 
-        // ITEM 01: Autorização do Gestor para Reabrir Atividade para o Técnico com Registro em Auditoria
+        // Expande qualquer gráfico em Tela Cheia (Modo Apresentação)
+        let graficoExpandidoInstancia = null;
+        function expandirGraficoModal(idCanvasOrigem, tituloJanela) {
+            const modal = document.getElementById('modal-expandir-grafico');
+            const titulo = document.getElementById('modal-grafico-expandido-titulo');
+            const canvasOrigem = document.getElementById(idCanvasOrigem);
+            const canvasAlvo = document.getElementById('canvasGraficoExpandido');
+            if (!modal || !canvasOrigem || !canvasAlvo) return;
+
+            if (titulo) titulo.innerText = tituloJanela;
+            modal.classList.remove('hidden');
+
+            const chartOriginal = Chart.getChart(canvasOrigem);
+            if (!chartOriginal) return;
+
+            if (graficoExpandidoInstancia) graficoExpandidoInstancia.destroy();
+
+            graficoExpandidoInstancia = new Chart(canvasAlvo, {
+                type: chartOriginal.config.type,
+                data: JSON.parse(JSON.stringify(chartOriginal.data)),
+                options: {
+                    ...chartOriginal.config.options,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        ...chartOriginal.config.options.plugins,
+                        legend: { display: true, position: 'top' }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0 && chartOriginal.config.options.onClick) {
+                            chartOriginal.config.options.onClick(event, elements);
+                        }
+                    }
+                }
+            });
+        }
+
+        function fecharModalGraficoExpandido() {
+            const modal = document.getElementById('modal-expandir-grafico');
+            if (modal) modal.classList.add('hidden');
+            if (graficoExpandidoInstancia) {
+                graficoExpandidoInstancia.destroy();
+                graficoExpandidoInstancia = null;
+            }
+        }
+
+        // Autorização do Gestor para Reabrir Atividade para o Técnico com Registro em Auditoria
         async function autorizarReaberturaCampo(id) {
             if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
                 alert("⚠️ Apenas Gestores (Master ou Operador) podem autorizar a reabertura de uma atividade.");
@@ -3555,7 +3693,7 @@
             await recarregarDadosGestor();
         }
 
-        // ITEM 04: Funções de Importação de Planilha / Carga Programada para os Técnicos
+        // Importação de Planilha / Carga Programada Completa (11 Colunas)
         function abrirModalImportarPlanilha() {
             if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
                 alert("⚠️ Permissão insuficiente para importar planilha de atividades.");
@@ -3571,15 +3709,15 @@
         }
 
         function baixarModeloPlanilhaCSV() {
-            const cabecalho = "IMOVEL;ENDERECO;PROJETO;TECNICO;ANDARES;HPS\n";
-            const ex1 = "IMO-1001;Rua Conde de Bonfim 450 - Tijuca;VISTORIA;ANDREO FAGUNDES;10;40\n";
-            const ex2 = "IMO-2002;Av Nossa Senhora de Copacabana 800;CONSTRUÇÃO F;BRUNO SOARES DA SILVA;12;60\n";
-            const ex3 = "IMO-3003;Rua Voluntários da Pátria 190 - Botafogo;ATIVAÇÃO ON GOING;CESAR SALES ROSA;8;32\n";
+            const cabecalho = "IMOVEL;ENDERECO;PROJETO;TECNICO;QTD_BLOCOS;ANDARES;HPS;RESPONSAVEL;CONTATO;EMAIL;OBSERVACOES\n";
+            const ex1 = "IMO-1001;Rua Conde de Bonfim 450 - Tijuca;VISTORIA;ANDREO FAGUNDES;2;10;40;Sr. Carlos (Síndico);21 99888-7766;sindico@bonfim450.com.br;Condomínio com 2 blocos (Bloco A e B)\n";
+            const ex2 = "IMO-2002;Av Nossa Senhora de Copacabana 800;CONSTRUÇÃO F;BRUNO SOARES DA SILVA;1;12;60;Dona Maria (Zeladora);21 98777-6655;portaria@copa800.com.br;Procurar zeladora até as 16h\n";
+            const ex3 = "IMO-3003;Rua Voluntários da Pátria 190 - Botafogo;ATIVAÇÃO ON GOING;CESAR SALES ROSA;3;8;32;Portaria Central;21 97666-5544;adm@voluntarios190.com.br;3 Blocos independentes - liberado acesso\n";
             const blob = new Blob(['\ufeff' + cabecalho + ex1 + ex2 + ex3], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `modelo_carga_gpd_procisa_${obterDataLocalISO()}.csv`;
+            a.download = `planilha_carga_gpd_procisa_${obterDataLocalISO()}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -3607,12 +3745,10 @@
             const novosRegistros = [];
 
             linhas.forEach((linha, idx) => {
-                // Ignora cabeçalho se houver
                 if (idx === 0 && (linha.toUpperCase().startsWith("IMOVEL") || linha.toUpperCase().startsWith("IMÓVEL") || linha.toUpperCase().includes("ENDERECO;PROJETO"))) {
                     return;
                 }
 
-                // Suporta ponto-e-vírgula (;), tabulação (\t - cópia direta do Excel) ou vírgula (,)
                 let delimitador = ';';
                 if (linha.includes('\t')) delimitador = '\t';
                 else if (!linha.includes(';') && linha.includes(',')) delimitador = ',';
@@ -3620,12 +3756,17 @@
                 const partes = linha.split(delimitador).map(p => p.trim());
                 if (partes.length < 4) return;
 
-                const imovel = partes[0];
-                const endereco = partes[1] || "Endereço a confirmar";
-                const projeto = normalizarNomeProjeto(partes[2] || "CONSTRUÇÃO ON GOING");
-                const tecnico = (partes[3] || "").toUpperCase().trim();
-                const andares = Number(partes[4]) || 0;
-                const hps = Number(partes[5]) || 0;
+                const imovel      = partes[0];
+                const endereco    = partes[1] || "Endereço a confirmar";
+                const projeto     = normalizarNomeProjeto(partes[2] || "CONSTRUÇÃO ON GOING");
+                const tecnico     = (partes[3] || "").toUpperCase().trim();
+                const qtdBlocos   = Math.max(1, Math.min(20, Number(partes[4]) || 1));
+                const andares     = Number(partes[5]) || 0;
+                const hps         = Number(partes[6]) || 0;
+                const responsavel = partes[7] || "";
+                const contato     = partes[8] || "";
+                const email       = partes[9] || "";
+                const obsGestao   = partes[10] || "Atividade programada pela gestão.";
 
                 if (!imovel || !tecnico) return;
 
@@ -3641,21 +3782,21 @@
                     gps_entrada: "Carga Gestor",
                     gps_saida: "-",
                     desfecho: "PROGRAMADA",
-                    motivo_desfecho: `Enviada via planilha por ${usuarioLogado || 'Gestor'}`,
+                    motivo_desfecho: `Carga Programada (${qtdBlocos} Bloco${qtdBlocos > 1 ? 's' : ''}) por ${usuarioLogado || 'Gestor'}`,
                     malogros: [],
-                    responsavel: "",
-                    contato: "",
-                    email: "",
+                    responsavel: responsavel,
+                    contato: contato,
+                    email: email,
                     agendamento: null,
                     andares: andares,
                     hps: hps,
                     servico_obra: "SIM",
-                    observacoes: `[END: ${endereco}] Atividade programada pela gestão.`
+                    observacoes: `[END: ${endereco}] [BLOCOS: ${qtdBlocos}] ${obsGestao}`.trim()
                 });
             });
 
             if (novosRegistros.length === 0) {
-                alert("⚠️ Nenhuma linha válida encontrada. Certifique-se de informar pelo menos: IMOVEL ; ENDERECO ; PROJETO ; TECNICO");
+                alert("⚠️ Nenhuma linha válida encontrada. Certifique-se de informar pelo menos: IMOVEL ; ENDERECO ; PROJETO ; TECNICO ; QTD_BLOCOS");
                 return;
             }
 
@@ -3679,12 +3820,12 @@
 
             registrarLogAuditoria(
                 "IMPORTAÇÃO DE PLANILHA",
-                `Importadas ${novosRegistros.length} atividade(s) programada(s) diretamente para os técnicos.`
+                `Importadas ${novosRegistros.length} atividade(s) programada(s) com definição de blocos diretamente para os técnicos.`
             );
 
             fecharModalImportarPlanilha();
             await recarregarDadosGestor();
-            alert(`✅ Sucesso! ${novosRegistros.length} atividade(s) foram enviadas diretamente para os técnicos e já aparecem no Modo Campo deles.`);
+            alert(`✅ Sucesso! ${novosRegistros.length} atividade(s) foram enviadas para os técnicos com a quantidade de blocos configurada!`);
         }
 
         function renderizarPainelDisponibilidade() {
@@ -3808,7 +3949,6 @@
 
             let listaImprevistos = filtradosBase.filter(i => i.projeto === 'IMPREVISTO / ATRASO' || i.desfecho === 'IMPREVISTO' || i.desfecho === 'IMPREVISTO RESOLVIDO');
             
-            // ITEM 02: Aplica também o filtro de Status/Desfecho selecionado na barra superior
             let filtrados = filtradosBase.filter(i => 
                 i.projeto !== 'IMPREVISTO / ATRASO' && 
                 i.desfecho !== 'IMPREVISTO' && 
@@ -3970,7 +4110,6 @@
                         
                         let botoesAcao = "";
                         if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
-                            // ITEM 01: Botão de Reabertura para o Técnico (aparece nas atividades finalizadas)
                             const btnReabrir = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(item.desfecho)
                                 ? `<button onclick="autorizarReaberturaCampo(${item.id})" class="text-purple-800 hover:bg-purple-200 font-bold text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded mr-1" title="Autorizar que o técnico reabra e edite esta atividade no Modo Campo">🔓 Reabrir p/ Campo</button>`
                                 : '';
@@ -3996,7 +4135,7 @@
                         } else if (item.desfecho === 'REABERTA') {
                             duracaoStr = '🔄 Aguardando edição';
                         } else if (item.desfecho === 'PROGRAMADA') {
-                            duracaoStr = '📋 Na fila do técnico';
+                            duracaoStr = `📋 Na fila (${item.qtdBlocosProgramados || 1} Bloco${(item.qtdBlocosProgramados || 1) > 1 ? 's' : ''})`;
                         }
 
                         const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
@@ -4630,10 +4769,13 @@
             let cx_fosc = Number(document.getElementById('edit-reg-cx-fosc').value) || 0;
 
             let obsLimpa = regOriginal ? (regOriginal.observacoes || '') : '';
+            let sufixoBlocos = (regOriginal && regOriginal.qtdBlocosProgramados > 1)
+                ? ` [BLOCOS: ${regOriginal.qtdBlocosProgramados}]`
+                : '';
             let sufixoFotos = (regOriginal && regOriginal.fotos && regOriginal.fotos.length > 0)
                 ? ` [FOTOS:${JSON.stringify(regOriginal.fotos)}]`
                 : '';
-            let obsComEnderecoEFotos = `${endereco ? `[END: ${endereco}] ` : ''}${obsLimpa}${sufixoFotos}`.trim();
+            let obsComEnderecoEFotos = `${endereco ? `[END: ${endereco}] ` : ''}${obsLimpa}${sufixoBlocos}${sufixoFotos}`.trim();
 
             let dadosAtualizados = {
                 imovel: imovel,
@@ -4953,7 +5095,7 @@
                     let detalheInfo = item.malogros && item.malogros.length > 0 ? `Opções: ${item.malogros.join(' + ')}` : (item.motivoDesfecho || 'Concluído sem pendências');
                     const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
                     corpo.innerHTML += `
-                        <tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))">
+                        <tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); fecharModalGraficoExpandido(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))">
                             <td class="p-2.5 font-mono text-slate-600 font-bold">${item.dataRegistro}</td>
                             <td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'}</div></td>
                             <td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td>
@@ -5620,7 +5762,7 @@
                 return;
             }
             trilhaAuditoria.forEach(log => {
-                const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA")
+                const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO")
                     ? "bg-purple-100 text-purple-900 border border-purple-300"
                     : "bg-slate-100 text-slate-800";
 
