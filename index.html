@@ -3589,7 +3589,90 @@
             resetarFormularioCampo();
             await carregarRegistrosDaNuvem();
             verificarPendenciasReabertasEProgramadasCampo();
-        }// ================= PARTE 03 (BLOCO 3A) - EXPANSOR DE GRÁFICOS E TABELAS EM TELA CHEIA =================
+        }
+// ================= PARTE 03 (BLOCO 3A) - GRUPO "ON GOING" + EXPANSOR DE GRÁFICOS E TABELAS =================
+
+        // 0. Sobrescreve as referências de "MALLING" para "ON GOING" (Sem precisar alterar a Parte 01 e a Parte 02)
+        function obterMacroGrupoProjeto(projeto) {
+            const p = normalizarNomeProjeto(projeto);
+            if (PROJETOS_GRUPO_PROJETO_F.includes(p)) return "PROJETO F";
+            if (PROJETOS_GRUPO_MALLING.includes(p)) return "ON GOING";
+            return "OUTROS";
+        }
+
+        function mudarTipoProjeto() {
+            const projeto = document.getElementById('sel-projeto').value;
+            const titulo = document.getElementById('titulo-form-dinamico');
+            if (!titulo) return;
+            if (!projeto) {
+                titulo.innerText = "1. Dados Gerais do Condomínio / Imóvel";
+            } else if (projeto === 'VISTORIA') {
+                titulo.innerText = "1. Dados Gerais da Vistoria e Endereço (ON GOING)";
+            } else {
+                titulo.innerText = `1. Dados Gerais do Imóvel (${projeto} • ${obterMacroGrupoProjeto(projeto)})`;
+            }
+        }
+
+        function copiarBoletimGestorWhatsApp() {
+            const emAndamento = dadosFiltradosAtuais.filter(i => i.desfecho === 'EM ANDAMENTO').length;
+            const programadas = dadosFiltradosAtuais.filter(i => i.desfecho === 'PROGRAMADA').length;
+            const finalizadas = dadosFiltradosAtuais.filter(i => !['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
+            const totalObras = finalizadas.length;
+            const conc = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
+            const pend = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
+            const malo = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
+            const impr = listaImprevistosAtuais.length;
+            const efic = totalObras > 0 ? ((conc / totalObras) * 100).toFixed(1) : "0.0";
+
+            const totOnGoing = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'ON GOING').length;
+            const totProjF = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'PROJETO F').length;
+
+            const dIni = document.getElementById('gestor-filtro-data-inicio').value;
+            const dFim = document.getElementById('gestor-filtro-data-fim').value;
+            const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Período Geral';
+
+            const tmaStr = document.getElementById('ind-tempo-medio')?.innerText || '--';
+            const medTotal = document.getElementById('fin-total-geral')?.innerText || 'R$ 0,00';
+
+            const textoBoletim = [
+                `📊 *BOLETIM OPERACIONAL GPD • MDU PROCISA RJ*`,
+                `📅 *Período:* ${periodoStr}`,
+                `────────────────────`,
+                `📋 *Programadas na Fila:* ${programadas}`,
+                `🔵 *Em Andamento Agora:* ${emAndamento}`,
+                `🏗️ *Total Finalizadas:* ${totalObras}`,
+                `🟢 *Concluídas:* ${conc} (${efic}%)`,
+                `🟡 *Pendentes:* ${pend}`,
+                `🔴 *Malogradas:* ${malo}`,
+                `⚠️ *Imprevistos Reportados:* ${impr}`,
+                `────────────────────`,
+                `🏢 *Grupo ON GOING:* ${totOnGoing} ativ.`,
+                `🚀 *Grupo PROJETO F:* ${totProjF} ativ.`,
+                `────────────────────`,
+                `⏱️ *Tempo Médio (TMA):* ${tmaStr}`,
+                `💰 *Medição Estimada:* ${medTotal}`
+            ].join('\n');
+
+            copiarTextoAreaTransferencia(textoBoletim, "📲 Boletim Operacional copiado! Pronto para colar no WhatsApp da diretoria/supervisão.");
+        }
+
+        // Atualiza automaticamente os rótulos fixos do HTML da Parte 01 de "MALLING" para "ON GOING"
+        function atualizarTextosMallingParaOnGoingDOM() {
+            const optGroup = document.querySelector('#gestor-filtro-projeto optgroup[label*="MALLING"]');
+            if (optGroup) optGroup.label = "Grupo ON GOING";
+
+            const elementosTexto = document.querySelectorAll('#subview-graficos h3, #subview-graficos h4, #subview-graficos p, #subview-graficos th, #subview-graficos button');
+            elementosTexto.forEach(el => {
+                if (el.innerHTML && el.innerHTML.includes('MALLING')) {
+                    el.innerHTML = el.innerHTML.replace(/MALLING/g, 'ON GOING');
+                }
+                const onclickAttr = el.getAttribute('onclick');
+                if (onclickAttr && onclickAttr.includes('MALLING')) {
+                    el.setAttribute('onclick', onclickAttr.replace(/MALLING/g, 'ON GOING'));
+                }
+            });
+        }
+
         function converterHorarioParaMinutos(strHora) {
             if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
             const partes = strHora.trim().split(':');
@@ -3622,7 +3705,7 @@
             const canvasAlvo = document.getElementById('canvasGraficoExpandido');
             if (!modal || !canvasOrigem || !canvasAlvo) return;
 
-            if (titulo) titulo.innerText = tituloJanela;
+            if (titulo) titulo.innerText = tituloJanela.replace(/MALLING/g, 'ON GOING');
             modal.classList.remove('hidden');
 
             const chartOriginal = Chart.getChart(canvasOrigem);
@@ -3659,7 +3742,7 @@
             }
         }
 
-        // 2. Expansor de Tabelas em Tela Cheia (Injetado via JS para não alterar a Parte 01)
+        // 2. Expansor de Tabelas em Tela Cheia
         function garantirModalExpandirTabela() {
             if (document.getElementById('modal-expandir-tabela')) return;
             const modalHtml = `
@@ -3698,7 +3781,7 @@
             const tabelaOriginal = tbodyOrigem.closest('table');
             if (!tabelaOriginal) return;
 
-            if (titulo) titulo.innerText = tituloJanela;
+            if (titulo) titulo.innerText = tituloJanela.replace(/MALLING/g, 'ON GOING');
             container.innerHTML = "";
 
             const tabelaClone = tabelaOriginal.cloneNode(true);
@@ -3708,7 +3791,6 @@
                 theadClone.classList.add('sticky', 'top-0', 'z-10', 'shadow-sm');
             }
 
-            // Preserva os eventos de clique (Modo Explosão) de cada linha da tabela original
             const linhasOriginais = tbodyOrigem.querySelectorAll('tr');
             const tbodyClone = tabelaClone.querySelector('tbody');
             if (tbodyClone) {
@@ -3734,7 +3816,6 @@
             if (modal) modal.classList.add('hidden');
         }
 
-        // Injeta automaticamente os botões "⛶ Expandir Tabela" em todas as tabelas da aba Gráficos & Indicadores
         function injetarBotoesExpansaoTabelasGraficos() {
             garantirModalExpandirTabela();
 
@@ -3746,7 +3827,7 @@
                 },
                 {
                     idTbody: 'tabela-cruzamento-executores-corpo',
-                    titulo: '🔀 Matriz de Cruzamento: Executores × Projetos (MALLING & PROJETO F)',
+                    titulo: '🔀 Matriz de Cruzamento: Executores × Projetos (ON GOING & PROJETO F)',
                     corBtn: 'bg-indigo-900 hover:bg-indigo-950 text-white'
                 },
                 {
@@ -3804,7 +3885,6 @@
             });
         }
 
-        // Autorização do Gestor para Reabrir Atividade para o Técnico com Registro em Auditoria
         async function autorizarReaberturaCampo(id) {
             if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
                 alert("⚠️ Apenas Gestores (Master ou Operador) podem autorizar a reabertura de uma atividade.");
@@ -4047,6 +4127,8 @@
         }
 
         async function atualizarDashboardGestor() {
+            atualizarTextosMallingParaOnGoingDOM();
+
             if (!registrosSalvos || registrosSalvos.length === 0) {
                 await carregarRegistrosDaNuvem();
             }
@@ -4358,7 +4440,7 @@
             }
 
             try { renderizarPainelPrincipalExecutores(finalizadas); } catch (e) { console.warn("Aviso Painel Executores:", e); }
-            try { renderizarPainelMallingEProjetoF(finalizadas); } catch (e) { console.warn("Aviso Painel Malling/ProjF:", e); }
+            try { renderizarPainelMallingEProjetoF(finalizadas); } catch (e) { console.warn("Aviso Painel OnGoing/ProjF:", e); }
             try { renderizarGraficos(finalizadas); } catch (e) { console.warn("Aviso Gráficos Gerais:", e); }
             try { renderizarRankingTecnicos(finalizadas); } catch (e) { console.warn("Aviso Ranking Técnicos:", e); }
             try { renderizarOfensoresMalogro(finalizadas); } catch (e) { console.warn("Aviso Ofensores Malogro:", e); }
@@ -4533,23 +4615,25 @@
         }
 
         function renderizarPainelMallingEProjetoF(dados) {
-            const dadosMalling = dados.filter(d => obterMacroGrupoProjeto(d.projeto) === 'MALLING');
-            const badgeMalling = document.getElementById('badge-total-malling');
-            if (badgeMalling) badgeMalling.innerText = `${dadosMalling.length} total`;
+            atualizarTextosMallingParaOnGoingDOM();
 
-            const mallingConcluidas = PROJETOS_GRUPO_MALLING.map(p => dadosMalling.filter(d => d.projeto === p && d.desfecho === 'CONCLUIDA').length);
-            const mallingPendMalo   = PROJETOS_GRUPO_MALLING.map(p => dadosMalling.filter(d => d.projeto === p && d.desfecho !== 'CONCLUIDA').length);
+            const dadosOnGoing = dados.filter(d => obterMacroGrupoProjeto(d.projeto) === 'ON GOING');
+            const badgeOnGoing = document.getElementById('badge-total-malling');
+            if (badgeOnGoing) badgeOnGoing.innerText = `${dadosOnGoing.length} total`;
 
-            const ctxMalling = document.getElementById('graficoGrupoMalling')?.getContext('2d');
-            if (ctxMalling) {
+            const onGoingConcluidas = PROJETOS_GRUPO_MALLING.map(p => dadosOnGoing.filter(d => d.projeto === p && d.desfecho === 'CONCLUIDA').length);
+            const onGoingPendMalo   = PROJETOS_GRUPO_MALLING.map(p => dadosOnGoing.filter(d => d.projeto === p && d.desfecho !== 'CONCLUIDA').length);
+
+            const ctxOnGoing = document.getElementById('graficoGrupoMalling')?.getContext('2d');
+            if (ctxOnGoing) {
                 if (graficoGrupoMallingInstancia) graficoGrupoMallingInstancia.destroy();
-                graficoGrupoMallingInstancia = new Chart(ctxMalling, {
+                graficoGrupoMallingInstancia = new Chart(ctxOnGoing, {
                     type: 'bar',
                     data: {
                         labels: PROJETOS_GRUPO_MALLING,
                         datasets: [
-                            { label: 'Concluídas', data: mallingConcluidas, backgroundColor: '#0284c7', borderRadius: 5 },
-                            { label: 'Pendentes / Malogradas', data: mallingPendMalo, backgroundColor: '#f59e0b', borderRadius: 5 }
+                            { label: 'Concluídas', data: onGoingConcluidas, backgroundColor: '#0284c7', borderRadius: 5 },
+                            { label: 'Pendentes / Malogradas', data: onGoingPendMalo, backgroundColor: '#f59e0b', borderRadius: 5 }
                         ]
                     },
                     options: {
@@ -4594,7 +4678,7 @@
             }
 
             const datasOrdenadas = [...new Set(dados.map(d => d.dataRegistro).filter(Boolean))].sort();
-            const serieMallingDia = datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && obterMacroGrupoProjeto(d.projeto) === 'MALLING').length);
+            const serieOnGoingDia = datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && obterMacroGrupoProjeto(d.projeto) === 'ON GOING').length);
             const serieProjFDia   = datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && obterMacroGrupoProjeto(d.projeto) === 'PROJETO F').length);
 
             const ctxEvo = document.getElementById('graficoEvolucaoGrupos')?.getContext('2d');
@@ -4606,8 +4690,8 @@
                         labels: datasOrdenadas.length > 0 ? datasOrdenadas : ['Sem datas'],
                         datasets: [
                             {
-                                label: '🏢 Evolução Grupo MALLING',
-                                data: datasOrdenadas.length > 0 ? serieMallingDia : [0],
+                                label: '🏢 Evolução Grupo ON GOING',
+                                data: datasOrdenadas.length > 0 ? serieOnGoingDia : [0],
                                 borderColor: '#0284c7',
                                 backgroundColor: 'rgba(2, 132, 199, 0.15)',
                                 fill: true,
@@ -4661,9 +4745,9 @@
 
             listaCruz.forEach(item => {
                 const c = item.contagem;
-                const subMalling = (c['VISTORIA'] || 0) + (c['CONSTRUÇÃO ON GOING'] || 0) + (c['CONSTRUÇÃO NAP LOTADA'] || 0) + (c['ATIVAÇÃO ON GOING'] || 0) + (c['ATIVAÇÃO NAP LOTADA'] || 0);
+                const subOnGoing = (c['VISTORIA'] || 0) + (c['CONSTRUÇÃO ON GOING'] || 0) + (c['CONSTRUÇÃO NAP LOTADA'] || 0) + (c['ATIVAÇÃO ON GOING'] || 0) + (c['ATIVAÇÃO NAP LOTADA'] || 0);
                 const subProjF   = (c['CONSTRUÇÃO F'] || 0) + (c['ATIVAÇÃO F'] || 0);
-                const totalGeral = subMalling + subProjF;
+                const totalGeral = subOnGoing + subProjF;
 
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50 border-b cursor-pointer";
@@ -4677,7 +4761,7 @@
                     <td class="p-2 text-center ${c['CONSTRUÇÃO NAP LOTADA'] > 0 ? 'font-bold text-blue-800' : 'text-slate-300'}">${c['CONSTRUÇÃO NAP LOTADA']}</td>
                     <td class="p-2 text-center ${c['ATIVAÇÃO ON GOING'] > 0 ? 'font-bold text-emerald-800' : 'text-slate-300'}">${c['ATIVAÇÃO ON GOING']}</td>
                     <td class="p-2 text-center ${c['ATIVAÇÃO NAP LOTADA'] > 0 ? 'font-bold text-emerald-800' : 'text-slate-300'}">${c['ATIVAÇÃO NAP LOTADA']}</td>
-                    <td class="p-2 text-center font-black bg-blue-100/70 text-blue-950">${subMalling}</td>
+                    <td class="p-2 text-center font-black bg-blue-100/70 text-blue-950">${subOnGoing}</td>
                     <td class="p-2 text-center ${c['CONSTRUÇÃO F'] > 0 ? 'font-bold text-indigo-800' : 'text-slate-300'}">${c['CONSTRUÇÃO F']}</td>
                     <td class="p-2 text-center ${c['ATIVAÇÃO F'] > 0 ? 'font-bold text-indigo-800' : 'text-slate-300'}">${c['ATIVAÇÃO F']}</td>
                     <td class="p-2 text-center font-black bg-indigo-100/70 text-indigo-950">${subProjF}</td>
