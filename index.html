@@ -106,7 +106,7 @@
                         </select>
                         <select id="gestor-filtro-projeto" onchange="atualizarDashboardGestor()" class="w-full text-[11px] border border-slate-300 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-700">
                             <option value="">🏗️ Todos os Projetos</option>
-                            <optgroup label="Grupo ON GOING">
+                            <optgroup label="Grupo MALLING">
                                 <option value="VISTORIA">VISTORIA (Vistoriador)</option>
                                 <option value="CONSTRUÇÃO ON GOING">CONSTRUÇÃO ON GOING (Instalador)</option>
                                 <option value="CONSTRUÇÃO NAP LOTADA">CONSTRUÇÃO NAP LOTADA (Instalador)</option>
@@ -197,7 +197,7 @@
             <!-- Sub-Aba: Atividades -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-3.5 bg-slate-50 border-b border-slate-200 font-bold text-slate-800 text-xs sm:text-sm flex flex-wrap justify-between items-center gap-2">
-                    <span>📋 Atividades em Campo, Programadas e Finalizadas (Imóveis com vários blocos ficam agrupados em 1 linha 📂)</span>
+                    <span>📋 Atividades em Campo, Programadas e Finalizadas (Clique na linha para ver detalhes e fotos 📷)</span>
                     <span class="text-xs font-bold bg-blue-100 text-blue-900 px-2.5 py-1 rounded-lg" id="contador-resultados">0 registros</span>
                 </div>
                 <div class="overflow-x-auto">
@@ -295,14 +295,14 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos & Indicadores (Todos os gráficos e tabelas possuem botão ⛶ Expandir) -->
+            <!-- Sub-Aba: Gráficos & Indicadores (Todos os gráficos agora possuem botão ⛶ Expandir) -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 
                 <!-- Cards de Números Gerais exclusivos na aba Gráficos & Indicadores -->
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-2.5">
                     <div class="flex flex-wrap justify-between items-center gap-2">
                         <span class="text-xs font-black text-slate-700 uppercase">📌 Resumo Geral de Volumes por Projeto (Período Filtrado)</span>
-                        <span class="text-[11px] text-blue-800 font-medium">💡 Use o botão <b>⛶ Expandir</b> em qualquer gráfico ou tabela para apresentação em tela cheia</span>
+                        <span class="text-[11px] text-blue-800 font-medium">💡 Use o botão <b>⛶ Expandir</b> em qualquer gráfico para apresentação em tela cheia</span>
                     </div>
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
                         <div class="bg-blue-50 p-3 rounded-xl shadow-sm border border-blue-300 flex flex-col justify-between">
@@ -469,14 +469,14 @@
                     </div>
                 </div>
 
-                <!-- EVOLUÇÃO DOS PROJETOS (ON GOING vs PROJETO F) E CRUZAMENTO DE EXECUTORES -->
+                <!-- EVOLUÇÃO DOS PROJETOS (MALLING vs PROJETO F) E CRUZAMENTO DE EXECUTORES -->
                 <div class="bg-white rounded-2xl shadow-md border-2 border-indigo-900/20 overflow-hidden">
                     <div class="bg-indigo-950 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
                             <span class="bg-amber-400 text-indigo-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Análise por Grupos de Projeto</span>
-                            <h3 class="font-bold text-base mt-1">📈 Evolução e Cruzamento: Grupo ON GOING vs. Grupo PROJETO F</h3>
+                            <h3 class="font-bold text-base mt-1">📈 Evolução e Cruzamento: Grupo MALLING vs. Grupo PROJETO F</h3>
                             <p class="text-xs text-indigo-200">
-                                <b>ON GOING:</b> Vistoria, Constr. On Going, Constr. Nap Lotada, Ativ. On Going, Ativ. Nap Lotada &nbsp;|&nbsp;
+                                <b>MALLING:</b> Vistoria, Constr. On Going, Constr. Nap Lotada, Ativ. On Going, Ativ. Nap Lotada &nbsp;|&nbsp;
                                 <b>PROJETO F:</b> Construção F e Ativação F
                             </p>
                         </div>
@@ -484,16 +484,16 @@
 
                     <div class="p-5 space-y-6">
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <!-- Gráfico 2: Grupo ON GOING -->
+                            <!-- Gráfico 2: Grupo Malling -->
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
                                 <div class="flex justify-between items-start mb-2 gap-2">
                                     <div>
-                                        <h4 class="text-xs font-black text-blue-950 uppercase">🏢 Grupo ON GOING (Volume e Desfecho por Projeto)</h4>
+                                        <h4 class="text-xs font-black text-blue-950 uppercase">🏢 Grupo MALLING (Volume e Desfecho por Projeto)</h4>
                                         <p class="text-[10px] text-slate-500">Vistoria • Constr. On Going • Constr. Nap Lotada • Ativ. On Going • Ativ. Nap Lotada</p>
                                     </div>
                                     <div class="flex items-center gap-1.5">
                                         <span id="badge-total-malling" class="bg-blue-100 text-blue-900 font-black text-xs px-2.5 py-1 rounded-lg whitespace-nowrap">0 total</span>
-                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoMalling', '🏢 Grupo ON GOING - Volume e Desfecho por Projeto')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
+                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoMalling', '🏢 Grupo MALLING - Volume e Desfecho por Projeto')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
                                             ⛶ Expandir
                                         </button>
                                     </div>
@@ -523,10 +523,10 @@
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                             <div class="flex justify-between items-start mb-3 gap-2">
                                 <div>
-                                    <h4 class="text-xs font-black text-slate-800 uppercase mb-0.5">📅 Curva de Evolução Diária: ON GOING vs. PROJETO F</h4>
+                                    <h4 class="text-xs font-black text-slate-800 uppercase mb-0.5">📅 Curva de Evolução Diária: MALLING vs. PROJETO F</h4>
                                     <p class="text-[11px] text-slate-500">Acompanhamento dia a dia do ritmo de entregas de cada macrogrupo de projeto</p>
                                 </div>
-                                <button type="button" onclick="expandirGraficoModal('graficoEvolucaoGrupos', '📅 Curva de Evolução Diária: ON GOING vs. PROJETO F')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                <button type="button" onclick="expandirGraficoModal('graficoEvolucaoGrupos', '📅 Curva de Evolução Diária: MALLING vs. PROJETO F')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
                                     ⛶ Expandir
                                 </button>
                             </div>
@@ -534,7 +534,7 @@
                         </div>
 
                         <div class="space-y-2">
-                            <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento: Executores × Projetos (ON GOING & PROJETO F)</h4>
+                            <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento: Executores × Projetos (MALLING & PROJETO F)</h4>
                             <p class="text-[11px] text-slate-500">Visão cruzada de quantas atividades cada executor realizou em cada projeto e macrogrupo</p>
                             <div class="overflow-x-auto border border-slate-200 rounded-xl">
                                 <table class="w-full text-left border-collapse text-[11px]">
@@ -547,7 +547,7 @@
                                             <th class="p-2 text-center bg-blue-50 text-blue-900">Const. Nap Lot.</th>
                                             <th class="p-2 text-center bg-blue-50 text-blue-900">Ativ. On Going</th>
                                             <th class="p-2 text-center bg-blue-50 text-blue-900">Ativ. Nap Lot.</th>
-                                            <th class="p-2 text-center bg-blue-200 text-blue-950 font-black">Subtotal ON GOING</th>
+                                            <th class="p-2 text-center bg-blue-200 text-blue-950 font-black">Subtotal MALLING</th>
                                             <th class="p-2 text-center bg-indigo-50 text-indigo-900">Construção F</th>
                                             <th class="p-2 text-center bg-indigo-50 text-indigo-900">Ativação F</th>
                                             <th class="p-2 text-center bg-indigo-200 text-indigo-950 font-black">Subtotal PROJ. F</th>
@@ -912,7 +912,7 @@
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
                         <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos e Setor de Atuação</h3>
-                        <p class="text-[11px] text-slate-500">Defina se o técnico atua como <b>Vistoriador</b>, <b>Instalador</b> e/ou <b>Ativador</b> (suporta marcação múltipla e gestão de PIN)</p>
+                        <p class="text-[11px] text-slate-500">Defina se o técnico atua como <b>Vistoriador</b>, <b>Instalador</b> e/ou <b>Ativador</b> (suporta marcação múltipla)</p>
                     </div>
                     <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-nova-equipe">+ Nova Equipe</button>
                 </div>
@@ -924,7 +924,7 @@
                                 <th class="p-3">Setor de Atuação (Vistoriador / Instalador / Ativador)</th>
                                 <th class="p-3">Projetos Habilitados no Campo</th>
                                 <th class="p-3">Status</th>
-                                <th class="p-3" id="th-equipe-acoes">Ações / PIN</th>
+                                <th class="p-3" id="th-equipe-acoes">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-equipes-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -1052,18 +1052,6 @@
                     <span class="text-[11px] bg-blue-50 text-blue-900 px-2.5 py-1 rounded-lg font-bold" id="current-user-team">Selecione Equipe</span>
                 </div>
 
-                <!-- Banner de Alerta Sonoro de Nova Atividade Recebida no Smartphone -->
-                <div id="banner-alerta-sonoro-campo" class="bg-indigo-600 text-white p-3 rounded-xl shadow-lg flex justify-between items-center hidden animate-bounce">
-                    <div class="flex items-center gap-2">
-                        <span class="text-lg">🔔</span>
-                        <div class="text-xs">
-                            <b class="block uppercase">Nova Ordem Recebida!</b>
-                            <span class="text-[10px] text-indigo-100">A gestão enviou ou reabriu uma atividade para você.</span>
-                        </div>
-                    </div>
-                    <button type="button" onclick="document.getElementById('banner-alerta-sonoro-campo').classList.add('hidden')" class="bg-indigo-800 hover:bg-indigo-900 text-white text-xs font-bold px-2.5 py-1 rounded-lg">OK</button>
-                </div>
-
                 <!-- Alerta de Atividades Reabertas pelo Gestor para Correção do Técnico -->
                 <div id="box-reabertas-campo" class="bg-purple-50 border-2 border-purple-400 p-3.5 rounded-xl space-y-2 hidden shadow-sm">
                     <div class="flex items-start gap-2">
@@ -1078,15 +1066,12 @@
 
                 <!-- Caixa de Atividades Programadas via Planilha para o Técnico -->
                 <div id="box-programadas-campo" class="bg-cyan-50 border-2 border-cyan-400 p-3.5 rounded-xl space-y-2 hidden shadow-sm">
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="flex items-start gap-2">
-                            <span class="text-lg">📋</span>
-                            <div>
-                                <h4 class="text-xs font-black text-cyan-950 uppercase">Suas Atividades Programadas pela Gestão</h4>
-                                <p class="text-[11px] text-cyan-800">Clique em Iniciar para carregar o imóvel e os blocos automaticamente:</p>
-                            </div>
+                    <div class="flex items-start gap-2">
+                        <span class="text-lg">📋</span>
+                        <div>
+                            <h4 class="text-xs font-black text-cyan-950 uppercase">Suas Atividades Programadas pela Gestão</h4>
+                            <p class="text-[11px] text-cyan-800">Clique em Iniciar para carregar o imóvel e a quantidade de blocos automaticamente:</p>
                         </div>
-                        <button type="button" onclick="tocarAlertaSonoroCelular()" class="text-[10px] bg-cyan-200/80 hover:bg-cyan-300 text-cyan-950 font-bold px-2 py-1 rounded-md whitespace-nowrap" title="Testar som de notificação no celular">🔊 Som</button>
                     </div>
                     <div id="lista-programadas-campo" class="space-y-1.5 pt-1 max-h-56 overflow-y-auto"></div>
                 </div>
@@ -1203,7 +1188,7 @@
 
     <!-- ================= MODAIS DO SISTEMA ================= -->
 
-    <!-- MODAL DE EXPANSÃO DE GRÁFICO EM TELA CHEIA (MODO APRESENTAÇÃO) -->
+    <!-- NOVO MODAL DE EXPANSÃO DE GRÁFICO EM TELA CHEIA (MODO APRESENTAÇÃO) -->
     <div id="modal-expandir-grafico" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center p-2 sm:p-6 hidden z-[65]">
         <div class="bg-white w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col h-[88vh]">
             <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-cyan-400">
@@ -1614,7 +1599,7 @@
         function obterMacroGrupoProjeto(projeto) {
             const p = normalizarNomeProjeto(projeto);
             if (PROJETOS_GRUPO_PROJETO_F.includes(p)) return "PROJETO F";
-            if (PROJETOS_GRUPO_MALLING.includes(p)) return "ON GOING";
+            if (PROJETOS_GRUPO_MALLING.includes(p)) return "MALLING";
             return "OUTROS";
         }
 
@@ -1692,18 +1677,15 @@
             id: index + 1,
             nome: nome,
             setor: "Instalador",
-            status: "Ativo",
-            pin: "1234"
+            status: "Ativo"
         }));
 
         equipesSistema = equipesSistema.map(eq => ({
             ...eq,
-            setor: formatarSetoresString(eq.setor || "Instalador"),
-            pin: eq.pin || "1234"
+            setor: formatarSetoresString(eq.setor || "Instalador")
         }));
 
-        // Estado de atendimento com controle de origem (se veio Programada ou Reaberta)
-        let dadosAtendimento = { idEmAndamento: null, eraReaberta: false, eraProgramada: false, hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, blocos: [] };
+        let dadosAtendimento = { idEmAndamento: null, eraReaberta: false, hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, blocos: [] };
         let registrosSalvos = [];
         let usuariosSistema = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [
             { id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", senha: "Leo290301@", nivel: "Master", status: "Ativo" }
@@ -1711,9 +1693,6 @@
         let trilhaAuditoria = JSON.parse(localStorage.getItem('gpd_trilha_auditoria')) || [];
         let usuarioLogado = sessionStorage.getItem('gpd_user_logado') || null;
         let nivelUsuarioLogado = "Visualizador";
-
-        // Controle de IDs já notificados sonoramente no smartphone do técnico
-        let idsNotificadosSonoramente = new Set(JSON.parse(sessionStorage.getItem('gpd_ids_notificados_som') || '[]'));
 
         let graficoPrincipalExecutoresInstancia = null;
         let graficoGrupoMallingInstancia = null;
@@ -1744,42 +1723,6 @@
             "CX SOBREPOR": { codigo: "1.10", desc: "INSTALAÇÃO DE CAIXA - SOPREPOR", unidade: "Unidade", valor: 83.76 },
             "CX EMBUTIDA": { codigo: "1.11", desc: "INSTALAÇÃO DE CAIXA - EMBUTIDA", unidade: "Unidade", valor: 150.76 }
         };
-
-        // PONTO 03: Alerta sonoro duplo + vibração no smartphone via Web Audio API (Sem arquivos externos)
-        function tocarAlertaSonoroCelular() {
-            try {
-                const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                if (AudioCtx) {
-                    const ctx = new AudioCtx();
-                    // 1º Bip (Nota Ré5)
-                    const osc1 = ctx.createOscillator();
-                    const gain1 = ctx.createGain();
-                    osc1.type = 'sine';
-                    osc1.frequency.setValueAtTime(587.33, ctx.currentTime);
-                    gain1.gain.setValueAtTime(0.22, ctx.currentTime);
-                    osc1.connect(gain1);
-                    gain1.connect(ctx.destination);
-                    osc1.start(ctx.currentTime);
-                    osc1.stop(ctx.currentTime + 0.18);
-
-                    // 2º Bip (Nota Lá5 - mais agudo e claro)
-                    const osc2 = ctx.createOscillator();
-                    const gain2 = ctx.createGain();
-                    osc2.type = 'sine';
-                    osc2.frequency.setValueAtTime(880.00, ctx.currentTime + 0.22);
-                    gain2.gain.setValueAtTime(0.25, ctx.currentTime + 0.22);
-                    osc2.connect(gain2);
-                    gain2.connect(ctx.destination);
-                    osc2.start(ctx.currentTime + 0.22);
-                    osc2.stop(ctx.currentTime + 0.48);
-                }
-                if (navigator.vibrate) {
-                    navigator.vibrate([250, 120, 250]);
-                }
-            } catch (e) {
-                console.warn("Aviso sonoro aguardando interação na tela:", e);
-            }
-        }
 
         async function sincronizarUsuariosNaNuvem() {
             try {
@@ -1983,7 +1926,7 @@
             if (d === 'CONCLUIDA' || d === 'CONCLUÍDA' || d === 'IMPREVISTO RESOLVIDO') {
                 return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
             }
-            if (d === 'PENDENTE' || d === 'IMPREVISTO' || d.includes('MÚLTIPLO')) {
+            if (d === 'PENDENTE' || d === 'IMPREVISTO') {
                 return 'bg-amber-100 text-amber-800 border border-amber-300';
             }
             if (d === 'MALOGRADA') {
@@ -2003,7 +1946,7 @@
             verificarPermissoesSessao();
             restaurarRascunhoCampo();
             verificarImprevistoAtivoEquipeCampo();
-            verificarPendenciasReabertasEProgramadasCampo(false);
+            verificarPendenciasReabertasEProgramadasCampo();
 
             if (usuarioLogado) {
                 document.getElementById('badge-usuario-logado').classList.remove('hidden');
@@ -2015,7 +1958,6 @@
                 alternarVisao('campo');
             }
 
-            // Sincronização automática do Painel Gestor (180s)
             setInterval(async () => {
                 const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
                 const algumModalAberto = 
@@ -2036,17 +1978,6 @@
                     if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
                 }
             }, 180000);
-
-            // PONTO 03: Sincronização em tempo real do Modo Campo (a cada 25s) para tocar Alerta Sonoro quando chegar nova atividade
-            setInterval(async () => {
-                const viewCampoAtiva = !document.getElementById('view-campo').classList.contains('hidden');
-                const eqSelecionada = document.getElementById('sel-equipe')?.value;
-                if (viewCampoAtiva && eqSelecionada) {
-                    await carregarRegistrosDaNuvem();
-                    verificarImprevistoAtivoEquipeCampo();
-                    verificarPendenciasReabertasEProgramadasCampo(true);
-                }
-            }, 25000);
         };
 
         function comprimirImagemBase64(file, maxWidth = 780, quality = 0.60) {
@@ -2389,7 +2320,6 @@
                 emAndamento: posAberturaVisivel,
                 idEmAndamento: dadosAtendimento.idEmAndamento,
                 eraReaberta: dadosAtendimento.eraReaberta || false,
-                eraProgramada: dadosAtendimento.eraProgramada || false,
                 equipe: document.getElementById('sel-equipe').value,
                 projeto: document.getElementById('sel-projeto').value,
                 imovel: document.getElementById('inp-imovel').value,
@@ -2469,7 +2399,6 @@
                 if (r.emAndamento) {
                     dadosAtendimento.idEmAndamento = r.idEmAndamento || null;
                     dadosAtendimento.eraReaberta = r.eraReaberta || false;
-                    dadosAtendimento.eraProgramada = r.eraProgramada || false;
                     dadosAtendimento.hEntrada = r.hEntrada;
                     dadosAtendimento.gpsEntrada = r.gpsEntrada;
                     dadosAtendimento.blocos = (Array.isArray(r.blocos) && r.blocos.length > 0) ? r.blocos : [criarObjetoBlocoPadrao(1)];
@@ -2495,50 +2424,15 @@
             }
         }
 
-        // PONTO 01: Correção completa do botão Cancelar Abertura (Devolve para o perfil do técnico se era Programada ou Reaberta!)
         async function cancelarCheckinAberto() {
-            if (!confirm("Deseja realmente cancelar a abertura atual e retornar a atividade para o seu perfil?")) return;
-
-            const equipeAtual = document.getElementById('sel-equipe').value;
-            const idAtivo = dadosAtendimento.idEmAndamento;
-            const regExistente = registrosSalvos.find(r => r.id === idAtivo);
-            const veioDeProgramada = dadosAtendimento.eraProgramada || (regExistente && regExistente.motivoDesfecho && regExistente.motivoDesfecho.toLowerCase().includes('programada'));
-
-            if (idAtivo) {
-                if (dadosAtendimento.eraReaberta) {
-                    await supabaseClient.from('registros_producao').update({
-                        desfecho: "REABERTA",
-                        h_saida: "Aguardando"
-                    }).eq('id', idAtivo);
-                } else if (veioDeProgramada) {
-                    // Retorna exatamente para a fila de PROGRAMADAS do técnico sem apagar!
-                    await supabaseClient.from('registros_producao').update({
-                        desfecho: "PROGRAMADA",
-                        h_entrada: "Programada",
-                        h_saida: "Aguardando",
-                        gps_entrada: "Carga Gestor",
-                        motivo_desfecho: "Carga Programada (Retornada à fila pelo técnico)"
-                    }).eq('id', idAtivo);
-                } else {
-                    await supabaseClient.from('registros_producao').delete().eq('id', idAtivo);
+            if (confirm("Deseja realmente cancelar a edição/abertura atual?")) {
+                if (dadosAtendimento.idEmAndamento && !dadosAtendimento.eraReaberta) {
+                    await supabaseClient.from('registros_producao').delete().eq('id', dadosAtendimento.idEmAndamento);
                 }
-            }
-
-            localStorage.removeItem('gpd_rascunho_campo_ativo');
-            resetarFormularioCampo();
-
-            // Mantém o técnico logado no perfil dele no Modo Campo e recarrega as caixas de Programadas / Reabertas
-            if (equipeAtual) {
-                document.getElementById('sel-equipe').value = equipeAtual;
-                document.getElementById('current-user-team').innerText = equipeAtual;
-                atualizarProjetosPermitidosCampo(equipeAtual);
-            }
-
-            await carregarRegistrosDaNuvem();
-            verificarImprevistoAtivoEquipeCampo();
-            verificarPendenciasReabertasEProgramadasCampo(false);
-            if (typeof atualizarBarraSegurancaPinCampo === 'function') {
-                atualizarBarraSegurancaPinCampo();
+                localStorage.removeItem('gpd_rascunho_campo_ativo');
+                resetarFormularioCampo();
+                await carregarRegistrosDaNuvem();
+                verificarPendenciasReabertasEProgramadasCampo();
             }
         }
 
@@ -2548,17 +2442,15 @@
             atualizarProjetosPermitidosCampo(eq);
             salvarRascunhoCampo();
             verificarImprevistoAtivoEquipeCampo();
-            verificarPendenciasReabertasEProgramadasCampo(false);
+            verificarPendenciasReabertasEProgramadasCampo();
         }
 
-        // PONTO 01 e PONTO 03: Verifica atividades Programadas/Reabertas e toca aviso sonoro se houver nova ordem
-        function verificarPendenciasReabertasEProgramadasCampo(dispararSomSeNovo = true) {
+        function verificarPendenciasReabertasEProgramadasCampo() {
             const equipeSelecionada = document.getElementById('sel-equipe').value;
             const boxReab = document.getElementById('box-reabertas-campo');
             const listaReab = document.getElementById('lista-reabertas-campo');
             const boxProg = document.getElementById('box-programadas-campo');
             const listaProg = document.getElementById('lista-programadas-campo');
-            const posAberturaVisivel = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
 
             if (!equipeSelecionada) {
                 if (boxReab) boxReab.classList.add('hidden');
@@ -2567,33 +2459,6 @@
             }
 
             const reabertas = registrosSalvos.filter(r => r.equipe === equipeSelecionada && r.desfecho === 'REABERTA');
-            const programadas = registrosSalvos.filter(r => r.equipe === equipeSelecionada && r.desfecho === 'PROGRAMADA');
-
-            // Verifica se chegou algum ID novo para disparar o alerta sonoro no smartphone
-            let detectouNovaOrdem = false;
-            [...reabertas, ...programadas].forEach(item => {
-                if (!idsNotificadosSonoramente.has(item.id)) {
-                    idsNotificadosSonoramente.add(item.id);
-                    detectouNovaOrdem = true;
-                }
-            });
-
-            if (detectouNovaOrdem) {
-                sessionStorage.setItem('gpd_ids_notificados_som', JSON.stringify([...idsNotificadosSonoramente]));
-                if (dispararSomSeNovo) {
-                    tocarAlertaSonoroCelular();
-                    const bannerSom = document.getElementById('banner-alerta-sonoro-campo');
-                    if (bannerSom) bannerSom.classList.remove('hidden');
-                }
-            }
-
-            // Se o técnico já está preenchendo um imóvel aberto, mantém as listas recolhidas até ele finalizar ou cancelar
-            if (posAberturaVisivel) {
-                if (boxReab) boxReab.classList.add('hidden');
-                if (boxProg) boxProg.classList.add('hidden');
-                return;
-            }
-
             if (boxReab && listaReab) {
                 if (reabertas.length > 0) {
                     listaReab.innerHTML = reabertas.map(r => `
@@ -2613,6 +2478,7 @@
                 }
             }
 
+            const programadas = registrosSalvos.filter(r => r.equipe === equipeSelecionada && r.desfecho === 'PROGRAMADA');
             if (boxProg && listaProg) {
                 if (programadas.length > 0) {
                     listaProg.innerHTML = programadas.map(r => {
@@ -2650,7 +2516,6 @@
 
             dadosAtendimento.idEmAndamento = r.id;
             dadosAtendimento.eraReaberta = true;
-            dadosAtendimento.eraProgramada = false;
             dadosAtendimento.hEntrada = r.hEntrada || new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
             dadosAtendimento.gpsEntrada = r.gpsEntrada || "Mantido da abertura";
 
@@ -2694,7 +2559,6 @@
 
             document.getElementById('form-campo-container').classList.add('hidden');
             document.getElementById('box-reabertas-campo').classList.add('hidden');
-            document.getElementById('box-programadas-campo').classList.add('hidden');
             document.getElementById('bloco-pos-abertura').classList.remove('hidden');
 
             mudarTipoProjeto();
@@ -2732,7 +2596,6 @@
 
             dadosAtendimento.idEmAndamento = r.id;
             dadosAtendimento.eraReaberta = false;
-            dadosAtendimento.eraProgramada = true;
             dadosAtendimento.hEntrada = horaEntradaAtual;
             dadosAtendimento.gpsEntrada = coordReal;
 
@@ -2759,7 +2622,6 @@
 
             document.getElementById('form-campo-container').classList.add('hidden');
             document.getElementById('box-programadas-campo').classList.add('hidden');
-            document.getElementById('box-reabertas-campo').classList.add('hidden');
             document.getElementById('bloco-pos-abertura').classList.remove('hidden');
 
             mudarTipoProjeto();
@@ -2945,7 +2807,7 @@
             const impr = listaImprevistosAtuais.length;
             const efic = totalObras > 0 ? ((conc / totalObras) * 100).toFixed(1) : "0.0";
 
-            const totOnGoing = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'ON GOING').length;
+            const totMalling = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'MALLING').length;
             const totProjF = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'PROJETO F').length;
 
             const dIni = document.getElementById('gestor-filtro-data-inicio').value;
@@ -2967,7 +2829,7 @@
                 `🔴 *Malogradas:* ${malo}`,
                 `⚠️ *Imprevistos Reportados:* ${impr}`,
                 `────────────────────`,
-                `🏢 *Grupo ON GOING:* ${totOnGoing} ativ.`,
+                `🏢 *Grupo MALLING:* ${totMalling} ativ.`,
                 `🚀 *Grupo PROJETO F:* ${totProjF} ativ.`,
                 `────────────────────`,
                 `⏱️ *Tempo Médio (TMA):* ${tmaStr}`,
@@ -3114,7 +2976,7 @@
                 btnGestor.className = "px-3 py-1.5 text-xs font-medium rounded-lg transition text-cyan-200 hover:text-white";
                 subtitle.innerText = "Setor Construção MDU • PROCISA RJ";
                 verificarImprevistoAtivoEquipeCampo();
-                verificarPendenciasReabertasEProgramadasCampo(false);
+                verificarPendenciasReabertasEProgramadasCampo();
             }
         }
 
@@ -3179,11 +3041,7 @@
                         try {
                             const nuvemEq = JSON.parse(rowEquipes.observacoes);
                             if (Array.isArray(nuvemEq) && nuvemEq.length > 0) {
-                                equipesSistema = nuvemEq.map(eq => ({
-                                    ...eq,
-                                    setor: formatarSetoresString(eq.setor || "Instalador"),
-                                    pin: eq.pin || "1234"
-                                }));
+                                equipesSistema = nuvemEq.map(eq => ({ ...eq, setor: formatarSetoresString(eq.setor || "Instalador") }));
                                 localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
                             }
                         } catch (e) { console.warn("Erro ao ler JSON de equipes da nuvem:", e); }
@@ -3297,17 +3155,16 @@
             atualizarDashboardGestor();
             const lblHora = document.getElementById('txt-hora-sync');
             if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
-            alert("🔄 Dados, fotos, agrupamentos de blocos e indicadores atualizados da nuvem!");
+            alert("🔄 Dados, fotos, grupos de equipes e indicadores atualizados da nuvem!");
         }
 
         function mudarTipoProjeto() {
             const projeto = document.getElementById('sel-projeto').value;
             const titulo = document.getElementById('titulo-form-dinamico');
-            if (!titulo) return;
             if (!projeto) {
                 titulo.innerText = "1. Dados Gerais do Condomínio / Imóvel";
             } else if (projeto === 'VISTORIA') {
-                titulo.innerText = "1. Dados Gerais da Vistoria e Endereço (ON GOING)";
+                titulo.innerText = "1. Dados Gerais da Vistoria e Endereço (MALLING)";
             } else {
                 titulo.innerText = `1. Dados Gerais do Imóvel (${projeto} • ${obterMacroGrupoProjeto(projeto)})`;
             }
@@ -3407,7 +3264,6 @@
             } else {
                 dadosAtendimento.idEmAndamento = idTemp;
                 dadosAtendimento.eraReaberta = false;
-                dadosAtendimento.eraProgramada = false;
             }
 
             if (btnCheckin) {
@@ -3420,8 +3276,6 @@
 
             document.getElementById('lbl-status-execucao-campo').innerText = "Status: Em Andamento no Painel";
             document.getElementById('form-campo-container').classList.add('hidden');
-            document.getElementById('box-programadas-campo').classList.add('hidden');
-            document.getElementById('box-reabertas-campo').classList.add('hidden');
             document.getElementById('bloco-pos-abertura').classList.remove('hidden');
             document.getElementById('lbl-imovel-aberto').innerText = `${imovel} (${projeto})`;
             document.getElementById('lbl-h-entrada').innerText = horaEntradaAtual;
@@ -3548,7 +3402,6 @@
         function resetarFormularioCampo() {
             dadosAtendimento.idEmAndamento = null;
             dadosAtendimento.eraReaberta = false;
-            dadosAtendimento.eraProgramada = false;
             dadosAtendimento.gpsEntrada = null;
             dadosAtendimento.gpsSaida = null;
             dadosAtendimento.blocos = [];
@@ -3734,18 +3587,92 @@
             registrarLogAuditoria(tipoAcaoAudit, `Equipe: ${equipeNome} | Imóvel: ${imovelBase} (${qtdBlocos} bloco(s)) | Fotos: ${todasFotos.length}`);
             alert(`✅ Atendimento finalizado (${qtdBlocos} bloco(s) e ${todasFotos.length} foto(s)) e sincronizado com sucesso!`);
             resetarFormularioCampo();
-            if (equipeNome) {
-                document.getElementById('sel-equipe').value = equipeNome;
-                document.getElementById('current-user-team').innerText = equipeNome;
-                atualizarProjetosPermitidosCampo(equipeNome);
-            }
             await carregarRegistrosDaNuvem();
-            verificarPendenciasReabertasEProgramadasCampo(false);
-            if (typeof atualizarBarraSegurancaPinCampo === 'function') {
-                atualizarBarraSegurancaPinCampo();
+            verificarPendenciasReabertasEProgramadasCampo();
+        }
+// ================= PARTE 03 (BLOCO 3A) - GRUPO "ON GOING" + EXPANSOR DE GRÁFICOS E TABELAS =================
+
+        // 0. Sobrescreve as referências de "MALLING" para "ON GOING" (Sem precisar alterar a Parte 01 e a Parte 02)
+        function obterMacroGrupoProjeto(projeto) {
+            const p = normalizarNomeProjeto(projeto);
+            if (PROJETOS_GRUPO_PROJETO_F.includes(p)) return "PROJETO F";
+            if (PROJETOS_GRUPO_MALLING.includes(p)) return "ON GOING";
+            return "OUTROS";
+        }
+
+        function mudarTipoProjeto() {
+            const projeto = document.getElementById('sel-projeto').value;
+            const titulo = document.getElementById('titulo-form-dinamico');
+            if (!titulo) return;
+            if (!projeto) {
+                titulo.innerText = "1. Dados Gerais do Condomínio / Imóvel";
+            } else if (projeto === 'VISTORIA') {
+                titulo.innerText = "1. Dados Gerais da Vistoria e Endereço (ON GOING)";
+            } else {
+                titulo.innerText = `1. Dados Gerais do Imóvel (${projeto} • ${obterMacroGrupoProjeto(projeto)})`;
             }
         }
-// ================= PARTE 03 (BLOCO 3A) - AGRUPAMENTO DE BLOCOS, EXPANSORES E DASHBOARD =================
+
+        function copiarBoletimGestorWhatsApp() {
+            const emAndamento = dadosFiltradosAtuais.filter(i => i.desfecho === 'EM ANDAMENTO').length;
+            const programadas = dadosFiltradosAtuais.filter(i => i.desfecho === 'PROGRAMADA').length;
+            const finalizadas = dadosFiltradosAtuais.filter(i => !['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
+            const totalObras = finalizadas.length;
+            const conc = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
+            const pend = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
+            const malo = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
+            const impr = listaImprevistosAtuais.length;
+            const efic = totalObras > 0 ? ((conc / totalObras) * 100).toFixed(1) : "0.0";
+
+            const totOnGoing = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'ON GOING').length;
+            const totProjF = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'PROJETO F').length;
+
+            const dIni = document.getElementById('gestor-filtro-data-inicio').value;
+            const dFim = document.getElementById('gestor-filtro-data-fim').value;
+            const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Período Geral';
+
+            const tmaStr = document.getElementById('ind-tempo-medio')?.innerText || '--';
+            const medTotal = document.getElementById('fin-total-geral')?.innerText || 'R$ 0,00';
+
+            const textoBoletim = [
+                `📊 *BOLETIM OPERACIONAL GPD • MDU PROCISA RJ*`,
+                `📅 *Período:* ${periodoStr}`,
+                `────────────────────`,
+                `📋 *Programadas na Fila:* ${programadas}`,
+                `🔵 *Em Andamento Agora:* ${emAndamento}`,
+                `🏗️ *Total Finalizadas:* ${totalObras}`,
+                `🟢 *Concluídas:* ${conc} (${efic}%)`,
+                `🟡 *Pendentes:* ${pend}`,
+                `🔴 *Malogradas:* ${malo}`,
+                `⚠️ *Imprevistos Reportados:* ${impr}`,
+                `────────────────────`,
+                `🏢 *Grupo ON GOING:* ${totOnGoing} ativ.`,
+                `🚀 *Grupo PROJETO F:* ${totProjF} ativ.`,
+                `────────────────────`,
+                `⏱️ *Tempo Médio (TMA):* ${tmaStr}`,
+                `💰 *Medição Estimada:* ${medTotal}`
+            ].join('\n');
+
+            copiarTextoAreaTransferencia(textoBoletim, "📲 Boletim Operacional copiado! Pronto para colar no WhatsApp da diretoria/supervisão.");
+        }
+
+        // Atualiza automaticamente os rótulos fixos do HTML da Parte 01 de "MALLING" para "ON GOING"
+        function atualizarTextosMallingParaOnGoingDOM() {
+            const optGroup = document.querySelector('#gestor-filtro-projeto optgroup[label*="MALLING"]');
+            if (optGroup) optGroup.label = "Grupo ON GOING";
+
+            const elementosTexto = document.querySelectorAll('#subview-graficos h3, #subview-graficos h4, #subview-graficos p, #subview-graficos th, #subview-graficos button');
+            elementosTexto.forEach(el => {
+                if (el.innerHTML && el.innerHTML.includes('MALLING')) {
+                    el.innerHTML = el.innerHTML.replace(/MALLING/g, 'ON GOING');
+                }
+                const onclickAttr = el.getAttribute('onclick');
+                if (onclickAttr && onclickAttr.includes('MALLING')) {
+                    el.setAttribute('onclick', onclickAttr.replace(/MALLING/g, 'ON GOING'));
+                }
+            });
+        }
+
         function converterHorarioParaMinutos(strHora) {
             if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
             const partes = strHora.trim().split(':');
@@ -3767,50 +3694,6 @@
             const h = Math.floor(totalMinutos / 60);
             const m = Math.round(totalMinutos % 60);
             return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
-        }
-
-        function stringParaHash(str) {
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                hash = ((hash << 5) - hash) + str.charCodeAt(i);
-                hash |= 0;
-            }
-            return hash;
-        }
-
-        // PONTO 02: Botão para Expandir / Recolher os blocos agrupados do mesmo Imóvel na aba Atividades
-        function alternarVisualizacaoBlocosAgrupados(idElemento, btnEl) {
-            const el = document.getElementById(idElemento);
-            if (!el) return;
-            if (el.classList.contains('hidden')) {
-                el.classList.remove('hidden');
-                btnEl.innerText = "📂 Ocultar Blocos";
-                btnEl.className = "mt-1.5 bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1";
-            } else {
-                el.classList.add('hidden');
-                const qtd = el.dataset.qtdBlocos || el.querySelectorAll('.card-bloco-interno').length;
-                btnEl.innerText = `📂 Desagrupar / Ver ${qtd} Blocos`;
-                btnEl.className = "mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1";
-            }
-        }
-
-        async function excluirGrupoBlocosImovel(idsStr, codigoBase) {
-            if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
-                alert("⚠️ Acesso restrito para exclusão.");
-                return;
-            }
-            const listaIds = String(idsStr).split(',').map(Number).filter(Boolean);
-            if (listaIds.length === 0) return;
-
-            if (confirm(`Deseja realmente excluir todos os ${listaIds.length} bloco(s) do imóvel ${codigoBase}?`)) {
-                const { error } = await supabaseClient.from('registros_producao').delete().in('id', listaIds);
-                if (error) {
-                    alert("Erro ao excluir blocos: " + error.message);
-                } else {
-                    registrarLogAuditoria("EXCLUSÃO EM LOTE", `Excluídos ${listaIds.length} bloco(s) do imóvel ${codigoBase}.`);
-                    await recarregarDadosGestor();
-                }
-            }
         }
 
         // 1. Expansor de Gráficos em Tela Cheia (Modo Apresentação)
@@ -4030,7 +3913,7 @@
                 `Gestor ${usuarioLogado} autorizou a reabertura do imóvel ${reg.imovel} (ID: ${id}) para o técnico ${reg.equipe}. Status anterior: ${reg.desfecho} | Motivo: ${motivoReabertura || 'Ajuste operacional'}`
             );
 
-            alert(`✅ Atividade do imóvel "${reg.imovel}" foi REABERTA!\n\nO técnico ${reg.equipe} receberá um alerta sonoro no celular e já pode editá-la no Modo Campo.`);
+            alert(`✅ Atividade do imóvel "${reg.imovel}" foi REABERTA!\n\nO técnico ${reg.equipe} já pode visualizá-la e editá-la no Modo Campo.`);
             await recarregarDadosGestor();
         }
 
@@ -4165,7 +4048,7 @@
 
             fecharModalImportarPlanilha();
             await recarregarDadosGestor();
-            alert(`✅ Sucesso! ${novosRegistros.length} atividade(s) foram enviadas para os técnicos com alerta sonoro automático!`);
+            alert(`✅ Sucesso! ${novosRegistros.length} atividade(s) foram enviadas para os técnicos com a quantidade de blocos configurada!`);
         }
 
         function renderizarPainelDisponibilidade() {
@@ -4244,6 +4127,8 @@
         }
 
         async function atualizarDashboardGestor() {
+            atualizarTextosMallingParaOnGoingDOM();
+
             if (!registrosSalvos || registrosSalvos.length === 0) {
                 await carregarRegistrosDaNuvem();
             }
@@ -4427,7 +4312,6 @@
             };
             renderizarTabelaFinanceiro(totaisFinanceirosAtuais);
 
-            // PONTO 02: Renderiza a tabela de Atividades agrupando automaticamente múltiplos blocos do mesmo Imóvel
             if (filtrados.length === 0) {
                 if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este filtro/período.</td></tr>`;
                 if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
@@ -4440,234 +4324,118 @@
                     return b.id - a.id;
                 });
 
-                const mapaAgrupado = {};
                 filtradosOrdenados.forEach(item => {
-                    let codigoBase = (item.imovel || "").trim();
-                    const idxTraco = codigoBase.toUpperCase().lastIndexOf(" - BLOCO");
-                    if (idxTraco !== -1) {
-                        codigoBase = codigoBase.substring(0, idxTraco).trim();
-                    }
-
-                    const chaveAgrupamento = `${item.dataRegistro}_${item.equipe}_${codigoBase.toUpperCase()}_${item.projeto}`;
-                    if (!mapaAgrupado[chaveAgrupamento]) {
-                        mapaAgrupado[chaveAgrupamento] = {
-                            codigoBase: codigoBase,
-                            projeto: item.projeto,
-                            equipe: item.equipe,
-                            dataRegistro: item.dataRegistro,
-                            endereco: item.endereco,
-                            hEntrada: item.hEntrada,
-                            hSaida: item.hSaida,
-                            gpsEntrada: item.gpsEntrada,
-                            gpsSaida: item.gpsSaida,
-                            itens: []
-                        };
-                    }
-                    mapaAgrupado[chaveAgrupamento].itens.push(item);
-                });
-
-                Object.values(mapaAgrupado).forEach(grupo => {
                     if (corpoAtiv) {
-                        const qtdBlocosNoGrupo = grupo.itens.length;
-                        const itemMaster = grupo.itens[0];
-                        const idGrupoUnico = `grupo_bloco_${Math.abs(stringParaHash(grupo.codigoBase + grupo.dataRegistro + grupo.equipe + grupo.projeto + itemMaster.id))}`;
-
-                        let desfechoExibicao = itemMaster.desfecho;
-                        if (qtdBlocosNoGrupo > 1) {
-                            const desfechosUnicos = [...new Set(grupo.itens.map(i => i.desfecho))];
-                            desfechoExibicao = desfechosUnicos.length === 1 ? desfechosUnicos[0] : `MÚLTIPLO (${desfechosUnicos.join('/')})`;
-                        }
-
-                        const somaAndares = grupo.itens.reduce((acc, i) => acc + (Number(i.andares) || 0), 0);
-                        const somaHps = grupo.itens.reduce((acc, i) => acc + (Number(i.hps) || 0), 0);
-                        const totalFotosGrupo = grupo.itens.reduce((acc, i) => acc + (Array.isArray(i.fotos) ? i.fotos.length : 0), 0);
-                        const todasOpcoesGrupo = [...new Set(grupo.itens.flatMap(i => Array.isArray(i.malogros) ? i.malogros : []))];
-
-                        const trPrincipal = document.createElement('tr');
-                        trPrincipal.className = (itemMaster.desfecho === 'EM ANDAMENTO' || itemMaster.desfecho === 'REABERTA')
+                        const tr = document.createElement('tr');
+                        tr.className = (item.desfecho === 'EM ANDAMENTO' || item.desfecho === 'REABERTA')
                             ? "bg-blue-50/70 hover:bg-blue-100/60 border-b cursor-pointer transition" 
-                            : (itemMaster.desfecho === 'PROGRAMADA' ? "bg-cyan-50/40 hover:bg-cyan-100/50 border-b cursor-pointer transition" : "hover:bg-blue-50/50 border-b cursor-pointer transition");
-                        trPrincipal.title = qtdBlocosNoGrupo > 1 ? "Clique no botão azul para desagrupar e ver cada bloco individualmente" : "Clique para ver todos os detalhes e fotos";
-                        trPrincipal.onclick = () => abrirDetalhesAtividade(itemMaster);
-
+                            : (item.desfecho === 'PROGRAMADA' ? "bg-cyan-50/40 hover:bg-cyan-100/50 border-b cursor-pointer transition" : "hover:bg-blue-50/50 border-b cursor-pointer transition");
+                        tr.title = "Clique para ver todos os detalhes e fotos";
+                        tr.onclick = () => abrirDetalhesAtividade(item);
+                        
                         let botoesAcao = "";
                         if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
-                            const btnReabrir = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(itemMaster.desfecho)
-                                ? `<button onclick="event.stopPropagation(); autorizarReaberturaCampo(${itemMaster.id})" class="text-purple-800 hover:bg-purple-200 font-bold text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded" title="Reabrir para o técnico">🔓 Reabrir</button>`
+                            const btnReabrir = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(item.desfecho)
+                                ? `<button onclick="autorizarReaberturaCampo(${item.id})" class="text-purple-800 hover:bg-purple-200 font-bold text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded mr-1" title="Autorizar que o técnico reabra e edite esta atividade no Modo Campo">🔓 Reabrir p/ Campo</button>`
                                 : '';
-
-                            const idsGrupoStr = grupo.itens.map(i => i.id).join(',');
-                            const btnExcluirHtml = qtdBlocosNoGrupo > 1
-                                ? `<button onclick="event.stopPropagation(); excluirGrupoBlocosImovel('${idsGrupoStr}', '${grupo.codigoBase}')" class="text-red-500 font-bold text-[10px] bg-red-50 border border-red-200 px-2 py-1 rounded">Excluir (${qtdBlocosNoGrupo})</button>`
-                                : `<button onclick="event.stopPropagation(); excluirRegistro(${itemMaster.id}, '${itemMaster.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 border border-red-200 px-2 py-1 rounded">Excluir</button>`;
 
                             botoesAcao = `
                                 <div class="flex flex-wrap gap-1">
                                     ${btnReabrir}
-                                    <button onclick="event.stopPropagation(); abrirModalEdicao(${itemMaster.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded">✏️ Editar</button>
-                                    ${btnExcluirHtml}
+                                    <button onclick="abrirModalEdicao(${item.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded">✏️ Editar</button>
+                                    <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 border border-red-200 px-2 py-1 rounded">Excluir</button>
                                 </div>
                             `;
                         } else {
                             botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
                         }
 
-                        const minIn = converterHorarioParaMinutos(grupo.hEntrada);
-                        const minOut = converterHorarioParaMinutos(grupo.hSaida);
+                        const minIn = converterHorarioParaMinutos(item.hEntrada);
+                        const minOut = converterHorarioParaMinutos(item.hSaida);
                         let duracaoStr = "-";
                         if (minIn !== null && minOut !== null && minOut >= minIn) {
                             duracaoStr = formatarDuracaoTexto(minOut - minIn);
-                        } else if (itemMaster.desfecho === 'EM ANDAMENTO') {
+                        } else if (item.desfecho === 'EM ANDAMENTO') {
                             duracaoStr = '⏳ Em execução';
-                        } else if (itemMaster.desfecho === 'REABERTA') {
+                        } else if (item.desfecho === 'REABERTA') {
                             duracaoStr = '🔄 Aguardando edição';
-                        } else if (itemMaster.desfecho === 'PROGRAMADA') {
-                            duracaoStr = `📋 Na fila (${itemMaster.qtdBlocosProgramados || 1} Bloco${(itemMaster.qtdBlocosProgramados || 1) > 1 ? 's' : ''})`;
+                        } else if (item.desfecho === 'PROGRAMADA') {
+                            duracaoStr = `📋 Na fila (${item.qtdBlocosProgramados || 1} Bloco${(item.qtdBlocosProgramados || 1) > 1 ? 's' : ''})`;
                         }
 
-                        const classeCorDesfecho = obterClasseCorDesfecho(desfechoExibicao);
-                        const eqObj = equipesSistema.find(e => e.nome === grupo.equipe);
+                        const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
+
+                        const eqObj = equipesSistema.find(e => e.nome === item.equipe);
                         const setorStr = eqObj ? eqObj.setor : "Instalador";
-                        const macroGrupo = obterMacroGrupoProjeto(grupo.projeto);
+                        const macroGrupo = obterMacroGrupoProjeto(item.projeto);
                         const badgeGrupoCor = macroGrupo === 'PROJETO F' ? 'bg-indigo-100 text-indigo-900 border border-indigo-300' : 'bg-cyan-50 text-cyan-900 border border-cyan-200';
 
-                        const tagsOpcoesHtml = todasOpcoesGrupo.length > 0
-                            ? `<div class="mt-1 flex flex-wrap gap-1">${todasOpcoesGrupo.map(op => `<span class="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">${op}</span>`).join('')}</div>`
+                        const tagsOpcoesHtml = (item.malogros && item.malogros.length > 0)
+                            ? `<div class="mt-1 flex flex-wrap gap-1">${item.malogros.map(op => `<span class="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">${op}</span>`).join('')}</div>`
                             : '';
 
-                        const badgeFotosHtml = totalFotosGrupo > 0
-                            ? `<span class="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-300 font-bold px-2 py-0.5 rounded-md text-[10px] inline-block">📷 ${totalFotosGrupo} foto(s)</span>`
+                        const badgeFotosHtml = (item.fotos && item.fotos.length > 0)
+                            ? `<span class="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-300 font-bold px-2 py-0.5 rounded-md text-[10px] inline-block" title="Clique para ver e baixar as fotos">📷 ${item.fotos.length} foto(s)</span>`
                             : '';
 
-                        const botaoExpandirBlocos = qtdBlocosNoGrupo > 1 ? `
-                            <button type="button" onclick="event.stopPropagation(); alternarVisualizacaoBlocosAgrupados('${idGrupoUnico}', this)" class="mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition">
-                                📂 Desagrupar / Ver ${qtdBlocosNoGrupo} Blocos
-                            </button>
-                        ` : '';
-
-                        trPrincipal.innerHTML = `
+                        tr.innerHTML = `
                             <td class="p-3">
-                                <div class="font-bold text-slate-800 flex items-center gap-1.5 flex-wrap">
-                                    <span>${qtdBlocosNoGrupo > 1 ? grupo.codigoBase : itemMaster.imovel}</span>
-                                    ${qtdBlocosNoGrupo > 1 ? `<span class="bg-blue-100 text-blue-900 border border-blue-300 font-black px-2 py-0.5 rounded text-[10px]">🏢 ${qtdBlocosNoGrupo} Blocos Agrupados</span>` : ''}
-                                </div>
-                                <div class="text-[10px] text-blue-900 font-medium truncate max-w-[220px]" title="${grupo.endereco || ''}">📍 ${grupo.endereco || 'Endereço não informado'}</div>
-                                <div class="text-[10px] text-slate-400">${grupo.dataRegistro}</div>
-                                ${botaoExpandirBlocos}
+                                <div class="font-bold text-slate-800">${item.imovel}</div>
+                                <div class="text-[10px] text-blue-900 font-medium truncate max-w-[200px]" title="${item.endereco || ''}">📍 ${item.endereco || 'Endereço não informado'}</div>
+                                <div class="text-[10px] text-slate-400">${item.dataRegistro}</div>
                             </td>
                             <td class="p-3">
-                                <div class="font-semibold text-slate-800 mb-0.5">${grupo.equipe}</div>
+                                <div class="font-semibold text-slate-800 mb-0.5">${item.equipe}</div>
                                 ${obterBadgeSetorHtml(setorStr)}
                             </td>
                             <td class="p-3">
                                 <div class="flex flex-wrap items-center gap-1">
-                                    <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px] inline-block">${grupo.projeto}</span>
+                                    <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px] inline-block">${item.projeto}</span>
                                     <span class="font-bold px-1.5 py-0.5 rounded text-[9px] ${badgeGrupoCor}">${macroGrupo}</span>
                                 </div>
-                                <div class="text-[10px] text-slate-500 mt-1 font-semibold">🏢 Andares: <b>${somaAndares}</b> | HPs: <b>${somaHps}</b></div>
+                                <div class="text-[10px] text-slate-500 mt-1 font-semibold">🏢 Andares: <b>${item.andares || 0}</b> | HPs: <b>${item.hps || 0}</b></div>
                             </td>
                             <td class="p-3">
                                 <div class="flex flex-wrap items-center gap-1">
-                                    <span class="font-bold px-2.5 py-1 rounded-md text-[10px] inline-block ${classeCorDesfecho}">${desfechoExibicao}</span>
+                                    <span class="font-bold px-2.5 py-1 rounded-md text-[10px] inline-block ${classeCorDesfecho}">${item.desfecho}</span>
                                     ${badgeFotosHtml}
                                 </div>
                                 ${tagsOpcoesHtml}
                             </td>
                             <td class="p-3">
-                                <div class="text-[11px]">🟢 Início: <b>${grupo.hEntrada}</b></div>
-                                <div class="text-[11px]">🔴 Fim: <b>${grupo.hSaida}</b></div>
+                                <div class="text-[11px]">🟢 Início: <b>${item.hEntrada}</b></div>
+                                <div class="text-[11px]">🔴 Fim: <b>${item.hSaida}</b></div>
                                 <div class="text-[10px] text-emerald-700 font-bold mt-0.5">⏱️ ${duracaoStr}</div>
                             </td>
                             <td class="p-3 text-[10px] font-mono text-slate-600">
-                                <div>In: ${grupo.gpsEntrada}</div>
-                                <div>Out: ${grupo.gpsSaida}</div>
+                                <div>In: ${item.gpsEntrada}</div>
+                                <div>Out: ${item.gpsSaida}</div>
                             </td>
                             <td class="p-3" onclick="event.stopPropagation()">
                                 ${botoesAcao}
                             </td>
                         `;
-                        corpoAtiv.appendChild(trPrincipal);
-
-                        // Linha expansível com os cards individuais de cada bloco quando houver mais de 1 bloco no mesmo imóvel
-                        if (qtdBlocosNoGrupo > 1) {
-                            const trDetalheBlocos = document.createElement('tr');
-                            trDetalheBlocos.id = idGrupoUnico;
-                            trDetalheBlocos.dataset.qtdBlocos = qtdBlocosNoGrupo;
-                            trDetalheBlocos.className = "hidden bg-slate-100/90 border-b";
-
-                            const cardsHtml = grupo.itens.map(blocoItem => {
-                                const corDesfBloco = obterClasseCorDesfecho(blocoItem.desfecho);
-                                const qtdF = Array.isArray(blocoItem.fotos) ? blocoItem.fotos.length : 0;
-                                const btnReabrirBloco = ((nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') && ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(blocoItem.desfecho))
-                                    ? `<button onclick="event.stopPropagation(); autorizarReaberturaCampo(${blocoItem.id})" class="bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 font-bold text-[10px] px-2 py-0.5 rounded">🔓 Reabrir</button>`
-                                    : '';
-
-                                const btnEditarBloco = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador')
-                                    ? `<button onclick="event.stopPropagation(); abrirModalEdicao(${blocoItem.id})" class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold text-[10px] px-2 py-0.5 rounded">✏️ Editar</button>
-                                       <button onclick="event.stopPropagation(); excluirRegistro(${blocoItem.id}, '${blocoItem.imovel}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-[10px] px-2 py-0.5 rounded">🗑️</button>`
-                                    : '';
-
-                                return `
-                                    <div onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${blocoItem.id}))" class="card-bloco-interno bg-white p-3 rounded-xl border border-blue-200 shadow-sm hover:border-blue-500 cursor-pointer transition space-y-1.5">
-                                        <div class="flex justify-between items-start gap-2 border-b pb-1.5">
-                                            <span class="font-black text-blue-950 text-xs">🏢 ${blocoItem.imovel}</span>
-                                            <span class="font-bold px-2 py-0.5 rounded text-[9px] ${corDesfBloco}">${blocoItem.desfecho}</span>
-                                        </div>
-                                        <div class="text-[11px] text-slate-700 flex justify-between">
-                                            <span>Andares: <b>${blocoItem.andares || 0}</b> | HPs: <b>${blocoItem.hps || 0}</b></span>
-                                            <span class="text-indigo-700 font-bold">📷 ${qtdF} foto(s)</span>
-                                        </div>
-                                        <div class="text-[10px] text-slate-600 bg-slate-50 p-1.5 rounded border border-slate-100">
-                                            📦 RL: <b>${blocoItem.caboRL}m</b> | Drop: <b>${blocoItem.caboDrop}m</b> | Conect: <b>${blocoItem.conectores}</b> | Fusões: <b>${blocoItem.fusoes}</b> | NAP: <b>${blocoItem.nap}</b> | DIO: <b>${blocoItem.dio}</b>
-                                        </div>
-                                        ${blocoItem.motivoDesfecho ? `<div class="text-[10px] text-amber-900 font-medium">💬 ${blocoItem.motivoDesfecho}</div>` : ''}
-                                        <div class="flex justify-end gap-1 pt-1" onclick="event.stopPropagation()">
-                                            <button onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${blocoItem.id}))" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] px-2 py-0.5 rounded">👁️ Detalhes / Fotos</button>
-                                            ${btnReabrirBloco}
-                                            ${btnEditarBloco}
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('');
-
-                            trDetalheBlocos.innerHTML = `
-                                <td colspan="7" class="p-3.5">
-                                    <div class="bg-blue-50/60 p-3 rounded-xl border border-blue-200 space-y-2.5">
-                                        <div class="flex justify-between items-center">
-                                            <span class="font-black text-blue-950 text-xs uppercase">📂 Detalhamento Individual dos ${qtdBlocosNoGrupo} Blocos do Imóvel ${grupo.codigoBase}</span>
-                                            <span class="text-[10px] text-blue-800">Clique em qualquer bloco para ver fotos ou editar individualmente</span>
-                                        </div>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                            ${cardsHtml}
-                                        </div>
-                                    </div>
-                                </td>
-                            `;
-                            corpoAtiv.appendChild(trDetalheBlocos);
-                        }
+                        corpoAtiv.appendChild(tr);
                     }
 
-                    // Preenche a aba de Materiais
-                    grupo.itens.forEach(item => {
-                        if (!['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(item.desfecho) && corpoMat) {
-                            const trMat = document.createElement('tr');
-                            trMat.className = "hover:bg-slate-50 border-b transition";
-                            trMat.innerHTML = `
-                                <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
-                                <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
-                                <td class="p-2.5 font-semibold">${item.caboRL} m</td>
-                                <td class="p-2.5 font-semibold">${item.conectores}</td>
-                                <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
-                                <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
-                                <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
-                                <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
-                                <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
-                                <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
-                                <td class="p-2.5 font-semibold">${item.fusoes}</td>
-                            `;
-                            corpoMat.appendChild(trMat);
-                        }
-                    });
+                    if (!['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(item.desfecho) && corpoMat) {
+                        const trMat = document.createElement('tr');
+                        trMat.className = "hover:bg-slate-50 border-b transition";
+                        trMat.innerHTML = `
+                            <td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td>
+                            <td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td>
+                            <td class="p-2.5 font-semibold">${item.caboRL} m</td>
+                            <td class="p-2.5 font-semibold">${item.conectores}</td>
+                            <td class="p-2.5 font-semibold">${item.caboDrop} m</td>
+                            <td class="p-2.5 font-bold text-blue-900">${item.nap}</td>
+                            <td class="p-2.5 font-bold text-indigo-700">${item.dio}</td>
+                            <td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td>
+                            <td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td>
+                            <td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td>
+                            <td class="p-2.5 font-semibold">${item.fusoes}</td>
+                        `;
+                        corpoMat.appendChild(trMat);
+                    }
                 });
             }
 
@@ -4847,6 +4615,8 @@
         }
 
         function renderizarPainelMallingEProjetoF(dados) {
+            atualizarTextosMallingParaOnGoingDOM();
+
             const dadosOnGoing = dados.filter(d => obterMacroGrupoProjeto(d.projeto) === 'ON GOING');
             const badgeOnGoing = document.getElementById('badge-total-malling');
             if (badgeOnGoing) badgeOnGoing.innerText = `${dadosOnGoing.length} total`;
@@ -6472,144 +6242,7 @@
             if (aba === 'materiais') atualizarDashboardGestor();
             if (aba === 'atividades') atualizarDashboardGestor();
             if (aba === 'imprevistos') atualizarDashboardGestor();
-// ================= PARTE 03 (BLOCO 3B) - SISTEMA DE PIN TÉCNICO, OFENSORES, RANKINGS E FECHAMENTO =================
-        let equipeAutenticadaSessao = sessionStorage.getItem('gpd_equipe_autenticada_pin') || "";
-
-        function obterPinDaEquipe(eqObj) {
-            return (eqObj && eqObj.pin && String(eqObj.pin).trim().length >= 4) ? String(eqObj.pin).trim() : "1234";
-        }
-
-        function atualizarBarraSegurancaPinCampo() {
-            const selEq = document.getElementById('sel-equipe');
-            if (!selEq) return;
-
-            let barraPin = document.getElementById('barra-seguranca-pin-campo');
-            if (!barraPin) {
-                barraPin = document.createElement('div');
-                barraPin.id = 'barra-seguranca-pin-campo';
-                barraPin.className = 'mt-1.5 flex items-center justify-between bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] hidden';
-                selEq.parentNode.appendChild(barraPin);
-            }
-
-            if (selEq.value && equipeAutenticadaSessao === selEq.value) {
-                selEq.disabled = true;
-                selEq.classList.add('bg-slate-100', 'font-bold', 'text-blue-950');
-                barraPin.classList.remove('hidden');
-                barraPin.innerHTML = `
-                    <span class="text-emerald-800 font-bold flex items-center gap-1">🔒 PIN Autenticado</span>
-                    <div class="flex items-center gap-1.5">
-                        <button type="button" onclick="alterarPinPeloTecnicoCampo()" class="bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded border border-blue-300 transition">
-                            🔑 Alterar Meu PIN
-                        </button>
-                        <button type="button" onclick="desbloquearTrocaEquipeCampo()" class="bg-red-50 hover:bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded border border-red-200 transition">
-                            🚪 Sair
-                        </button>
-                    </div>
-                `;
-            } else {
-                selEq.disabled = false;
-                selEq.classList.remove('bg-slate-100', 'font-bold', 'text-blue-950');
-                barraPin.classList.add('hidden');
-            }
-        }
-
-        function aoSelecionarEquipeCampo() {
-            const selEq = document.getElementById('sel-equipe');
-            const eq = selEq ? selEq.value : "";
-
-            if (!eq) {
-                equipeAutenticadaSessao = "";
-                sessionStorage.removeItem('gpd_equipe_autenticada_pin');
-                document.getElementById('current-user-team').innerText = "Selecione Equipe";
-                atualizarProjetosPermitidosCampo("");
-                atualizarBarraSegurancaPinCampo();
-                verificarImprevistoAtivoEquipeCampo();
-                verificarPendenciasReabertasEProgramadasCampo(false);
-                return;
-            }
-
-            const eqObj = equipesSistema.find(e => e.nome === eq);
-            const pinCorreto = obterPinDaEquipe(eqObj);
-
-            if (equipeAutenticadaSessao !== eq) {
-                const pinDigitado = prompt(`🔒 AUTENTICAÇÃO DO TÉCNICO\n\nOlá, ${eq}!\nDigite o seu PIN de 4 dígitos para acessar suas atividades:\n(Se for seu primeiro acesso, o PIN padrão é 1234)`);
-                
-                if (pinDigitado === null || pinDigitado.trim() !== pinCorreto) {
-                    if (pinDigitado !== null) {
-                        alert("❌ PIN incorreto! Acesso negado às atividades deste técnico.");
-                    }
-                    selEq.value = "";
-                    equipeAutenticadaSessao = "";
-                    sessionStorage.removeItem('gpd_equipe_autenticada_pin');
-                    document.getElementById('current-user-team').innerText = "Selecione Equipe";
-                    atualizarProjetosPermitidosCampo("");
-                    atualizarBarraSegurancaPinCampo();
-                    verificarImprevistoAtivoEquipeCampo();
-                    verificarPendenciasReabertasEProgramadasCampo(false);
-                    return;
-                }
-
-                equipeAutenticadaSessao = eq;
-                sessionStorage.setItem('gpd_equipe_autenticada_pin', eq);
-            }
-
-            document.getElementById('current-user-team').innerText = eq;
-            atualizarProjetosPermitidosCampo(eq);
-            atualizarBarraSegurancaPinCampo();
-            salvarRascunhoCampo();
-            verificarImprevistoAtivoEquipeCampo();
-            verificarPendenciasReabertasEProgramadasCampo(true);
-        }
-
-        function desbloquearTrocaEquipeCampo() {
-            const posAberturaVisivel = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
-            if (posAberturaVisivel) {
-                alert("⚠️ Você possui um atendimento aberto na tela. Finalize ou cancele o atendimento antes de trocar de técnico.");
-                return;
-            }
-            if (!confirm("Deseja encerrar sua sessão atual e liberar a seleção para outro técnico?")) return;
-
-            equipeAutenticadaSessao = "";
-            sessionStorage.removeItem('gpd_equipe_autenticada_pin');
-            localStorage.removeItem('gpd_rascunho_campo_ativo');
-            const selEq = document.getElementById('sel-equipe');
-            if (selEq) {
-                selEq.disabled = false;
-                selEq.value = "";
-            }
-            document.getElementById('current-user-team').innerText = "Selecione Equipe";
-            atualizarProjetosPermitidosCampo("");
-            atualizarBarraSegurancaPinCampo();
-            verificarImprevistoAtivoEquipeCampo();
-            verificarPendenciasReabertasEProgramadasCampo(false);
-        }
-
-        async function alterarPinPeloTecnicoCampo() {
-            const nomeEq = document.getElementById('sel-equipe')?.value;
-            if (!nomeEq) return;
-
-            const eqObj = equipesSistema.find(e => e.nome === nomeEq);
-            if (!eqObj) return;
-
-            const pinAtualCorreto = obterPinDaEquipe(eqObj);
-            const pinAtualInformado = prompt(`🔑 ALTERAR MEU PIN (${nomeEq})\n\nDigite o seu PIN ATUAL:`);
-            if (pinAtualInformado === null) return;
-
-            if (pinAtualInformado.trim() !== pinAtualCorreto) {
-                alert("❌ O PIN atual informado está incorreto.");
-                return;
-            }
-
-            const novoPin = prompt("🔑 Digite o NOVO PIN desejado (Exatamente 4 números, ex: 4580):");
-            if (novoPin === null) return;
-
-            const novoPinLimpo = novoPin.trim();
-            if (!/^\d{4}$/.test(novoPinLimpo)) {
-                alert("⚠️ O novo PIN deve conter exatamente 4 dígitos numéricos (ex: 2580).");
-                return;
-            }
         }
     </script>
 </body>
 </html>
-
