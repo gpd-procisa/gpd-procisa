@@ -1,4 +1,3 @@
-
 function converterHorarioParaMinutos(strHora) {
     if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
     const partes = strHora.trim().split(':');
@@ -2390,4 +2389,34 @@ function mudarSubAbaGestor(aba) {
     if (aba === 'materiais') atualizarDashboardGestor();
     if (aba === 'atividades') atualizarDashboardGestor();
     if (aba === 'imprevistos') atualizarDashboardGestor();
+}
+function aplicarAtalhoPeriodo(tipo) {
+    const inpInicio = document.getElementById('gestor-filtro-data-inicio');
+    const inpFim = document.getElementById('gestor-filtro-data-fim');
+    const hoje = new Date();
+
+    if (tipo === 'hoje') {
+        const strHoje = obterDataLocalISO(hoje);
+        inpInicio.value = strHoje;
+        inpFim.value = strHoje;
+    } else if (tipo === 'ontem') {
+        const ontem = new Date(hoje);
+        ontem.setDate(hoje.getDate() - 1);
+        const strOntem = obterDataLocalISO(ontem);
+        inpInicio.value = strOntem;
+        inpFim.value = strOntem;
+    } else if (tipo === '7dias') {
+        const seteDiasAtras = new Date(hoje);
+        seteDiasAtras.setDate(hoje.getDate() - 6);
+        inpInicio.value = obterDataLocalISO(seteDiasAtras);
+        inpFim.value = obterDataLocalISO(hoje);
+    } else if (tipo === 'mes') {
+        const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+        inpInicio.value = obterDataLocalISO(primeiroDiaMes);
+        inpFim.value = obterDataLocalISO(hoje);
+    } else if (tipo === 'tudo') {
+        inpInicio.value = '';
+        inpFim.value = '';
+    }
+    atualizarDashboardGestor();
 }
