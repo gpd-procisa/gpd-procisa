@@ -837,3 +837,60 @@ function alternarVisao(visao) {
         verificarPendenciasReabertasEProgramadasCampo(false);
     }
 }
+// ================= FUNÇÕES DE SESSÃO, EQUIPES E AUDITORIA =================
+
+function verificarPermissoesSessao() {
+    if (!usuarioLogado) return;
+    let u = usuariosSistema.find(user => user.email.toLowerCase() === usuarioLogado.toLowerCase());
+    if (u) {
+        nivelUsuarioLogado = u.nivel;
+    } else if (usuarioLogado.toLowerCase() === "lsimoes@procisa.com.br") {
+        nivelUsuarioLogado = "Master";
+    } else {
+        nivelUsuarioLogado = "Visualizador";
+    }
+}
+
+function registrarLogAuditoria(acao, detalhes) {
+    let userAtivo = usuarioLogado || "Sistema / Campo";
+    let novoLog = {
+        id: Date.now(),
+        dataHora: new Date().toLocaleString('pt-BR'),
+        usuario: userAtivo,
+        acao: acao,
+        detalhes: detalhes
+    };
+    trilhaAuditoria.unshift(novoLog);
+    localStorage.setItem('gpd_trilha_auditoria', JSON.stringify(trilhaAuditoria));
+}
+
+function popularSelectEquipes() {
+    equipesSistema.sort((a, b) => a.nome.localeCompare(b.nome));
+    
+    const selCampo = document.getElementById('sel-equipe');
+    const selFiltro = document.getElementById('gestor-filtro-equipe');
+    const valorAtualCampo = selCampo ? selCampo.value : "";
+    
+    if (selCampo) selCampo.innerHTML = '<option value="">Selecione a Equipe...</option>';
+    if (selFiltro) selFiltro.innerHTML = '<option value="">👥 Todas as Equipes</option>';
+
+    equipesSistema.forEach(eq => {
+        const strSetores = formatarSetoresString(eq.setor);
+
+        if (eq.status === "Ativo" && selCampo) {
+            selCampo.innerHTML += `<option value="${eq.nome}">${eq.nome} (${strSetores})</option>`;
+        }
+        if (selFiltro) {
+            selFiltro.innerHTML += `<option value="${eq.nome}">${eq.nome} [${strSetores}] (${eq.status})</option>`;
+        }
+    });
+
+    if (selCampo && (valorAtualCampo || equipeAutenticadaSessao)) {
+        const eqRestaurar = valorAtualCampo || equipeAutenticadaSessao;
+        selCampo.value = eqRestaurar;
+        if (typeof atualizarProjetosPermitidosCampo === "function") {
+            atualizarProjetosPermitidosCampo(eqRestaurar);
+        }
+        atualizarBarraSegurancaPinCampo();
+    }
+}
