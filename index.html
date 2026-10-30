@@ -3062,13 +3062,14 @@
             }
         }
 
-        function montarTextoResumoItem(r) {
+function montarTextoResumoItem(r) {
             let iconeDesf = "🟢";
             if (r.desfecho === "PENDENTE" || r.desfecho === "IMPREVISTO") iconeDesf = "🟡";
             else if (r.desfecho === "MALOGRADA") iconeDesf = "🔴";
             else if (r.desfecho === "EM ANDAMENTO") iconeDesf = "🔵";
             else if (r.desfecho === "REABERTA") iconeDesf = "🔄";
             else if (r.desfecho === "PROGRAMADA") iconeDesf = "📋";
+            else if (r.desfecho === "PARALISADA") iconeDesf = "⏸️";
 
             let linhas = [
                 `📋 *GPD MDU • PROCISA RJ*`,
@@ -3077,26 +3078,83 @@
                 `🏢 *Imóvel:* ${r.imovel}`,
                 `📍 *Endereço:* ${r.endereco || '-'}`,
                 `🏗️ *Projeto:* ${r.projeto} (${obterMacroGrupoProjeto(r.projeto)})`,
-                `🏢 *Andares:* ${r.andares || 0} | *HPs:* ${r.hps || 0}`,
-                `${iconeDesf} *Status/Desfecho:* ${r.desfecho}`,
                 `🕒 *Horário:* ${r.hEntrada} às ${r.hSaida}`,
                 `📍 *GPS:* ${r.gpsEntrada}`
             ];
 
-            if (r.projeto !== "IMPREVISTO / ATRASO") {
-                linhas.push(`📦 *Materiais:* RL: ${r.caboRL}m | Drop: ${r.caboDrop}m | Conect: ${r.conectores} | Fusões: ${r.fusoes} | NAP: ${r.nap} | DIO: ${r.dio}`);
-            }
-            if (r.malogros && r.malogros.length > 0) {
-                linhas.push(`⚠️ *Opções Marcadas:* ${r.malogros.join(', ')}`);
-            }
-            if (r.motivoDesfecho) {
-                linhas.push(`💬 *Detalhe:* ${r.motivoDesfecho}`);
-            }
-            if (r.fotos && r.fotos.length > 0) {
-                linhas.push(`📷 *Fotos Anexadas:* ${r.fotos.length} foto(s) no sistema`);
+            // Verifica se a propriedade blocosDetalhados existe e se tem mais de 1 bloco
+            if (Array.isArray(r.blocosDetalhados) && r.blocosDetalhados.length > 1) {
+                linhas.push(`────────────────────`);
+                linhas.push(`🏢 *DETALHAMENTO POR BLOCO (${r.blocosDetalhados.length} BLOCOS):*`);
+
+                r.blocosDetalhados.forEach((b, idx) => {
+                    let iconeB = "🟢";
+                    if (b.desfecho === "PENDENTE") iconeB = "🟡";
+                    else if (b.desfecho === "MALOGRADA") iconeB = "🔴";
+
+                    const nomeBloco = (b.identificacao || `BLOCO ${idx + 1}`).toUpperCase().trim();
+                    linhas.push(`\n🔹 *${nomeBloco}*`);
+                    linhas.push(`   • *Andares:* ${b.andares || 0} | *HPs:* ${b.hps || 0}`);
+                    linhas.push(`   • *Desfecho:* ${iconeB} ${b.desfecho}`);
+                    linhas.push(`   • *Materiais (${nomeBloco}):* RL: ${Number(b.caboRL) || 0}m | Drop: ${Number(b.caboDrop) || 0}m | Conect: ${Number(b.conectores) || 0} | Fusões: ${Number(b.fusoes) || 0} | NAP: ${Number(b.nap) || 0} | DIO: ${Number(b.dio) || 0}`);
+                    
+                    const cxS = Number(b.cxSobrepor) || 0;
+                    const cxE = Number(b.cxEmbutida) || 0;
+                    const cxF = Number(b.cxFosc) || 0;
+                    if (cxS > 0 || cxE > 0 || cxF > 0) {
+                        linhas.push(`   • *Caixas (${nomeBloco}):* Sobrepor: ${cxS} | Embutida: ${cxE} | FOSC: ${cxF}`);
+                    }
+                    if (Array.isArray(b.opcoesMarcadas) && b.opcoesMarcadas.length > 0) {
+                        linhas.push(`   • *Opções:* ${b.opcoesMarcadas.join(', ')}`);
+                    }
+                    if (b.motivoDesfecho) {
+                        linhas.push(`   • *Detalhe:* ${b.motivoDesfecho}`);
+                    }
+                    if (b.observacoes) {
+                        linhas.push(`   • *Obs:* ${b.observacoes}`);
+                    }
+                    if (Array.isArray(b.fotos) && b.fotos.length > 0) {
+                        linhas.push(`   • *Fotos:* ${b.fotos.length} anexada(s)`);
+                    }
+                });
+
+                linhas.push(`────────────────────`);
+                linhas.push(`📊 *TOTAL GERAL CONSOLIDADO:*`);
+                linhas.push(`🏢 *Andares Totais:* ${r.andares || 0} | *HPs Totais:* ${r.hps || 0}`);
+                linhas.push(`📦 *Soma Materiais:* RL: ${r.caboRL}m | Drop: ${r.caboDrop}m | Conect: ${r.conectores} | Fusões: ${r.fusoes} | NAP: ${r.nap} | DIO: ${r.dio}`);
+                if (r.fotos && r.fotos.length > 0) {
+                    linhas.push(`📷 *Total de Fotos:* ${r.fotos.length} foto(s) no sistema`);
+                }
+            } else {
+                // Comportamento padrão para apenas 1 bloco
+                linhas.push(`🏢 *Andares:* ${r.andares || 0} | *HPs:* ${r.hps || 0}`);
+                linhas.push(`${iconeDesf} *Status/Desfecho:* ${r.desfecho}`);
+
+                if (r.projeto !== "IMPREVISTO / ATRASO") {
+                    linhas.push(`📦 *Materiais:* RL: ${r.caboRL}m | Drop: ${r.caboDrop}m | Conect: ${r.conectores} | Fusões: ${r.fusoes} | NAP: ${r.nap} | DIO: ${r.dio}`);
+                    const cxS = Number(r.cxSobrepor) || 0;
+                    const cxE = Number(r.cxEmbutida) || 0;
+                    const cxF = Number(r.cxFosc) || 0;
+                    if (cxS > 0 || cxE > 0 || cxF > 0) {
+                        linhas.push(`🧰 *Caixas:* Sobrepor: ${cxS} | Embutida: ${cxE} | FOSC: ${cxF}`);
+                    }
+                }
+                if (r.malogros && r.malogros.length > 0) {
+                    linhas.push(`⚠️ *Opções Marcadas:* ${r.malogros.join(', ')}`);
+                }
+                if (r.motivoDesfecho) {
+                    linhas.push(`💬 *Detalhe:* ${r.motivoDesfecho}`);
+                }
+                if (r.observacoes) {
+                    linhas.push(`📝 *Obs:* ${r.observacoes}`);
+                }
+                if (r.fotos && r.fotos.length > 0) {
+                    linhas.push(`📷 *Fotos Anexadas:* ${r.fotos.length} foto(s) no sistema`);
+                }
             }
             return linhas.join('\n');
         }
+       
 
         function copiarUltimoResumoCampoWhatsApp() {
             if (!ultimoResumoCampoTexto) return;
@@ -3889,9 +3947,31 @@
                 alert("❌ Erro ao salvar: " + error.message);
                 return;
             }
-
-            const primeiroReg = listaRegistrosParaInserir[0];
+const primeiroReg = listaRegistrosParaInserir[0];
             const todasFotos = dadosAtendimento.blocos.flatMap(b => b.fotos || []);
+
+            // 1. PREPARAÇÃO DOS DADOS INDIVIDUAIS DE CADA BLOCO PARA O WHATSAPP
+            const blocosParaWhats = dadosAtendimento.blocos.map((b, idx) => ({
+                identificacao: b.identificacao || `BLOCO ${idx + 1}`,
+                andares: Number(b.andares) || 0,
+                hps: Number(b.hps) || 0,
+                desfecho: b.desfecho,
+                fusoes: Number(b.fusoes) || 0,
+                conectores: Number(b.conectores) || 0,
+                caboRL: Number(b.caboRL) || 0,
+                caboDrop: Number(b.caboDrop) || 0,
+                nap: Number(b.nap) || 0,
+                dio: Number(b.dio) || 0,
+                cxSobrepor: Number(b.cxSobrepor) || 0,
+                cxEmbutida: Number(b.cxEmbutida) || 0,
+                cxFosc: Number(b.cxFosc) || 0,
+                opcoesMarcadas: b.desfecho === 'CONCLUIDA' ? b.concluidasOpcoes : (b.desfecho === 'PENDENTE' ? b.pendenciasOpcoes : b.malogros),
+                motivoDesfecho: b.desfecho === 'CONCLUIDA' ? b.obsConcluida : (b.desfecho === 'PENDENTE' ? b.obsPendente : b.obsMalograda),
+                observacoes: (b.observacoes || '').trim(),
+                fotos: b.fotos || []
+            }));
+
+            // 2. MONTAGEM DO TEXTO (AGORA ENVIANDO OS BLOCOS DETALHADOS)
             ultimoResumoCampoTexto = montarTextoResumoItem({
                 dataRegistro: dataLocalCorreta,
                 equipe: equipeNome,
@@ -3912,8 +3992,10 @@
                 dio: listaRegistrosParaInserir.reduce((acc, r) => acc + r.dio, 0),
                 malogros: primeiroReg.malogros,
                 motivoDesfecho: primeiroReg.motivo_desfecho,
-                fotos: todasFotos
+                fotos: todasFotos,
+                blocosDetalhados: blocosParaWhats // <--- Aqui está a mágica da separação!
             });
+
             document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
 
             const tipoAcaoAudit = foiReaberta ? "ATIVIDADE REABERTA FINALIZADA" : "INSERÇÃO DE REGISTRO";
@@ -3922,6 +4004,7 @@
             resetarFormularioCampo();
             await carregarRegistrosDaNuvem();
             verificarPendenciasReabertasEProgramadasCampo(false);
+           
         }
 // ================= BLOCO 03-A DE 04 - DASHBOARD GESTOR, AGRUPAMENTO DE BLOCOS E GRÁFICOS =================
 
