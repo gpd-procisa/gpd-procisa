@@ -1,3 +1,102 @@
+// ================= VARIÁVEIS GLOBAIS DO MAPA DE RASTREAMENTO (LEAFLET) =================
+let mapaRastreioInstancia = null;
+let camadaMarcadoresRastreio = null;
+let coordenadasPinosAtuais = [];
+
+function inicializarOuAtualizarMapaRastreio(listaPinos) {
+    const containerMapa = document.getElementById('mapa-rastreio-equipes');
+    if (!containerMapa || typeof L === 'undefined') return;
+
+    if (!mapaRastreioInstancia) {
+        // Inicia centralizado no Rio de Janeiro por padrão
+        mapaRastreioInstancia = L.map('mapa-rastreio-equipes').setView([-22.9068, -43.1729], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap • GPD PROCISA RJ'
+        }).addTo(mapaRastreioInstancia);
+        camadaMarcadoresRastreio = L.layerGroup().addTo(mapaRastreioInstancia);
+    }
+
+    setTimeout(() => {
+        if (mapaRastreioInstancia) mapaRastreioInstancia.invalidateSize();
+    }, 150);
+
+    camadaMarcadoresRastreio.clearLayers();
+    coordenadasPinosAtuais = [];
+
+    listaPinos.forEach(p => {
+        if (p.lat === null || p.lng === null || isNaN(p.lat) || isNaN(p.lng)) return;
+
+        coordenadasPinosAtuais.push([p.lat, p.lng]);
+
+        const primeiroNome = p.nome.split(' ')[0];
+        const iconeHtml = L.divIcon({
+            className: 'custom-pin-gpd',
+            html: `
+                <div style="display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);">
+                    <div style="background:${p.corHex};color:#fff;font-weight:900;font-size:10px;padding:2px 7px;border-radius:8px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);white-space:nowrap;display:flex;align-items:center;gap:4px;">
+                        <span>${p.iconeEmoji}</span>
+                        <span>${primeiroNome}</span>
+                    </div>
+                    <div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${p.corHex};margin-top:-1px;"></div>
+                </div>
+            `,
+            iconSize: [0, 0],
+            iconAnchor: [0, 0]
+        });
+
+        const marker = L.marker([p.lat, p.lng], { icon: iconeHtml });
+        marker.bindPopup(`
+            <div style="font-family:sans-serif;font-size:11px;line-height:1.4;min-width:190px;">
+                <div style="font-weight:900;color:#0f172a;font-size:12px;border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:4px;">
+                    👷 ${p.nome}
+                </div>
+                <div><b>Status:</b> <span style="color:${p.corHex};font-weight:800;">${p.statusTexto}</span></div>
+                <div><b>Expediente:</b> ${p.turnoTexto}</div>
+                <div><b>Ocupação:</b> ${p.ocupacaoLimpa}</div>
+                <div><b>Último Sinal:</b> ${p.sinalTexto}</div>
+                <div style="margin-top:5px;padding-top:4px;border-top:1px solid #f1f5f9;">
+                    <a href="https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}" target="_blank" style="color:#2563eb;font-weight:bold;text-decoration:underline;">
+                        🗺️ Abrir no Google Maps (${p.lat.toFixed(5)}, ${p.lng.toFixed(5)})
+                    </a>
+                </div>
+            </div>
+        `);
+        marker.addTo(camadaMarcadoresRastreio);
+    });
+
+    const lblCont = document.getElementById('lbl-contador-pinos-mapa');
+    if (lblCont) {
+        lblCont.innerText = `${coordenadasPinosAtuais.length} técnico(s) com coordenada GPS ativa plotado(s) no mapa hoje`;
+    }
+}
+
+function centralizarMapaEquipes() {
+    if (!mapaRastreioInstancia) return;
+    mapaRastreioInstancia.invalidateSize();
+    if (coordenadasPinosAtuais.length === 0) {
+        mapaRastreioInstancia.setView([-22.9068, -43.1729], 11);
+        alert("ℹ️ Ainda não há coordenadas de GPS ativas hoje para centralizar.");
+        return;
+    }
+    if (coordenadasPinosAtuais.length === 1) {
+        mapaRastreioInstancia.setView(coordenadasPinosAtuais[0], 15);
+    } else {
+        const bounds = L.latLngBounds(coordenadasPinosAtuais);
+        mapaRastreioInstancia.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+    }
+}
+
+function focarTecnicoNoMapa(lat, lng, nome) {
+    if (!mapaRastreioInstancia || isNaN(lat) || isNaN(lng)) return;
+    const elMapa = document.getElementById('mapa-rastreio-equipes');
+    if (elMapa) elMapa.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => {
+        mapaRastreioInstancia.invalidateSize();
+        mapaRastreioInstancia.setView([lat, lng], 16);
+    }, 250);
+}
+
 function converterHorarioParaMinutos(strHora) {
     if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
     const partes = strHora.trim().split(':');
@@ -166,7 +265,7 @@ async function autorizarReaberturaCampo(id) {
     await recarregarDadosGestor();
 }
 
-// ================= PONTO 04: MOVIMENTAÇÃO / TRANSFERÊNCIA DE ATIVIDADE ENTRE TÉCNICOS =================
+// ================= MOVIMENTAÇÃO / TRANSFERÊNCIA DE ATIVIDADE ENTRE TÉCNICOS =================
 
 function abrirModalTransferirAtividade(id) {
     if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
@@ -381,6 +480,8 @@ async function processarImportacaoPlanilha() {
     alert(`✅ Sucesso! ${novosRegistros.length} atividade(s) foram enviadas para os técnicos com a quantidade de blocos configurada!`);
 }
 
+// ================= PAINEL DE DISPONIBILIDADE + MAPA EM TEMPO REAL =================
+
 function renderizarPainelDisponibilidade() {
     try {
         const tbody = document.getElementById('tabela-disponibilidade-corpo');
@@ -393,6 +494,9 @@ function renderizarPainelDisponibilidade() {
         let countDisp = 0;
         let countAtend = 0;
         let countIndisp = 0;
+        let countOffline = 0;
+
+        const listaPinosParaMapa = [];
 
         equipesAtivas.forEach(eq => {
             const regsHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.dataRegistro === hojeISO);
@@ -400,52 +504,163 @@ function renderizarPainelDisponibilidade() {
             const obraParalisada = regsHoje.find(r => r.desfecho === 'PARALISADA');
             const obraAndamento = regsHoje.find(r => r.desfecho === 'EM ANDAMENTO' || r.desfecho === 'REABERTA');
             const programadasHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.desfecho === 'PROGRAMADA').length;
-            const ultimoReg = registrosSalvos.find(r => r.equipe === eq.nome && r.gpsEntrada && r.gpsEntrada.includes(','));
+            const concluidasHoje = regsHoje.filter(r => r.desfecho === 'CONCLUIDA').length;
+
+            // Dados de telemetria / turno de hoje
+            const tel = (telemetriaEquipes && telemetriaEquipes[eq.nome] && telemetriaEquipes[eq.nome].data === hojeISO)
+                ? telemetriaEquipes[eq.nome]
+                : null;
+
+            const turnoIniciado = tel && tel.statusTurno === 'DISPONIVEL';
+            const turnoEncerrado = tel && tel.statusTurno === 'ENCERRADO';
+
+            let turnoHtml = `<span class="bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">⚪ Não iniciado hoje</span>`;
+            let turnoTextoPuro = "Não iniciado hoje";
+            if (turnoIniciado) {
+                turnoHtml = `<span class="bg-emerald-50 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold">🟢 Ativo desde ${tel.horaInicio || '--:--'}</span>`;
+                turnoTextoPuro = `Ativo desde ${tel.horaInicio || '--:--'}`;
+            } else if (turnoEncerrado) {
+                turnoHtml = `<span class="bg-slate-200 text-slate-800 border border-slate-300 px-2 py-0.5 rounded text-[10px] font-bold">🔴 Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})</span>`;
+                turnoTextoPuro = `Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})`;
+            }
+
+            // Determina a coordenada GPS mais recente do técnico (Telemetria em Rota ou Check-in de Obra)
+            let latFinal = (tel && tel.lat) ? Number(tel.lat) : null;
+            let lngFinal = (tel && tel.lng) ? Number(tel.lng) : null;
+            let horaSinal = (tel && tel.horaUltimoSinal) ? tel.horaUltimoSinal : null;
+            let tsSinal = (tel && tel.timestampUltimoSinal) ? Number(tel.timestampUltimoSinal) : null;
+
+            const ultimoRegHojeComGps = regsHoje.find(r => r.gpsEntrada && r.gpsEntrada.includes(','));
+            if ((latFinal === null || isNaN(latFinal)) && ultimoRegHojeComGps) {
+                const partes = ultimoRegHojeComGps.gpsEntrada.split(',').map(s => parseFloat(s.trim()));
+                if (partes.length === 2 && !isNaN(partes[0])) {
+                    latFinal = partes[0];
+                    lngFinal = partes[1];
+                    horaSinal = ultimoRegHojeComGps.hEntrada;
+                }
+            }
 
             let statusBadge = "";
             let detalheTexto = "";
+            let ocupacaoLimpa = "";
             let acaoHtml = "-";
+            let corPinoHex = "#64748b";
+            let iconeEmojiPino = "⚪";
+            let statusTextoPuro = "OFFLINE";
 
             if (impAberto) {
                 countIndisp++;
+                corPinoHex = "#dc2626";
+                iconeEmojiPino = "🔴";
+                statusTextoPuro = "INDISPONÍVEL (IMPREVISTO)";
                 statusBadge = `<span class="bg-red-100 text-red-800 border border-red-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🔴 INDISPONÍVEL (IMPREVISTO)</span>`;
                 const mot = (impAberto.malogros && impAberto.malogros.length > 0) ? impAberto.malogros.join(' + ') : impAberto.motivoDesfecho;
                 detalheTexto = `<span class="font-bold text-red-900">${mot}</span> <span class="text-slate-500">(Desde ${impAberto.hEntrada})</span>`;
+                ocupacaoLimpa = `Imprevisto: ${mot}`;
                 if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
-                    acaoHtml = `<button onclick="resolverImprevistoPorId(${impAberto.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Liberar Técnico</button>`;
+                    acaoHtml = `<button onclick="resolverImprevistoPorId(${impAberto.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Liberar</button>`;
                 }
             } else if (obraParalisada) {
                 countAtend++;
+                corPinoHex = "#ea580c";
+                iconeEmojiPino = "⏸️";
+                statusTextoPuro = "ATIVIDADE PARALISADA";
                 statusBadge = `<span class="bg-orange-500 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block animate-pulse">⏸️ ATIVIDADE PARALISADA</span>`;
                 detalheTexto = `Imóvel: <b>${obraParalisada.imovel}</b> (${obraParalisada.projeto}) • <span class="text-orange-800 font-semibold">${obraParalisada.motivoDesfecho || 'Em pausa'}</span>`;
-                acaoHtml = `<button onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${obraParalisada.id}))" class="bg-orange-50 text-orange-800 font-bold text-[10px] px-2.5 py-1 rounded border border-orange-200">👁️ Ver Atividade</button>`;
+                ocupacaoLimpa = `Pausa no imóvel ${obraParalisada.imovel}`;
+                acaoHtml = `<button onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${obraParalisada.id}))" class="bg-orange-50 text-orange-800 font-bold text-[10px] px-2.5 py-1 rounded border border-orange-200">👁️ Ver Obra</button>`;
             } else if (obraAndamento) {
                 countAtend++;
+                corPinoHex = "#2563eb";
+                iconeEmojiPino = "🔵";
+                statusTextoPuro = "EM ATENDIMENTO";
                 statusBadge = `<span class="bg-blue-600 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block animate-pulse">🔵 EM ATENDIMENTO</span>`;
                 detalheTexto = `Imóvel: <b>${obraAndamento.imovel}</b> (${obraAndamento.projeto}) • Início às <b>${obraAndamento.hEntrada}</b>`;
-                acaoHtml = `<button onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${obraAndamento.id}))" class="bg-blue-50 text-blue-800 font-bold text-[10px] px-2.5 py-1 rounded border border-blue-200">👁️ Ver Atividade</button>`;
-            } else {
+                ocupacaoLimpa = `Atendendo ${obraAndamento.imovel} (${obraAndamento.projeto})`;
+                acaoHtml = `<button onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${obraAndamento.id}))" class="bg-blue-50 text-blue-800 font-bold text-[10px] px-2.5 py-1 rounded border border-blue-200">👁️ Ver Obra</button>`;
+            } else if (turnoEncerrado) {
+                countOffline++;
+                corPinoHex = "#475569";
+                iconeEmojiPino = "🏁";
+                statusTextoPuro = "EXPEDIENTE ENCERRADO";
+                statusBadge = `<span class="bg-slate-200 text-slate-700 border border-slate-300 font-bold px-2.5 py-1 rounded-md text-[10px] inline-block">🏁 EXPEDIENTE ENCERRADO</span>`;
+                detalheTexto = `<span class="text-slate-500">Turno finalizado às ${tel.horaFim || '--:--'} (${concluidasHoje} concluída(s) hoje)</span>`;
+                ocupacaoLimpa = `Turno encerrado (${concluidasHoje} concluída(s) hoje)`;
+            } else if (turnoIniciado || regsHoje.length > 0) {
                 countDisp++;
-                statusBadge = `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🟢 DISPONÍVEL</span>`;
-                const concluidasHoje = regsHoje.filter(r => r.desfecho === 'CONCLUIDA').length;
+                corPinoHex = "#059669";
+                iconeEmojiPino = "🟢";
+                statusTextoPuro = "EM ROTA / DISPONÍVEL";
+                statusBadge = `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🟢 EM ROTA / DISPONÍVEL</span>`;
                 const txtProg = programadasHoje > 0 ? ` • <b class="text-cyan-800">${programadasHoje} programada(s) na fila</b>` : '';
-                detalheTexto = `<span class="text-slate-500">Livre para acionamento (${concluidasHoje} concluída(s) hoje${txtProg})</span>`;
+                detalheTexto = `<span class="text-emerald-900 font-medium">Em deslocamento / Livre (${concluidasHoje} concluída(s) hoje${txtProg})</span>`;
+                ocupacaoLimpa = `Disponível em rota (${concluidasHoje} concluída(s) hoje)`;
+            } else {
+                countOffline++;
+                corPinoHex = "#94a3b8";
+                iconeEmojiPino = "⚪";
+                statusTextoPuro = "AGUARDANDO INÍCIO";
+                statusBadge = `<span class="bg-slate-100 text-slate-500 border border-slate-200 font-bold px-2.5 py-1 rounded-md text-[10px] inline-block">⚪ AGUARDANDO INÍCIO</span>`;
+                const txtProg = programadasHoje > 0 ? `<b class="text-cyan-800">${programadasHoje} programada(s) na fila</b>` : 'Sem check-in hoje';
+                detalheTexto = `<span class="text-slate-400">Ainda não clicou em Iniciar Expediente (${txtProg})</span>`;
+                ocupacaoLimpa = "Aguardando início do expediente";
+            }
+
+            // Formatação inteligente do último sinal GPS recebido
+            let gpsStr = `<span class="text-slate-400 text-[10px]">Sem sinal hoje</span>`;
+            let sinalTextoPuro = "Sem sinal hoje";
+
+            if (latFinal !== null && lngFinal !== null && !isNaN(latFinal) && !isNaN(lngFinal)) {
+                let badgeIdadeSinal = "";
+                if (tsSinal) {
+                    const diffMin = Math.max(0, Math.round((Date.now() - tsSinal) / 60000));
+                    if (diffMin <= 3) {
+                        badgeIdadeSinal = `<span class="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded text-[9px]">📡 Há ${diffMin <= 1 ? '1 min' : diffMin + ' min'} (Ao vivo)</span>`;
+                        sinalTextoPuro = `${horaSinal || ''} (Há ${diffMin} min - Ao vivo)`;
+                    } else {
+                        badgeIdadeSinal = `<span class="bg-amber-100 text-amber-900 font-bold px-1.5 py-0.5 rounded text-[9px]">⏸️ Há ${diffMin} min (2º plano)</span>`;
+                        sinalTextoPuro = `${horaSinal || ''} (Há ${diffMin} min)`;
+                    }
+                } else if (horaSinal) {
+                    badgeIdadeSinal = `<span class="bg-blue-50 text-blue-800 font-bold px-1.5 py-0.5 rounded text-[9px]">🕒 Às ${horaSinal}</span>`;
+                    sinalTextoPuro = `Às ${horaSinal}`;
+                }
+
+                const coordFormatada = `${latFinal.toFixed(5)}, ${lngFinal.toFixed(5)}`;
+                gpsStr = `
+                    <div class="flex flex-col gap-1">
+                        <div>${badgeIdadeSinal}</div>
+                        <a href="https://www.google.com/maps/search/?api=1&query=${latFinal},${lngFinal}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${coordFormatada}</a>
+                    </div>
+                `;
+
+                const btnFocarMapa = `<button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded mr-1">🎯 Focar Mapa</button>`;
+                acaoHtml = acaoHtml === "-" ? btnFocarMapa : `${btnFocarMapa} ${acaoHtml}`;
+
+                listaPinosParaMapa.push({
+                    nome: eq.nome,
+                    lat: latFinal,
+                    lng: lngFinal,
+                    corHex: corPinoHex,
+                    iconeEmoji: iconeEmojiPino,
+                    statusTexto: statusTextoPuro,
+                    turnoTexto: turnoTextoPuro,
+                    ocupacaoLimpa: ocupacaoLimpa,
+                    sinalTexto: sinalTextoPuro
+                });
             }
 
             const setorBadge = obterBadgeSetorHtml(eq.setor);
-
-            const gpsStr = (ultimoReg && ultimoReg.gpsEntrada && ultimoReg.gpsEntrada.includes(','))
-                ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ultimoReg.gpsEntrada)}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${ultimoReg.gpsEntrada}</a>`
-                : `<span class="text-slate-400 text-[10px]">Sem GPS recente</span>`;
 
             tbody.innerHTML += `
                 <tr class="hover:bg-slate-50 border-b">
                     <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
                     <td class="p-3">${setorBadge}</td>
+                    <td class="p-3">${turnoHtml}</td>
                     <td class="p-3">${statusBadge}</td>
                     <td class="p-3">${detalheTexto}</td>
                     <td class="p-3">${gpsStr}</td>
-                    <td class="p-3">${acaoHtml}</td>
+                    <td class="p-3 whitespace-nowrap">${acaoHtml}</td>
                 </tr>
             `;
         });
@@ -453,14 +668,18 @@ function renderizarPainelDisponibilidade() {
         const elDisp = document.getElementById('disp-card-disponiveis');
         const elAtend = document.getElementById('disp-card-atendimento');
         const elIndisp = document.getElementById('disp-card-indisponiveis');
+        const elOff = document.getElementById('disp-card-offline');
         const elBadgeIndisp = document.getElementById('badge-aba-indisp');
 
         if (elDisp) elDisp.innerText = countDisp;
         if (elAtend) elAtend.innerText = countAtend;
         if (elIndisp) elIndisp.innerText = countIndisp;
+        if (elOff) elOff.innerText = countOffline;
         if (elBadgeIndisp) elBadgeIndisp.innerText = `${countIndisp} indisp.`;
+
+        inicializarOuAtualizarMapaRastreio(listaPinosParaMapa);
     } catch (e) {
-        console.warn("Aviso ao renderizar disponibilidade:", e);
+        console.warn("Aviso ao renderizar disponibilidade e mapa:", e);
     }
 }
 
@@ -719,7 +938,6 @@ async function atualizarDashboardGestor() {
                 trPrincipal.title = qtdBlocosNoGrupo > 1 ? "Clique em 'Expandir Blocos' para ver cada bloco individualmente ou clique na linha para ver o resumo" : "Clique para ver todos os detalhes e fotos";
                 trPrincipal.onclick = () => abrirDetalhesAtividade(itemMaster);
                 
-                // PONTO 04 + PONTO 05: Botões de ação (com Mover p/ outro técnico e bloqueio para Visualizador)
                 let botoesAcao = "";
                 if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
                     const podeFinalizadasReabrir = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(itemMaster.desfecho);
@@ -727,7 +945,6 @@ async function atualizarDashboardGestor() {
                         ? `<button onclick="autorizarReaberturaCampo(${itemMaster.id})" class="text-purple-800 hover:bg-purple-200 font-bold text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded" title="Autorizar que o técnico reabra e edite esta atividade no Modo Campo">🔓 Reabrir</button>`
                         : '';
 
-                    // PONTO 04: Qualquer atividade que NÃO esteja Concluída, Pendente ou Malograda pode ser movimentada entre técnicos
                     const btnMover = !podeFinalizadasReabrir
                         ? `<button onclick="abrirModalTransferirAtividade(${itemMaster.id})" class="text-indigo-900 hover:bg-indigo-200 font-bold text-[10px] bg-indigo-100 border border-indigo-300 px-2 py-1 rounded" title="Movimentar / Transferir esta atividade para outro técnico">🔀 Mover</button>`
                         : '';
@@ -1314,7 +1531,6 @@ function renderizarOfensoresMalogro(dados) {
     }
 }
 
-// PONTO 02: Ranking de técnicos contabilizando Tempo Pausado e TMA Líquido
 function renderizarRankingTecnicos(dados) {
     const tbody = document.getElementById('tabela-ranking-tecnicos-corpo');
     const badgeContador = document.getElementById('contador-tecnicos-ativos');
@@ -1834,7 +2050,6 @@ function fecharModalExplosao() {
     document.getElementById('modal-explosao').classList.add('hidden');
 }
 
-// PONTO 02: Indicadores e gráficos calculando Tempo Paralisado e TMA Líquido
 function renderizarGraficos(dados, todosFiltrados = []) {
     let projetosCount = {};
     TODOS_OS_PROJETOS.forEach(p => projetosCount[p] = 0);
@@ -2521,7 +2736,7 @@ function renderizarTabelaAuditoria() {
         return;
     }
     trilhaAuditoria.forEach(log => {
-        const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO") || log.acao.includes("PIN") || log.acao.includes("TRANSFERÊNCIA")
+        const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO") || log.acao.includes("PIN") || log.acao.includes("TRANSFERÊNCIA") || log.acao.includes("EXPEDIENTE")
             ? "bg-purple-100 text-purple-900 border border-purple-300"
             : "bg-slate-100 text-slate-800";
 
@@ -2545,7 +2760,6 @@ function limparLogsAuditoria() {
     }
 }
 
-// PONTO 05: Bloqueio de segurança para que o Visualizador acesse apenas Atividades, Gráficos e Materiais
 function mudarSubAbaGestor(aba) {
     if (nivelUsuarioLogado === 'Visualizador' && !['atividades', 'graficos', 'materiais'].includes(aba)) {
         alert("⚠️ Seu perfil (Visualizador) possui acesso restrito às abas: Atividades, Gráficos & Indicadores e Materiais.");
@@ -2572,7 +2786,12 @@ function mudarSubAbaGestor(aba) {
     if (aba === 'equipes') renderizarTabelaEquipes();
     if (aba === 'opcoes') renderizarPainelOpcoesSistema();
     if (aba === 'auditoria') renderizarTabelaAuditoria();
-    if (aba === 'disponibilidade') renderizarPainelDisponibilidade();
+    if (aba === 'disponibilidade') {
+        renderizarPainelDisponibilidade();
+        setTimeout(() => {
+            if (mapaRastreioInstancia) mapaRastreioInstancia.invalidateSize();
+        }, 200);
+    }
     if (aba === 'graficos') atualizarDashboardGestor();
     if (aba === 'bonificacao') atualizarDashboardGestor();
     if (aba === 'financeiro') atualizarDashboardGestor();
