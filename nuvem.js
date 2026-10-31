@@ -5,6 +5,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const ID_NUVEM_USUARIOS = 999999001;
 const ID_NUVEM_EQUIPES  = 999999002;
 const ID_NUVEM_OPCOES   = 999999003;
+const ID_NUVEM_RASTREIO = 999999004;
 
 const ORDEM_SETORES = ["Vistoriador", "Instalador", "Ativador"];
 
@@ -193,7 +194,9 @@ equipesSistema = equipesSistema.map(eq => ({
     pin: (eq.pin && String(eq.pin).trim().length >= 4) ? String(eq.pin).trim() : "1234"
 }));
 
-// PONTO 02: Variáveis de controle de pausa adicionadas em dadosAtendimento
+// Objeto global que guarda a telemetria/rastreio em tempo real de cada técnico
+let telemetriaEquipes = JSON.parse(localStorage.getItem('gpd_telemetria_equipes')) || {};
+
 let dadosAtendimento = { 
     idEmAndamento: null, 
     eraReaberta: false, 
@@ -405,6 +408,56 @@ async function sincronizarOpcoesNaNuvem() {
     }
 }
 
+// ================= SINCRONIZAÇÃO DE TELEMETRIA / RASTREIO GPS EM TEMPO REAL =================
+
+async function sincronizarTelemetriaNaNuvem(nomeEquipe = null, dadosEquipe = null) {
+    try {
+        const { data } = await supabaseClient
+            .from('registros_producao')
+            .select('observacoes')
+            .eq('id', ID_NUVEM_RASTREIO)
+            .maybeSingle();
+
+        let mapaNuvem = {};
+        if (data && data.observacoes) {
+            try {
+                mapaNuvem = JSON.parse(data.observacoes) || {};
+            } catch (e) {
+                mapaNuvem = {};
+            }
+        }
+
+        telemetriaEquipes = { ...mapaNuvem, ...telemetriaEquipes };
+        if (nomeEquipe && dadosEquipe) {
+            telemetriaEquipes[nomeEquipe] = dadosEquipe;
+        }
+
+        localStorage.setItem('gpd_telemetria_equipes', JSON.stringify(telemetriaEquipes));
+
+        const payloadRastreio = {
+            id: ID_NUVEM_RASTREIO,
+            data_registro: "2000-01-01",
+            equipe: "__CONFIG_SISTEMA__",
+            membros: "__CONFIG_SISTEMA__",
+            projeto: "__CONFIG_RASTREIO__",
+            imovel: "__CONFIG_RASTREIO__",
+            h_entrada: "00:00",
+            h_saida: "00:00",
+            gps_entrada: "",
+            gps_saida: "",
+            desfecho: "CONFIG",
+            motivo_desfecho: "",
+            malogros: [],
+            agendamento: null,
+            observacoes: JSON.stringify(telemetriaEquipes)
+        };
+
+        await supabaseClient.from('registros_producao').upsert([payloadRastreio], { onConflict: 'id' });
+    } catch (e) {
+        console.warn("Aviso ao sincronizar telemetria GPS na nuvem:", e);
+    }
+}
+
 function popularSelectImprevistos() {
     const sel = document.getElementById('sel-motivo-imprevisto');
     if (!sel) return;
@@ -537,6 +590,9 @@ window.onload = async function() {
     restaurarRascunhoCampo();
     verificarImprevistoAtivoEquipeCampo();
     verificarPendenciasReabertasEProgramadasCampo(false);
+    if (typeof atualizarBarraExpedienteCampo === "function") {
+        atualizarBarraExpedienteCampo();
+    }
     if (typeof atualizarAbaMinhasAtividadesCampo === "function") {
         atualizarAbaMinhasAtividadesCampo(false);
     }
@@ -551,7 +607,7 @@ window.onload = async function() {
         alternarVisao('campo');
     }
 
-    // Sincronização automática do Painel do Gestor a cada 180s
+    // Sincronização automática geral do Painel do Gestor a cada 180s
     setInterval(async () => {
         const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
         const algumModalAberto = 
@@ -575,6 +631,18 @@ window.onload = async function() {
         }
     }, 180000);
 
+    // Radar rápido (30s) quando o Gestor está com a aba Disponibilidade & Mapa aberta
+    setInterval(async () => {
+        const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
+        const subDispAtiva = !document.getElementById('subview-disponibilidade')?.classList.contains('hidden');
+        if (usuarioLogado && viewGestorAtiva && subDispAtiva) {
+            await carregarRegistrosDaNuvem();
+            if (typeof renderizarPainelDisponibilidade === "function") {
+                renderizarPainelDisponibilidade();
+            }
+        }
+    }, 30000);
+
     // Radar em segundo plano no celular do técnico a cada 35s
     setInterval(async () => {
         const viewCampoAtiva = !document.getElementById('view-campo').classList.contains('hidden');
@@ -590,7 +658,6 @@ window.onload = async function() {
     }, 35000);
 };
 
-// PONTO 05: Restrição rigorosa de abas e botões para o perfil Visualizador
 function aplicarRestricoesInterface() {
     const btnNovaEquipe = document.getElementById('btn-nova-equipe');
     const btnNovoUsuario = document.getElementById('btn-novo-usuario');
@@ -625,7 +692,6 @@ function aplicarRestricoesInterface() {
             if (viewAba) viewAba.classList.add('hidden');
         });
 
-        // Garante que o visualizador esteja sempre em uma das 3 abas permitidas
         const viewAtivVisivel = !document.getElementById('subview-atividades')?.classList.contains('hidden');
         const viewGrafVisivel = !document.getElementById('subview-graficos')?.classList.contains('hidden');
         const viewMatVisivel  = !document.getElementById('subview-materiais')?.classList.contains('hidden');
@@ -645,7 +711,6 @@ function aplicarRestricoesInterface() {
             if (btnAba) btnAba.classList.remove('hidden');
         });
     } else {
-        // Master
         if (btnNovaEquipe) btnNovaEquipe.classList.remove('hidden');
         if (btnNovoUsuario) btnNovoUsuario.classList.remove('hidden');
         if (btnLimparLogs) btnLimparLogs.classList.remove('hidden');
@@ -721,14 +786,28 @@ async function carregarRegistrosDaNuvem() {
                 await sincronizarOpcoesNaNuvem();
             }
 
+            // Carrega Telemetria e Posições GPS das Equipes
+            const rowRastreio = data.find(r => r.id === ID_NUVEM_RASTREIO || r.projeto === '__CONFIG_RASTREIO__');
+            if (rowRastreio && rowRastreio.observacoes) {
+                try {
+                    const nuvemRast = JSON.parse(rowRastreio.observacoes);
+                    if (nuvemRast && typeof nuvemRast === 'object') {
+                        telemetriaEquipes = nuvemRast;
+                        localStorage.setItem('gpd_telemetria_equipes', JSON.stringify(telemetriaEquipes));
+                    }
+                } catch (e) { console.warn("Erro ao ler JSON de rastreio da nuvem:", e); }
+            }
+
             const registrosReais = data.filter(r => 
                 r.id !== ID_NUVEM_USUARIOS && 
                 r.id !== ID_NUVEM_EQUIPES && 
                 r.id !== ID_NUVEM_OPCOES &&
+                r.id !== ID_NUVEM_RASTREIO &&
                 r.equipe !== '__CONFIG_SISTEMA__' &&
                 r.projeto !== '__CONFIG_USUARIOS__' &&
                 r.projeto !== '__CONFIG_EQUIPES__' &&
-                r.projeto !== '__CONFIG_OPCOES__'
+                r.projeto !== '__CONFIG_OPCOES__' &&
+                r.projeto !== '__CONFIG_RASTREIO__'
             );
 
             registrosSalvos = registrosReais.map(r => {
@@ -739,7 +818,6 @@ async function carregarRegistrosDaNuvem() {
                 let qtdBlocosExtraida = 1;
                 let tempoPausadoExtraido = 0;
 
-                // Extrai Fotos
                 const posFotos = obsBruta.indexOf('[FOTOS:');
                 if (posFotos !== -1) {
                     const fimFotos = obsBruta.lastIndexOf(']');
@@ -752,34 +830,29 @@ async function carregarRegistrosDaNuvem() {
                     }
                 }
 
-                // Extrai Quantidade de Blocos Programados
                 const matchBlocos = obsBruta.match(/\[BLOCOS:\s*(\d+)\]/i);
                 if (matchBlocos) {
                     qtdBlocosExtraida = Math.max(1, Math.min(20, parseInt(matchBlocos[1], 10) || 1));
                     obsBruta = obsBruta.replace(matchBlocos[0], '').trim();
                 }
 
-                // PONTO 02: Extrai Tempo Total Paralisado (em minutos)
                 const matchPausaTotal = obsBruta.match(/\[PAUSA_TOTAL:\s*(\d+)\]/i);
                 if (matchPausaTotal) {
                     tempoPausadoExtraido = parseInt(matchPausaTotal[1], 10) || 0;
                     obsBruta = obsBruta.replace(matchPausaTotal[0], '').trim();
                 }
 
-                // Remove tag temporária de início de pausa da visualização limpa
                 const matchPausaInicio = obsBruta.match(/\[PAUSA_INICIO:\s*(\d+)\]/i);
                 if (matchPausaInicio) {
                     obsBruta = obsBruta.replace(matchPausaInicio[0], '').trim();
                 }
 
-                // PONTO 06: Extrai quem Liberou o Acesso
                 const matchLiberou = obsBruta.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
                 if (matchLiberou) {
                     liberouAcessoExtraido = matchLiberou[1].trim();
                     obsBruta = obsBruta.replace(matchLiberou[0], '').trim();
                 }
 
-                // Extrai Endereço
                 const matchEnd = obsBruta.match(/\[END:\s*([^\]]+)\]/i);
                 if (matchEnd) {
                     endExtraido = matchEnd[1].trim();
@@ -845,7 +918,7 @@ async function recarregarDadosGestor() {
     atualizarDashboardGestor();
     const lblHora = document.getElementById('txt-hora-sync');
     if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
-    alert("🔄 Dados, fotos, grupos de equipes e indicadores atualizados da nuvem!");
+    alert("🔄 Dados, posições GPS no mapa, fotos e indicadores atualizados da nuvem!");
 }
 
 async function tentarAcessarGestor() {
@@ -933,6 +1006,9 @@ function alternarVisao(visao) {
         btnGestor.className = "px-3 py-1.5 text-xs font-medium rounded-lg transition text-cyan-200 hover:text-white";
         subtitle.innerText = "Setor Construção MDU • PROCISA RJ";
         atualizarBarraSegurancaPinCampo();
+        if (typeof atualizarBarraExpedienteCampo === "function") {
+            atualizarBarraExpedienteCampo();
+        }
         verificarImprevistoAtivoEquipeCampo();
         verificarPendenciasReabertasEProgramadasCampo(false);
         if (typeof atualizarAbaMinhasAtividadesCampo === "function") {
