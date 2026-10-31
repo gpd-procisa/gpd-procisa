@@ -10,6 +10,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Chart.js para Gráficos Dinâmicos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Leaflet CSS & JS para Mapa de Monitoramento em Tempo Real -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body class="bg-slate-100 min-h-screen flex flex-col items-center justify-start p-0 sm:p-4">
 
@@ -135,7 +138,7 @@
                         📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
                     </button>
                     <button onclick="mudarSubAbaGestor('disponibilidade')" id="subtab-btn-disponibilidade" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                        📡 Disponibilidade (<span id="badge-aba-indisp" class="text-red-600 font-black">0 indisp.</span>)
+                        📡 Disponibilidade & Mapa (<span id="badge-aba-indisp" class="text-red-600 font-black">0 indisp.</span>)
                     </button>
                     <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
                         📊 Gráficos & Indicadores
@@ -217,37 +220,64 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Disponibilidade -->
+            <!-- Sub-Aba: Disponibilidade & Monitoramento GPS em Tempo Real -->
             <div id="subview-disponibilidade" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden p-4 space-y-4">
                 <div class="border-b pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
-                        <h3 class="font-bold text-slate-800 text-base">📡 Painel de Disponibilidade das Equipes (Tempo Real - Hoje)</h3>
-                        <p class="text-xs text-slate-500">Monitoramento automático baseado nos check-ins em andamento, paralisados e imprevistos ativos não finalizados hoje</p>
+                        <h3 class="font-bold text-slate-800 text-base">📡 Painel de Disponibilidade e Monitoramento GPS em Tempo Real (Hoje)</h3>
+                        <p class="text-xs text-slate-500">Acompanhamento de início/fim de expediente, deslocamento em rota, check-ins em atendimento e imprevistos</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="centralizarMapaEquipes()" class="bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-bold text-xs px-3 py-1.5 rounded-lg transition">
+                            🎯 Centralizar Pino(s) no Mapa
+                        </button>
+                        <button type="button" onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm transition">
+                            🔄 Atualizar Posições
+                        </button>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex justify-between items-center">
+                <!-- Cards de Status Operacional e Rastreio -->
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div class="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl flex justify-between items-center">
                         <div>
-                            <span class="text-xs font-bold text-emerald-900 uppercase block">🟢 Técnicos Disponíveis</span>
-                            <span class="text-[11px] text-emerald-700">Sem imprevisto ou obra aberta agora</span>
+                            <span class="text-xs font-bold text-emerald-900 uppercase block">🟢 Em Rota / Disponíveis</span>
+                            <span class="text-[10px] text-emerald-700">Expediente ativo e livres</span>
                         </div>
-                        <span class="text-3xl font-black text-emerald-700" id="disp-card-disponiveis">0</span>
+                        <span class="text-2xl font-black text-emerald-700" id="disp-card-disponiveis">0</span>
                     </div>
-                    <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl flex justify-between items-center">
+                    <div class="bg-blue-50 border border-blue-200 p-3.5 rounded-xl flex justify-between items-center">
                         <div>
                             <span class="text-xs font-bold text-blue-900 uppercase block">🔵 Em Atendimento / Pausa</span>
-                            <span class="text-[11px] text-blue-700">Com atividade "Em Andamento" ou "Paralisada"</span>
+                            <span class="text-[10px] text-blue-700">Atuando em imóvel agora</span>
                         </div>
-                        <span class="text-3xl font-black text-blue-700" id="disp-card-atendimento">0</span>
+                        <span class="text-2xl font-black text-blue-700" id="disp-card-atendimento">0</span>
                     </div>
-                    <div class="bg-red-50 border border-red-200 p-4 rounded-xl flex justify-between items-center">
+                    <div class="bg-red-50 border border-red-200 p-3.5 rounded-xl flex justify-between items-center">
                         <div>
-                            <span class="text-xs font-bold text-red-900 uppercase block">🔴 Indisponíveis (Imprevisto Ativo)</span>
-                            <span class="text-[11px] text-red-700">Parados aguardando resolução</span>
+                            <span class="text-xs font-bold text-red-900 uppercase block">🔴 Indisponíveis</span>
+                            <span class="text-[10px] text-red-700">Com imprevisto em aberto</span>
                         </div>
-                        <span class="text-3xl font-black text-red-700" id="disp-card-indisponiveis">0</span>
+                        <span class="text-2xl font-black text-red-700" id="disp-card-indisponiveis">0</span>
                     </div>
+                    <div class="bg-slate-100 border border-slate-300 p-3.5 rounded-xl flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-slate-700 uppercase block">⚪ Offline / Sem Turno</span>
+                            <span class="text-[10px] text-slate-500">Não iniciaram ou encerraram</span>
+                        </div>
+                        <span class="text-2xl font-black text-slate-700" id="disp-card-offline">0</span>
+                    </div>
+                </div>
+
+                <!-- MAPA INTERATIVO DE MONITORAMENTO EM TEMPO REAL -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                    <div class="flex flex-wrap justify-between items-center gap-2">
+                        <span class="text-xs font-black text-blue-950 uppercase flex items-center gap-1.5">
+                            🗺️ Mapa de Localização e Deslocamento das Equipes (Tempo Real)
+                        </span>
+                        <span class="text-[11px] text-slate-500" id="lbl-contador-pinos-mapa">0 técnicos com coordenada GPS ativa hoje</span>
+                    </div>
+                    <div id="mapa-rastreio-equipes" class="w-full h-96 rounded-xl border border-slate-300 z-10 shadow-inner"></div>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -256,9 +286,10 @@
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
                                 <th class="p-3">Técnico / Equipe</th>
                                 <th class="p-3">Setor de Atuação</th>
-                                <th class="p-3">Status Atual</th>
-                                <th class="p-3">Detalhe da Ocupação / Imprevisto Atual</th>
-                                <th class="p-3">Último GPS Conhecido</th>
+                                <th class="p-3">Expediente / Turno Hoje</th>
+                                <th class="p-3">Status Operacional Atual</th>
+                                <th class="p-3">Detalhe da Ocupação / Deslocamento</th>
+                                <th class="p-3">Último Sinal GPS Recebido</th>
                                 <th class="p-3">Ação Rápida</th>
                             </tr>
                         </thead>
@@ -571,7 +602,7 @@
                     </div>
                 </div>
 
-                <!-- Cards de Horários, TMA Líquido e Tempo Paralisado (PONTO 02) -->
+                <!-- Cards de Horários, TMA Líquido e Tempo Paralisado -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-600 flex flex-col justify-between">
                         <div class="flex justify-between items-start">
@@ -1094,7 +1125,7 @@
                     <span class="text-[11px] bg-blue-50 text-blue-900 px-2.5 py-1 rounded-lg font-bold" id="current-user-team">Selecione Equipe</span>
                 </div>
 
-                <!-- PONTO 03: Navegação de Sub-Abas do Técnico no Modo Campo -->
+                <!-- Navegação de Sub-Abas do Técnico no Modo Campo -->
                 <div class="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
                     <button type="button" id="btn-aba-campo-lancamento" onclick="mudarSubAbaCampo('lancamento')" class="py-2 px-3 rounded-lg font-bold text-xs transition bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5">
                         🚀 Atendimento
@@ -1163,6 +1194,26 @@
                             <div id="barra-seguranca-pin-campo" class="mt-1.5 flex items-center justify-between bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] hidden"></div>
                         </div>
 
+                        <!-- BARRA DE CONTROLE DE EXPEDIENTE E MONITORAMENTO DE ROTA GPS -->
+                        <div id="box-controle-expediente-campo" class="p-3 rounded-xl border-2 border-slate-200 bg-slate-50 space-y-2 hidden">
+                            <div class="flex justify-between items-center">
+                                <span class="text-[11px] font-black text-slate-800 uppercase flex items-center gap-1.5">
+                                    <span id="dot-rastreio-campo" class="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"></span>
+                                    <span id="lbl-status-expediente-campo">Turno / Expediente Não Iniciado</span>
+                                </span>
+                                <span id="lbl-hora-inicio-expediente" class="text-[10px] font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-600">Início: --:--</span>
+                            </div>
+                            <p id="lbl-info-rastreio-gps" class="text-[10px] text-slate-500 leading-tight">
+                                Clique abaixo ao sair para campo para ficar Disponível no painel e transmitir sua posição em rota.
+                            </p>
+                            <button type="button" id="btn-iniciar-expediente-campo" onclick="iniciarExpedienteRastreioCampo()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-1.5">
+                                🟢 Iniciar Expediente / Ficar Disponível em Rota
+                            </button>
+                            <button type="button" id="btn-encerrar-expediente-campo" onclick="encerrarExpedienteRastreioCampo()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-1.5 hidden">
+                                🔴 Encerrar Expediente do Dia
+                            </button>
+                        </div>
+
                         <div>
                             <div class="flex justify-between items-center mb-1">
                                 <label class="block text-xs font-semibold text-slate-600">Projeto / Atividade</label>
@@ -1179,8 +1230,8 @@
                         </div>
 
                         <div class="pt-2 flex flex-col gap-2.5">
-                            <button onclick="fazerCheckIn()" id="btn-checkin" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
-                                🚀 Iniciar Atividade (Status: Em Andamento)
+                            <button onclick="fazerCheckIn()" id="btn-checkin" class="w-full bg-blue-900 hover:bg-blue-950 text-white font-bold py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
+                                🚀 Iniciar Atividade no Imóvel (Status: Em Andamento)
                             </button>
                             <button onclick="abrirModalImprevisto()" type="button" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2">
                                 ⚠️ Informar Imprevisto / Atraso (Sem Atividade)
@@ -1205,7 +1256,7 @@
                                 </button>
                             </div>
 
-                            <!-- PONTO 02: Botões de Paralisação e Retomada da Atividade -->
+                            <!-- Botões de Paralisação e Retomada da Atividade -->
                             <div class="pt-2 border-t border-blue-200/80 flex flex-col gap-2">
                                 <button type="button" id="btn-paralisar-atividade" onclick="paralisarAtividadeAtualCampo()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-lg text-xs transition shadow-sm flex items-center justify-center gap-1.5">
                                     ⏸️ Paralisar Atividade Temporariamente
@@ -1227,7 +1278,6 @@
                             <h3 class="font-bold text-xs text-slate-800 uppercase" id="titulo-form-dinamico">1. Dados Gerais do Condomínio / Imóvel</h3>
                             
                             <div class="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                <!-- PONTO 06: Endereço e Liberou o Acesso obrigatórios -->
                                 <div>
                                     <label class="block text-[11px] font-bold text-slate-800">📍 Endereço do Atendimento <span class="text-red-600">* (Obrigatório)</span></label>
                                     <input type="text" id="form-endereco" placeholder="Rua, Número, Bairro..." class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-blue-500">
@@ -1263,7 +1313,7 @@
                     </div>
                 </div>
 
-                <!-- PONTO 03: SUB-ABA 2 DO CAMPO: MINHAS ATIVIDADES NO PAINEL DE GESTÃO -->
+                <!-- SUB-ABA 2 DO CAMPO: MINHAS ATIVIDADES NO PAINEL DE GESTÃO -->
                 <div id="subview-campo-painel" class="space-y-3 hidden">
                     <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl flex justify-between items-center">
                         <div>
@@ -1284,7 +1334,7 @@
 
     <!-- ================= MODAIS DO SISTEMA ================= -->
 
-    <!-- PONTO 04: MODAL DE TRANSFERÊNCIA / MOVIMENTAÇÃO DE ATIVIDADE ENTRE TÉCNICOS -->
+    <!-- MODAL DE TRANSFERÊNCIA / MOVIMENTAÇÃO DE ATIVIDADE ENTRE TÉCNICOS -->
     <div id="modal-transferir-atividade" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[72]">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
             <div class="bg-indigo-900 text-white p-4 flex justify-between items-center">
