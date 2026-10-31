@@ -1,7 +1,9 @@
-// ================= VARIÁVEIS GLOBAIS DO MAPA DE RASTREAMENTO (LEAFLET) =================
+// ================= VARIÁVEIS GLOBAIS DO MAPA DE RASTREAMENTO (LEAFLET) E EDIÇÃO =================
 let mapaRastreioInstancia = null;
 let camadaMarcadoresRastreio = null;
 let coordenadasPinosAtuais = [];
+let fotosEdicaoTemporarias = [];
+let opcoesMarcadasEdicaoTemporarias = [];
 
 function inicializarOuAtualizarMapaRastreio(listaPinos) {
     const containerMapa = document.getElementById('mapa-rastreio-equipes');
@@ -112,7 +114,6 @@ function centralizarMapaEquipes() {
 function focarTecnicoNoMapa(lat, lng, nome) {
     if (isNaN(lat) || isNaN(lng)) return;
 
-    // Se o gestor clicar a partir da aba Disponibilidade, muda automaticamente para a aba independente do Mapa
     const subMapa = document.getElementById('subview-mapa');
     if (subMapa && subMapa.classList.contains('hidden')) {
         mudarSubAbaGestor('mapa');
@@ -820,6 +821,7 @@ async function atualizarDashboardGestor() {
                     if (estaAberto) {
                         acoesImp += `<button onclick="resolverImprevistoPorId(${imp.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded mr-1 shadow-sm">✅ Resolver</button>`;
                     }
+                    acoesImp += `<button onclick="abrirModalEdicao(${imp.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded mr-1">✏️ Editar</button>`;
                     acoesImp += `<button onclick="excluirRegistro(${imp.id}, 'IMPREVISTO')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>`;
                 } else {
                     acoesImp = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
@@ -836,7 +838,7 @@ async function atualizarDashboardGestor() {
                     <td class="p-3">${badgeSituacao}</td>
                     <td class="p-3 text-slate-600">${obsTexto}</td>
                     <td class="p-3 font-mono text-[10px]">${linkGps}</td>
-                    <td class="p-3" onclick="event.stopPropagation()">${acoesImp}</td>
+                    <td class="p-3 whitespace-nowrap" onclick="event.stopPropagation()">${acoesImp}</td>
                 `;
                 corpoImp.appendChild(trImp);
             });
@@ -900,7 +902,8 @@ async function atualizarDashboardGestor() {
         nap: sumNap,
         dio: sumDio,
         cxSobrepor: sumSobrepor,
-        cxEmbutida: sumEmbutida
+        cxEmbutida: sumEmbutida,
+        cxFosc: sumFosc
     };
     renderizarTabelaFinanceiro(totaisFinanceirosAtuais);
 
@@ -1658,6 +1661,148 @@ function renderizarRankingTecnicos(dados) {
     });
 }
 
+// ================= PONTO 02: SUPER MODAL DE EDIÇÃO COMPLETA (ATIVIDADES, PENDÊNCIAS, MALOGROS, IMPREVISTOS E FOTOS) =================
+
+function lerCheckboxesAtuaisModalEdicao() {
+    const checks = document.querySelectorAll('input[name="chk-opcao-modal-edicao"]:checked');
+    if (checks.length > 0) {
+        opcoesMarcadasEdicaoTemporarias = Array.from(checks).map(c => c.value);
+    }
+}
+
+function aoMudarDesfechoModalEdicao() {
+    lerCheckboxesAtuaisModalEdicao();
+    const desf = document.getElementById('edit-reg-desfecho')?.value || 'CONCLUIDA';
+    renderizarOpcoesCheckboxesModalEdicao(desf, opcoesMarcadasEdicaoTemporarias);
+}
+
+function renderizarOpcoesCheckboxesModalEdicao(desfechoAlvo, selecionadas = []) {
+    const container = document.getElementById('container-checkboxes-edicao');
+    const lblTitulo = document.getElementById('lbl-titulo-opcoes-modal-edicao');
+    if (!container) return;
+
+    let opcoesBase = [];
+    if (desfechoAlvo === 'PENDENTE') {
+        opcoesBase = [...OPCOES_PENDENCIA_PADRAO];
+        if (lblTitulo) lblTitulo.innerText = "🟡 3. Opções de Pendência (Marque ou inclua novas opções)";
+    } else if (desfechoAlvo === 'MALOGRADA') {
+        opcoesBase = [...OPCOES_MALOGRO_PADRAO];
+        if (lblTitulo) lblTitulo.innerText = "🔴 3. Ofensores de Malogro (Marque ou inclua novos ofensores)";
+    } else if (desfechoAlvo === 'IMPREVISTO' || desfechoAlvo === 'IMPREVISTO RESOLVIDO') {
+        opcoesBase = [...OPCOES_IMPREVISTO_PADRAO];
+        if (lblTitulo) lblTitulo.innerText = "⚠️ 3. Motivos de Imprevisto / Atraso (Marque ou inclua novos motivos)";
+    } else {
+        opcoesBase = [...OPCOES_CONCLUIDA_PADRAO];
+        if (lblTitulo) lblTitulo.innerText = "🟢 3. Itens Verificados / Opções Vinculadas ao Registro";
+    }
+
+    // Garante que qualquer opção já gravada no registro (mesmo customizada) apareça na lista
+    (selecionadas || []).forEach(op => {
+        const limpo = String(op).trim().toUpperCase();
+        if (limpo && !opcoesBase.includes(limpo)) {
+            opcoesBase.push(limpo);
+        }
+    });
+
+    const setSelecionadas = new Set((selecionadas || []).map(s => String(s).trim().toUpperCase()));
+
+    container.innerHTML = opcoesBase.map(op => {
+        const checked = setSelecionadas.has(op.toUpperCase()) ? 'checked' : '';
+        return `
+            <label class="flex items-center gap-1.5 font-semibold text-slate-700 hover:bg-amber-50 p-1 rounded cursor-pointer">
+                <input type="checkbox" name="chk-opcao-modal-edicao" value="${op}" ${checked} class="w-4 h-4 accent-blue-900 rounded">
+                <span class="text-[11px]">${op}</span>
+            </label>
+        `;
+    }).join('');
+}
+
+async function incluirOpcaoCustomizadaNoModalEdicao() {
+    const inp = document.getElementById('inp-nova-opcao-rapida-edicao');
+    if (!inp) return;
+    const novaOp = inp.value.trim().toUpperCase();
+    if (!novaOp) {
+        alert("⚠️ Digite o nome da opção que deseja incluir.");
+        return;
+    }
+
+    const checksAtuais = document.querySelectorAll('input[name="chk-opcao-modal-edicao"]:checked');
+    opcoesMarcadasEdicaoTemporarias = Array.from(checksAtuais).map(c => c.value);
+    if (!opcoesMarcadasEdicaoTemporarias.includes(novaOp)) {
+        opcoesMarcadasEdicaoTemporarias.push(novaOp);
+    }
+
+    const desf = document.getElementById('edit-reg-desfecho')?.value || 'CONCLUIDA';
+    let adicionouNaListaGlobal = false;
+
+    if (desf === 'PENDENTE' && !OPCOES_PENDENCIA_PADRAO.includes(novaOp)) {
+        OPCOES_PENDENCIA_PADRAO.push(novaOp);
+        adicionouNaListaGlobal = true;
+    } else if (desf === 'MALOGRADA' && !OPCOES_MALOGRO_PADRAO.includes(novaOp)) {
+        OPCOES_MALOGRO_PADRAO.push(novaOp);
+        adicionouNaListaGlobal = true;
+    } else if ((desf === 'IMPREVISTO' || desf === 'IMPREVISTO RESOLVIDO') && !OPCOES_IMPREVISTO_PADRAO.includes(novaOp)) {
+        OPCOES_IMPREVISTO_PADRAO.push(novaOp);
+        adicionouNaListaGlobal = true;
+    }
+
+    if (adicionouNaListaGlobal) {
+        await sincronizarOpcoesNaNuvem();
+        renderizarPainelOpcoesSistema();
+    }
+
+    inp.value = "";
+    renderizarOpcoesCheckboxesModalEdicao(desf, opcoesMarcadasEdicaoTemporarias);
+}
+
+function renderizarFotosModalEdicao() {
+    const container = document.getElementById('container-fotos-modal-edicao');
+    const lblQtd = document.getElementById('lbl-qtd-fotos-edicao');
+    if (!container) return;
+
+    if (lblQtd) lblQtd.innerText = fotosEdicaoTemporarias.length;
+
+    if (fotosEdicaoTemporarias.length === 0) {
+        container.innerHTML = `<span class="text-[11px] text-slate-400 italic">Nenhuma foto anexada neste registro.</span>`;
+        return;
+    }
+
+    container.innerHTML = fotosEdicaoTemporarias.map((fSrc, idx) => `
+        <div class="relative border border-slate-300 rounded-lg overflow-hidden w-16 h-16 bg-white shadow-sm">
+            <img src="${fSrc}" onclick="abrirZoomFoto('${fSrc}', 'Foto_Edit_${idx + 1}.jpg')" class="w-full h-full object-cover cursor-pointer">
+            <button type="button" onclick="removerFotoModalEdicao(${idx})" class="absolute top-0.5 right-0.5 bg-red-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow">✕</button>
+        </div>
+    `).join('');
+}
+
+async function adicionarFotosNoModalEdicao(inputEl) {
+    const arquivos = Array.from(inputEl.files || []);
+    if (arquivos.length === 0) return;
+
+    if (fotosEdicaoTemporarias.length + arquivos.length > 10) {
+        alert("⚠️ Máximo de 10 fotos por registro.");
+        inputEl.value = "";
+        return;
+    }
+
+    for (const arq of arquivos) {
+        try {
+            const base64 = await comprimirImagemBase64(arq, 780, 0.60);
+            fotosEdicaoTemporarias.push(base64);
+        } catch (e) {
+            console.warn("Erro ao comprimir foto no modal de edição:", e);
+        }
+    }
+
+    inputEl.value = "";
+    renderizarFotosModalEdicao();
+}
+
+function removerFotoModalEdicao(idx) {
+    fotosEdicaoTemporarias.splice(idx, 1);
+    renderizarFotosModalEdicao();
+}
+
 function abrirModalEdicao(id) {
     if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
         alert("⚠️ Acesso restrito para edição.");
@@ -1667,24 +1812,56 @@ function abrirModalEdicao(id) {
     if (!reg) return;
 
     document.getElementById('edit-reg-id').value = reg.id;
-    document.getElementById('edit-reg-imovel').value = reg.imovel;
-    document.getElementById('edit-reg-endereco').value = reg.endereco || '';
-    if (document.getElementById('edit-reg-liberou-acesso')) {
-        document.getElementById('edit-reg-liberou-acesso').value = reg.liberouAcesso || '';
+    document.getElementById('edit-reg-data').value = reg.dataRegistro || obterDataLocalISO();
+
+    // Popula select de equipes no modal de edição
+    const selEqEdit = document.getElementById('edit-reg-equipe');
+    if (selEqEdit) {
+        const nomesEquipes = equipesSistema.map(e => e.nome);
+        if (reg.equipe && !nomesEquipes.includes(reg.equipe)) {
+            nomesEquipes.unshift(reg.equipe);
+        }
+        selEqEdit.innerHTML = nomesEquipes.map(nome => `<option value="${nome}">${nome}</option>`).join('');
+        selEqEdit.value = reg.equipe || "";
     }
-    document.getElementById('edit-reg-projeto').value = reg.projeto;
-    document.getElementById('edit-reg-desfecho').value = reg.desfecho;
+
+    document.getElementById('edit-reg-imovel').value = reg.imovel || '';
+    document.getElementById('edit-reg-endereco').value = reg.endereco || '';
+    document.getElementById('edit-reg-liberou-acesso').value = reg.liberouAcesso || '';
+    document.getElementById('edit-reg-responsavel').value = reg.responsavel || '';
+    document.getElementById('edit-reg-contato').value = reg.contato || '';
+    document.getElementById('edit-reg-email').value = reg.email || '';
+
+    document.getElementById('edit-reg-projeto').value = reg.projeto || 'CONSTRUÇÃO ON GOING';
+    document.getElementById('edit-reg-desfecho').value = reg.desfecho || 'CONCLUIDA';
+
+    document.getElementById('edit-reg-h-entrada').value = reg.hEntrada || '';
+    document.getElementById('edit-reg-h-saida').value = reg.hSaida || '';
+    document.getElementById('edit-reg-pausa').value = Number(reg.tempoPausadoMinutos) || 0;
+    document.getElementById('edit-reg-gps-entrada').value = reg.gpsEntrada || '';
+    document.getElementById('edit-reg-gps-saida').value = reg.gpsSaida || '';
+    document.getElementById('edit-reg-servico-obra').value = reg.servicoObra || 'SIM';
+
     document.getElementById('edit-reg-andares').value = reg.andares || 0;
     document.getElementById('edit-reg-hps').value = reg.hps || 0;
-    document.getElementById('edit-reg-cabo-rl').value = reg.caboRL;
-    document.getElementById('edit-reg-conectores').value = reg.conectores;
-    document.getElementById('edit-reg-cabo-drop').value = reg.caboDrop;
-    document.getElementById('edit-reg-nap').value = reg.nap;
-    document.getElementById('edit-reg-dio').value = reg.dio;
-    document.getElementById('edit-reg-fusoes').value = reg.fusoes;
-    document.getElementById('edit-reg-cx-sobrepor').value = reg.cxSobrepor;
-    document.getElementById('edit-reg-cx-embutida').value = reg.cxEmbutida;
-    document.getElementById('edit-reg-cx-fosc').value = reg.cxFosc;
+    document.getElementById('edit-reg-cabo-rl').value = reg.caboRL || 0;
+    document.getElementById('edit-reg-conectores').value = reg.conectores || 0;
+    document.getElementById('edit-reg-cabo-drop').value = reg.caboDrop || 0;
+    document.getElementById('edit-reg-nap').value = reg.nap || 0;
+    document.getElementById('edit-reg-dio').value = reg.dio || 0;
+    document.getElementById('edit-reg-fusoes').value = reg.fusoes || 0;
+    document.getElementById('edit-reg-cx-sobrepor').value = reg.cxSobrepor || 0;
+    document.getElementById('edit-reg-cx-embutida').value = reg.cxEmbutida || 0;
+    document.getElementById('edit-reg-cx-fosc').value = reg.cxFosc || 0;
+
+    document.getElementById('edit-reg-motivo-desfecho').value = reg.motivoDesfecho || '';
+    document.getElementById('edit-reg-observacoes').value = reg.observacoes || '';
+
+    opcoesMarcadasEdicaoTemporarias = Array.isArray(reg.malogros) ? [...reg.malogros] : [];
+    renderizarOpcoesCheckboxesModalEdicao(reg.desfecho, opcoesMarcadasEdicaoTemporarias);
+
+    fotosEdicaoTemporarias = Array.isArray(reg.fotos) ? [...reg.fotos] : [];
+    renderizarFotosModalEdicao();
 
     document.getElementById('modal-edicao').classList.remove('hidden');
 }
@@ -1696,13 +1873,26 @@ function fecharModalEdicao() {
 async function salvarEdicaoRegistro() {
     let id = Number(document.getElementById('edit-reg-id').value);
     let regOriginal = registrosSalvos.find(r => r.id === id);
+
+    let data_registro = document.getElementById('edit-reg-data').value || (regOriginal ? regOriginal.dataRegistro : obterDataLocalISO());
+    let equipe = document.getElementById('edit-reg-equipe').value || (regOriginal ? regOriginal.equipe : '');
     let imovel = document.getElementById('edit-reg-imovel').value.trim();
     let endereco = document.getElementById('edit-reg-endereco').value.trim();
-    let liberouAcesso = document.getElementById('edit-reg-liberou-acesso') 
-        ? document.getElementById('edit-reg-liberou-acesso').value.trim() 
-        : (regOriginal ? regOriginal.liberouAcesso : '');
+    let liberouAcesso = document.getElementById('edit-reg-liberou-acesso').value.trim();
+    let responsavel = document.getElementById('edit-reg-responsavel').value.trim();
+    let contato = document.getElementById('edit-reg-contato').value.trim();
+    let email = document.getElementById('edit-reg-email').value.trim();
+
     let projeto = document.getElementById('edit-reg-projeto').value;
     let desfecho = document.getElementById('edit-reg-desfecho').value;
+
+    let h_entrada = document.getElementById('edit-reg-h-entrada').value.trim();
+    let h_saida = document.getElementById('edit-reg-h-saida').value.trim();
+    let pausaMin = Number(document.getElementById('edit-reg-pausa').value) || 0;
+    let gps_entrada = document.getElementById('edit-reg-gps-entrada').value.trim();
+    let gps_saida = document.getElementById('edit-reg-gps-saida').value.trim();
+    let servico_obra = document.getElementById('edit-reg-servico-obra').value || 'SIM';
+
     let andares = Number(document.getElementById('edit-reg-andares').value) || 0;
     let hps = Number(document.getElementById('edit-reg-hps').value) || 0;
     let cabo_rl = Number(document.getElementById('edit-reg-cabo-rl').value) || 0;
@@ -1715,24 +1905,46 @@ async function salvarEdicaoRegistro() {
     let cx_embutida = Number(document.getElementById('edit-reg-cx-embutida').value) || 0;
     let cx_fosc = Number(document.getElementById('edit-reg-cx-fosc').value) || 0;
 
-    let obsLimpa = regOriginal ? (regOriginal.observacoes || '') : '';
+    let motivo_desfecho = document.getElementById('edit-reg-motivo-desfecho').value.trim();
+    let obsLimpa = document.getElementById('edit-reg-observacoes').value.trim();
+
+    const checksMarcados = document.querySelectorAll('input[name="chk-opcao-modal-edicao"]:checked');
+    const listaMalogrosOpcoes = Array.from(checksMarcados).map(c => c.value);
+
     let tagEnd = endereco ? `[END: ${endereco}] ` : '';
     let tagLiberou = liberouAcesso ? `[LIBEROU_ACESSO: ${liberouAcesso}] ` : '';
-    let tagPausa = (regOriginal && regOriginal.tempoPausadoMinutos > 0)
-        ? `[PAUSA_TOTAL: ${regOriginal.tempoPausadoMinutos}] `
-        : '';
+    let tagPausa = pausaMin > 0 ? `[PAUSA_TOTAL: ${pausaMin}] ` : '';
     let sufixoBlocos = (regOriginal && regOriginal.qtdBlocosProgramados > 1)
         ? ` [BLOCOS: ${regOriginal.qtdBlocosProgramados}]`
         : '';
-    let sufixoFotos = (regOriginal && regOriginal.fotos && regOriginal.fotos.length > 0)
-        ? ` [FOTOS:${JSON.stringify(regOriginal.fotos)}]`
+    let sufixoFotos = (fotosEdicaoTemporarias && fotosEdicaoTemporarias.length > 0)
+        ? ` [FOTOS:${JSON.stringify(fotosEdicaoTemporarias)}]`
         : '';
     let obsComTagsEFotos = `${tagEnd}${tagLiberou}${tagPausa}${obsLimpa}${sufixoBlocos}${sufixoFotos}`.trim();
 
+    const btnSalvar = document.getElementById('btn-salvar-modal-edicao');
+    if (btnSalvar) {
+        btnSalvar.disabled = true;
+        btnSalvar.innerText = "⏳ Salvando alterações...";
+    }
+
     let dadosAtualizados = {
+        data_registro: data_registro,
+        equipe: equipe,
+        membros: equipe,
         imovel: imovel,
         projeto: projeto,
         desfecho: desfecho,
+        h_entrada: h_entrada,
+        h_saida: h_saida,
+        gps_entrada: gps_entrada,
+        gps_saida: gps_saida,
+        responsavel: responsavel,
+        contato: contato,
+        email: email,
+        servico_obra: servico_obra,
+        motivo_desfecho: motivo_desfecho,
+        malogros: listaMalogrosOpcoes,
         andares: andares,
         hps: hps,
         observacoes: obsComTagsEFotos,
@@ -1752,13 +1964,21 @@ async function salvarEdicaoRegistro() {
         .update(dadosAtualizados)
         .eq('id', id);
 
+    if (btnSalvar) {
+        btnSalvar.disabled = false;
+        btnSalvar.innerText = "💾 Salvar Todas as Alterações";
+    }
+
     if (error) {
         alert("Erro ao atualizar registro: " + error.message);
         return;
     }
 
-    registrarLogAuditoria("EDIÇÃO DE REGISTRO", `Registro ID ${id} (Imóvel: ${imovel}) atualizado para status ${desfecho}.`);
-    alert("Registro atualizado com sucesso!");
+    registrarLogAuditoria(
+        "EDIÇÃO COMPLETA DE REGISTRO",
+        `Registro ID ${id} (Imóvel: ${imovel} | Equipe: ${equipe}) atualizado para status ${desfecho} com ${listaMalogrosOpcoes.length} opção(ões) marcada(s).`
+    );
+    alert("✅ Registro atualizado com sucesso!");
     fecharModalEdicao();
     await recarregarDadosGestor();
 }
@@ -1974,18 +2194,25 @@ function abrirDetalhesAtividade(item) {
 
     let barraAcoesTopoModal = '';
     if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
+        const btnEditarCompleto = `<button onclick="fecharModalDetalhes(); abrirModalEdicao(${item.id})" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">✏️ Editar Tudo</button>`;
         if (['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(item.desfecho)) {
             barraAcoesTopoModal = `
-                <div class="bg-purple-50 border border-purple-200 p-3 rounded-lg flex justify-between items-center">
-                    <span class="text-[11px] font-bold text-purple-950">Deseja liberar esta atividade para o técnico editar no celular?</span>
-                    <button onclick="fecharModalDetalhes(); autorizarReaberturaCampo(${item.id})" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">🔓 Autorizar Reabertura</button>
+                <div class="bg-purple-50 border border-purple-200 p-3 rounded-lg flex flex-wrap justify-between items-center gap-2">
+                    <span class="text-[11px] font-bold text-purple-950">Ações de Gestão para este registro:</span>
+                    <div class="flex items-center gap-2">
+                        ${btnEditarCompleto}
+                        <button onclick="fecharModalDetalhes(); autorizarReaberturaCampo(${item.id})" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">🔓 Reabrir p/ Técnico</button>
+                    </div>
                 </div>
             `;
         } else {
             barraAcoesTopoModal = `
-                <div class="bg-indigo-50 border border-indigo-200 p-3 rounded-lg flex justify-between items-center">
-                    <span class="text-[11px] font-bold text-indigo-950">Deseja movimentar esta atividade para outro técnico?</span>
-                    <button onclick="fecharModalDetalhes(); abrirModalTransferirAtividade(${item.id})" class="bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">🔀 Transferir Técnico</button>
+                <div class="bg-indigo-50 border border-indigo-200 p-3 rounded-lg flex flex-wrap justify-between items-center gap-2">
+                    <span class="text-[11px] font-bold text-indigo-950">Ações de Gestão para este registro:</span>
+                    <div class="flex items-center gap-2">
+                        ${btnEditarCompleto}
+                        <button onclick="fecharModalDetalhes(); abrirModalTransferirAtividade(${item.id})" class="bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">🔀 Transferir Técnico</button>
+                    </div>
                 </div>
             `;
         }
@@ -2768,7 +2995,7 @@ function renderizarTabelaAuditoria() {
         return;
     }
     trilhaAuditoria.forEach(log => {
-        const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO") || log.acao.includes("PIN") || log.acao.includes("TRANSFERÊNCIA") || log.acao.includes("EXPEDIENTE")
+        const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO") || log.acao.includes("PIN") || log.acao.includes("TRANSFERÊNCIA") || log.acao.includes("EXPEDIENTE") || log.acao.includes("EDIÇÃO")
             ? "bg-purple-100 text-purple-900 border border-purple-300"
             : "bg-slate-100 text-slate-800";
 
@@ -2792,7 +3019,6 @@ function limparLogsAuditoria() {
     }
 }
 
-// PONTO 01 + PONTO 05: Navegação de Sub-Abas do Gestor com a nova aba independente 'mapa'
 function mudarSubAbaGestor(aba) {
     if (nivelUsuarioLogado === 'Visualizador' && !['atividades', 'graficos', 'materiais'].includes(aba)) {
         alert("⚠️ Seu perfil (Visualizador) possui acesso restrito às abas: Atividades, Gráficos & Indicadores e Materiais.");
