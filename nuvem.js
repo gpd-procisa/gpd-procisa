@@ -56,6 +56,11 @@ const OPCOES_CONCLUIDA_PADRAO = [
     "LIBERADO PARA COMERCIAL"
 ];
 
+// Detecta se o acesso está sendo feito por um smartphone
+function ehDispositivoMovel() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || "") || (window.innerWidth <= 768);
+}
+
 function obterArraySetores(setorCampo) {
     if (!setorCampo) return ["Instalador"];
     if (Array.isArray(setorCampo)) {
@@ -194,7 +199,6 @@ equipesSistema = equipesSistema.map(eq => ({
     pin: (eq.pin && String(eq.pin).trim().length >= 4) ? String(eq.pin).trim() : "1234"
 }));
 
-// Objeto global que guarda a telemetria/rastreio em tempo real de cada técnico
 let telemetriaEquipes = JSON.parse(localStorage.getItem('gpd_telemetria_equipes')) || {};
 
 let dadosAtendimento = { 
@@ -408,8 +412,6 @@ async function sincronizarOpcoesNaNuvem() {
     }
 }
 
-// ================= SINCRONIZAÇÃO DE TELEMETRIA / RASTREIO GPS EM TEMPO REAL =================
-
 async function sincronizarTelemetriaNaNuvem(nomeEquipe = null, dadosEquipe = null) {
     try {
         const { data } = await supabaseClient
@@ -582,12 +584,42 @@ function obterDataLocalISO(dateObj = new Date()) {
     return new Date(dateObj.getTime() - (dateObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 }
 
+// ================= INICIALIZAÇÃO INSTANTÂNEA E OTIMIZADA PARA MOBILE (PONTO 02) =================
+
 window.onload = async function() { 
+    const isMobile = ehDispositivoMovel();
+
+    // 1. Renderiza IMEDIATAMENTE os menus e o rascunho local da memória do celular (0ms de espera, sem travar a tela)
     popularSelectImprevistos();
-    await carregarRegistrosDaNuvem();
     popularSelectEquipes();
     verificarPermissoesSessao();
     restaurarRascunhoCampo();
+
+    // 2. Se for smartphone, força automaticamente o Modo Campo para máxima leveza
+    if (isMobile) {
+        const grupoTopo = document.getElementById('grupo-botoes-visao-topo');
+        const rodapeMobile = document.getElementById('rodape-acesso-gestor-mobile');
+        if (grupoTopo && !usuarioLogado) grupoTopo.classList.add('hidden');
+        if (rodapeMobile) rodapeMobile.classList.remove('hidden');
+        alternarVisao('campo');
+    } else if (usuarioLogado) {
+        document.getElementById('badge-usuario-logado').classList.remove('hidden');
+        document.getElementById('btn-sair-gestor').classList.remove('hidden');
+        document.getElementById('txt-email-ativo').innerText = usuarioLogado;
+        document.getElementById('txt-nivel-ativo').innerText = nivelUsuarioLogado;
+        alternarVisao('gestor');
+    } else {
+        alternarVisao('campo');
+    }
+
+    // 3. Sincroniza os dados da nuvem em segundo plano (Modo Leve para Campo / Modo Completo para Gestor no PC)
+    if (isMobile || !usuarioLogado) {
+        await carregarRegistrosModoCampoLeve();
+    } else {
+        await carregarRegistrosDaNuvem(true);
+    }
+
+    popularSelectEquipes();
     verificarImprevistoAtivoEquipeCampo();
     verificarPendenciasReabertasEProgramadasCampo(false);
     if (typeof atualizarBarraExpedienteCampo === "function") {
@@ -597,14 +629,8 @@ window.onload = async function() {
         atualizarAbaMinhasAtividadesCampo(false);
     }
 
-    if (usuarioLogado) {
-        document.getElementById('badge-usuario-logado').classList.remove('hidden');
-        document.getElementById('btn-sair-gestor').classList.remove('hidden');
-        document.getElementById('txt-email-ativo').innerText = usuarioLogado;
-        document.getElementById('txt-nivel-ativo').innerText = nivelUsuarioLogado;
-        alternarVisao('gestor');
-    } else {
-        alternarVisao('campo');
+    if (!isMobile && usuarioLogado && typeof atualizarDashboardGestor === "function") {
+        atualizarDashboardGestor();
     }
 
     // Sincronização automática geral do Painel do Gestor a cada 180s
@@ -624,31 +650,32 @@ window.onload = async function() {
             (document.getElementById('modal-transferir-atividade') && !document.getElementById('modal-transferir-atividade').classList.contains('hidden'));
 
         if (usuarioLogado && viewGestorAtiva && !algumModalAberto) {
-            await carregarRegistrosDaNuvem();
+            await carregarRegistrosDaNuvem(true);
             atualizarDashboardGestor();
             const lblHora = document.getElementById('txt-hora-sync');
             if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
         }
     }, 180000);
 
-    // Radar rápido (30s) quando o Gestor está com a aba Disponibilidade & Mapa aberta
+    // Radar rápido (30s) quando o Gestor está com a aba Disponibilidade ou a nova aba Mapa em Tempo Real aberta
     setInterval(async () => {
         const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
         const subDispAtiva = !document.getElementById('subview-disponibilidade')?.classList.contains('hidden');
-        if (usuarioLogado && viewGestorAtiva && subDispAtiva) {
-            await carregarRegistrosDaNuvem();
+        const subMapaAtiva = !document.getElementById('subview-mapa')?.classList.contains('hidden');
+        if (usuarioLogado && viewGestorAtiva && (subDispAtiva || subMapaAtiva)) {
+            await carregarRegistrosDaNuvem(true);
             if (typeof renderizarPainelDisponibilidade === "function") {
                 renderizarPainelDisponibilidade();
             }
         }
     }, 30000);
 
-    // Radar em segundo plano no celular do técnico a cada 35s
+    // Radar ultra-leve em segundo plano no celular do técnico a cada 35s
     setInterval(async () => {
         const viewCampoAtiva = !document.getElementById('view-campo').classList.contains('hidden');
         const formAberto = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
         if (viewCampoAtiva && equipeAutenticadaSessao && !formAberto) {
-            await carregarRegistrosDaNuvem();
+            await carregarRegistrosModoCampoLeve();
             verificarImprevistoAtivoEquipeCampo();
             verificarPendenciasReabertasEProgramadasCampo(true);
             if (typeof atualizarAbaMinhasAtividadesCampo === "function") {
@@ -668,6 +695,7 @@ function aplicarRestricoesInterface() {
 
     const abasRestritasVisualizador = [
         'disponibilidade', 
+        'mapa',
         'imprevistos', 
         'financeiro', 
         'equipes', 
@@ -724,7 +752,233 @@ function aplicarRestricoesInterface() {
     }
 }
 
-async function carregarRegistrosDaNuvem() {
+// Função auxiliar que processa as linhas de configuração e converte registros brutos do Supabase
+async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = false) {
+    if (!data) return;
+
+    const rowUsuarios = data.find(r => r.id === ID_NUVEM_USUARIOS || r.projeto === '__CONFIG_USUARIOS__');
+    if (rowUsuarios && rowUsuarios.observacoes) {
+        try {
+            const nuvemUsers = JSON.parse(rowUsuarios.observacoes);
+            if (Array.isArray(nuvemUsers) && nuvemUsers.length > 0) {
+                const locais = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [];
+                let houveAdicaoLocal = false;
+                locais.forEach(uLocal => {
+                    if (uLocal.email && !nuvemUsers.some(uNuvem => uNuvem.email.toLowerCase() === uLocal.email.toLowerCase())) {
+                        nuvemUsers.push(uLocal);
+                        houveAdicaoLocal = true;
+                    }
+                });
+                usuariosSistema = nuvemUsers;
+                localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
+                if (houveAdicaoLocal && permitirUploadInicialConfig) await sincronizarUsuariosNaNuvem();
+            }
+        } catch (e) { console.warn("Erro ao ler JSON de usuários da nuvem:", e); }
+    } else if (permitirUploadInicialConfig) {
+        await sincronizarUsuariosNaNuvem();
+    }
+
+    const rowEquipes = data.find(r => r.id === ID_NUVEM_EQUIPES || r.projeto === '__CONFIG_EQUIPES__');
+    if (rowEquipes && rowEquipes.observacoes) {
+        try {
+            const nuvemEq = JSON.parse(rowEquipes.observacoes);
+            if (Array.isArray(nuvemEq) && nuvemEq.length > 0) {
+                equipesSistema = nuvemEq.map(eq => ({
+                    ...eq,
+                    setor: formatarSetoresString(eq.setor || "Instalador"),
+                    pin: (eq.pin && String(eq.pin).trim().length >= 4) ? String(eq.pin).trim() : "1234"
+                }));
+                localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
+            }
+        } catch (e) { console.warn("Erro ao ler JSON de equipes da nuvem:", e); }
+    } else if (equipesSistema.length > 0 && permitirUploadInicialConfig) {
+        await sincronizarEquipesNaNuvem();
+    }
+
+    const rowOpcoes = data.find(r => r.id === ID_NUVEM_OPCOES || r.projeto === '__CONFIG_OPCOES__');
+    if (rowOpcoes && rowOpcoes.observacoes) {
+        try {
+            const nuvemOpc = JSON.parse(rowOpcoes.observacoes);
+            if (nuvemOpc.pendencia) OPCOES_PENDENCIA_PADRAO = nuvemOpc.pendencia;
+            if (nuvemOpc.malogro) OPCOES_MALOGRO_PADRAO = nuvemOpc.malogro;
+            if (nuvemOpc.imprevisto) OPCOES_IMPREVISTO_PADRAO = nuvemOpc.imprevisto;
+            popularSelectImprevistos();
+        } catch (e) { console.warn("Erro ao ler JSON de opções da nuvem:", e); }
+    } else if (permitirUploadInicialConfig) {
+        await sincronizarOpcoesNaNuvem();
+    }
+
+    const rowRastreio = data.find(r => r.id === ID_NUVEM_RASTREIO || r.projeto === '__CONFIG_RASTREIO__');
+    if (rowRastreio && rowRastreio.observacoes) {
+        try {
+            const nuvemRast = JSON.parse(rowRastreio.observacoes);
+            if (nuvemRast && typeof nuvemRast === 'object') {
+                telemetriaEquipes = nuvemRast;
+                localStorage.setItem('gpd_telemetria_equipes', JSON.stringify(telemetriaEquipes));
+            }
+        } catch (e) { console.warn("Erro ao ler JSON de rastreio da nuvem:", e); }
+    }
+
+    const registrosReais = data.filter(r => 
+        r.id !== ID_NUVEM_USUARIOS && 
+        r.id !== ID_NUVEM_EQUIPES && 
+        r.id !== ID_NUVEM_OPCOES &&
+        r.id !== ID_NUVEM_RASTREIO &&
+        r.equipe !== '__CONFIG_SISTEMA__' &&
+        r.projeto !== '__CONFIG_USUARIOS__' &&
+        r.projeto !== '__CONFIG_EQUIPES__' &&
+        r.projeto !== '__CONFIG_OPCOES__' &&
+        r.projeto !== '__CONFIG_RASTREIO__'
+    );
+
+    registrosSalvos = registrosReais.map(r => {
+        let obsBruta = r.observacoes || '';
+        let endExtraido = '';
+        let liberouAcessoExtraido = '';
+        let fotosExtraidas = [];
+        let qtdBlocosExtraida = 1;
+        let tempoPausadoExtraido = 0;
+
+        const posFotos = obsBruta.indexOf('[FOTOS:');
+        if (posFotos !== -1) {
+            const fimFotos = obsBruta.lastIndexOf(']');
+            if (fimFotos > posFotos) {
+                const jsonStr = obsBruta.substring(posFotos + 7, fimFotos);
+                try {
+                    fotosExtraidas = JSON.parse(jsonStr);
+                } catch (e) { console.warn("Erro ao extrair fotos:", e); }
+                obsBruta = (obsBruta.substring(0, posFotos) + obsBruta.substring(fimFotos + 1)).trim();
+            }
+        }
+
+        const matchBlocos = obsBruta.match(/\[BLOCOS:\s*(\d+)\]/i);
+        if (matchBlocos) {
+            qtdBlocosExtraida = Math.max(1, Math.min(20, parseInt(matchBlocos[1], 10) || 1));
+            obsBruta = obsBruta.replace(matchBlocos[0], '').trim();
+        }
+
+        const matchPausaTotal = obsBruta.match(/\[PAUSA_TOTAL:\s*(\d+)\]/i);
+        if (matchPausaTotal) {
+            tempoPausadoExtraido = parseInt(matchPausaTotal[1], 10) || 0;
+            obsBruta = obsBruta.replace(matchPausaTotal[0], '').trim();
+        }
+
+        const matchPausaInicio = obsBruta.match(/\[PAUSA_INICIO:\s*(\d+)\]/i);
+        if (matchPausaInicio) {
+            obsBruta = obsBruta.replace(matchPausaInicio[0], '').trim();
+        }
+
+        const matchLiberou = obsBruta.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
+        if (matchLiberou) {
+            liberouAcessoExtraido = matchLiberou[1].trim();
+            obsBruta = obsBruta.replace(matchLiberou[0], '').trim();
+        }
+
+        const matchEnd = obsBruta.match(/\[END:\s*([^\]]+)\]/i);
+        if (matchEnd) {
+            endExtraido = matchEnd[1].trim();
+            obsBruta = obsBruta.replace(matchEnd[0], '').trim();
+        } else if (obsBruta.startsWith('[END:')) {
+            let fimTag = obsBruta.indexOf(']');
+            if (fimTag !== -1) {
+                endExtraido = obsBruta.substring(5, fimTag).trim();
+                obsBruta = obsBruta.substring(fimTag + 1).trim();
+            }
+        }
+
+        const projBruto = r.projeto || '';
+        const projNorm = (projBruto === 'IMPREVISTO / ATRASO') ? projBruto : normalizarNomeProjeto(projBruto);
+
+        return {
+            id: r.id,
+            dataRegistro: r.data_registro || '',
+            equipe: r.equipe || '',
+            membros: r.membros || '',
+            projeto: projNorm,
+            imovel: r.imovel || '',
+            endereco: endExtraido,
+            liberouAcesso: liberouAcessoExtraido,
+            tempoPausadoMinutos: tempoPausadoExtraido,
+            qtdBlocosProgramados: qtdBlocosExtraida,
+            fotos: Array.isArray(fotosExtraidas) ? fotosExtraidas : [],
+            hEntrada: r.h_entrada || '',
+            hSaida: r.h_saida || '',
+            gpsEntrada: r.gps_entrada || '',
+            gpsSaida: r.gps_saida || '',
+            desfecho: r.desfecho || '',
+            motivoDesfecho: r.motivo_desfecho || '',
+            malogros: r.malogros || [],
+            responsavel: r.responsavel || '',
+            contato: r.contato || '',
+            email: r.email || '',
+            agendamento: r.agendamento || '',
+            andares: r.andares || '',
+            hps: r.hps || '',
+            servicoObra: r.servico_obra || 'SIM',
+            observacoes: obsBruta,
+            fusoes: Number(r.fusoes) || 0,
+            conectores: Number(r.conectores) || 0,
+            caboRL: Number(r.cabo_rl) || 0,
+            caboDrop: Number(r.cabo_drop) || 0,
+            nap: Number(r.nap) || 0,
+            dio: Number(r.dio) || 0,
+            cxSobrepor: Number(r.cx_sobrepor) || 0,
+            cxEmbutida: Number(r.cx_embutida) || 0,
+            cxFosc: Number(r.cx_fosc) || 0
+        };
+    });
+}
+
+// PONTO 02: Carregador Ultra-Leve exclusivo para o Modo Campo no Smartphone (Não baixa histórico antigo nem fotos de terceiros)
+async function carregarRegistrosModoCampoLeve() {
+    try {
+        const hojeISO = obterDataLocalISO();
+        const eqAtiva = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "";
+
+        // 1. Busca apenas os 4 registros leves de configuração
+        const promConfig = supabaseClient
+            .from('registros_producao')
+            .select('*')
+            .in('id', [ID_NUVEM_USUARIOS, ID_NUVEM_EQUIPES, ID_NUVEM_OPCOES, ID_NUVEM_RASTREIO]);
+
+        // 2. Busca apenas as atividades pertinentes ao Modo Campo (sem baixar o histórico pesado de meses anteriores)
+        let queryAtiv = supabaseClient
+            .from('registros_producao')
+            .select('*')
+            .order('id', { ascending: false });
+
+        if (eqAtiva) {
+            // Se o técnico já está selecionado, baixa somente os registros dele ou do dia de hoje (para checagem de duplicidade)
+            queryAtiv = queryAtiv.or(`equipe.eq."${eqAtiva}",data_registro.eq.${hojeISO}`).limit(120);
+        } else {
+            // Se ainda não selecionou o técnico, baixa apenas o que está ativo na fila ou foi feito hoje
+            queryAtiv = queryAtiv.or(`data_registro.eq.${hojeISO},desfecho.in.(PROGRAMADA,REABERTA,EM ANDAMENTO,PARALISADA,IMPREVISTO)`).limit(120);
+        }
+
+        const [resConfig, resAtiv] = await Promise.all([promConfig, queryAtiv]);
+
+        const combinados = [
+            ...(resConfig.data || []),
+            ...(resAtiv.data || [])
+        ];
+
+        // Remove eventuais duplicatas por ID
+        const mapaUnico = new Map();
+        combinados.forEach(item => mapaUnico.set(item.id, item));
+
+        await processarPacoteDadosNuvem(Array.from(mapaUnico.values()), false);
+    } catch (err) {
+        console.warn("Aviso no carregamento leve 4G:", err);
+    }
+}
+
+// Carregador Geral (Redireciona automaticamente para o Modo Leve se estiver apenas na tela de Campo)
+async function carregarRegistrosDaNuvem(forcarCompletoGestor = false) {
+    const viewGestorVisivel = !document.getElementById('view-gestor')?.classList.contains('hidden');
+    if (!forcarCompletoGestor && !viewGestorVisivel) {
+        return await carregarRegistrosModoCampoLeve();
+    }
+
     try {
         let { data, error } = await supabaseClient
             .from('registros_producao')
@@ -732,188 +986,16 @@ async function carregarRegistrosDaNuvem() {
             .order('id', { ascending: false });
         
         if (error) throw error;
-        
         if (data) {
-            const rowUsuarios = data.find(r => r.id === ID_NUVEM_USUARIOS || r.projeto === '__CONFIG_USUARIOS__');
-            if (rowUsuarios && rowUsuarios.observacoes) {
-                try {
-                    const nuvemUsers = JSON.parse(rowUsuarios.observacoes);
-                    if (Array.isArray(nuvemUsers) && nuvemUsers.length > 0) {
-                        const locais = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [];
-                        let houveAdicaoLocal = false;
-                        locais.forEach(uLocal => {
-                            if (uLocal.email && !nuvemUsers.some(uNuvem => uNuvem.email.toLowerCase() === uLocal.email.toLowerCase())) {
-                                nuvemUsers.push(uLocal);
-                                houveAdicaoLocal = true;
-                            }
-                        });
-                        usuariosSistema = nuvemUsers;
-                        localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
-                        if (houveAdicaoLocal) await sincronizarUsuariosNaNuvem();
-                    }
-                } catch (e) { console.warn("Erro ao ler JSON de usuários da nuvem:", e); }
-            } else {
-                await sincronizarUsuariosNaNuvem();
-            }
-
-            const rowEquipes = data.find(r => r.id === ID_NUVEM_EQUIPES || r.projeto === '__CONFIG_EQUIPES__');
-            if (rowEquipes && rowEquipes.observacoes) {
-                try {
-                    const nuvemEq = JSON.parse(rowEquipes.observacoes);
-                    if (Array.isArray(nuvemEq) && nuvemEq.length > 0) {
-                        equipesSistema = nuvemEq.map(eq => ({
-                            ...eq,
-                            setor: formatarSetoresString(eq.setor || "Instalador"),
-                            pin: (eq.pin && String(eq.pin).trim().length >= 4) ? String(eq.pin).trim() : "1234"
-                        }));
-                        localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
-                    }
-                } catch (e) { console.warn("Erro ao ler JSON de equipes da nuvem:", e); }
-            } else if (equipesSistema.length > 0) {
-                await sincronizarEquipesNaNuvem();
-            }
-
-            const rowOpcoes = data.find(r => r.id === ID_NUVEM_OPCOES || r.projeto === '__CONFIG_OPCOES__');
-            if (rowOpcoes && rowOpcoes.observacoes) {
-                try {
-                    const nuvemOpc = JSON.parse(rowOpcoes.observacoes);
-                    if (nuvemOpc.pendencia) OPCOES_PENDENCIA_PADRAO = nuvemOpc.pendencia;
-                    if (nuvemOpc.malogro) OPCOES_MALOGRO_PADRAO = nuvemOpc.malogro;
-                    if (nuvemOpc.imprevisto) OPCOES_IMPREVISTO_PADRAO = nuvemOpc.imprevisto;
-                    popularSelectImprevistos();
-                } catch (e) { console.warn("Erro ao ler JSON de opções da nuvem:", e); }
-            } else {
-                await sincronizarOpcoesNaNuvem();
-            }
-
-            // Carrega Telemetria e Posições GPS das Equipes
-            const rowRastreio = data.find(r => r.id === ID_NUVEM_RASTREIO || r.projeto === '__CONFIG_RASTREIO__');
-            if (rowRastreio && rowRastreio.observacoes) {
-                try {
-                    const nuvemRast = JSON.parse(rowRastreio.observacoes);
-                    if (nuvemRast && typeof nuvemRast === 'object') {
-                        telemetriaEquipes = nuvemRast;
-                        localStorage.setItem('gpd_telemetria_equipes', JSON.stringify(telemetriaEquipes));
-                    }
-                } catch (e) { console.warn("Erro ao ler JSON de rastreio da nuvem:", e); }
-            }
-
-            const registrosReais = data.filter(r => 
-                r.id !== ID_NUVEM_USUARIOS && 
-                r.id !== ID_NUVEM_EQUIPES && 
-                r.id !== ID_NUVEM_OPCOES &&
-                r.id !== ID_NUVEM_RASTREIO &&
-                r.equipe !== '__CONFIG_SISTEMA__' &&
-                r.projeto !== '__CONFIG_USUARIOS__' &&
-                r.projeto !== '__CONFIG_EQUIPES__' &&
-                r.projeto !== '__CONFIG_OPCOES__' &&
-                r.projeto !== '__CONFIG_RASTREIO__'
-            );
-
-            registrosSalvos = registrosReais.map(r => {
-                let obsBruta = r.observacoes || '';
-                let endExtraido = '';
-                let liberouAcessoExtraido = '';
-                let fotosExtraidas = [];
-                let qtdBlocosExtraida = 1;
-                let tempoPausadoExtraido = 0;
-
-                const posFotos = obsBruta.indexOf('[FOTOS:');
-                if (posFotos !== -1) {
-                    const fimFotos = obsBruta.lastIndexOf(']');
-                    if (fimFotos > posFotos) {
-                        const jsonStr = obsBruta.substring(posFotos + 7, fimFotos);
-                        try {
-                            fotosExtraidas = JSON.parse(jsonStr);
-                        } catch (e) { console.warn("Erro ao extrair fotos:", e); }
-                        obsBruta = (obsBruta.substring(0, posFotos) + obsBruta.substring(fimFotos + 1)).trim();
-                    }
-                }
-
-                const matchBlocos = obsBruta.match(/\[BLOCOS:\s*(\d+)\]/i);
-                if (matchBlocos) {
-                    qtdBlocosExtraida = Math.max(1, Math.min(20, parseInt(matchBlocos[1], 10) || 1));
-                    obsBruta = obsBruta.replace(matchBlocos[0], '').trim();
-                }
-
-                const matchPausaTotal = obsBruta.match(/\[PAUSA_TOTAL:\s*(\d+)\]/i);
-                if (matchPausaTotal) {
-                    tempoPausadoExtraido = parseInt(matchPausaTotal[1], 10) || 0;
-                    obsBruta = obsBruta.replace(matchPausaTotal[0], '').trim();
-                }
-
-                const matchPausaInicio = obsBruta.match(/\[PAUSA_INICIO:\s*(\d+)\]/i);
-                if (matchPausaInicio) {
-                    obsBruta = obsBruta.replace(matchPausaInicio[0], '').trim();
-                }
-
-                const matchLiberou = obsBruta.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
-                if (matchLiberou) {
-                    liberouAcessoExtraido = matchLiberou[1].trim();
-                    obsBruta = obsBruta.replace(matchLiberou[0], '').trim();
-                }
-
-                const matchEnd = obsBruta.match(/\[END:\s*([^\]]+)\]/i);
-                if (matchEnd) {
-                    endExtraido = matchEnd[1].trim();
-                    obsBruta = obsBruta.replace(matchEnd[0], '').trim();
-                } else if (obsBruta.startsWith('[END:')) {
-                    let fimTag = obsBruta.indexOf(']');
-                    if (fimTag !== -1) {
-                        endExtraido = obsBruta.substring(5, fimTag).trim();
-                        obsBruta = obsBruta.substring(fimTag + 1).trim();
-                    }
-                }
-
-                const projBruto = r.projeto || '';
-                const projNorm = (projBruto === 'IMPREVISTO / ATRASO') ? projBruto : normalizarNomeProjeto(projBruto);
-
-                return {
-                    id: r.id,
-                    dataRegistro: r.data_registro || '',
-                    equipe: r.equipe || '',
-                    membros: r.membros || '',
-                    projeto: projNorm,
-                    imovel: r.imovel || '',
-                    endereco: endExtraido,
-                    liberouAcesso: liberouAcessoExtraido,
-                    tempoPausadoMinutos: tempoPausadoExtraido,
-                    qtdBlocosProgramados: qtdBlocosExtraida,
-                    fotos: Array.isArray(fotosExtraidas) ? fotosExtraidas : [],
-                    hEntrada: r.h_entrada || '',
-                    hSaida: r.h_saida || '',
-                    gpsEntrada: r.gps_entrada || '',
-                    gpsSaida: r.gps_saida || '',
-                    desfecho: r.desfecho || '',
-                    motivoDesfecho: r.motivo_desfecho || '',
-                    malogros: r.malogros || [],
-                    responsavel: r.responsavel || '',
-                    contato: r.contato || '',
-                    email: r.email || '',
-                    agendamento: r.agendamento || '',
-                    andares: r.andares || '',
-                    hps: r.hps || '',
-                    servicoObra: r.servico_obra || 'SIM',
-                    observacoes: obsBruta,
-                    fusoes: Number(r.fusoes) || 0,
-                    conectores: Number(r.conectores) || 0,
-                    caboRL: Number(r.cabo_rl) || 0,
-                    caboDrop: Number(r.cabo_drop) || 0,
-                    nap: Number(r.nap) || 0,
-                    dio: Number(r.dio) || 0,
-                    cxSobrepor: Number(r.cx_sobrepor) || 0,
-                    cxEmbutida: Number(r.cx_embutida) || 0,
-                    cxFosc: Number(r.cx_fosc) || 0
-                };
-            });
+            await processarPacoteDadosNuvem(data, true);
         }
     } catch (err) {
-        console.error("Erro ao carregar dados do Supabase:", err);
+        console.error("Erro ao carregar dados completos do Supabase:", err);
     }
 }
 
 async function recarregarDadosGestor() {
-    await carregarRegistrosDaNuvem();
+    await carregarRegistrosDaNuvem(true);
     popularSelectEquipes();
     atualizarDashboardGestor();
     const lblHora = document.getElementById('txt-hora-sync');
@@ -927,7 +1009,7 @@ async function tentarAcessarGestor() {
         return;
     }
 
-    await carregarRegistrosDaNuvem();
+    await carregarRegistrosModoCampoLeve();
 
     let emailInformado = prompt("🔒 Digite o seu e-mail corporativo:");
     if (!emailInformado) return;
@@ -948,12 +1030,16 @@ async function tentarAcessarGestor() {
         sessionStorage.setItem('gpd_user_logado', usuarioLogado);
         verificarPermissoesSessao();
         
+        const grupoTopo = document.getElementById('grupo-botoes-visao-topo');
+        if (grupoTopo) grupoTopo.classList.remove('hidden');
+
         document.getElementById('badge-usuario-logado').classList.remove('hidden');
         document.getElementById('btn-sair-gestor').classList.remove('hidden');
         document.getElementById('txt-email-ativo').innerText = usuarioLogado;
         document.getElementById('txt-nivel-ativo').innerText = nivelUsuarioLogado;
         
         registrarLogAuditoria("LOGIN NO SISTEMA", `Acesso ao Dashboard Gestor com nível (${nivelUsuarioLogado}).`);
+        await carregarRegistrosDaNuvem(true);
         alternarVisao('gestor');
     } else {
         alert("❌ E-mail ou senha incorretos, ou usuário não autorizado.");
@@ -967,6 +1053,10 @@ function fazerLogoutGestor() {
     nivelUsuarioLogado = "Visualizador";
     document.getElementById('badge-usuario-logado').classList.add('hidden');
     document.getElementById('btn-sair-gestor').classList.add('hidden');
+    if (ehDispositivoMovel()) {
+        const grupoTopo = document.getElementById('grupo-botoes-visao-topo');
+        if (grupoTopo) grupoTopo.classList.add('hidden');
+    }
     alternarVisao('campo');
     alert("Sessão encerrada com segurança.");
 }
