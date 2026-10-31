@@ -91,6 +91,286 @@ function baixarFotoDireto(srcBase64, nomeArquivo) {
     document.body.removeChild(a);
 }
 
+// ================= PONTO 03: SUB-ABAS DO MODO CAMPO (ATENDIMENTO vs MINHAS ATIVIDADES) =================
+
+function mudarSubAbaCampo(aba) {
+    const vLanc = document.getElementById('subview-campo-lancamento');
+    const vPainel = document.getElementById('subview-campo-painel');
+    const btnLanc = document.getElementById('btn-aba-campo-lancamento');
+    const btnPainel = document.getElementById('btn-aba-campo-painel');
+
+    if (!vLanc || !vPainel) return;
+
+    if (aba === 'painel') {
+        vLanc.classList.add('hidden');
+        vPainel.classList.remove('hidden');
+        if (btnPainel) btnPainel.className = "py-2 px-3 rounded-lg font-bold text-xs transition bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5";
+        if (btnLanc) btnLanc.className = "py-2 px-3 rounded-lg font-bold text-xs transition bg-white text-slate-700 hover:bg-slate-200 flex items-center justify-center gap-1.5";
+        atualizarAbaMinhasAtividadesCampo(false);
+    } else {
+        vPainel.classList.add('hidden');
+        vLanc.classList.remove('hidden');
+        if (btnLanc) btnLanc.className = "py-2 px-3 rounded-lg font-bold text-xs transition bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5";
+        if (btnPainel) btnPainel.className = "py-2 px-3 rounded-lg font-bold text-xs transition bg-white text-slate-700 hover:bg-slate-200 flex items-center justify-center gap-1.5";
+    }
+}
+
+async function atualizarAbaMinhasAtividadesCampo(forcarRecarregamentoNuvem = false) {
+    if (forcarRecarregamentoNuvem) {
+        await carregarRegistrosDaNuvem();
+    }
+
+    const equipeSelecionada = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "";
+    const container = document.getElementById('lista-minhas-atividades-campo');
+    const badgeQtd = document.getElementById('badge-qtd-minhas-ativ');
+
+    if (!container) return;
+
+    if (!equipeSelecionada) {
+        if (badgeQtd) badgeQtd.innerText = "0";
+        container.innerHTML = `
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-center text-xs text-slate-500">
+                🔒 Selecione a sua <b>Equipe / Técnico</b> e autentique seu PIN na aba "Atendimento" para visualizar e controlar todas as suas atividades no painel de gestão.
+            </div>
+        `;
+        return;
+    }
+
+    const hojeISO = obterDataLocalISO();
+    const meusRegistros = registrosSalvos.filter(r => r.equipe === equipeSelecionada && r.projeto !== 'IMPREVISTO / ATRASO');
+
+    // Atividades ativas / pendentes de ação do técnico (qualquer data)
+    const ativasPainel = meusRegistros.filter(r => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'PROGRAMADA'].includes(r.desfecho));
+    // Atividades finalizadas hoje pelo técnico
+    const finalizadasHoje = meusRegistros.filter(r => r.dataRegistro === hojeISO && ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(r.desfecho));
+
+    if (badgeQtd) badgeQtd.innerText = ativasPainel.length;
+
+    const ordemPrioridade = { 'EM ANDAMENTO': 1, 'PARALISADA': 2, 'REABERTA': 3, 'PROGRAMADA': 4 };
+    ativasPainel.sort((a, b) => (ordemPrioridade[a.desfecho] || 9) - (ordemPrioridade[b.desfecho] || 9));
+
+    let html = "";
+
+    if (ativasPainel.length === 0) {
+        html += `
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center text-xs text-emerald-900 font-semibold">
+                ✅ Você não possui atividades pendentes, programadas ou em aberto na fila do painel neste momento.
+            </div>
+        `;
+    } else {
+        html += `<div class="text-[11px] font-black text-slate-700 uppercase px-1">🔥 Ativas / Na Fila do Painel (${ativasPainel.length})</div>`;
+        ativasPainel.forEach(r => {
+            const corBadge = obterClasseCorDesfecho(r.desfecho);
+            const qtdB = r.qtdBlocosProgramados || 1;
+            let btnAcao = "";
+
+            if (r.desfecho === 'PROGRAMADA') {
+                btnAcao = `<button type="button" onclick="mudarSubAbaCampo('lancamento'); iniciarAtividadeProgramadaCampo(${r.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">🚀 Iniciar Agora</button>`;
+            } else if (r.desfecho === 'REABERTA') {
+                btnAcao = `<button type="button" onclick="mudarSubAbaCampo('lancamento'); retomarAtividadeReabertaCampo(${r.id})" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">✏️ Editar Reaberta</button>`;
+            } else if (r.desfecho === 'EM ANDAMENTO' || r.desfecho === 'PARALISADA') {
+                btnAcao = `<button type="button" onclick="mudarSubAbaCampo('lancamento'); retomarAtividadeEmAndamentoOuParalisadaNuvem(${r.id})" class="bg-blue-800 hover:bg-blue-900 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">▶️ Abrir / Continuar</button>`;
+            }
+
+            html += `
+                <div class="bg-white p-3 rounded-xl border-2 border-slate-200 shadow-sm space-y-1.5">
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <span class="font-black text-blue-950 text-xs">🏢 ${r.imovel}</span>
+                            <span class="ml-1 bg-blue-50 text-blue-900 border border-blue-200 px-1.5 py-0.5 rounded text-[9px] font-bold">${r.projeto}</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[9px] font-bold ${corBadge}">${r.desfecho}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-600">📍 ${r.endereco || 'Endereço a confirmar'}</div>
+                    <div class="flex justify-between items-center pt-1.5 border-t border-slate-100 text-[10px] text-slate-500">
+                        <span>📅 ${r.dataRegistro} • Blocos: <b>${qtdB}</b> ${r.tempoPausadoMinutos > 0 ? `• ⏸️ Pausa: <b>${r.tempoPausadoMinutos}m</b>` : ''}</span>
+                        ${btnAcao}
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    if (finalizadasHoje.length > 0) {
+        html += `<div class="text-[11px] font-black text-slate-700 uppercase px-1 pt-3 border-t border-slate-200">✔️ Finalizadas por Você Hoje (${finalizadasHoje.length})</div>`;
+        finalizadasHoje.forEach(r => {
+            const corBadge = obterClasseCorDesfecho(r.desfecho);
+            html += `
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex justify-between items-center gap-2 text-xs">
+                    <div>
+                        <div class="font-bold text-slate-800">🏢 ${r.imovel} <span class="text-[10px] font-normal text-slate-500">(${r.projeto})</span></div>
+                        <div class="text-[10px] text-slate-500">🕒 ${r.hEntrada} às ${r.hSaida} ${r.tempoPausadoMinutos > 0 ? `• ⏸️ ${r.tempoPausadoMinutos}m pausa` : ''}</div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-[9px] font-bold ${corBadge}">${r.desfecho}</span>
+                </div>
+            `;
+        });
+    }
+
+    container.innerHTML = html;
+}
+
+// Permite retomar uma atividade que já estava EM ANDAMENTO ou PARALISADA no painel (mesmo se o técnico limpou o cache ou trocou de aparelho)
+function retomarAtividadeEmAndamentoOuParalisadaNuvem(idReg) {
+    if (dadosAtendimento.idEmAndamento && dadosAtendimento.idEmAndamento === idReg) {
+        mudarSubAbaCampo('lancamento');
+        return;
+    }
+
+    const r = registrosSalvos.find(item => item.id === idReg);
+    if (!r) return;
+
+    atualizarProjetosPermitidosCampo(r.equipe, r.projeto);
+    document.getElementById('sel-projeto').value = r.projeto;
+    document.getElementById('inp-imovel').value = r.imovel;
+
+    dadosAtendimento.idEmAndamento = r.id;
+    dadosAtendimento.eraReaberta = false;
+    dadosAtendimento.eraProgramada = (r.motivoDesfecho || '').includes('[ORIGEM:PROGRAMADA]');
+    dadosAtendimento.hEntrada = (r.hEntrada && r.hEntrada !== 'Programada') ? r.hEntrada : new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    dadosAtendimento.gpsEntrada = r.gpsEntrada || "Mantido da abertura";
+    dadosAtendimento.minutosPausados = Number(r.tempoPausadoMinutos) || 0;
+    dadosAtendimento.emPausa = (r.desfecho === 'PARALISADA');
+    dadosAtendimento.inicioPausa = dadosAtendimento.emPausa ? Date.now() : null;
+    dadosAtendimento.motivoPausaAtual = dadosAtendimento.emPausa ? (r.motivoDesfecho || 'Atividade paralisada') : '';
+
+    const totalBlocos = Math.max(1, Math.min(20, Number(r.qtdBlocosProgramados) || 1));
+    dadosAtendimento.blocos = [];
+    for (let i = 1; i <= totalBlocos; i++) {
+        const b = criarObjetoBlocoPadrao(i);
+        if (r.andares) b.andares = r.andares;
+        if (r.hps) b.hps = r.hps;
+        if (r.observacoes && r.observacoes !== 'Em andamento') b.observacoes = r.observacoes;
+        dadosAtendimento.blocos.push(b);
+    }
+
+    document.getElementById('lbl-imovel-aberto').innerText = `${r.imovel} (${r.projeto})`;
+    document.getElementById('lbl-h-entrada').innerText = dadosAtendimento.hEntrada;
+    document.getElementById('lbl-gps-entrada').innerText = dadosAtendimento.gpsEntrada;
+
+    document.getElementById('form-endereco').value = r.endereco || '';
+    document.getElementById('form-liberou-acesso').value = r.liberouAcesso || '';
+    document.getElementById('form-responsavel').value = r.responsavel || '';
+    document.getElementById('form-contato').value = r.contato || '';
+    document.getElementById('form-email').value = r.email || '';
+    document.getElementById('inp-qtd-blocos').value = totalBlocos;
+
+    document.getElementById('form-campo-container').classList.add('hidden');
+    document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+
+    mudarTipoProjeto();
+    renderizarBlocosCampo();
+    sincronizarVisualPausaCampo();
+    salvarRascunhoCampo();
+}
+
+// ================= PONTO 02: PARALISAR E RETOMAR ATIVIDADE EM CAMPO =================
+
+function sincronizarVisualPausaCampo() {
+    const btnParalisar = document.getElementById('btn-paralisar-atividade');
+    const bannerPausa = document.getElementById('banner-atividade-paralisada-ativa');
+    const corpoForm = document.getElementById('corpo-formulario-blocos-campo');
+    const lblStatus = document.getElementById('lbl-status-execucao-campo');
+    const lblAcumulado = document.getElementById('lbl-tempo-pausado-acumulado');
+    const dotStatus = document.getElementById('dot-status-execucao');
+
+    if (lblAcumulado) {
+        lblAcumulado.innerText = dadosAtendimento.minutosPausados > 0 ? `(⏸️ Pausas: ${dadosAtendimento.minutosPausados} min)` : "";
+    }
+
+    if (dadosAtendimento.emPausa) {
+        if (btnParalisar) btnParalisar.classList.add('hidden');
+        if (bannerPausa) bannerPausa.classList.remove('hidden');
+        if (corpoForm) corpoForm.classList.add('opacity-50', 'pointer-events-none');
+        if (lblStatus) lblStatus.innerText = "⏸️ ATIVIDADE PARALISADA";
+        if (dotStatus) dotStatus.className = "inline-block w-2 h-2 rounded-full bg-orange-500 animate-ping";
+
+        const horaPausa = dadosAtendimento.inicioPausa 
+            ? new Date(dadosAtendimento.inicioPausa).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
+            : '--:--';
+        const elHora = document.getElementById('lbl-hora-inicio-pausa');
+        const elMot = document.getElementById('lbl-motivo-pausa-atual');
+        if (elHora) elHora.innerText = `Desde ${horaPausa}`;
+        if (elMot) elMot.innerText = `Motivo: ${dadosAtendimento.motivoPausaAtual || 'Não informado'}`;
+    } else {
+        if (btnParalisar) btnParalisar.classList.remove('hidden');
+        if (bannerPausa) bannerPausa.classList.add('hidden');
+        if (corpoForm) corpoForm.classList.remove('opacity-50', 'pointer-events-none');
+        if (lblStatus) lblStatus.innerText = dadosAtendimento.eraReaberta ? "🔄 Editando Atividade Reaberta" : "Status: Em Andamento no Painel";
+        if (dotStatus) dotStatus.className = "inline-block w-2 h-2 rounded-full bg-blue-600 animate-ping";
+    }
+}
+
+async function paralisarAtividadeAtualCampo() {
+    if (!dadosAtendimento.idEmAndamento) return;
+    lerDadosBlocosDaTela();
+
+    const motivo = prompt("⏸️ PARALISAR ATIVIDADE TEMPORARIAMENTE\n\nInforme o motivo da paralisação (Ex: Horário de almoço, chuva, aguardando síndico/material):");
+    if (motivo === null) return;
+    const motivoLimpo = motivo.trim() || "Paralisação temporária em campo";
+
+    const agora = Date.now();
+    const horaStr = new Date(agora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+    dadosAtendimento.emPausa = true;
+    dadosAtendimento.inicioPausa = agora;
+    dadosAtendimento.motivoPausaAtual = motivoLimpo;
+
+    const endAtual = document.getElementById('form-endereco')?.value.trim() || '';
+    const libAtual = document.getElementById('form-liberou-acesso')?.value.trim() || '';
+    const tagEnd = endAtual ? `[END: ${endAtual}] ` : '';
+    const tagLib = libAtual ? `[LIBEROU_ACESSO: ${libAtual}] ` : '';
+    const tagPausa = `[PAUSA_INICIO: ${agora}] [PAUSA_TOTAL: ${dadosAtendimento.minutosPausados || 0}]`;
+
+    await supabaseClient.from('registros_producao').update({
+        desfecho: "PARALISADA",
+        h_saida: "Paralisada",
+        motivo_desfecho: `⏸️ Paralisada às ${horaStr}: ${motivoLimpo}`,
+        observacoes: `${tagEnd}${tagLib}${tagPausa}`.trim()
+    }).eq('id', dadosAtendimento.idEmAndamento);
+
+    sincronizarVisualPausaCampo();
+    salvarRascunhoCampo();
+    registrarLogAuditoria("ATIVIDADE PARALISADA", `Imóvel paralisado às ${horaStr}. Motivo: ${motivoLimpo}`);
+    await carregarRegistrosDaNuvem();
+    atualizarAbaMinhasAtividadesCampo(false);
+    alert(`⏸️ Atividade paralisada às ${horaStr}!\nSeus dados preenchidos estão salvos. Clique em "Retomar Atividade Agora" quando voltar ao serviço.`);
+}
+
+async function retomarAtividadeParalisadaCampo() {
+    if (!dadosAtendimento.idEmAndamento || !dadosAtendimento.emPausa) return;
+
+    const agora = Date.now();
+    const inicio = dadosAtendimento.inicioPausa || agora;
+    const minutosDestaPausa = Math.max(1, Math.round((agora - inicio) / 60000));
+
+    dadosAtendimento.minutosPausados = (Number(dadosAtendimento.minutosPausados) || 0) + minutosDestaPausa;
+    dadosAtendimento.emPausa = false;
+    dadosAtendimento.inicioPausa = null;
+    dadosAtendimento.motivoPausaAtual = "";
+
+    const horaStr = new Date(agora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    const endAtual = document.getElementById('form-endereco')?.value.trim() || '';
+    const libAtual = document.getElementById('form-liberou-acesso')?.value.trim() || '';
+    const tagEnd = endAtual ? `[END: ${endAtual}] ` : '';
+    const tagLib = libAtual ? `[LIBEROU_ACESSO: ${libAtual}] ` : '';
+    const tagPausa = `[PAUSA_TOTAL: ${dadosAtendimento.minutosPausados}]`;
+
+    await supabaseClient.from('registros_producao').update({
+        desfecho: "EM ANDAMENTO",
+        h_saida: "Em Andamento",
+        motivo_desfecho: `▶️ Retomada às ${horaStr} (Pausa acumulada: ${dadosAtendimento.minutosPausados} min)`,
+        observacoes: `${tagEnd}${tagLib}${tagPausa}`.trim()
+    }).eq('id', dadosAtendimento.idEmAndamento);
+
+    sincronizarVisualPausaCampo();
+    salvarRascunhoCampo();
+    registrarLogAuditoria("ATIVIDADE RETOMADA", `Imóvel retomado às ${horaStr}. Tempo paralisado acumulado: ${dadosAtendimento.minutosPausados} min.`);
+    await carregarRegistrosDaNuvem();
+    atualizarAbaMinhasAtividadesCampo(false);
+    alert(`▶️ Atividade retomada com sucesso!\nTempo desta pausa: ${minutosDestaPausa} min (Total acumulado: ${dadosAtendimento.minutosPausados} min).`);
+}
+
 function criarObjetoBlocoPadrao(numero) {
     return {
         identificacao: `BLOCO ${numero}`,
@@ -338,12 +618,17 @@ function salvarRascunhoCampo() {
         idEmAndamento: dadosAtendimento.idEmAndamento,
         eraReaberta: dadosAtendimento.eraReaberta || false,
         eraProgramada: dadosAtendimento.eraProgramada || false,
+        emPausa: dadosAtendimento.emPausa || false,
+        inicioPausa: dadosAtendimento.inicioPausa || null,
+        motivoPausaAtual: dadosAtendimento.motivoPausaAtual || "",
+        minutosPausados: dadosAtendimento.minutosPausados || 0,
         equipe: document.getElementById('sel-equipe').value,
         projeto: document.getElementById('sel-projeto').value,
         imovel: document.getElementById('inp-imovel').value,
         hEntrada: document.getElementById('lbl-h-entrada').innerText,
         gpsEntrada: dadosAtendimento.gpsEntrada,
         endereco: document.getElementById('form-endereco')?.value || '',
+        liberouAcesso: document.getElementById('form-liberou-acesso')?.value || '',
         responsavel: document.getElementById('form-responsavel')?.value || '',
         contato: document.getElementById('form-contato')?.value || '',
         email: document.getElementById('form-email')?.value || '',
@@ -430,6 +715,10 @@ function restaurarRascunhoCampo() {
             dadosAtendimento.idEmAndamento = r.idEmAndamento || null;
             dadosAtendimento.eraReaberta = r.eraReaberta || false;
             dadosAtendimento.eraProgramada = r.eraProgramada || false;
+            dadosAtendimento.emPausa = r.emPausa || false;
+            dadosAtendimento.inicioPausa = r.inicioPausa || null;
+            dadosAtendimento.motivoPausaAtual = r.motivoPausaAtual || "";
+            dadosAtendimento.minutosPausados = Number(r.minutosPausados) || 0;
             dadosAtendimento.hEntrada = r.hEntrada;
             dadosAtendimento.gpsEntrada = r.gpsEntrada;
             dadosAtendimento.blocos = (Array.isArray(r.blocos) && r.blocos.length > 0) ? r.blocos : [criarObjetoBlocoPadrao(1)];
@@ -440,6 +729,9 @@ function restaurarRascunhoCampo() {
             document.getElementById('lbl-gps-entrada').innerText = r.gpsEntrada || '-';
 
             document.getElementById('form-endereco').value = r.endereco || '';
+            if (document.getElementById('form-liberou-acesso')) {
+                document.getElementById('form-liberou-acesso').value = r.liberouAcesso || '';
+            }
             document.getElementById('form-responsavel').value = r.responsavel || '';
             document.getElementById('form-contato').value = r.contato || '';
             document.getElementById('form-email').value = r.email || '';
@@ -449,6 +741,7 @@ function restaurarRascunhoCampo() {
             document.getElementById('bloco-pos-abertura').classList.remove('hidden');
             mudarTipoProjeto();
             renderizarBlocosCampo();
+            sincronizarVisualPausaCampo();
         }
     } catch (e) {
         console.warn("Erro ao restaurar rascunho de campo:", e);
@@ -485,6 +778,7 @@ async function cancelarCheckinAberto() {
     await carregarRegistrosDaNuvem();
     verificarImprevistoAtivoEquipeCampo();
     verificarPendenciasReabertasEProgramadasCampo(false);
+    atualizarAbaMinhasAtividadesCampo(false);
 }
 
 function aoSelecionarEquipeCampo() {
@@ -499,6 +793,7 @@ function aoSelecionarEquipeCampo() {
         atualizarBarraSegurancaPinCampo();
         verificarImprevistoAtivoEquipeCampo();
         verificarPendenciasReabertasEProgramadasCampo(false);
+        atualizarAbaMinhasAtividadesCampo(false);
         return;
     }
 
@@ -520,6 +815,7 @@ function aoSelecionarEquipeCampo() {
             atualizarBarraSegurancaPinCampo();
             verificarImprevistoAtivoEquipeCampo();
             verificarPendenciasReabertasEProgramadasCampo(false);
+            atualizarAbaMinhasAtividadesCampo(false);
             return;
         }
 
@@ -533,6 +829,7 @@ function aoSelecionarEquipeCampo() {
     salvarRascunhoCampo();
     verificarImprevistoAtivoEquipeCampo();
     verificarPendenciasReabertasEProgramadasCampo(true);
+    atualizarAbaMinhasAtividadesCampo(false);
 }
 
 function desbloquearTrocaEquipeCampo() {
@@ -556,6 +853,7 @@ function desbloquearTrocaEquipeCampo() {
     atualizarBarraSegurancaPinCampo();
     verificarImprevistoAtivoEquipeCampo();
     verificarPendenciasReabertasEProgramadasCampo(false);
+    atualizarAbaMinhasAtividadesCampo(false);
 }
 
 async function alterarPinPeloTecnicoCampo() {
@@ -592,7 +890,7 @@ async function alterarPinPeloTecnicoCampo() {
     eqObj.pin = novoPinLimpo;
     registrarLogAuditoria("ALTERAÇÃO DE PIN (CAMPO)", `O técnico ${eqObj.nome} alterou seu próprio PIN de acesso no Modo Campo.`);
     await sincronizarEquipesNaNuvem();
-    renderizarTabelaEquipes();
+    if (typeof renderizarTabelaEquipes === "function") renderizarTabelaEquipes();
     alert("✅ Seu novo PIN de 4 dígitos foi salvo e sincronizado na nuvem com sucesso!");
 }
 
@@ -621,7 +919,7 @@ async function resetarPinEquipeGestor(idEquipe) {
     eqObj.pin = pinLimpo;
     registrarLogAuditoria("RESET DE PIN (GESTOR)", `Gestor ${usuarioLogado} redefiniu o PIN do técnico ${eqObj.nome} para '${pinLimpo}'.`);
     await sincronizarEquipesNaNuvem();
-    renderizarTabelaEquipes();
+    if (typeof renderizarTabelaEquipes === "function") renderizarTabelaEquipes();
     alert(`✅ O PIN do técnico ${eqObj.nome} foi redefinido para "${pinLimpo}" com sucesso!`);
 }
 
@@ -698,6 +996,8 @@ function verificarPendenciasReabertasEProgramadasCampo(permitirSom = true) {
             boxProg.classList.add('hidden');
         }
     }
+
+    atualizarAbaMinhasAtividadesCampo(false);
 }
 
 function retomarAtividadeReabertaCampo(idReg) {
@@ -711,6 +1011,10 @@ function retomarAtividadeReabertaCampo(idReg) {
     dadosAtendimento.idEmAndamento = r.id;
     dadosAtendimento.eraReaberta = true;
     dadosAtendimento.eraProgramada = false;
+    dadosAtendimento.emPausa = false;
+    dadosAtendimento.inicioPausa = null;
+    dadosAtendimento.motivoPausaAtual = "";
+    dadosAtendimento.minutosPausados = Number(r.tempoPausadoMinutos) || 0;
     dadosAtendimento.hEntrada = r.hEntrada || new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
     dadosAtendimento.gpsEntrada = r.gpsEntrada || "Mantido da abertura";
 
@@ -747,6 +1051,9 @@ function retomarAtividadeReabertaCampo(idReg) {
     document.getElementById('lbl-gps-entrada').innerText = dadosAtendimento.gpsEntrada;
 
     document.getElementById('form-endereco').value = r.endereco || '';
+    if (document.getElementById('form-liberou-acesso')) {
+        document.getElementById('form-liberou-acesso').value = r.liberouAcesso || '';
+    }
     document.getElementById('form-responsavel').value = r.responsavel || '';
     document.getElementById('form-contato').value = r.contato || '';
     document.getElementById('form-email').value = r.email || '';
@@ -758,6 +1065,7 @@ function retomarAtividadeReabertaCampo(idReg) {
 
     mudarTipoProjeto();
     renderizarBlocosCampo();
+    sincronizarVisualPausaCampo();
     salvarRascunhoCampo();
 }
 
@@ -792,6 +1100,10 @@ async function iniciarAtividadeProgramadaCampo(idReg) {
     dadosAtendimento.idEmAndamento = r.id;
     dadosAtendimento.eraReaberta = false;
     dadosAtendimento.eraProgramada = true;
+    dadosAtendimento.emPausa = false;
+    dadosAtendimento.inicioPausa = null;
+    dadosAtendimento.motivoPausaAtual = "";
+    dadosAtendimento.minutosPausados = 0;
     dadosAtendimento.hEntrada = horaEntradaAtual;
     dadosAtendimento.gpsEntrada = coordReal;
 
@@ -811,6 +1123,9 @@ async function iniciarAtividadeProgramadaCampo(idReg) {
     document.getElementById('lbl-gps-entrada').innerText = coordReal;
 
     document.getElementById('form-endereco').value = r.endereco || '';
+    if (document.getElementById('form-liberou-acesso')) {
+        document.getElementById('form-liberou-acesso').value = r.liberouAcesso || '';
+    }
     document.getElementById('form-responsavel').value = r.responsavel || '';
     document.getElementById('form-contato').value = r.contato || '';
     document.getElementById('form-email').value = r.email || '';
@@ -822,8 +1137,10 @@ async function iniciarAtividadeProgramadaCampo(idReg) {
 
     mudarTipoProjeto();
     renderizarBlocosCampo();
+    sincronizarVisualPausaCampo();
     salvarRascunhoCampo();
     await carregarRegistrosDaNuvem();
+    atualizarAbaMinhasAtividadesCampo(false);
 }
 
 function verificarImprevistoAtivoEquipeCampo() {
@@ -914,11 +1231,14 @@ async function copiarTextoAreaTransferencia(texto, msgSucesso) {
     }
 }
 
+// ================= PONTO 01 + PONTO 02 + PONTO 06: RESUMO WHATSAPP DETALHADO POR BLOCO =================
+
 function montarTextoResumoItem(r) {
     let iconeDesf = "🟢";
     if (r.desfecho === "PENDENTE" || r.desfecho === "IMPREVISTO") iconeDesf = "🟡";
     else if (r.desfecho === "MALOGRADA") iconeDesf = "🔴";
     else if (r.desfecho === "EM ANDAMENTO") iconeDesf = "🔵";
+    else if (r.desfecho === "PARALISADA") iconeDesf = "⏸️";
     else if (r.desfecho === "REABERTA") iconeDesf = "🔄";
     else if (r.desfecho === "PROGRAMADA") iconeDesf = "📋";
 
@@ -927,28 +1247,90 @@ function montarTextoResumoItem(r) {
         `📅 *Data:* ${r.dataRegistro}`,
         `👷 *Equipe:* ${r.equipe}`,
         `🏢 *Imóvel:* ${r.imovel}`,
-        `📍 *Endereço:* ${r.endereco || '-'}`,
-        `🏗️ *Projeto:* ${r.projeto} (${obterMacroGrupoProjeto(r.projeto)})`,
-        `🏢 *Andares:* ${r.andares || 0} | *HPs:* ${r.hps || 0}`,
-        `${iconeDesf} *Status/Desfecho:* ${r.desfecho}`,
-        `🕒 *Horário:* ${r.hEntrada} às ${r.hSaida}`,
-        `📍 *GPS:* ${r.gpsEntrada}`
+        `📍 *Endereço:* ${r.endereco || '-'}`
     ];
 
-    if (r.projeto !== "IMPREVISTO / ATRASO") {
-        linhas.push(`📦 *Materiais:* RL: ${r.caboRL}m | Drop: ${r.caboDrop}m | Conect: ${r.conectores} | Fusões: ${r.fusoes} | NAP: ${r.nap} | DIO: ${r.dio}`);
+    if (r.liberouAcesso) {
+        linhas.push(`🔑 *Liberou o Acesso:* ${r.liberouAcesso}`);
     }
-    if (r.malogros && r.malogros.length > 0) {
-        linhas.push(`⚠️ *Opções Marcadas:* ${r.malogros.join(', ')}`);
+
+    linhas.push(`🏗️ *Projeto:* ${r.projeto} (${obterMacroGrupoProjeto(r.projeto)})`);
+    linhas.push(`🕒 *Horário:* ${r.hEntrada} às ${r.hSaida}`);
+
+    if (Number(r.tempoPausadoMinutos) > 0) {
+        linhas.push(`⏸️ *Tempo Paralisado:* ${r.tempoPausadoMinutos} min`);
     }
-    if (r.motivoDesfecho) {
-        linhas.push(`💬 *Detalhe:* ${r.motivoDesfecho}`);
-    }
-    if (r.observacoes) {
-        linhas.push(`📝 *Obs:* ${r.observacoes}`);
-    }
-    if (r.fotos && r.fotos.length > 0) {
-        linhas.push(`📷 *Fotos Anexadas:* ${r.fotos.length} foto(s) no sistema`);
+
+    linhas.push(`📍 *GPS:* ${r.gpsEntrada}`);
+
+    // PONTO 01: Se houver mais de 1 bloco, detalha o material e status de cada bloco individualmente
+    if (Array.isArray(r.blocosDetalhados) && r.blocosDetalhados.length > 1) {
+        linhas.push(`────────────────────`);
+        linhas.push(`🏢 *DETALHAMENTO POR BLOCO (${r.blocosDetalhados.length} BLOCOS):*`);
+
+        r.blocosDetalhados.forEach((b, idx) => {
+            let iconeB = "🟢";
+            if (b.desfecho === "PENDENTE") iconeB = "🟡";
+            else if (b.desfecho === "MALOGRADA") iconeB = "🔴";
+
+            const nomeBloco = (b.identificacao || `BLOCO ${idx + 1}`).toUpperCase().trim();
+            linhas.push(`\n🔹 *${nomeBloco}*`);
+            linhas.push(`   • *Andares:* ${b.andares || 0} | *HPs:* ${b.hps || 0}`);
+            linhas.push(`   • *Desfecho:* ${iconeB} ${b.desfecho}`);
+            linhas.push(`   • *Materiais (${nomeBloco}):* RL: ${Number(b.caboRL) || 0}m | Drop: ${Number(b.caboDrop) || 0}m | Conect: ${Number(b.conectores) || 0} | Fusões: ${Number(b.fusoes) || 0} | NAP: ${Number(b.nap) || 0} | DIO: ${Number(b.dio) || 0}`);
+            
+            const cxS = Number(b.cxSobrepor) || 0;
+            const cxE = Number(b.cxEmbutida) || 0;
+            const cxF = Number(b.cxFosc) || 0;
+            if (cxS > 0 || cxE > 0 || cxF > 0) {
+                linhas.push(`   • *Caixas (${nomeBloco}):* Sobrepor: ${cxS} | Embutida: ${cxE} | FOSC: ${cxF}`);
+            }
+            if (Array.isArray(b.opcoesMarcadas) && b.opcoesMarcadas.length > 0) {
+                linhas.push(`   • *Opções:* ${b.opcoesMarcadas.join(', ')}`);
+            }
+            if (b.motivoDesfecho) {
+                linhas.push(`   • *Detalhe:* ${b.motivoDesfecho}`);
+            }
+            if (b.observacoes) {
+                linhas.push(`   • *Obs:* ${b.observacoes}`);
+            }
+            if (Array.isArray(b.fotos) && b.fotos.length > 0) {
+                linhas.push(`   • *Fotos:* ${b.fotos.length} anexada(s)`);
+            }
+        });
+
+        linhas.push(`────────────────────`);
+        linhas.push(`📊 *TOTAL GERAL CONSOLIDADO:*`);
+        linhas.push(`🏢 *Andares Totais:* ${r.andares || 0} | *HPs Totais:* ${r.hps || 0}`);
+        linhas.push(`📦 *Soma Materiais:* RL: ${r.caboRL}m | Drop: ${r.caboDrop}m | Conect: ${r.conectores} | Fusões: ${r.fusoes} | NAP: ${r.nap} | DIO: ${r.dio}`);
+        if (r.fotos && r.fotos.length > 0) {
+            linhas.push(`📷 *Total de Fotos:* ${r.fotos.length} foto(s) no sistema`);
+        }
+    } else {
+        linhas.push(`🏢 *Andares:* ${r.andares || 0} | *HPs:* ${r.hps || 0}`);
+        linhas.push(`${iconeDesf} *Status/Desfecho:* ${r.desfecho}`);
+
+        if (r.projeto !== "IMPREVISTO / ATRASO") {
+            linhas.push(`📦 *Materiais:* RL: ${r.caboRL}m | Drop: ${r.caboDrop}m | Conect: ${r.conectores} | Fusões: ${r.fusoes} | NAP: ${r.nap} | DIO: ${r.dio}`);
+            const cxS = Number(r.cxSobrepor) || 0;
+            const cxE = Number(r.cxEmbutida) || 0;
+            const cxF = Number(r.cxFosc) || 0;
+            if (cxS > 0 || cxE > 0 || cxF > 0) {
+                linhas.push(`🧰 *Caixas:* Sobrepor: ${cxS} | Embutida: ${cxE} | FOSC: ${cxF}`);
+            }
+        }
+        if (r.malogros && r.malogros.length > 0) {
+            linhas.push(`⚠️ *Opções Marcadas:* ${r.malogros.join(', ')}`);
+        }
+        if (r.motivoDesfecho) {
+            linhas.push(`💬 *Detalhe:* ${r.motivoDesfecho}`);
+        }
+        if (r.observacoes) {
+            linhas.push(`📝 *Obs:* ${r.observacoes}`);
+        }
+        if (r.fotos && r.fotos.length > 0) {
+            linhas.push(`📷 *Fotos Anexadas:* ${r.fotos.length} foto(s) no sistema`);
+        }
     }
     return linhas.join('\n');
 }
@@ -966,8 +1348,9 @@ function copiarDetalheModalWhatsApp() {
 
 function copiarBoletimGestorWhatsApp() {
     const emAndamento = dadosFiltradosAtuais.filter(i => i.desfecho === 'EM ANDAMENTO').length;
+    const paralisadas = dadosFiltradosAtuais.filter(i => i.desfecho === 'PARALISADA').length;
     const programadas = dadosFiltradosAtuais.filter(i => i.desfecho === 'PROGRAMADA').length;
-    const finalizadas = dadosFiltradosAtuais.filter(i => !['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
+    const finalizadas = dadosFiltradosAtuais.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
     const totalObras = finalizadas.length;
     const conc = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
     const pend = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
@@ -983,6 +1366,7 @@ function copiarBoletimGestorWhatsApp() {
     const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Período Geral';
 
     const tmaStr = document.getElementById('ind-tempo-medio')?.innerText || '--';
+    const pausaStr = document.getElementById('ind-tempo-paralisado')?.innerText || '0 min';
     const medTotal = document.getElementById('fin-total-geral')?.innerText || 'R$ 0,00';
 
     const textoBoletim = [
@@ -991,6 +1375,7 @@ function copiarBoletimGestorWhatsApp() {
         `────────────────────`,
         `📋 *Programadas na Fila:* ${programadas}`,
         `🔵 *Em Andamento Agora:* ${emAndamento}`,
+        `⏸️ *Paralisadas no Momento:* ${paralisadas}`,
         `🏗️ *Total Finalizadas:* ${totalObras}`,
         `🟢 *Concluídas:* ${conc} (${efic}%)`,
         `🟡 *Pendentes:* ${pend}`,
@@ -1000,7 +1385,8 @@ function copiarBoletimGestorWhatsApp() {
         `🏢 *Grupo ON GOING:* ${totOnGoing} ativ.`,
         `🚀 *Grupo PROJETO F:* ${totProjF} ativ.`,
         `────────────────────`,
-        `⏱️ *Tempo Médio (TMA):* ${tmaStr}`,
+        `⏱️ *TMA Líquido:* ${tmaStr}`,
+        `⏸️ *Tempo Paralisado:* ${pausaStr}`,
         `💰 *Medição Estimada:* ${medTotal}`
     ].join('\n');
 
@@ -1051,7 +1437,7 @@ async function fazerCheckIn() {
         r.dataRegistro === hojeISO && 
         r.imovel.toUpperCase().trim().startsWith(imovel.toUpperCase()) &&
         r.projeto === projeto &&
-        !['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(r.desfecho)
+        !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(r.desfecho)
     );
 
     if (duplicadoHoje) {
@@ -1115,6 +1501,10 @@ async function fazerCheckIn() {
         dadosAtendimento.idEmAndamento = idTemp;
         dadosAtendimento.eraReaberta = false;
         dadosAtendimento.eraProgramada = false;
+        dadosAtendimento.emPausa = false;
+        dadosAtendimento.inicioPausa = null;
+        dadosAtendimento.motivoPausaAtual = "";
+        dadosAtendimento.minutosPausados = 0;
     }
 
     if (btnCheckin) {
@@ -1132,8 +1522,10 @@ async function fazerCheckIn() {
     document.getElementById('lbl-h-entrada').innerText = horaEntradaAtual;
     mudarTipoProjeto();
     renderizarBlocosCampo();
+    sincronizarVisualPausaCampo();
     salvarRascunhoCampo();
     await carregarRegistrosDaNuvem();
+    atualizarAbaMinhasAtividadesCampo(false);
 }
 
 function abrirModalImprevisto() {
@@ -1255,11 +1647,18 @@ function resetarFormularioCampo() {
     dadosAtendimento.idEmAndamento = null;
     dadosAtendimento.eraReaberta = false;
     dadosAtendimento.eraProgramada = false;
+    dadosAtendimento.emPausa = false;
+    dadosAtendimento.inicioPausa = null;
+    dadosAtendimento.motivoPausaAtual = "";
+    dadosAtendimento.minutosPausados = 0;
     dadosAtendimento.gpsEntrada = null;
     dadosAtendimento.gpsSaida = null;
     dadosAtendimento.blocos = [];
     document.getElementById('inp-imovel').value = '';
     document.getElementById('form-endereco').value = '';
+    if (document.getElementById('form-liberou-acesso')) {
+        document.getElementById('form-liberou-acesso').value = '';
+    }
     document.getElementById('form-responsavel').value = '';
     document.getElementById('form-contato').value = '';
     document.getElementById('form-email').value = '';
@@ -1267,9 +1666,13 @@ function resetarFormularioCampo() {
     document.getElementById('container-blocos-dinamicos').innerHTML = '';
     document.getElementById('lbl-gps-entrada').innerText = '-';
     document.getElementById('lbl-imovel-aberto').innerText = '-';
+    if (document.getElementById('lbl-tempo-pausado-acumulado')) {
+        document.getElementById('lbl-tempo-pausado-acumulado').innerText = '';
+    }
     
     document.getElementById('bloco-pos-abertura').classList.add('hidden');
     document.getElementById('form-campo-container').classList.remove('hidden');
+    sincronizarVisualPausaCampo();
     localStorage.removeItem('gpd_rascunho_campo_ativo');
 
     if (equipeAtual) {
@@ -1282,8 +1685,15 @@ function resetarFormularioCampo() {
 }
 
 async function salvarRegistro() {
+    // PONTO 02: Impede finalização caso a atividade esteja paralisada
+    if (dadosAtendimento.emPausa) {
+        alert("⚠️ A atividade encontra-se PARALISADA. Clique no botão verde '▶️ Retomar Atividade Agora' antes de finalizar o atendimento.");
+        return;
+    }
+
     lerDadosBlocosDaTela();
 
+    // PONTO 06: Validação obrigatória de Endereço e Liberou o Acesso
     const enderecoGeral = document.getElementById('form-endereco').value.trim();
     if (!enderecoGeral) {
         alert("⚠️ O preenchimento do ENDEREÇO DO ATENDIMENTO é obrigatório.");
@@ -1291,8 +1701,16 @@ async function salvarRegistro() {
         return;
     }
 
+    const liberouAcessoGeral = document.getElementById('form-liberou-acesso') ? document.getElementById('form-liberou-acesso').value.trim() : '';
+    if (!liberouAcessoGeral) {
+        alert("⚠️ O preenchimento do campo 'LIBEROU O ACESSO' é obrigatório.");
+        document.getElementById('form-liberou-acesso')?.focus();
+        return;
+    }
+
     const qtdBlocos = dadosAtendimento.blocos.length;
 
+    // PONTO 06: Validação obrigatória de Andares e HPs para cada bloco
     for (let i = 0; i < qtdBlocos; i++) {
         const b = dadosAtendimento.blocos[i];
         const nomeBloco = qtdBlocos > 1 ? `(${b.identificacao || 'Bloco ' + (i+1)})` : '';
@@ -1302,10 +1720,12 @@ async function salvarRegistro() {
 
         if (!b.andares || isNaN(numAndares) || numAndares <= 0) {
             alert(`⚠️ Informe obrigatoriamente a quantidade de ANDARES ${nomeBloco}.`);
+            document.getElementById(`bloco-andares-${i}`)?.focus();
             return;
         }
         if (!b.hps || isNaN(numHps) || numHps <= 0) {
             alert(`⚠️ Informe obrigatoriamente o Nº DE HPs ${nomeBloco}.`);
+            document.getElementById(`bloco-hps-${i}`)?.focus();
             return;
         }
         if (!b.desfecho) {
@@ -1345,6 +1765,7 @@ async function salvarRegistro() {
     const horaEntradaOriginal = document.getElementById('lbl-h-entrada').innerText || "08:30";
     const horaSaidaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
     const foiReaberta = dadosAtendimento.eraReaberta;
+    const minutosPausaTotal = Number(dadosAtendimento.minutosPausados) || 0;
 
     if (dadosAtendimento.idEmAndamento) {
         await supabaseClient.from('registros_producao').delete().eq('id', dadosAtendimento.idEmAndamento);
@@ -1369,8 +1790,11 @@ async function salvarRegistro() {
             ? `${imovelBase} - ${(b.identificacao || 'BLOCO ' + (idx + 1)).toUpperCase().trim()}`
             : imovelBase;
 
+        const tagLiberou = `[LIBEROU_ACESSO: ${liberouAcessoGeral}] `;
+        // Grava o tempo pausado no primeiro bloco do atendimento para evitar duplicação na soma e manter vínculo com o imóvel
+        const tagPausa = (minutosPausaTotal > 0 && idx === 0) ? `[PAUSA_TOTAL: ${minutosPausaTotal}] ` : '';
         const sufixoFotos = (b.fotos && b.fotos.length > 0) ? ` [FOTOS:${JSON.stringify(b.fotos)}]` : '';
-        const obsFinal = `[END: ${enderecoGeral}] ${b.observacoes || ''}${sufixoFotos}`.trim();
+        const obsFinal = `[END: ${enderecoGeral}] ${tagLiberou}${tagPausa}${b.observacoes || ''}${sufixoFotos}`.trim();
 
         return {
             id: Date.now() + idx,
@@ -1420,12 +1844,35 @@ async function salvarRegistro() {
 
     const primeiroReg = listaRegistrosParaInserir[0];
     const todasFotos = dadosAtendimento.blocos.flatMap(b => b.fotos || []);
+
+    // PONTO 01: Preparação dos blocos detalhados para o resumo do WhatsApp
+    const blocosParaWhats = dadosAtendimento.blocos.map((b, idx) => ({
+        identificacao: b.identificacao || `BLOCO ${idx + 1}`,
+        andares: Number(b.andares) || 0,
+        hps: Number(b.hps) || 0,
+        desfecho: b.desfecho,
+        fusoes: Number(b.fusoes) || 0,
+        conectores: Number(b.conectores) || 0,
+        caboRL: Number(b.caboRL) || 0,
+        caboDrop: Number(b.caboDrop) || 0,
+        nap: Number(b.nap) || 0,
+        dio: Number(b.dio) || 0,
+        cxSobrepor: Number(b.cxSobrepor) || 0,
+        cxEmbutida: Number(b.cxEmbutida) || 0,
+        cxFosc: Number(b.cxFosc) || 0,
+        opcoesMarcadas: b.desfecho === 'CONCLUIDA' ? b.concluidasOpcoes : (b.desfecho === 'PENDENTE' ? b.pendenciasOpcoes : b.malogros),
+        motivoDesfecho: b.desfecho === 'CONCLUIDA' ? b.obsConcluida : (b.desfecho === 'PENDENTE' ? b.obsPendente : b.obsMalograda),
+        observacoes: (b.observacoes || '').trim(),
+        fotos: b.fotos || []
+    }));
     
     ultimoResumoCampoTexto = montarTextoResumoItem({
         dataRegistro: dataLocalCorreta,
         equipe: equipeNome,
         imovel: qtdBlocos > 1 ? `${imovelBase} (${qtdBlocos} Blocos)` : imovelBase,
         endereco: enderecoGeral,
+        liberouAcesso: liberouAcessoGeral,
+        tempoPausadoMinutos: minutosPausaTotal,
         projeto: projetoNome,
         andares: listaRegistrosParaInserir.reduce((acc, r) => acc + r.andares, 0),
         hps: listaRegistrosParaInserir.reduce((acc, r) => acc + r.hps, 0),
@@ -1439,18 +1886,24 @@ async function salvarRegistro() {
         fusoes: listaRegistrosParaInserir.reduce((acc, r) => acc + r.fusoes, 0),
         nap: listaRegistrosParaInserir.reduce((acc, r) => acc + r.nap, 0),
         dio: listaRegistrosParaInserir.reduce((acc, r) => acc + r.dio, 0),
+        cxSobrepor: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cx_sobrepor, 0),
+        cxEmbutida: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cx_embutida, 0),
+        cxFosc: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cx_fosc, 0),
         malogros: primeiroReg.malogros,
         motivoDesfecho: primeiroReg.motivo_desfecho,
-        fotos: todasFotos
+        observacoes: (dadosAtendimento.blocos[0]?.observacoes || '').trim(),
+        fotos: todasFotos,
+        blocosDetalhados: blocosParaWhats
     });
     
     document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
 
     const tipoAcaoAudit = foiReaberta ? "ATIVIDADE REABERTA FINALIZADA" : "INSERÇÃO DE REGISTRO";
-    registrarLogAuditoria(tipoAcaoAudit, `Equipe: ${equipeNome} | Imóvel: ${imovelBase} (${qtdBlocos} bloco(s)) | Fotos: ${todasFotos.length}`);
+    registrarLogAuditoria(tipoAcaoAudit, `Equipe: ${equipeNome} | Imóvel: ${imovelBase} (${qtdBlocos} bloco(s)) | Liberou: ${liberouAcessoGeral} | Fotos: ${todasFotos.length}`);
     
     alert(`✅ Atendimento finalizado (${qtdBlocos} bloco(s) e ${todasFotos.length} foto(s)) e sincronizado com sucesso!`);
     resetarFormularioCampo();
     await carregarRegistrosDaNuvem();
     verificarPendenciasReabertasEProgramadasCampo(false);
+    atualizarAbaMinhasAtividadesCampo(false);
 }
