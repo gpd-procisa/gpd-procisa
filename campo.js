@@ -1,4 +1,4 @@
-// ================= VARIÁVEIS DE CONTROLE DE RASTREIO GPS E WAKE LOCK =================
+// ================= CONTROLE DE RASTREIO GPS E WAKE LOCK =================
 let watchIdRastreioGps = null;
 let timerEnvioRastreioGps = null;
 let wakeLockAtivo = null;
@@ -415,7 +415,7 @@ function mudarSubAbaCampo(aba) {
 
 async function atualizarAbaMinhasAtividadesCampo(forcarRecarregamentoNuvem = false) {
     if (forcarRecarregamentoNuvem) {
-        await carregarRegistrosDaNuvem();
+        await carregarRegistrosModoCampoLeve();
     }
 
     const equipeSelecionada = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "";
@@ -627,7 +627,7 @@ async function paralisarAtividadeAtualCampo() {
     sincronizarVisualPausaCampo();
     salvarRascunhoCampo();
     registrarLogAuditoria("ATIVIDADE PARALISADA", `Imóvel paralisado às ${horaStr}. Motivo: ${motivoLimpo}`);
-    await carregarRegistrosDaNuvem();
+    await carregarRegistrosModoCampoLeve();
     atualizarAbaMinhasAtividadesCampo(false);
     alert(`⏸️ Atividade paralisada às ${horaStr}!\nSeus dados preenchidos estão salvos. Clique em "Retomar Atividade Agora" quando voltar ao serviço.`);
 }
@@ -661,7 +661,7 @@ async function retomarAtividadeParalisadaCampo() {
     sincronizarVisualPausaCampo();
     salvarRascunhoCampo();
     registrarLogAuditoria("ATIVIDADE RETOMADA", `Imóvel retomado às ${horaStr}. Tempo paralisado acumulado: ${dadosAtendimento.minutosPausados} min.`);
-    await carregarRegistrosDaNuvem();
+    await carregarRegistrosModoCampoLeve();
     atualizarAbaMinhasAtividadesCampo(false);
     alert(`▶️ Atividade retomada com sucesso!\nTempo desta pausa: ${minutosDestaPausa} min (Total acumulado: ${dadosAtendimento.minutosPausados} min).`);
 }
@@ -937,50 +937,6 @@ function salvarRascunhoCampo() {
     }
 }
 
-function atualizarProjetosPermitidosCampo(nomeEquipe, projetoPreSelecionado = null) {
-    const selProj = document.getElementById('sel-projeto');
-    const badgeSetor = document.getElementById('badge-setor-campo');
-    if (!selProj) return;
-
-    if (!nomeEquipe) {
-        selProj.innerHTML = `<option value="">Selecione primeiro o técnico acima...</option>`;
-        if (badgeSetor) {
-            badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600";
-            badgeSetor.innerText = "Aguardando técnico...";
-        }
-        return;
-    }
-
-    const eqObj = equipesSistema.find(e => e.nome === nomeEquipe);
-    const setoresArr = obterArraySetores(eqObj ? eqObj.setor : "Instalador");
-    const listaProjetos = obterProjetosPermitidosParaSetores(setoresArr);
-
-    if (badgeSetor) {
-        badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-950 border border-indigo-300";
-        badgeSetor.innerText = `Grupos: ${setoresArr.join(' + ')}`;
-    }
-
-    if (setoresArr.length > 1) {
-        selProj.innerHTML = setoresArr.map(s => {
-            const projs = PROJETOS_POR_SETOR[s] || [];
-            return `<optgroup label="Grupo: ${s.toUpperCase()}">${projs.map(p => `<option value="${p}">${p}</option>`).join('')}</optgroup>`;
-        }).join('');
-    } else {
-        selProj.innerHTML = listaProjetos.map(p => `<option value="${p}">${p}</option>`).join('');
-    }
-
-    const projNorm = projetoPreSelecionado ? normalizarNomeProjeto(projetoPreSelecionado) : null;
-    if (projNorm && listaProjetos.includes(projNorm)) {
-        selProj.value = projNorm;
-    } else if (projNorm) {
-        selProj.innerHTML += `<option value="${projNorm}">${projNorm}</option>`;
-        selProj.value = projNorm;
-    } else {
-        selProj.value = listaProjetos[0];
-    }
-    mudarTipoProjeto();
-}
-
 function restaurarRascunhoCampo() {
     try {
         const salvo = localStorage.getItem('gpd_rascunho_campo_ativo');
@@ -1072,7 +1028,7 @@ async function cancelarCheckinAberto() {
     }
 
     resetarFormularioCampo();
-    await carregarRegistrosDaNuvem();
+    await carregarRegistrosModoCampoLeve();
     verificarImprevistoAtivoEquipeCampo();
     verificarPendenciasReabertasEProgramadasCampo(false);
     atualizarAbaMinhasAtividadesCampo(false);
@@ -1446,7 +1402,7 @@ async function iniciarAtividadeProgramadaCampo(idReg) {
     renderizarBlocosCampo();
     sincronizarVisualPausaCampo();
     salvarRascunhoCampo();
-    await carregarRegistrosDaNuvem();
+    await carregarRegistrosModoCampoLeve();
     atualizarAbaMinhasAtividadesCampo(false);
 }
 
@@ -1516,9 +1472,9 @@ async function resolverImprevistoPorId(idImp, chamadoPeloGestor = true) {
     }
 
     registrarLogAuditoria("IMPREVISTO RESOLVIDO", `Imprevisto da equipe ${reg?.equipe || ''} encerrado às ${horaFim}. Técnico novamente disponível.`);
-    await carregarRegistrosDaNuvem();
+    await carregarRegistrosModoCampoLeve();
     if (chamadoPeloGestor) {
-        atualizarDashboardGestor();
+        if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
         alert("✅ Imprevisto marcado como RESOLVIDO! O técnico voltou a ficar disponível.");
     }
 }
@@ -1644,92 +1600,6 @@ function copiarUltimoResumoCampoWhatsApp() {
     copiarTextoAreaTransferencia(ultimoResumoCampoTexto, "📲 Resumo da atividade copiado! Agora é só colar no WhatsApp.");
 }
 
-function copiarDetalheModalWhatsApp() {
-    if (!itemDetalheAtualModal) return;
-    const texto = montarTextoResumoItem(itemDetalheAtualModal);
-    copiarTextoAreaTransferencia(texto, "📲 Detalhes do registro copiados para o WhatsApp!");
-}
-
-function copiarBoletimGestorWhatsApp() {
-    const emAndamento = dadosFiltradosAtuais.filter(i => i.desfecho === 'EM ANDAMENTO').length;
-    const paralisadas = dadosFiltradosAtuais.filter(i => i.desfecho === 'PARALISADA').length;
-    const programadas = dadosFiltradosAtuais.filter(i => i.desfecho === 'PROGRAMADA').length;
-    const finalizadas = dadosFiltradosAtuais.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
-    const totalObras = finalizadas.length;
-    const conc = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
-    const pend = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
-    const malo = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
-    const impr = listaImprevistosAtuais.length;
-    const efic = totalObras > 0 ? ((conc / totalObras) * 100).toFixed(1) : "0.0";
-
-    const totOnGoing = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'ON GOING').length;
-    const totProjF = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'PROJETO F').length;
-
-    const dIni = document.getElementById('gestor-filtro-data-inicio').value;
-    const dFim = document.getElementById('gestor-filtro-data-fim').value;
-    const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Período Geral';
-
-    const tmaStr = document.getElementById('ind-tempo-medio')?.innerText || '--';
-    const pausaStr = document.getElementById('ind-tempo-paralisado')?.innerText || '0 min';
-    const medTotal = document.getElementById('fin-total-geral')?.innerText || 'R$ 0,00';
-
-    const textoBoletim = [
-        `📊 *BOLETIM OPERACIONAL GPD • MDU PROCISA RJ*`,
-        `📅 *Período:* ${periodoStr}`,
-        `────────────────────`,
-        `📋 *Programadas na Fila:* ${programadas}`,
-        `🔵 *Em Andamento Agora:* ${emAndamento}`,
-        `⏸️ *Paralisadas no Momento:* ${paralisadas}`,
-        `🏗️ *Total Finalizadas:* ${totalObras}`,
-        `🟢 *Concluídas:* ${conc} (${efic}%)`,
-        `🟡 *Pendentes:* ${pend}`,
-        `🔴 *Malogradas:* ${malo}`,
-        `⚠️ *Imprevistos Reportados:* ${impr}`,
-        `────────────────────`,
-        `🏢 *Grupo ON GOING:* ${totOnGoing} ativ.`,
-        `🚀 *Grupo PROJETO F:* ${totProjF} ativ.`,
-        `────────────────────`,
-        `⏱️ *TMA Líquido:* ${tmaStr}`,
-        `⏸️ *Tempo Paralisado:* ${pausaStr}`,
-        `💰 *Medição Estimada:* ${medTotal}`
-    ].join('\n');
-
-    copiarTextoAreaTransferencia(textoBoletim, "📲 Boletim Operacional copiado! Pronto para colar no WhatsApp da diretoria/supervisão.");
-}
-
-function mudarTipoProjeto() {
-    const projeto = document.getElementById('sel-projeto').value;
-    const titulo = document.getElementById('titulo-form-dinamico');
-    if (!titulo) return;
-    if (!projeto) {
-        titulo.innerText = "1. Dados Gerais do Condomínio / Imóvel";
-    } else if (projeto === 'VISTORIA') {
-        titulo.innerText = "1. Dados Gerais da Vistoria e Endereço (ON GOING)";
-    } else {
-        titulo.innerText = `1. Dados Gerais do Imóvel (${projeto} • ${obterMacroGrupoProjeto(projeto)})`;
-    }
-}
-
-function capturarGpsReal(tempoLimite = 12000) {
-    return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject("Geolocalização não suportada pelo navegador.");
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                const lat = pos.coords.latitude.toFixed(6);
-                const lng = pos.coords.longitude.toFixed(6);
-                resolve(`${lat}, ${lng}`);
-            },
-            (err) => {
-                reject(err);
-            },
-            { enableHighAccuracy: true, timeout: tempoLimite, maximumAge: 0 }
-        );
-    });
-}
-
 async function fazerCheckIn() {
     const equipe = document.getElementById('sel-equipe').value;
     const projeto = document.getElementById('sel-projeto').value;
@@ -1763,7 +1633,6 @@ async function fazerCheckIn() {
         dadosAtendimento.gpsEntrada = coordReal;
         document.getElementById('lbl-gps-entrada').innerText = coordReal;
 
-        // Atualiza automaticamente a posição no mapa e garante expediente ativo
         const partes = coordReal.split(',').map(s => parseFloat(s.trim()));
         if (partes.length === 2 && !isNaN(partes[0])) {
             await registrarPontoTelemetriaEquipe(equipe, partes[0], partes[1], 'DISPONIVEL');
@@ -1812,10 +1681,6 @@ async function fazerCheckIn() {
         dadosAtendimento.idEmAndamento = idTemp;
         dadosAtendimento.eraReaberta = false;
         dadosAtendimento.eraProgramada = false;
-        dadosAtendimento.emPausa = false;
-        dadosAtendimento.inicioPausa = null;
-        dadosAtendimento.motivoPausaAtual = "";
-        dadosAtendimento.minutosPausados = 0;
     }
 
     if (btnCheckin) {
@@ -1835,171 +1700,11 @@ async function fazerCheckIn() {
     renderizarBlocosCampo();
     sincronizarVisualPausaCampo();
     salvarRascunhoCampo();
-    await carregarRegistrosDaNuvem();
+    await carregarRegistrosModoCampoLeve();
     atualizarAbaMinhasAtividadesCampo(false);
 }
 
-function abrirModalImprevisto() {
-    const equipe = document.getElementById('sel-equipe').value;
-    if (!equipe) {
-        alert("⚠️ Selecione primeiro a sua Equipe / Técnico antes de informar um imprevisto.");
-        return;
-    }
-    document.getElementById('inp-detalhe-imprevisto').value = '';
-    popularSelectImprevistos();
-    document.getElementById('modal-imprevisto').classList.remove('hidden');
-}
-
-function fecharModalImprevisto() {
-    document.getElementById('modal-imprevisto').classList.add('hidden');
-}
-
-function fecharAlertaImprevistos() {
-    const alerta = document.getElementById('alerta-imprevistos-supervisao');
-    if (alerta) {
-        alerta.classList.add('hidden');
-        alerta.dataset.fechadoPeloGestor = "true";
-    }
-}
-
-async function enviarImprevisto() {
-    const equipe = document.getElementById('sel-equipe').value;
-    const checksImp = document.querySelectorAll('input[name="chk-motivo-imprevisto"]:checked');
-    let motivosSelecionados = Array.from(checksImp).map(c => c.value);
-
-    if (motivosSelecionados.length === 0) {
-        const fallbackSel = document.getElementById('sel-motivo-imprevisto')?.value;
-        if (fallbackSel) motivosSelecionados = [fallbackSel];
-    }
-
-    if (motivosSelecionados.length === 0) {
-        alert("⚠️ Selecione pelo menos um motivo de imprevisto.");
-        return;
-    }
-
-    const motivoStr = motivosSelecionados.join(" + ");
-    const detalhe = document.getElementById('inp-detalhe-imprevisto').value.trim();
-
-    if (!equipe) {
-        alert("⚠️ Equipe não selecionada.");
-        return;
-    }
-
-    const btnEnviar = document.getElementById('btn-enviar-imprevisto');
-    if (btnEnviar) {
-        btnEnviar.disabled = true;
-        btnEnviar.innerText = "⏳ Capturando GPS...";
-    }
-
-    let gpsCapturado = "Não capturado";
-    try {
-        gpsCapturado = await capturarGpsReal(8000);
-        const partes = gpsCapturado.split(',').map(s => parseFloat(s.trim()));
-        if (partes.length === 2 && !isNaN(partes[0])) {
-            await registrarPontoTelemetriaEquipe(equipe, partes[0], partes[1]);
-        }
-    } catch (e) {
-        console.warn("Imprevisto enviado sem sinal exato de GPS.");
-    }
-
-    const dataLocalCorreta = obterDataLocalISO();
-    const horaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-
-    const registroImprevistoDB = {
-        id: Date.now(),
-        data_registro: dataLocalCorreta,
-        equipe: equipe,
-        membros: equipe,
-        projeto: "IMPREVISTO / ATRASO",
-        imovel: "SEM ATIVIDADE (Imprevisto)",
-        h_entrada: horaAtual,
-        h_saida: "Em Aberto",
-        gps_entrada: gpsCapturado,
-        gps_saida: gpsCapturado,
-        desfecho: "IMPREVISTO",
-        motivo_desfecho: detalhe ? `${motivoStr}: ${detalhe}` : motivoStr,
-        malogros: motivosSelecionados,
-        responsavel: '',
-        contato: '',
-        email: '',
-        agendamento: null,
-        andares: 0,
-        hps: 0,
-        servico_obra: "NÃO",
-        observacoes: detalhe,
-        fusoes: 0,
-        conectores: 0,
-        cabo_rl: 0,
-        cabo_drop: 0,
-        nap: 0,
-        dio: 0,
-        cx_sobrepor: 0,
-        cx_embutida: 0,
-        cx_fosc: 0
-    };
-
-    const { error } = await supabaseClient.from('registros_producao').insert([registroImprevistoDB]);
-
-    if (btnEnviar) {
-        btnEnviar.disabled = false;
-        btnEnviar.innerText = "📍 Capturar GPS e Iniciar Imprevisto";
-    }
-
-    if (error) {
-        alert("❌ Erro ao registrar imprevisto: " + error.message);
-        return;
-    }
-
-    registrarLogAuditoria("IMPREVISTO REPORTADO", `Equipe: ${equipe} | Motivo(s): ${motivoStr} | Status: INDISPONÍVEL`);
-    alert("⚠️ Imprevisto registrado! Quando o problema for resolvido, clique no botão verde 'Resolver Imprevisto e Ficar Disponível' na sua tela.");
-    fecharModalImprevisto();
-    await carregarRegistrosDaNuvem();
-    verificarImprevistoAtivoEquipeCampo();
-}
-
-function resetarFormularioCampo() {
-    const equipeAtual = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '';
-    dadosAtendimento.idEmAndamento = null;
-    dadosAtendimento.eraReaberta = false;
-    dadosAtendimento.eraProgramada = false;
-    dadosAtendimento.emPausa = false;
-    dadosAtendimento.inicioPausa = null;
-    dadosAtendimento.motivoPausaAtual = "";
-    dadosAtendimento.minutosPausados = 0;
-    dadosAtendimento.gpsEntrada = null;
-    dadosAtendimento.gpsSaida = null;
-    dadosAtendimento.blocos = [];
-    document.getElementById('inp-imovel').value = '';
-    document.getElementById('form-endereco').value = '';
-    if (document.getElementById('form-liberou-acesso')) {
-        document.getElementById('form-liberou-acesso').value = '';
-    }
-    document.getElementById('form-responsavel').value = '';
-    document.getElementById('form-contato').value = '';
-    document.getElementById('form-email').value = '';
-    document.getElementById('inp-qtd-blocos').value = '1';
-    document.getElementById('container-blocos-dinamicos').innerHTML = '';
-    document.getElementById('lbl-gps-entrada').innerText = '-';
-    document.getElementById('lbl-imovel-aberto').innerText = '-';
-    if (document.getElementById('lbl-tempo-pausado-acumulado')) {
-        document.getElementById('lbl-tempo-pausado-acumulado').innerText = '';
-    }
-    
-    document.getElementById('bloco-pos-abertura').classList.add('hidden');
-    document.getElementById('form-campo-container').classList.remove('hidden');
-    sincronizarVisualPausaCampo();
-    localStorage.removeItem('gpd_rascunho_campo_ativo');
-
-    if (equipeAtual) {
-        const selEq = document.getElementById('sel-equipe');
-        if (selEq) selEq.value = equipeAtual;
-        document.getElementById('current-user-team').innerText = equipeAtual;
-        atualizarProjetosPermitidosCampo(equipeAtual);
-        atualizarBarraSegurancaPinCampo();
-        atualizarBarraExpedienteCampo();
-    }
-}
-
+// PONTO 06: Validação de preenchimento obrigatório para Endereço, Liberou o Acesso, Andares e HPs
 async function salvarRegistro() {
     if (dadosAtendimento.emPausa) {
         alert("⚠️ A atividade encontra-se PARALISADA. Clique no botão verde '▶️ Retomar Atividade Agora' antes de finalizar o atendimento.");
@@ -2218,7 +1923,7 @@ async function salvarRegistro() {
     
     alert(`✅ Atendimento finalizado (${qtdBlocos} bloco(s) e ${todasFotos.length} foto(s)) e sincronizado com sucesso!`);
     resetarFormularioCampo();
-    await carregarRegistrosDaNuvem();
+    await carregarRegistrosModoCampoLeve();
     verificarPendenciasReabertasEProgramadasCampo(false);
     atualizarAbaMinhasAtividadesCampo(false);
 }
