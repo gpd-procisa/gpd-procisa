@@ -22,11 +22,11 @@
         <!-- ================= BLOCO SUPERIOR FIXO / CONGELADO NA ROLAGEM ================= -->
         <div class="sticky top-0 z-40 shadow-md sm:rounded-t-2xl bg-white">
             
-            <!-- Cabeçalho Azul Compacto -->
-            <header class="bg-blue-900 text-white px-4 py-3 sm:px-6 sm:py-3.5 border-b-4 border-cyan-400 sm:rounded-t-2xl space-y-2.5">
+            <!-- Cabeçalho Azul Compacto (Com Filtros Integrados na Parte Inferior) -->
+            <header class="bg-blue-900 text-white px-4 py-2.5 sm:px-5 sm:py-3 border-b-4 border-cyan-400 sm:rounded-t-2xl space-y-2">
                 
                 <!-- Linha 1 do Cabeçalho -->
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <div class="flex items-center gap-2">
                             <span class="bg-cyan-500 text-blue-950 font-black text-xs px-2 py-0.5 rounded tracking-wider">GPD</span>
@@ -55,85 +55,92 @@
                     </div>
                 </div>
 
-                <!-- Linha 2 do Cabeçalho: Pesquisa e Ações Rápidas -->
-                <div id="header-gestor-acoes" class="pt-2 border-t border-blue-800/80 flex flex-col lg:flex-row justify-between items-center gap-2 hidden">
-                    <div class="w-full lg:w-80">
-                        <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, endereço, equipe, projeto..." class="w-full text-xs text-slate-800 border border-blue-700 rounded-lg px-3 py-1.5 outline-none bg-white focus:ring-2 focus:ring-cyan-400 transition">
+                <!-- Linha 2 e Linha 3 do Cabeçalho Azul (Exclusivas do Modo Gestor) -->
+                <div id="header-gestor-acoes" class="pt-2 border-t border-blue-800/80 space-y-2 hidden">
+                    
+                    <!-- Sub-linha A: Pesquisa Global e Botões de Ação -->
+                    <div class="flex flex-col lg:flex-row justify-between items-center gap-2">
+                        <div class="w-full lg:w-80">
+                            <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, endereço, equipe, projeto..." class="w-full text-xs text-slate-800 border border-blue-700 rounded-lg px-3 py-1.5 outline-none bg-white focus:ring-2 focus:ring-cyan-400 transition">
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 w-full lg:w-auto justify-end items-center">
+                            <span id="lbl-status-autosync" class="text-[10px] bg-blue-950 text-cyan-200 px-2.5 py-1.5 rounded-lg border border-blue-800 font-mono">
+                                ⏱️ Sync (180s): <b id="txt-hora-sync" class="text-white">Ativo</b>
+                            </span>
+                            <button onclick="abrirModalImportarPlanilha()" id="btn-importar-planilha" class="bg-purple-600 hover:bg-purple-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1" title="Enviar carga de atividades via planilha para os técnicos">
+                                📤 Importar Carga (Planilha)
+                            </button>
+                            <button onclick="copiarBoletimGestorWhatsApp()" id="btn-boletim-whats-gestor" class="bg-green-600 hover:bg-green-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
+                                📲 Boletim WhatsApp
+                            </button>
+                            <button onclick="exportarExcel()" id="btn-baixar-excel-gestor" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
+                                📥 Baixar Relatório (Excel)
+                            </button>
+                            <button onclick="recarregarDadosGestor()" id="btn-atualizar-registros-gestor" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 text-[11px] px-3 py-1.5 rounded-lg font-black shadow-sm transition flex items-center gap-1">
+                                🔄 Atualizar Registros
+                            </button>
+                        </div>
                     </div>
-                    <div class="flex flex-wrap gap-1.5 w-full lg:w-auto justify-end items-center">
-                        <span id="lbl-status-autosync" class="text-[10px] bg-blue-950 text-cyan-200 px-2.5 py-1.5 rounded-lg border border-blue-800 font-mono">
-                            ⏱️ Sync (180s): <b id="txt-hora-sync" class="text-white">Ativo</b>
-                        </span>
-                        <button onclick="abrirModalImportarPlanilha()" id="btn-importar-planilha" class="bg-purple-600 hover:bg-purple-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1" title="Enviar carga de atividades via planilha para os técnicos">
-                            📤 Importar Carga (Planilha)
-                        </button>
-                        <button onclick="copiarBoletimGestorWhatsApp()" id="btn-boletim-whats-gestor" class="bg-green-600 hover:bg-green-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
-                            📲 Boletim WhatsApp
-                        </button>
-                        <button onclick="exportarExcel()" id="btn-baixar-excel-gestor" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
-                            📥 Baixar Relatório (Excel)
-                        </button>
-                        <button onclick="recarregarDadosGestor()" id="btn-atualizar-registros-gestor" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 text-[11px] px-3 py-1.5 rounded-lg font-black shadow-sm transition flex items-center gap-1">
-                            🔄 Atualizar Registros
-                        </button>
+
+                    <!-- PONTO 01: Sub-linha B Integrada no Cabeçalho Azul em APENAS 1 LINHA (Período + 5 Filtros) -->
+                    <div class="bg-blue-950/90 border border-blue-800 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+                        
+                        <!-- Atalhos de Período em 1 linha sem quebra -->
+                        <div class="flex items-center gap-1 shrink-0">
+                            <span class="text-[10px] font-black text-cyan-300 uppercase whitespace-nowrap mr-0.5">⚡ Período:</span>
+                            <button onclick="aplicarAtalhoPeriodo('hoje')" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 font-black text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap shadow-sm">📅 Hoje</button>
+                            <button onclick="aplicarAtalhoPeriodo('ontem')" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">Ontem</button>
+                            <button onclick="aplicarAtalhoPeriodo('7dias')" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">7 Dias</button>
+                            <button onclick="aplicarAtalhoPeriodo('mes')" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">Este Mês</button>
+                            <button onclick="aplicarAtalhoPeriodo('tudo')" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">🔄 Tudo</button>
+                        </div>
+
+                        <!-- 5 Filtros alinhados na mesma linha -->
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <div class="flex items-center gap-1 bg-white border border-blue-400 rounded-lg px-2 py-0.5">
+                                <span class="text-[10px] font-bold text-slate-500">De:</span>
+                                <input type="date" id="gestor-filtro-data-inicio" onchange="atualizarDashboardGestor()" class="w-[102px] text-[11px] bg-transparent outline-none font-semibold text-slate-800">
+                            </div>
+                            <div class="flex items-center gap-1 bg-white border border-blue-400 rounded-lg px-2 py-0.5">
+                                <span class="text-[10px] font-bold text-slate-500">Até:</span>
+                                <input type="date" id="gestor-filtro-data-fim" onchange="atualizarDashboardGestor()" class="w-[102px] text-[11px] bg-transparent outline-none font-semibold text-slate-800">
+                            </div>
+                            <select id="gestor-filtro-equipe" onchange="atualizarDashboardGestor()" class="w-40 text-[11px] border border-blue-400 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-800 truncate">
+                                <option value="">👥 Todas as Equipes</option>
+                            </select>
+                            <select id="gestor-filtro-projeto" onchange="atualizarDashboardGestor()" class="w-40 text-[11px] border border-blue-400 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-800 truncate">
+                                <option value="">🏗️ Todos os Projetos</option>
+                                <optgroup label="Grupo ON GOING">
+                                    <option value="VISTORIA">VISTORIA (Vistoriador)</option>
+                                    <option value="CONSTRUÇÃO ON GOING">CONSTRUÇÃO ON GOING (Instalador)</option>
+                                    <option value="CONSTRUÇÃO NAP LOTADA">CONSTRUÇÃO NAP LOTADA (Instalador)</option>
+                                    <option value="ATIVAÇÃO ON GOING">ATIVAÇÃO ON GOING (Ativador)</option>
+                                    <option value="ATIVAÇÃO NAP LOTADA">ATIVAÇÃO NAP LOTADA (Ativador)</option>
+                                </optgroup>
+                                <optgroup label="Grupo PROJETO F">
+                                    <option value="CONSTRUÇÃO F">CONSTRUÇÃO F (Instalador)</option>
+                                    <option value="ATIVAÇÃO F">ATIVAÇÃO F (Ativador)</option>
+                                </optgroup>
+                            </select>
+                            <select id="gestor-filtro-desfecho" onchange="atualizarDashboardGestor()" class="w-36 text-[11px] border-2 border-cyan-400 rounded-lg px-2 py-1 bg-cyan-50 outline-none font-bold text-blue-950 truncate">
+                                <option value="">🎯 Todos os Status</option>
+                                <option value="PROGRAMADA">📋 Programadas (Carga)</option>
+                                <option value="EM ANDAMENTO">🔵 Em Andamento</option>
+                                <option value="PARALISADA">⏸️ Paralisadas</option>
+                                <option value="REABERTA">🔄 Reabertas p/ Edição</option>
+                                <option value="CONCLUIDA">🟢 Concluídas</option>
+                                <option value="PENDENTE">🟡 Pendentes</option>
+                                <option value="MALOGRADA">🔴 Malogradas</option>
+                            </select>
+                        </div>
                     </div>
+
                 </div>
             </header>
 
-            <!-- Sub-Cabeçalho Fixo do Gestor: Atalhos Rápidos + 5 Filtros + Abas -->
-            <div id="header-gestor-subbarra" class="bg-slate-100 border-b border-slate-300 px-4 py-2 space-y-2 hidden">
-                
-                <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
-                    <div class="flex flex-wrap items-center gap-1.5">
-                        <span class="text-[11px] font-black text-blue-950 uppercase mr-1">⚡ Período:</span>
-                        <button onclick="aplicarAtalhoPeriodo('hoje')" class="bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-bold text-[10px] px-2.5 py-1 rounded-md transition">📅 Hoje</button>
-                        <button onclick="aplicarAtalhoPeriodo('ontem')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] px-2.5 py-1 rounded-md transition">Ontem</button>
-                        <button onclick="aplicarAtalhoPeriodo('7dias')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] px-2.5 py-1 rounded-md transition">7 Dias</button>
-                        <button onclick="aplicarAtalhoPeriodo('mes')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[10px] px-2.5 py-1 rounded-md transition">Este Mês</button>
-                        <button onclick="aplicarAtalhoPeriodo('tudo')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-md transition">🔄 Tudo</button>
-                    </div>
-
-                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5 w-full xl:w-auto">
-                        <div class="flex items-center gap-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1">
-                            <span class="text-[10px] font-bold text-slate-500">De:</span>
-                            <input type="date" id="gestor-filtro-data-inicio" onchange="atualizarDashboardGestor()" class="w-full text-[11px] bg-transparent outline-none font-semibold text-slate-700">
-                        </div>
-                        <div class="flex items-center gap-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1">
-                            <span class="text-[10px] font-bold text-slate-500">Até:</span>
-                            <input type="date" id="gestor-filtro-data-fim" onchange="atualizarDashboardGestor()" class="w-full text-[11px] bg-transparent outline-none font-semibold text-slate-700">
-                        </div>
-                        <select id="gestor-filtro-equipe" onchange="atualizarDashboardGestor()" class="w-full text-[11px] border border-slate-300 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-700">
-                            <option value="">👥 Todas as Equipes</option>
-                        </select>
-                        <select id="gestor-filtro-projeto" onchange="atualizarDashboardGestor()" class="w-full text-[11px] border border-slate-300 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-700">
-                            <option value="">🏗️ Todos os Projetos</option>
-                            <optgroup label="Grupo ON GOING">
-                                <option value="VISTORIA">VISTORIA (Vistoriador)</option>
-                                <option value="CONSTRUÇÃO ON GOING">CONSTRUÇÃO ON GOING (Instalador)</option>
-                                <option value="CONSTRUÇÃO NAP LOTADA">CONSTRUÇÃO NAP LOTADA (Instalador)</option>
-                                <option value="ATIVAÇÃO ON GOING">ATIVAÇÃO ON GOING (Ativador)</option>
-                                <option value="ATIVAÇÃO NAP LOTADA">ATIVAÇÃO NAP LOTADA (Ativador)</option>
-                            </optgroup>
-                            <optgroup label="Grupo PROJETO F">
-                                <option value="CONSTRUÇÃO F">CONSTRUÇÃO F (Instalador)</option>
-                                <option value="ATIVAÇÃO F">ATIVAÇÃO F (Ativador)</option>
-                            </optgroup>
-                        </select>
-                        <select id="gestor-filtro-desfecho" onchange="atualizarDashboardGestor()" class="w-full text-[11px] border-2 border-blue-200 rounded-lg px-2 py-1 bg-blue-50/40 outline-none font-bold text-blue-950">
-                            <option value="">🎯 Todos os Status</option>
-                            <option value="PROGRAMADA">📋 Programadas (Carga)</option>
-                            <option value="EM ANDAMENTO">🔵 Em Andamento</option>
-                            <option value="PARALISADA">⏸️ Paralisadas</option>
-                            <option value="REABERTA">🔄 Reabertas p/ Edição</option>
-                            <option value="CONCLUIDA">🟢 Concluídas</option>
-                            <option value="PENDENTE">🟡 Pendentes</option>
-                            <option value="MALOGRADA">🔴 Malogradas</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Menu de Abas do Gestor (COM ABA INDEPENDENTE DE MAPA) -->
-                <div class="flex flex-wrap gap-1.5 items-center pt-0.5">
+            <!-- Sub-Cabeçalho Fixo do Gestor: Apenas Menu de Abas -->
+            <div id="header-gestor-subbarra" class="bg-slate-100 border-b border-slate-300 px-4 py-2 hidden">
+                <div class="flex flex-wrap gap-1.5 items-center">
                     <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1">
                         📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
                     </button>
@@ -290,7 +297,7 @@
                 </div>
             </div>
 
-            <!-- PONTO 01: NOVA SUB-ABA INDEPENDENTE: MAPA EM TEMPO REAL -->
+            <!-- SUB-ABA INDEPENDENTE: MAPA EM TEMPO REAL -->
             <div id="subview-mapa" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden p-4 space-y-4">
                 <div class="border-b pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -1527,81 +1534,201 @@
         </div>
     </div>
 
-    <!-- MODAL DE EDIÇÃO -->
-    <div id="modal-edicao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
-        <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
-            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
-                <h3 class="font-bold text-sm">✏️ Editar Registro de Produção</h3>
-                <button onclick="fecharModalEdicao()" class="text-white font-bold text-lg">✕</button>
-            </div>
-            <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
-                <input type="hidden" id="edit-reg-id">
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block font-semibold mb-1">Cód. Imóvel / Bloco</label>
-                        <input type="text" id="edit-reg-imovel" class="w-full border rounded-lg p-2 outline-none">
-                    </div>
-                    <div>
-                        <label class="block font-semibold mb-1">Endereço</label>
-                        <input type="text" id="edit-reg-endereco" class="w-full border rounded-lg p-2 outline-none">
-                    </div>
-                </div>
+    <!-- PONTO 02: SUPER MODAL DE EDIÇÃO COMPLETA (ATIVIDADES, PENDÊNCIAS, MALOGROS, IMPREVISTOS E FOTOS) -->
+    <div id="modal-edicao" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-2 sm:p-4 hidden z-50">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[94vh]">
+            <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-cyan-400">
                 <div>
-                    <label class="block font-bold text-amber-950 mb-1">🔑 Liberou o Acesso</label>
-                    <input type="text" id="edit-reg-liberou-acesso" class="w-full border border-amber-300 rounded-lg p-2 outline-none bg-amber-50/40">
+                    <span class="bg-cyan-400 text-blue-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Edição Completa Master / Operador</span>
+                    <h3 class="font-bold text-sm sm:text-base mt-0.5">✏️ Editar Registro, Pendências, Malogros, Imprevistos e Fotos</h3>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block font-semibold mb-1">Projeto</label>
-                        <select id="edit-reg-projeto" class="w-full border rounded-lg p-2 bg-white outline-none">
-                            <option value="VISTORIA">VISTORIA</option>
-                            <option value="CONSTRUÇÃO F">CONSTRUÇÃO F</option>
-                            <option value="CONSTRUÇÃO ON GOING">CONSTRUÇÃO ON GOING</option>
-                            <option value="CONSTRUÇÃO NAP LOTADA">CONSTRUÇÃO NAP LOTADA</option>
-                            <option value="ATIVAÇÃO F">ATIVAÇÃO F</option>
-                            <option value="ATIVAÇÃO ON GOING">ATIVAÇÃO ON GOING</option>
-                            <option value="ATIVAÇÃO NAP LOTADA">ATIVAÇÃO NAP LOTADA</option>
-                            <option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block font-semibold mb-1">Desfecho</label>
-                        <select id="edit-reg-desfecho" class="w-full border rounded-lg p-2 bg-white outline-none">
-                            <option value="PROGRAMADA">PROGRAMADA (Carga)</option>
-                            <option value="EM ANDAMENTO">EM ANDAMENTO</option>
-                            <option value="PARALISADA">PARALISADA</option>
-                            <option value="REABERTA">REABERTA (Liberada p/ Técnico)</option>
-                            <option value="CONCLUIDA">CONCLUIDA</option>
-                            <option value="PENDENTE">PENDENTE</option>
-                            <option value="MALOGRADA">MALOGRADA</option>
-                            <option value="IMPREVISTO">IMPREVISTO (Ativo)</option>
-                            <option value="IMPREVISTO RESOLVIDO">IMPREVISTO RESOLVIDO</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div><label class="block text-[10px] font-semibold">Andares</label><input type="number" id="edit-reg-andares" class="w-full border rounded p-1.5"></div>
-                    <div><label class="block text-[10px] font-semibold">Nº de HPs</label><input type="number" id="edit-reg-hps" class="w-full border rounded p-1.5"></div>
-                </div>
-                <div class="grid grid-cols-3 gap-2 border-t pt-2">
-                    <div><label class="block text-[10px] font-semibold">Cabo RL (m)</label><input type="number" id="edit-reg-cabo-rl" class="w-full border rounded p-1"></div>
-                    <div><label class="block text-[10px] font-semibold">Conectores</label><input type="number" id="edit-reg-conectores" class="w-full border rounded p-1"></div>
-                    <div><label class="block text-[10px] font-semibold">Cabo Drop (m)</label><input type="number" id="edit-reg-cabo-drop" class="w-full border rounded p-1"></div>
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <div><label class="block text-[10px] font-semibold">NAP</label><input type="number" id="edit-reg-nap" class="w-full border rounded p-1"></div>
-                    <div><label class="block text-[10px] font-semibold">DIO</label><input type="number" id="edit-reg-dio" class="w-full border rounded p-1"></div>
-                    <div><label class="block text-[10px] font-semibold">Fusões</label><input type="number" id="edit-reg-fusoes" class="w-full border rounded p-1"></div>
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <div><label class="block text-[9px] font-semibold">Cx. Sobrepor</label><input type="number" id="edit-reg-cx-sobrepor" class="w-full border rounded p-1"></div>
-                    <div><label class="block text-[9px] font-semibold">Cx. Embutida</label><input type="number" id="edit-reg-cx-embutida" class="w-full border rounded p-1"></div>
-                    <div><label class="block text-[9px] font-semibold">Cx. FOSC</label><input type="number" id="edit-reg-cx-fosc" class="w-full border rounded p-1"></div>
-                </div>
+                <button onclick="fecharModalEdicao()" class="text-white font-bold text-lg hover:text-red-300">✕</button>
             </div>
-            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
-                <button onclick="fecharModalEdicao()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
-                <button onclick="salvarEdicaoRegistro()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar Alterações</button>
+            
+            <div class="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs text-slate-700">
+                <input type="hidden" id="edit-reg-id">
+
+                <!-- 1. Identificação, Data, Equipe, Projeto e Desfecho -->
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+                    <h4 class="font-black text-blue-950 uppercase text-[11px] border-b border-slate-200 pb-1">1. Identificação, Equipe e Status Principal</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div>
+                            <label class="block font-bold mb-1">📅 Data do Registro</label>
+                            <input type="date" id="edit-reg-data" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none font-semibold">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block font-bold mb-1">👷 Equipe / Técnico Responsável</label>
+                            <select id="edit-reg-equipe" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none font-bold text-blue-950"></select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="block font-bold mb-1">🏗️ Projeto / Tipo de Registro</label>
+                            <select id="edit-reg-projeto" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none font-bold text-slate-800">
+                                <option value="VISTORIA">VISTORIA</option>
+                                <option value="CONSTRUÇÃO F">CONSTRUÇÃO F</option>
+                                <option value="CONSTRUÇÃO ON GOING">CONSTRUÇÃO ON GOING</option>
+                                <option value="CONSTRUÇÃO NAP LOTADA">CONSTRUÇÃO NAP LOTADA</option>
+                                <option value="ATIVAÇÃO F">ATIVAÇÃO F</option>
+                                <option value="ATIVAÇÃO ON GOING">ATIVAÇÃO ON GOING</option>
+                                <option value="ATIVAÇÃO NAP LOTADA">ATIVAÇÃO NAP LOTADA</option>
+                                <option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">🎯 Status / Desfecho (Altera as opções abaixo)</label>
+                            <select id="edit-reg-desfecho" onchange="aoMudarDesfechoModalEdicao()" class="w-full border-2 border-blue-400 rounded-lg p-2 bg-blue-50/40 outline-none font-black text-blue-950">
+                                <option value="PROGRAMADA">PROGRAMADA (Carga)</option>
+                                <option value="EM ANDAMENTO">EM ANDAMENTO</option>
+                                <option value="PARALISADA">PARALISADA</option>
+                                <option value="REABERTA">REABERTA (Liberada p/ Técnico)</option>
+                                <option value="CONCLUIDA">CONCLUIDA</option>
+                                <option value="PENDENTE">PENDENTE</option>
+                                <option value="MALOGRADA">MALOGRADA</option>
+                                <option value="IMPREVISTO">IMPREVISTO (Ativo)</option>
+                                <option value="IMPREVISTO RESOLVIDO">IMPREVISTO RESOLVIDO</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div>
+                            <label class="block font-bold mb-1">🏢 Cód. Imóvel / Bloco</label>
+                            <input type="text" id="edit-reg-imovel" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none font-bold">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block font-bold mb-1">📍 Endereço do Atendimento</label>
+                            <input type="text" id="edit-reg-endereco" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                        <div class="sm:col-span-2">
+                            <label class="block font-bold text-amber-950 mb-1">🔑 Liberou o Acesso</label>
+                            <input type="text" id="edit-reg-liberou-acesso" class="w-full border border-amber-300 rounded-lg p-2 outline-none bg-amber-50/50 font-semibold">
+                        </div>
+                        <div>
+                            <label class="block font-semibold mb-1">Responsável Local</label>
+                            <input type="text" id="edit-reg-responsavel" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-semibold mb-1">Contato / Tel</label>
+                            <input type="text" id="edit-reg-contato" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Horários, Pausas, GPS e Dados do Edifício -->
+                <div class="bg-blue-50/50 p-3.5 rounded-xl border border-blue-200 space-y-3">
+                    <h4 class="font-black text-blue-950 uppercase text-[11px] border-b border-blue-200 pb-1">2. Horários, Pausas, GPS e Estrutura do Imóvel</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold">🟢 Hora Entrada</label>
+                            <input type="text" id="edit-reg-h-entrada" placeholder="08:30" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-mono text-center">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold">🔴 Hora Saída</label>
+                            <input type="text" id="edit-reg-h-saida" placeholder="12:00" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-mono text-center">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-orange-800">⏸️ Pausa (min)</label>
+                            <input type="number" id="edit-reg-pausa" min="0" class="w-full border border-orange-300 rounded-lg p-1.5 bg-white font-bold text-center text-orange-900">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold">🏢 Nº Andares</label>
+                            <input type="number" id="edit-reg-andares" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-bold text-center">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold">🔌 Nº de HPs</label>
+                            <input type="number" id="edit-reg-hps" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-bold text-center">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold">Serviço Obra?</label>
+                            <select id="edit-reg-servico-obra" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-bold">
+                                <option value="SIM">SIM</option>
+                                <option value="NÃO">NÃO</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-semibold">📍 GPS Entrada</label>
+                            <input type="text" id="edit-reg-gps-entrada" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-mono text-[11px]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold">📍 GPS Saída</label>
+                            <input type="text" id="edit-reg-gps-saida" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-mono text-[11px]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold">✉️ E-mail do Condomínio</label>
+                            <input type="email" id="edit-reg-email" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white text-[11px]">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Checkboxes Dinâmicos: Pendências, Malogros, Imprevistos ou Itens Concluídos -->
+                <div class="bg-amber-50/60 p-3.5 rounded-xl border-2 border-amber-300 space-y-2.5">
+                    <div class="flex flex-wrap justify-between items-center gap-2 border-b border-amber-200 pb-1.5">
+                        <h4 class="font-black text-amber-950 uppercase text-[11px]" id="lbl-titulo-opcoes-modal-edicao">
+                            3. Opções de Pendência / Ofensores de Malogro / Motivos de Imprevisto
+                        </h4>
+                        <div class="flex items-center gap-1.5">
+                            <input type="text" id="inp-nova-opcao-rapida-edicao" placeholder="+ Incluir opção customizada..." class="text-[11px] border border-amber-400 rounded-lg px-2 py-1 bg-white outline-none w-48">
+                            <button type="button" onclick="incluirOpcaoCustomizadaNoModalEdicao()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm">
+                                + Incluir e Marcar
+                            </button>
+                        </div>
+                    </div>
+                    <div id="container-checkboxes-edicao" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 bg-white p-2.5 rounded-xl border border-amber-200 max-h-44 overflow-y-auto"></div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                        <div>
+                            <label class="block font-bold text-slate-800 mb-1">💬 Detalhamento / Motivo do Desfecho (Pendência, Malogro ou Imprevisto):</label>
+                            <textarea id="edit-reg-motivo-desfecho" rows="2" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none" placeholder="Descreva o motivo ou justificativa..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-800 mb-1">📝 Observações Gerais da Atividade:</label>
+                            <textarea id="edit-reg-observacoes" rows="2" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none" placeholder="Observações complementares..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Materiais e Caixas -->
+                <div class="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-200 space-y-2">
+                    <h4 class="font-black text-emerald-950 uppercase text-[11px] border-b border-emerald-200 pb-1">4. Materiais e Caixas Utilizados</h4>
+                    <div class="grid grid-cols-3 sm:grid-cols-9 gap-2">
+                        <div><label class="block text-[9px] font-bold">Cabo RL (m)</label><input type="number" id="edit-reg-cabo-rl" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">Conectores</label><input type="number" id="edit-reg-conectores" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">Cabo Drop</label><input type="number" id="edit-reg-cabo-drop" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">NAP</label><input type="number" id="edit-reg-nap" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">DIO</label><input type="number" id="edit-reg-dio" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">Fusões</label><input type="number" id="edit-reg-fusoes" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">Sobrepor</label><input type="number" id="edit-reg-cx-sobrepor" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">Embutida</label><input type="number" id="edit-reg-cx-embutida" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">Cx. FOSC</label><input type="number" id="edit-reg-cx-fosc" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                    </div>
+                </div>
+
+                <!-- 5. Gestão de Fotos no Modal de Edição -->
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <h4 class="font-black text-slate-800 uppercase text-[11px]">📷 5. Fotos Anexadas (<span id="lbl-qtd-fotos-edicao">0</span>/10)</h4>
+                        <label class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg cursor-pointer shadow-sm transition">
+                            + Adicionar Fotos
+                            <input type="file" accept="image/*" multiple onchange="adicionarFotosNoModalEdicao(this)" class="hidden">
+                        </label>
+                    </div>
+                    <div id="container-fotos-modal-edicao" class="flex flex-wrap gap-2 pt-1"></div>
+                </div>
+
+            </div>
+
+            <div class="bg-slate-100 px-5 py-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalEdicao()" class="bg-slate-300 hover:bg-slate-400 text-slate-800 text-xs px-4 py-2 rounded-xl font-bold">Cancelar</button>
+                <button onclick="salvarEdicaoRegistro()" id="btn-salvar-modal-edicao" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-5 py-2 rounded-xl font-black shadow-md">
+                    💾 Salvar Todas as Alterações
+                </button>
             </div>
         </div>
     </div>
