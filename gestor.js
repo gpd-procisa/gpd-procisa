@@ -166,6 +166,87 @@ async function autorizarReaberturaCampo(id) {
     await recarregarDadosGestor();
 }
 
+// ================= PONTO 04: MOVIMENTAÇÃO / TRANSFERÊNCIA DE ATIVIDADE ENTRE TÉCNICOS =================
+
+function abrirModalTransferirAtividade(id) {
+    if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
+        alert("⚠️ Apenas usuários Master ou Operador podem movimentar atividades entre técnicos.");
+        return;
+    }
+
+    const reg = registrosSalvos.find(r => r.id === id);
+    if (!reg) return;
+
+    if (['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(reg.desfecho)) {
+        alert("⚠️ Não é permitido transferir atividades que já estejam Concluídas, Pendentes ou Malogradas.");
+        return;
+    }
+
+    document.getElementById('transf-reg-id').value = reg.id;
+    document.getElementById('transf-lbl-imovel').innerText = reg.imovel;
+    document.getElementById('transf-lbl-projeto').innerText = reg.projeto;
+    document.getElementById('transf-lbl-status').innerText = reg.desfecho;
+    document.getElementById('transf-lbl-atual').innerText = reg.equipe;
+    document.getElementById('inp-motivo-transf').value = "";
+
+    const selDestino = document.getElementById('sel-tecnico-destino-transf');
+    if (selDestino) {
+        const equipesAtivas = equipesSistema.filter(e => e.status === 'Ativo' && e.nome !== reg.equipe);
+        selDestino.innerHTML = `<option value="">Selecione o técnico de destino...</option>` +
+            equipesAtivas.map(eq => `<option value="${eq.nome}">${eq.nome} (${formatarSetoresString(eq.setor)})</option>`).join('');
+    }
+
+    document.getElementById('modal-transferir-atividade').classList.remove('hidden');
+}
+
+function fecharModalTransferirAtividade() {
+    const modal = document.getElementById('modal-transferir-atividade');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function confirmarTransferenciaAtividade() {
+    if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') return;
+
+    const id = Number(document.getElementById('transf-reg-id').value);
+    const novoTecnico = document.getElementById('sel-tecnico-destino-transf').value;
+    const motivo = document.getElementById('inp-motivo-transf').value.trim();
+
+    if (!novoTecnico) {
+        alert("⚠️ Selecione o técnico de destino para realizar a transferência.");
+        return;
+    }
+
+    const reg = registrosSalvos.find(r => r.id === id);
+    if (!reg) return;
+
+    const tecnicoAnterior = reg.equipe;
+    const infoMotivo = motivo ? ` (Motivo: ${motivo})` : '';
+    const novoMotivoDesfecho = `${reg.motivoDesfecho ? reg.motivoDesfecho + ' | ' : ''}🔀 Transferida de ${tecnicoAnterior} para ${novoTecnico}${infoMotivo}`;
+
+    const { error } = await supabaseClient
+        .from('registros_producao')
+        .update({
+            equipe: novoTecnico,
+            membros: novoTecnico,
+            motivo_desfecho: novoMotivoDesfecho
+        })
+        .eq('id', id);
+
+    if (error) {
+        alert("❌ Erro ao transferir atividade: " + error.message);
+        return;
+    }
+
+    registrarLogAuditoria(
+        "TRANSFERÊNCIA DE ATIVIDADE",
+        `Imóvel ${reg.imovel} (${reg.projeto} - Status: ${reg.desfecho}) movimentado de '${tecnicoAnterior}' para '${novoTecnico}' por ${usuarioLogado}.${infoMotivo}`
+    );
+
+    fecharModalTransferirAtividade();
+    await recarregarDadosGestor();
+    alert(`✅ Atividade do imóvel "${reg.imovel}" transferida com sucesso para ${novoTecnico}!`);
+}
+
 function abrirModalImportarPlanilha() {
     if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
         alert("⚠️ Permissão insuficiente para importar planilha de atividades.");
@@ -316,6 +397,7 @@ function renderizarPainelDisponibilidade() {
         equipesAtivas.forEach(eq => {
             const regsHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.dataRegistro === hojeISO);
             const impAberto = regsHoje.find(r => r.desfecho === 'IMPREVISTO');
+            const obraParalisada = regsHoje.find(r => r.desfecho === 'PARALISADA');
             const obraAndamento = regsHoje.find(r => r.desfecho === 'EM ANDAMENTO' || r.desfecho === 'REABERTA');
             const programadasHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.desfecho === 'PROGRAMADA').length;
             const ultimoReg = registrosSalvos.find(r => r.equipe === eq.nome && r.gpsEntrada && r.gpsEntrada.includes(','));
@@ -329,7 +411,14 @@ function renderizarPainelDisponibilidade() {
                 statusBadge = `<span class="bg-red-100 text-red-800 border border-red-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🔴 INDISPONÍVEL (IMPREVISTO)</span>`;
                 const mot = (impAberto.malogros && impAberto.malogros.length > 0) ? impAberto.malogros.join(' + ') : impAberto.motivoDesfecho;
                 detalheTexto = `<span class="font-bold text-red-900">${mot}</span> <span class="text-slate-500">(Desde ${impAberto.hEntrada})</span>`;
-                acaoHtml = `<button onclick="resolverImprevistoPorId(${impAberto.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Liberar Técnico</button>`;
+                if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
+                    acaoHtml = `<button onclick="resolverImprevistoPorId(${impAberto.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Liberar Técnico</button>`;
+                }
+            } else if (obraParalisada) {
+                countAtend++;
+                statusBadge = `<span class="bg-orange-500 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block animate-pulse">⏸️ ATIVIDADE PARALISADA</span>`;
+                detalheTexto = `Imóvel: <b>${obraParalisada.imovel}</b> (${obraParalisada.projeto}) • <span class="text-orange-800 font-semibold">${obraParalisada.motivoDesfecho || 'Em pausa'}</span>`;
+                acaoHtml = `<button onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${obraParalisada.id}))" class="bg-orange-50 text-orange-800 font-bold text-[10px] px-2.5 py-1 rounded border border-orange-200">👁️ Ver Atividade</button>`;
             } else if (obraAndamento) {
                 countAtend++;
                 statusBadge = `<span class="bg-blue-600 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block animate-pulse">🔵 EM ATENDIMENTO</span>`;
@@ -410,6 +499,7 @@ async function atualizarDashboardGestor() {
         if (termoBusca) {
             mBusca = (item.imovel && item.imovel.toLowerCase().includes(termoBusca)) ||
                      (item.endereco && item.endereco.toLowerCase().includes(termoBusca)) ||
+                     (item.liberouAcesso && item.liberouAcesso.toLowerCase().includes(termoBusca)) ||
                      (item.equipe && item.equipe.toLowerCase().includes(termoBusca)) ||
                      (item.projeto && item.projeto.toLowerCase().includes(termoBusca)) ||
                      (item.motivoDesfecho && item.motivoDesfecho.toLowerCase().includes(termoBusca)) ||
@@ -434,7 +524,7 @@ async function atualizarDashboardGestor() {
 
     renderizarPainelDisponibilidade();
 
-    const qtdEmAndamento = filtrados.filter(i => i.desfecho === 'EM ANDAMENTO' || i.desfecho === 'REABERTA').length;
+    const qtdEmAndamento = filtrados.filter(i => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(i.desfecho)).length;
     const qtdProgramadas = filtrados.filter(i => i.desfecho === 'PROGRAMADA').length;
     const imprevistosAbertos = listaImprevistos.filter(i => i.desfecho === 'IMPREVISTO').length;
 
@@ -448,7 +538,9 @@ async function atualizarDashboardGestor() {
 
     const alertaImp = document.getElementById('alerta-imprevistos-supervisao');
     if (alertaImp) {
-        if (imprevistosAbertos > 0 && alertaImp.dataset.fechadoPeloGestor !== "true") {
+        if (nivelUsuarioLogado === 'Visualizador') {
+            alertaImp.classList.add('hidden');
+        } else if (imprevistosAbertos > 0 && alertaImp.dataset.fechadoPeloGestor !== "true") {
             alertaImp.classList.remove('hidden');
             setTxt('txt-alerta-imprevistos', `Existem ${imprevistosAbertos} técnico(s) com imprevisto ATIVO (indisponíveis) neste momento.`);
         } else if (imprevistosAbertos === 0) {
@@ -473,11 +565,13 @@ async function atualizarDashboardGestor() {
                     : `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold px-2 py-0.5 rounded text-[10px]">🟢 RESOLVIDO (Disponível)</span>`;
 
                 let acoesImp = "";
-                if (estaAberto) {
-                    acoesImp += `<button onclick="resolverImprevistoPorId(${imp.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded mr-1 shadow-sm">✅ Resolver</button>`;
-                }
                 if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
+                    if (estaAberto) {
+                        acoesImp += `<button onclick="resolverImprevistoPorId(${imp.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded mr-1 shadow-sm">✅ Resolver</button>`;
+                    }
                     acoesImp += `<button onclick="excluirRegistro(${imp.id}, 'IMPREVISTO')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>`;
+                } else {
+                    acoesImp = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
                 }
 
                 const trImp = document.createElement('tr');
@@ -498,7 +592,7 @@ async function atualizarDashboardGestor() {
         }
     }
 
-    const finalizadas = filtrados.filter(i => !['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
+    const finalizadas = filtrados.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
 
     setTxt('kpi-proj-vistoria', finalizadas.filter(i => i.projeto === 'VISTORIA').length);
     setTxt('kpi-proj-const-f', finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO F').length);
@@ -508,7 +602,7 @@ async function atualizarDashboardGestor() {
     setTxt('kpi-proj-ativ-ongoing', finalizadas.filter(i => i.projeto === 'ATIVAÇÃO ON GOING').length);
     setTxt('kpi-proj-ativ-nap', finalizadas.filter(i => i.projeto === 'ATIVAÇÃO NAP LOTADA').length);
 
-    setTxt('contador-resultados', `${filtrados.length} registros (${qtdEmAndamento} em andamento | ${qtdProgramadas} programadas)`);
+    setTxt('contador-resultados', `${filtrados.length} registros (${qtdEmAndamento} ativas/pausa | ${qtdProgramadas} programadas)`);
     setTxt('contador-materiais', finalizadas.length + " registros finalizados");
 
     let concluidasCount = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
@@ -563,10 +657,10 @@ async function atualizarDashboardGestor() {
         if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este filtro/período.</td></tr>`;
         if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
     } else {
-        const prioridadeStatus = { 'EM ANDAMENTO': 1, 'REABERTA': 2, 'PROGRAMADA': 3 };
+        const prioridadeStatus = { 'EM ANDAMENTO': 1, 'PARALISADA': 2, 'REABERTA': 3, 'PROGRAMADA': 4 };
         const filtradosOrdenados = [...filtrados].sort((a, b) => {
-            const pA = prioridadeStatus[a.desfecho] || 4;
-            const pB = prioridadeStatus[b.desfecho] || 4;
+            const pA = prioridadeStatus[a.desfecho] || 5;
+            const pB = prioridadeStatus[b.desfecho] || 5;
             if (pA !== pB) return pA - pB;
             return b.id - a.id;
         });
@@ -587,6 +681,7 @@ async function atualizarDashboardGestor() {
                     equipe: item.equipe,
                     dataRegistro: item.dataRegistro,
                     endereco: item.endereco,
+                    liberouAcesso: item.liberouAcesso,
                     hEntrada: item.hEntrada,
                     hSaida: item.hSaida,
                     gpsEntrada: item.gpsEntrada,
@@ -611,45 +706,67 @@ async function atualizarDashboardGestor() {
 
                 const somaAndares = grupo.itens.reduce((acc, i) => acc + (Number(i.andares) || 0), 0);
                 const somaHps = grupo.itens.reduce((acc, i) => acc + (Number(i.hps) || 0), 0);
+                const somaTempoPausado = grupo.itens.reduce((acc, i) => acc + (Number(i.tempoPausadoMinutos) || 0), 0);
                 const totalFotosGrupo = grupo.itens.reduce((acc, i) => acc + (Array.isArray(i.fotos) ? i.fotos.length : 0), 0);
                 const todasOpcoesGrupo = [...new Set(grupo.itens.flatMap(i => Array.isArray(i.malogros) ? i.malogros : []))];
 
                 const trPrincipal = document.createElement('tr');
                 trPrincipal.className = (itemMaster.desfecho === 'EM ANDAMENTO' || itemMaster.desfecho === 'REABERTA')
                     ? "bg-blue-50/70 hover:bg-blue-100/60 border-b cursor-pointer transition" 
-                    : (itemMaster.desfecho === 'PROGRAMADA' ? "bg-cyan-50/40 hover:bg-cyan-100/50 border-b cursor-pointer transition" : "hover:bg-blue-50/50 border-b cursor-pointer transition");
+                    : (itemMaster.desfecho === 'PARALISADA' 
+                        ? "bg-orange-50/70 hover:bg-orange-100/60 border-b cursor-pointer transition"
+                        : (itemMaster.desfecho === 'PROGRAMADA' ? "bg-cyan-50/40 hover:bg-cyan-100/50 border-b cursor-pointer transition" : "hover:bg-blue-50/50 border-b cursor-pointer transition"));
                 trPrincipal.title = qtdBlocosNoGrupo > 1 ? "Clique em 'Expandir Blocos' para ver cada bloco individualmente ou clique na linha para ver o resumo" : "Clique para ver todos os detalhes e fotos";
                 trPrincipal.onclick = () => abrirDetalhesAtividade(itemMaster);
                 
+                // PONTO 04 + PONTO 05: Botões de ação (com Mover p/ outro técnico e bloqueio para Visualizador)
                 let botoesAcao = "";
                 if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
-                    const btnReabrir = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(itemMaster.desfecho)
-                        ? `<button onclick="autorizarReaberturaCampo(${itemMaster.id})" class="text-purple-800 hover:bg-purple-200 font-bold text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded mr-1" title="Autorizar que o técnico reabra e edite esta atividade no Modo Campo">🔓 Reabrir p/ Campo</button>`
+                    const podeFinalizadasReabrir = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(itemMaster.desfecho);
+                    const btnReabrir = podeFinalizadasReabrir
+                        ? `<button onclick="autorizarReaberturaCampo(${itemMaster.id})" class="text-purple-800 hover:bg-purple-200 font-bold text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded" title="Autorizar que o técnico reabra e edite esta atividade no Modo Campo">🔓 Reabrir</button>`
+                        : '';
+
+                    // PONTO 04: Qualquer atividade que NÃO esteja Concluída, Pendente ou Malograda pode ser movimentada entre técnicos
+                    const btnMover = !podeFinalizadasReabrir
+                        ? `<button onclick="abrirModalTransferirAtividade(${itemMaster.id})" class="text-indigo-900 hover:bg-indigo-200 font-bold text-[10px] bg-indigo-100 border border-indigo-300 px-2 py-1 rounded" title="Movimentar / Transferir esta atividade para outro técnico">🔀 Mover</button>`
                         : '';
 
                     botoesAcao = `
                         <div class="flex flex-wrap gap-1">
+                            ${btnMover}
                             ${btnReabrir}
                             <button onclick="abrirModalEdicao(${itemMaster.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded">✏️ Editar</button>
                             <button onclick="excluirRegistro(${itemMaster.id}, '${itemMaster.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 border border-red-200 px-2 py-1 rounded">Excluir</button>
                         </div>
                     `;
                 } else {
-                    botoesAcao = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
+                    botoesAcao = `<span class="text-slate-400 text-[10px] font-semibold">👁️ Visualização</span>`;
                 }
 
                 const minIn = converterHorarioParaMinutos(grupo.hEntrada);
                 const minOut = converterHorarioParaMinutos(grupo.hSaida);
                 let duracaoStr = "-";
                 if (minIn !== null && minOut !== null && minOut >= minIn) {
-                    duracaoStr = formatarDuracaoTexto(minOut - minIn);
+                    const durLiquida = Math.max(0, (minOut - minIn) - somaTempoPausado);
+                    duracaoStr = formatarDuracaoTexto(durLiquida);
                 } else if (itemMaster.desfecho === 'EM ANDAMENTO') {
                     duracaoStr = '⏳ Em execução';
+                } else if (itemMaster.desfecho === 'PARALISADA') {
+                    duracaoStr = '⏸️ Em pausa';
                 } else if (itemMaster.desfecho === 'REABERTA') {
                     duracaoStr = '🔄 Aguardando edição';
                 } else if (itemMaster.desfecho === 'PROGRAMADA') {
                     duracaoStr = `📋 Na fila (${itemMaster.qtdBlocosProgramados || 1} Bloco${(itemMaster.qtdBlocosProgramados || 1) > 1 ? 's' : ''})`;
                 }
+
+                const badgePausaLinha = somaTempoPausado > 0 
+                    ? `<div class="text-[10px] text-orange-700 font-bold">⏸️ Pausa: ${somaTempoPausado} min</div>` 
+                    : '';
+
+                const infoLiberouLinha = grupo.liberouAcesso
+                    ? `<div class="text-[10px] text-amber-900 font-semibold truncate max-w-[200px]" title="Liberou o Acesso: ${grupo.liberouAcesso}">🔑 Liberou: ${grupo.liberouAcesso}</div>`
+                    : '';
 
                 const classeCorDesfecho = obterClasseCorDesfecho(desfechoExibicao);
                 const eqObj = equipesSistema.find(e => e.nome === grupo.equipe);
@@ -675,6 +792,7 @@ async function atualizarDashboardGestor() {
                     <td class="p-3">
                         <div class="font-black text-slate-800">${qtdBlocosNoGrupo > 1 ? `${grupo.codigoBase} <span class="text-blue-700 font-bold text-[11px]">(${qtdBlocosNoGrupo} Blocos)</span>` : itemMaster.imovel}</div>
                         <div class="text-[10px] text-blue-900 font-medium truncate max-w-[200px]" title="${grupo.endereco || ''}">📍 ${grupo.endereco || 'Endereço não informado'}</div>
+                        ${infoLiberouLinha}
                         <div class="text-[10px] text-slate-400">${grupo.dataRegistro}</div>
                         ${botaoExpandirBlocos}
                     </td>
@@ -699,6 +817,7 @@ async function atualizarDashboardGestor() {
                     <td class="p-3">
                         <div class="text-[11px]">🟢 Início: <b>${grupo.hEntrada}</b></div>
                         <div class="text-[11px]">🔴 Fim: <b>${grupo.hSaida}</b></div>
+                        ${badgePausaLinha}
                         <div class="text-[10px] text-emerald-700 font-bold mt-0.5">⏱️ ${duracaoStr}</div>
                     </td>
                     <td class="p-3 text-[10px] font-mono text-slate-600">
@@ -722,7 +841,7 @@ async function atualizarDashboardGestor() {
                         const qtdFotosB = Array.isArray(blocoItem.fotos) ? blocoItem.fotos.length : 0;
                         const acoesIndividuais = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') ? `
                             <div class="flex flex-wrap gap-1 pt-2 border-t border-slate-200 mt-1.5" onclick="event.stopPropagation()">
-                                ${['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(blocoItem.desfecho) ? `<button onclick="autorizarReaberturaCampo(${blocoItem.id})" class="bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 font-bold text-[9px] px-2 py-0.5 rounded">🔓 Reabrir</button>` : ''}
+                                ${['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(blocoItem.desfecho) ? `<button onclick="autorizarReaberturaCampo(${blocoItem.id})" class="bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 font-bold text-[9px] px-2 py-0.5 rounded">🔓 Reabrir</button>` : `<button onclick="abrirModalTransferirAtividade(${blocoItem.id})" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-900 border border-indigo-300 font-bold text-[9px] px-2 py-0.5 rounded">🔀 Mover</button>`}
                                 <button onclick="abrirModalEdicao(${blocoItem.id})" class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold text-[9px] px-2 py-0.5 rounded">✏️ Editar</button>
                                 <button onclick="excluirRegistro(${blocoItem.id}, '${blocoItem.imovel}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-[9px] px-2 py-0.5 rounded">🗑️ Excluir</button>
                             </div>
@@ -760,7 +879,7 @@ async function atualizarDashboardGestor() {
             }
 
             grupo.itens.forEach(item => {
-                if (!['EM ANDAMENTO', 'PROGRAMADA', 'REABERTA'].includes(item.desfecho) && corpoMat) {
+                if (!['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(item.desfecho) && corpoMat) {
                     const trMat = document.createElement('tr');
                     trMat.className = "hover:bg-slate-50 border-b transition";
                     trMat.innerHTML = `
@@ -784,7 +903,7 @@ async function atualizarDashboardGestor() {
 
     try { renderizarPainelPrincipalExecutores(finalizadas); } catch (e) { console.warn("Aviso Painel Executores:", e); }
     try { renderizarPainelMallingEProjetoF(finalizadas); } catch (e) { console.warn("Aviso Painel OnGoing/ProjF:", e); }
-    try { renderizarGraficos(finalizadas); } catch (e) { console.warn("Aviso Gráficos Gerais:", e); }
+    try { renderizarGraficos(finalizadas, filtrados); } catch (e) { console.warn("Aviso Gráficos Gerais:", e); }
     try { renderizarRankingTecnicos(finalizadas); } catch (e) { console.warn("Aviso Ranking Técnicos:", e); }
     try { renderizarOfensoresMalogro(finalizadas); } catch (e) { console.warn("Aviso Ofensores Malogro:", e); }
     try { renderizarTabelaConsolidada(finalizadas); } catch (e) { console.warn("Aviso Tabela Consolidada:", e); }
@@ -1195,6 +1314,7 @@ function renderizarOfensoresMalogro(dados) {
     }
 }
 
+// PONTO 02: Ranking de técnicos contabilizando Tempo Pausado e TMA Líquido
 function renderizarRankingTecnicos(dados) {
     const tbody = document.getElementById('tabela-ranking-tecnicos-corpo');
     const badgeContador = document.getElementById('contador-tecnicos-ativos');
@@ -1212,6 +1332,7 @@ function renderizarRankingTecnicos(dados) {
                 concluidas: 0,
                 pendentes: 0,
                 malogradas: 0,
+                minutosPausa: 0,
                 entradas: [],
                 saidas: [],
                 duracoes: []
@@ -1224,14 +1345,17 @@ function renderizarRankingTecnicos(dados) {
         else if (d.desfecho === 'PENDENTE') t.pendentes++;
         else if (d.desfecho === 'MALOGRADA') t.malogradas++;
 
+        const pausaMin = Number(d.tempoPausadoMinutos) || 0;
+        t.minutosPausa += pausaMin;
+
         const minIn = converterHorarioParaMinutos(d.hEntrada);
         const minOut = converterHorarioParaMinutos(d.hSaida);
 
         if (minIn !== null) t.entradas.push(minIn);
         if (minOut !== null) t.saidas.push(minOut);
         if (minIn !== null && minOut !== null && minOut >= minIn) {
-            const dur = minOut - minIn;
-            if (dur > 0 && dur <= 840) t.duracoes.push(dur);
+            const durLiquida = Math.max(0, (minOut - minIn) - pausaMin);
+            if (durLiquida > 0 && durLiquida <= 840) t.duracoes.push(durLiquida);
         }
     });
 
@@ -1245,7 +1369,7 @@ function renderizarRankingTecnicos(dados) {
     }
 
     if (listaOrdenada.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="p-6 text-center text-slate-400">Nenhuma atividade registrada para compor o ranking de técnicos no período.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhuma atividade registrada para compor o ranking de técnicos no período.</td></tr>`;
         return;
     }
 
@@ -1278,6 +1402,7 @@ function renderizarRankingTecnicos(dados) {
             <td class="p-3 text-center font-semibold text-red-600">${t.malogradas}</td>
             <td class="p-3 text-center font-mono text-slate-600">${mediaIn}</td>
             <td class="p-3 text-center font-mono text-slate-600">${mediaOut}</td>
+            <td class="p-3 text-center font-bold text-orange-700 bg-orange-50/40">${t.minutosPausa > 0 ? `${t.minutosPausa} min` : '0 min'}</td>
             <td class="p-3 text-center font-bold text-indigo-900 bg-indigo-50/40">${tma}</td>
             <td class="p-3 text-right"><span class="px-2 py-0.5 rounded font-bold text-[10px] ${corEficacia}">${eficacia}%</span></td>
         `;
@@ -1296,6 +1421,9 @@ function abrirModalEdicao(id) {
     document.getElementById('edit-reg-id').value = reg.id;
     document.getElementById('edit-reg-imovel').value = reg.imovel;
     document.getElementById('edit-reg-endereco').value = reg.endereco || '';
+    if (document.getElementById('edit-reg-liberou-acesso')) {
+        document.getElementById('edit-reg-liberou-acesso').value = reg.liberouAcesso || '';
+    }
     document.getElementById('edit-reg-projeto').value = reg.projeto;
     document.getElementById('edit-reg-desfecho').value = reg.desfecho;
     document.getElementById('edit-reg-andares').value = reg.andares || 0;
@@ -1322,6 +1450,9 @@ async function salvarEdicaoRegistro() {
     let regOriginal = registrosSalvos.find(r => r.id === id);
     let imovel = document.getElementById('edit-reg-imovel').value.trim();
     let endereco = document.getElementById('edit-reg-endereco').value.trim();
+    let liberouAcesso = document.getElementById('edit-reg-liberou-acesso') 
+        ? document.getElementById('edit-reg-liberou-acesso').value.trim() 
+        : (regOriginal ? regOriginal.liberouAcesso : '');
     let projeto = document.getElementById('edit-reg-projeto').value;
     let desfecho = document.getElementById('edit-reg-desfecho').value;
     let andares = Number(document.getElementById('edit-reg-andares').value) || 0;
@@ -1337,13 +1468,18 @@ async function salvarEdicaoRegistro() {
     let cx_fosc = Number(document.getElementById('edit-reg-cx-fosc').value) || 0;
 
     let obsLimpa = regOriginal ? (regOriginal.observacoes || '') : '';
+    let tagEnd = endereco ? `[END: ${endereco}] ` : '';
+    let tagLiberou = liberouAcesso ? `[LIBEROU_ACESSO: ${liberouAcesso}] ` : '';
+    let tagPausa = (regOriginal && regOriginal.tempoPausadoMinutos > 0)
+        ? `[PAUSA_TOTAL: ${regOriginal.tempoPausadoMinutos}] `
+        : '';
     let sufixoBlocos = (regOriginal && regOriginal.qtdBlocosProgramados > 1)
         ? ` [BLOCOS: ${regOriginal.qtdBlocosProgramados}]`
         : '';
     let sufixoFotos = (regOriginal && regOriginal.fotos && regOriginal.fotos.length > 0)
         ? ` [FOTOS:${JSON.stringify(regOriginal.fotos)}]`
         : '';
-    let obsComEnderecoEFotos = `${endereco ? `[END: ${endereco}] ` : ''}${obsLimpa}${sufixoBlocos}${sufixoFotos}`.trim();
+    let obsComTagsEFotos = `${tagEnd}${tagLiberou}${tagPausa}${obsLimpa}${sufixoBlocos}${sufixoFotos}`.trim();
 
     let dadosAtualizados = {
         imovel: imovel,
@@ -1351,7 +1487,7 @@ async function salvarEdicaoRegistro() {
         desfecho: desfecho,
         andares: andares,
         hps: hps,
-        observacoes: obsComEnderecoEFotos,
+        observacoes: obsComTagsEFotos,
         cabo_rl: cabo_rl,
         conectores: conectores,
         cabo_drop: cabo_drop,
@@ -1547,7 +1683,10 @@ function abrirDetalhesAtividade(item) {
 
     const minIn = converterHorarioParaMinutos(item.hEntrada);
     const minOut = converterHorarioParaMinutos(item.hSaida);
-    const duracaoStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(minOut - minIn) : "-";
+    const pausaMin = Number(item.tempoPausadoMinutos) || 0;
+    const duracaoStr = (minIn !== null && minOut !== null && minOut >= minIn) 
+        ? formatarDuracaoTexto(Math.max(0, (minOut - minIn) - pausaMin)) 
+        : "-";
     const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
 
     const codigoLimpo = (item.imovel || 'imovel').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -1585,17 +1724,30 @@ function abrirDetalhesAtividade(item) {
         `;
     }
 
-    const btnReabrirNoModal = ((nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') && ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(item.desfecho))
-        ? `<div class="bg-purple-50 border border-purple-200 p-3 rounded-lg flex justify-between items-center">
-             <span class="text-[11px] font-bold text-purple-950">Deseja liberar esta atividade para o técnico editar no celular?</span>
-             <button onclick="fecharModalDetalhes(); autorizarReaberturaCampo(${item.id})" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">🔓 Autorizar Reabertura</button>
-           </div>`
-        : '';
+    let barraAcoesTopoModal = '';
+    if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
+        if (['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(item.desfecho)) {
+            barraAcoesTopoModal = `
+                <div class="bg-purple-50 border border-purple-200 p-3 rounded-lg flex justify-between items-center">
+                    <span class="text-[11px] font-bold text-purple-950">Deseja liberar esta atividade para o técnico editar no celular?</span>
+                    <button onclick="fecharModalDetalhes(); autorizarReaberturaCampo(${item.id})" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">🔓 Autorizar Reabertura</button>
+                </div>
+            `;
+        } else {
+            barraAcoesTopoModal = `
+                <div class="bg-indigo-50 border border-indigo-200 p-3 rounded-lg flex justify-between items-center">
+                    <span class="text-[11px] font-bold text-indigo-950">Deseja movimentar esta atividade para outro técnico?</span>
+                    <button onclick="fecharModalDetalhes(); abrirModalTransferirAtividade(${item.id})" class="bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">🔀 Transferir Técnico</button>
+                </div>
+            `;
+        }
+    }
 
     conteudo.innerHTML = `
-        ${btnReabrirNoModal}
+        ${barraAcoesTopoModal}
         <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
             <div class="col-span-2"><strong>📍 Endereço do Atendimento:</strong> <span class="font-bold text-blue-950">${item.endereco || 'Não informado'}</span></div>
+            <div class="col-span-2 bg-amber-50 p-2 rounded border border-amber-200"><strong>🔑 Liberou o Acesso:</strong> <span class="font-black text-amber-950">${item.liberouAcesso || 'Não informado'}</span></div>
             <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
             <div><strong>Técnico / Equipe:</strong> ${item.equipe}</div>
             <div><strong>Projeto / Grupo:</strong> ${item.projeto} (${obterMacroGrupoProjeto(item.projeto)})</div>
@@ -1610,12 +1762,13 @@ function abrirDetalhesAtividade(item) {
         ${galeriaFotosHtml}
 
         <div class="bg-blue-50 p-3 rounded-lg border border-blue-200 space-y-1">
-            <h4 class="font-bold text-blue-900 text-xs uppercase">🕒 Horários, Duração e GPS</h4>
+            <h4 class="font-bold text-blue-900 text-xs uppercase">🕒 Horários, Pausas, Duração e GPS</h4>
             <div><strong>Horário de Entrada:</strong> ${item.hEntrada}</div>
             <div><strong>GPS Entrada:</strong> ${linkGpsEntrada}</div>
             <div class="pt-1"><strong>Horário de Saída:</strong> ${item.hSaida}</div>
             <div><strong>GPS Saída:</strong> ${linkGpsSaida}</div>
-            <div class="pt-1 text-emerald-800 font-bold"><strong>⏱️ Tempo de Atividade:</strong> ${duracaoStr}</div>
+            ${pausaMin > 0 ? `<div class="pt-1 text-orange-700 font-bold"><strong>⏸️ Tempo Paralisado:</strong> ${pausaMin} min</div>` : ''}
+            <div class="pt-1 text-emerald-800 font-bold"><strong>⏱️ Tempo Líquido de Execução:</strong> ${duracaoStr}</div>
         </div>
 
         <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-200 space-y-1">
@@ -1681,11 +1834,33 @@ function fecharModalExplosao() {
     document.getElementById('modal-explosao').classList.add('hidden');
 }
 
-function renderizarGraficos(dados) {
+// PONTO 02: Indicadores e gráficos calculando Tempo Paralisado e TMA Líquido
+function renderizarGraficos(dados, todosFiltrados = []) {
     let projetosCount = {};
     TODOS_OS_PROJETOS.forEach(p => projetosCount[p] = 0);
 
     let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
+
+    let totalMinutosPausaPeriodo = 0;
+    let qtdAtividadesComPausa = 0;
+
+    const basePausas = (Array.isArray(todosFiltrados) && todosFiltrados.length > 0) ? todosFiltrados : dados;
+    basePausas.forEach(item => {
+        const pMin = Number(item.tempoPausadoMinutos) || 0;
+        if (pMin > 0 || item.desfecho === 'PARALISADA') {
+            totalMinutosPausaPeriodo += pMin;
+            qtdAtividadesComPausa++;
+        }
+    });
+
+    const elTempoParalisado = document.getElementById('ind-tempo-paralisado');
+    const elDetalheParalisado = document.getElementById('ind-detalhe-paralisado');
+    if (elTempoParalisado) {
+        elTempoParalisado.innerText = totalMinutosPausaPeriodo > 0 ? formatarDuracaoTexto(totalMinutosPausaPeriodo) : "0 min";
+    }
+    if (elDetalheParalisado) {
+        elDetalheParalisado.innerText = `${qtdAtividadesComPausa} atividade(s) com pausa`;
+    }
 
     let listaMinutosEntrada = [];
     let listaMinutosSaida = [];
@@ -1705,6 +1880,7 @@ function renderizarGraficos(dados) {
 
         const minIn = converterHorarioParaMinutos(d.hEntrada);
         const minOut = converterHorarioParaMinutos(d.hSaida);
+        const pausaItem = Number(d.tempoPausadoMinutos) || 0;
 
         if (minIn !== null) {
             listaMinutosEntrada.push(minIn);
@@ -1719,11 +1895,11 @@ function renderizarGraficos(dados) {
         }
 
         if (minIn !== null && minOut !== null && minOut >= minIn) {
-            const dur = minOut - minIn;
-            if (dur > 0 && dur <= 840) {
-                listaDuracoes.push(dur);
+            const durLiquida = Math.max(0, (minOut - minIn) - pausaItem);
+            if (durLiquida > 0 && durLiquida <= 840) {
+                listaDuracoes.push(durLiquida);
                 if (duracaoPorProjeto[d.projeto]) {
-                    duracaoPorProjeto[d.projeto].push(dur);
+                    duracaoPorProjeto[d.projeto].push(durLiquida);
                 }
             }
         }
@@ -1893,7 +2069,7 @@ function renderizarGraficos(dados) {
             data: {
                 labels: labelsProj,
                 datasets: [{
-                    label: 'Tempo Médio (Minutos)',
+                    label: 'Tempo Médio Líquido (Minutos)',
                     data: mediasMinutosProj,
                     backgroundColor: '#0d9488',
                     borderRadius: 6
@@ -1921,8 +2097,8 @@ function exportarExcel() {
     }
 
     let colunas = [
-        "ID", "Data", "Equipe", "Setor", "Projeto", "Macrogrupo", "Imóvel / Bloco", "Endereço do Atendimento",
-        "Hora Entrada", "Hora Saída", "Duração", "GPS Entrada", "GPS Saída", 
+        "ID", "Data", "Equipe", "Setor", "Projeto", "Macrogrupo", "Imóvel / Bloco", "Endereço do Atendimento", "Liberou o Acesso",
+        "Hora Entrada", "Hora Saída", "Tempo Paralisado (min)", "Duração Líquida", "GPS Entrada", "GPS Saída", 
         "Desfecho", "Qtd Fotos", "Serviço Obra", "Opções Marcadas", "Motivo Desfecho", "Responsável", "Contato", 
         "E-mail", "Andares", "HPs", 
         "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", 
@@ -1932,7 +2108,10 @@ function exportarExcel() {
     let linhas = listaParaExportar.map(r => {
         const minIn = converterHorarioParaMinutos(r.hEntrada);
         const minOut = converterHorarioParaMinutos(r.hSaida);
-        const durStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(minOut - minIn) : "-";
+        const pausaMin = Number(r.tempoPausadoMinutos) || 0;
+        const durStr = (minIn !== null && minOut !== null && minOut >= minIn) 
+            ? formatarDuracaoTexto(Math.max(0, (minOut - minIn) - pausaMin)) 
+            : "-";
         const eqObj = equipesSistema.find(e => e.nome === r.equipe);
         const setorStr = eqObj ? eqObj.setor : "Instalador";
 
@@ -1945,8 +2124,10 @@ function exportarExcel() {
             obterMacroGrupoProjeto(r.projeto),
             r.imovel || "",
             r.endereco || "",
+            r.liberouAcesso || "",
             r.hEntrada || "",
             r.hSaida || "",
+            pausaMin,
             durStr,
             r.gpsEntrada || "",
             r.gpsSaida || "",
@@ -2340,7 +2521,7 @@ function renderizarTabelaAuditoria() {
         return;
     }
     trilhaAuditoria.forEach(log => {
-        const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO") || log.acao.includes("PIN")
+        const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO") || log.acao.includes("PIN") || log.acao.includes("TRANSFERÊNCIA")
             ? "bg-purple-100 text-purple-900 border border-purple-300"
             : "bg-slate-100 text-slate-800";
 
@@ -2364,13 +2545,22 @@ function limparLogsAuditoria() {
     }
 }
 
+// PONTO 05: Bloqueio de segurança para que o Visualizador acesse apenas Atividades, Gráficos e Materiais
 function mudarSubAbaGestor(aba) {
+    if (nivelUsuarioLogado === 'Visualizador' && !['atividades', 'graficos', 'materiais'].includes(aba)) {
+        alert("⚠️ Seu perfil (Visualizador) possui acesso restrito às abas: Atividades, Gráficos & Indicadores e Materiais.");
+        return;
+    }
+
     const subs = ['atividades', 'disponibilidade', 'graficos', 'imprevistos', 'materiais', 'financeiro', 'equipes', 'opcoes', 'usuarios', 'bonificacao', 'auditoria'];
     subs.forEach(s => {
         const el = document.getElementById(`subview-${s}`);
         const btn = document.getElementById(`subtab-btn-${s}`);
         if (el) el.classList.add('hidden');
-        if (btn) btn.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1";
+        if (btn) {
+            const ocultoVisualizador = (nivelUsuarioLogado === 'Visualizador' && !['atividades', 'graficos', 'materiais'].includes(s));
+            btn.className = `px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1 ${ocultoVisualizador ? 'hidden' : ''}`;
+        }
     });
     
     const targetView = document.getElementById(`subview-${aba}`);
@@ -2390,6 +2580,7 @@ function mudarSubAbaGestor(aba) {
     if (aba === 'atividades') atualizarDashboardGestor();
     if (aba === 'imprevistos') atualizarDashboardGestor();
 }
+
 function aplicarAtalhoPeriodo(tipo) {
     const inpInicio = document.getElementById('gestor-filtro-data-inicio');
     const inpFim = document.getElementById('gestor-filtro-data-fim');
