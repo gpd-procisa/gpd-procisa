@@ -82,7 +82,7 @@
                         </div>
                     </div>
 
-                    <!-- PONTO 01: Sub-linha B Integrada no Cabeçalho Azul em APENAS 1 LINHA (Período + 5 Filtros) -->
+                    <!-- Sub-linha B Integrada no Cabeçalho Azul em APENAS 1 LINHA (Período + 5 Filtros) -->
                     <div class="bg-blue-950/90 border border-blue-800 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
                         
                         <!-- Atalhos de Período em 1 linha sem quebra -->
@@ -138,45 +138,60 @@
                 </div>
             </header>
 
-            <!-- Sub-Cabeçalho Fixo do Gestor: Apenas Menu de Abas -->
-            <div id="header-gestor-subbarra" class="bg-slate-100 border-b border-slate-300 px-4 py-2 hidden">
-                <div class="flex flex-wrap gap-1.5 items-center">
-                    <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1">
-                        📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
-                    </button>
-                    <button onclick="mudarSubAbaGestor('disponibilidade')" id="subtab-btn-disponibilidade" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                        📡 Disponibilidade (<span id="badge-aba-indisp" class="text-red-600 font-black">0 indisp.</span>)
-                    </button>
-                    <button onclick="mudarSubAbaGestor('mapa')" id="subtab-btn-mapa" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                        🗺️ Mapa em Tempo Real (<span id="badge-aba-mapa" class="text-emerald-600 font-black">0 no mapa</span>)
-                    </button>
-                    <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                        📊 Gráficos & Indicadores
-                    </button>
-                    <button onclick="mudarSubAbaGestor('imprevistos')" id="subtab-btn-imprevistos" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                        ⚠️ Imprevistos (<span id="badge-aba-imprevistos">0</span>)
-                    </button>
-                    <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                        📦 Materiais
-                    </button>
-                    <button onclick="mudarSubAbaGestor('financeiro')" id="subtab-btn-financeiro" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                        💰 Medição Financeira
-                    </button>
-                    <button onclick="mudarSubAbaGestor('equipes')" id="subtab-btn-equipes" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                        🛠️ Equipes
-                    </button>
-                    <button onclick="mudarSubAbaGestor('opcoes')" id="subtab-btn-opcoes" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                        ⚙️ Opções
-                    </button>
-                    <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                        👥 Usuários
-                    </button>
-                    <button onclick="mudarSubAbaGestor('bonificacao')" id="subtab-btn-bonificacao" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                        🏆 Bonificação
-                    </button>
-                    <button onclick="mudarSubAbaGestor('auditoria')" id="subtab-btn-auditoria" class="px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                        🛡️ Auditoria
-                    </button>
+            <!-- Sub-Cabeçalho Fixo do Gestor: Menu de Abas + 2 Botões de Ação no Canto Inferior à Direita -->
+            <div id="header-gestor-subbarra" class="bg-slate-100 border-b border-slate-300 px-4 py-1.5 hidden">
+                <div class="flex flex-wrap justify-between items-center gap-1.5">
+                    
+                    <!-- Abas de Navegação à Esquerda -->
+                    <div class="flex flex-wrap gap-1 items-center">
+                        <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1">
+                            📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
+                        </button>
+                        <button onclick="mudarSubAbaGestor('disponibilidade')" id="subtab-btn-disponibilidade" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                            📡 Disponibilidade (<span id="badge-aba-indisp" class="text-red-600 font-black">0 indisp.</span>)
+                        </button>
+                        <button onclick="mudarSubAbaGestor('mapa')" id="subtab-btn-mapa" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                            🗺️ Mapa em Tempo Real (<span id="badge-aba-mapa" class="text-emerald-600 font-black">0 no mapa</span>)
+                        </button>
+                        <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                            📊 Gráficos & Indicadores
+                        </button>
+                        <button onclick="mudarSubAbaGestor('imprevistos')" id="subtab-btn-imprevistos" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                            ⚠️ Imprevistos (<span id="badge-aba-imprevistos">0</span>)
+                        </button>
+                        <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                            📦 Materiais
+                        </button>
+                        <button onclick="mudarSubAbaGestor('financeiro')" id="subtab-btn-financeiro" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                            💰 Medição Financeira
+                        </button>
+                        <button onclick="mudarSubAbaGestor('equipes')" id="subtab-btn-equipes" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                            🛠️ Equipes
+                        </button>
+                        <button onclick="mudarSubAbaGestor('opcoes')" id="subtab-btn-opcoes" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                            ⚙️ Opções
+                        </button>
+                        <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                            👥 Usuários
+                        </button>
+                        <button onclick="mudarSubAbaGestor('bonificacao')" id="subtab-btn-bonificacao" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                            🏆 Bonificação
+                        </button>
+                        <button onclick="mudarSubAbaGestor('auditoria')" id="subtab-btn-auditoria" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                            🛡️ Auditoria
+                        </button>
+                    </div>
+
+                    <!-- IMAGEM 1: Botões Posicionados na Mesma Seção das Abas, no Canto Inferior à Direita -->
+                    <div class="flex items-center gap-1.5 ml-auto shrink-0">
+                        <button type="button" onclick="mudarSubAbaGestor('mapa')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
+                            🗺️ Abrir Mapa em Tempo Real
+                        </button>
+                        <button type="button" onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
+                            🔄 Atualizar Status
+                        </button>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -212,17 +227,17 @@
                     <span>📋 Atividades em Campo, Programadas e Finalizadas (Imóveis multi-bloco agrupados automaticamente)</span>
                     <span class="text-xs font-bold bg-blue-100 text-blue-900 px-2.5 py-1 rounded-lg" id="contador-resultados">0 registros</span>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto max-h-[68vh]">
                     <table class="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
-                                <th class="p-3">Data / Imóvel / Endereço</th>
-                                <th class="p-3">Equipe / Setor</th>
-                                <th class="p-3">Projeto / Grupo / Andares & HPs</th>
-                                <th class="p-3">Status / Desfecho & Fotos</th>
-                                <th class="p-3">Horários & Duração</th>
-                                <th class="p-3">GPS (Entrada / Saída)</th>
-                                <th class="p-3" id="th-acao-master-label">Ações / Movimentação</th>
+                        <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b">
+                                <th class="p-2.5">Data / Imóvel / Endereço</th>
+                                <th class="p-2.5">Equipe / Setor</th>
+                                <th class="p-2.5">Projeto / Grupo / Andares & HPs</th>
+                                <th class="p-2.5">Status / Desfecho & Fotos</th>
+                                <th class="p-2.5">Horários & Duração</th>
+                                <th class="p-2.5">GPS (Entrada / Saída)</th>
+                                <th class="p-2.5" id="th-acao-master-label">Ações / Movimentação</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-gestor-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -230,66 +245,63 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Disponibilidade (Tabela e Indicadores de Turno) -->
-            <div id="subview-disponibilidade" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden p-4 space-y-4">
-                <div class="border-b pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                    <div>
-                        <h3 class="font-bold text-slate-800 text-base">📡 Painel de Disponibilidade e Turno das Equipes (Hoje)</h3>
-                        <p class="text-xs text-slate-500">Acompanhamento de início/fim de expediente, check-ins em atendimento e imprevistos ativos</p>
+            <!-- Sub-Aba: Disponibilidade (Quadros Compactos Fixos + Cabeçalho da Tabela Fixo com Fonte Reduzida) -->
+            <div id="subview-disponibilidade" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden flex flex-col">
+                
+                <!-- Bloco Superior Fixo da Aba Disponibilidade: Título Harmonizado + 4 Quadros Compactos (IMAGEM 2) -->
+                <div class="p-3 bg-white border-b border-slate-200 space-y-2.5 shrink-0">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <div class="flex flex-wrap items-baseline gap-2">
+                            <h3 class="font-bold text-slate-800 text-xs sm:text-sm">📡 Painel de Disponibilidade e Turno das Equipes (Hoje)</h3>
+                            <span class="text-[11px] text-slate-500">• Acompanhamento de início/fim de expediente, check-ins em atendimento e imprevistos ativos</span>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <button type="button" onclick="mudarSubAbaGestor('mapa')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm transition">
-                            🗺️ Abrir Mapa em Tempo Real
-                        </button>
-                        <button type="button" onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm transition">
-                            🔄 Atualizar Status
-                        </button>
+
+                    <!-- 4 Quadros de Status Reduzidos / Compactos -->
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <div class="bg-emerald-50/90 border border-emerald-200 px-3 py-2 rounded-xl flex justify-between items-center shadow-sm">
+                            <div>
+                                <span class="text-[10px] font-black text-emerald-950 uppercase block leading-tight">🟢 Em Rota / Disponíveis</span>
+                                <span class="text-[9px] text-emerald-700 block">Expediente ativo e livres</span>
+                            </div>
+                            <span class="text-xl font-black text-emerald-700" id="disp-card-disponiveis">0</span>
+                        </div>
+                        <div class="bg-blue-50/90 border border-blue-200 px-3 py-2 rounded-xl flex justify-between items-center shadow-sm">
+                            <div>
+                                <span class="text-[10px] font-black text-blue-950 uppercase block leading-tight">🔵 Em Atendimento / Pausa</span>
+                                <span class="text-[9px] text-blue-700 block">Atuando em imóvel agora</span>
+                            </div>
+                            <span class="text-xl font-black text-blue-700" id="disp-card-atendimento">0</span>
+                        </div>
+                        <div class="bg-red-50/90 border border-red-200 px-3 py-2 rounded-xl flex justify-between items-center shadow-sm">
+                            <div>
+                                <span class="text-[10px] font-black text-red-950 uppercase block leading-tight">🔴 Indisponíveis</span>
+                                <span class="text-[9px] text-red-700 block">Com imprevisto em aberto</span>
+                            </div>
+                            <span class="text-xl font-black text-red-700" id="disp-card-indisponiveis">0</span>
+                        </div>
+                        <div class="bg-slate-100 border border-slate-300 px-3 py-2 rounded-xl flex justify-between items-center shadow-sm">
+                            <div>
+                                <span class="text-[10px] font-black text-slate-800 uppercase block leading-tight">⚪ Offline / Sem Turno</span>
+                                <span class="text-[9px] text-slate-500 block">Não iniciaram ou encerraram</span>
+                            </div>
+                            <span class="text-xl font-black text-slate-700" id="disp-card-offline">0</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Cards de Status Operacional -->
-                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <div class="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl flex justify-between items-center">
-                        <div>
-                            <span class="text-xs font-bold text-emerald-900 uppercase block">🟢 Em Rota / Disponíveis</span>
-                            <span class="text-[10px] text-emerald-700">Expediente ativo e livres</span>
-                        </div>
-                        <span class="text-2xl font-black text-emerald-700" id="disp-card-disponiveis">0</span>
-                    </div>
-                    <div class="bg-blue-50 border border-blue-200 p-3.5 rounded-xl flex justify-between items-center">
-                        <div>
-                            <span class="text-xs font-bold text-blue-900 uppercase block">🔵 Em Atendimento / Pausa</span>
-                            <span class="text-[10px] text-blue-700">Atuando em imóvel agora</span>
-                        </div>
-                        <span class="text-2xl font-black text-blue-700" id="disp-card-atendimento">0</span>
-                    </div>
-                    <div class="bg-red-50 border border-red-200 p-3.5 rounded-xl flex justify-between items-center">
-                        <div>
-                            <span class="text-xs font-bold text-red-900 uppercase block">🔴 Indisponíveis</span>
-                            <span class="text-[10px] text-red-700">Com imprevisto em aberto</span>
-                        </div>
-                        <span class="text-2xl font-black text-red-700" id="disp-card-indisponiveis">0</span>
-                    </div>
-                    <div class="bg-slate-100 border border-slate-300 p-3.5 rounded-xl flex justify-between items-center">
-                        <div>
-                            <span class="text-xs font-bold text-slate-700 uppercase block">⚪ Offline / Sem Turno</span>
-                            <span class="text-[10px] text-slate-500">Não iniciaram ou encerraram</span>
-                        </div>
-                        <span class="text-2xl font-black text-slate-700" id="disp-card-offline">0</span>
-                    </div>
-                </div>
-
-                <div class="overflow-x-auto">
+                <!-- Tabela Rolável com Cabeçalho Congelado e Fonte Reduzida (IMAGEM 3) -->
+                <div class="overflow-y-auto overflow-x-auto max-h-[60vh]">
                     <table class="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
-                                <th class="p-3">Técnico / Equipe</th>
-                                <th class="p-3">Setor de Atuação</th>
-                                <th class="p-3">Expediente / Turno Hoje</th>
-                                <th class="p-3">Status Operacional Atual</th>
-                                <th class="p-3">Detalhe da Ocupação / Deslocamento</th>
-                                <th class="p-3">Último Sinal GPS Recebido</th>
-                                <th class="p-3">Ação Rápida</th>
+                        <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b border-slate-300">
+                                <th class="py-2 px-3">Técnico / Equipe</th>
+                                <th class="py-2 px-3">Setor de Atuação</th>
+                                <th class="py-2 px-3">Expediente / Turno Hoje</th>
+                                <th class="py-2 px-3">Status Operacional Atual</th>
+                                <th class="py-2 px-3">Detalhe da Ocupação / Deslocamento</th>
+                                <th class="py-2 px-3">Último Sinal GPS Recebido</th>
+                                <th class="py-2 px-3">Ação Rápida</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-disponibilidade-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -349,17 +361,17 @@
                     </div>
                     <span class="text-xs font-bold bg-amber-200 text-amber-950 px-3 py-1 rounded-lg" id="contador-imprevistos">0 imprevistos</span>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto max-h-[65vh]">
                     <table class="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
-                                <th class="p-3">Data / Horários</th>
-                                <th class="p-3">Equipe / Técnico</th>
-                                <th class="p-3">Motivo do Imprevisto</th>
-                                <th class="p-3">Situação Atual</th>
-                                <th class="p-3">Observações / Detalhes</th>
-                                <th class="p-3">Localização GPS</th>
-                                <th class="p-3">Ações</th>
+                        <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b">
+                                <th class="p-2.5">Data / Horários</th>
+                                <th class="p-2.5">Equipe / Técnico</th>
+                                <th class="p-2.5">Motivo do Imprevisto</th>
+                                <th class="p-2.5">Situação Atual</th>
+                                <th class="p-2.5">Observações / Detalhes</th>
+                                <th class="p-2.5">Localização GPS</th>
+                                <th class="p-2.5">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-imprevistos-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -965,10 +977,10 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto max-h-[60vh]">
                     <table class="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[9px] tracking-wider border-b">
+                        <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b">
                                 <th class="p-2.5">Imóvel / Data</th>
                                 <th class="p-2.5">Técnico / Projeto</th>
                                 <th class="p-2.5">Cabo RL (m)</th>
@@ -1534,7 +1546,7 @@
         </div>
     </div>
 
-    <!-- PONTO 02: SUPER MODAL DE EDIÇÃO COMPLETA (ATIVIDADES, PENDÊNCIAS, MALOGROS, IMPREVISTOS E FOTOS) -->
+    <!-- SUPER MODAL DE EDIÇÃO COMPLETA (ATIVIDADES, PENDÊNCIAS, MALOGROS, IMPREVISTOS E FOTOS) -->
     <div id="modal-edicao" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-2 sm:p-4 hidden z-50">
         <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[94vh]">
             <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-cyan-400">
