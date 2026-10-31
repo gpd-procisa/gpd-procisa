@@ -1,3 +1,301 @@
+// ================= VARIÁVEIS DE CONTROLE DE RASTREIO GPS E WAKE LOCK =================
+let watchIdRastreioGps = null;
+let timerEnvioRastreioGps = null;
+let wakeLockAtivo = null;
+let ultimaCoordRastreioCache = null;
+
+async function ativarWakeLockTela() {
+    try {
+        if ('wakeLock' in navigator && !wakeLockAtivo) {
+            wakeLockAtivo = await navigator.wakeLock.request('screen');
+            wakeLockAtivo.addEventListener('release', () => {
+                wakeLockAtivo = null;
+            });
+        }
+    } catch (e) {
+        console.warn("Aviso WakeLock:", e);
+    }
+}
+
+function liberarWakeLockTela() {
+    try {
+        if (wakeLockAtivo) {
+            wakeLockAtivo.release();
+            wakeLockAtivo = null;
+        }
+    } catch (e) {
+        console.warn("Aviso ao liberar WakeLock:", e);
+    }
+}
+
+document.addEventListener('visibilitychange', () => {
+    const nomeEq = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao;
+    const hojeISO = obterDataLocalISO();
+    const dadosTel = nomeEq ? telemetriaEquipes[nomeEq] : null;
+    if (document.visibilityState === 'visible' && dadosTel && dadosTel.data === hojeISO && dadosTel.statusTurno === 'DISPONIVEL') {
+        ativarWakeLockTela();
+        capturarEEnviarPosicaoRastreio(nomeEq, false);
+    }
+});
+
+function atualizarBarraExpedienteCampo() {
+    const nomeEq = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "";
+    const boxExp = document.getElementById('box-controle-expediente-campo');
+    if (!boxExp) return;
+
+    if (!nomeEq || equipeAutenticadaSessao !== nomeEq) {
+        boxExp.classList.add('hidden');
+        return;
+    }
+
+    boxExp.classList.remove('hidden');
+    const hojeISO = obterDataLocalISO();
+    const info = telemetriaEquipes[nomeEq];
+    const turnoAtivoHoje = info && info.data === hojeISO && info.statusTurno === 'DISPONIVEL';
+    const turnoEncerradoHoje = info && info.data === hojeISO && info.statusTurno === 'ENCERRADO';
+
+    const dot = document.getElementById('dot-rastreio-campo');
+    const lblStatus = document.getElementById('lbl-status-expediente-campo');
+    const lblHoraIni = document.getElementById('lbl-hora-inicio-expediente');
+    const lblInfoGps = document.getElementById('lbl-info-rastreio-gps');
+    const btnIniciar = document.getElementById('btn-iniciar-expediente-campo');
+    const btnEncerrar = document.getElementById('btn-encerrar-expediente-campo');
+
+    if (turnoAtivoHoje) {
+        boxExp.className = "p-3 rounded-xl border-2 border-emerald-400 bg-emerald-50/70 space-y-2";
+        if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-600 animate-ping inline-block";
+        if (lblStatus) {
+            lblStatus.className = "text-emerald-950 font-black";
+            lblStatus.innerText = "🟢 Expediente Ativo (Em Rota)";
+        }
+        if (lblHoraIni) lblHoraIni.innerText = `Início: ${info.horaInicio || '--:--'}`;
+        if (lblInfoGps) {
+            lblInfoGps.className = "text-[10px] text-emerald-800 font-semibold leading-tight";
+            lblInfoGps.innerText = `📡 Rastreamento GPS Ativo • Último envio: ${info.horaUltimoSinal || '--:--'} (${info.lat ? `${info.lat}, ${info.lng}` : 'Aguardando sinal'})`;
+        }
+        if (btnIniciar) btnIniciar.classList.add('hidden');
+        if (btnEncerrar) btnEncerrar.classList.remove('hidden');
+
+        if (!watchIdRastreioGps) {
+            iniciarMonitoramentoContinuoGps(nomeEq);
+        }
+    } else if (turnoEncerradoHoje) {
+        boxExp.className = "p-3 rounded-xl border-2 border-red-200 bg-red-50/50 space-y-2";
+        if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-red-500 inline-block";
+        if (lblStatus) {
+            lblStatus.className = "text-red-900 font-black";
+            lblStatus.innerText = "🔴 Expediente Encerrado Hoje";
+        }
+        if (lblHoraIni) lblHoraIni.innerText = `${info.horaInicio || '--:--'} às ${info.horaFim || '--:--'}`;
+        if (lblInfoGps) {
+            lblInfoGps.className = "text-[10px] text-red-700 leading-tight";
+            lblInfoGps.innerText = `Turno finalizado às ${info.horaFim || '--:--'}. Caso precise retornar à rota hoje, clique abaixo para reativar.`;
+        }
+        if (btnIniciar) {
+            btnIniciar.innerText = "🟢 Reativar Expediente / Voltar para Rota";
+            btnIniciar.classList.remove('hidden');
+        }
+        if (btnEncerrar) btnEncerrar.classList.add('hidden');
+    } else {
+        boxExp.className = "p-3 rounded-xl border-2 border-slate-200 bg-slate-50 space-y-2";
+        if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-slate-400 inline-block";
+        if (lblStatus) {
+            lblStatus.className = "text-slate-800 font-black";
+            lblStatus.innerText = "⚪ Expediente Não Iniciado";
+        }
+        if (lblHoraIni) lblHoraIni.innerText = "Início: --:--";
+        if (lblInfoGps) {
+            lblInfoGps.className = "text-[10px] text-slate-500 leading-tight";
+            lblInfoGps.innerText = "Clique abaixo ao sair para campo para ficar Disponível no painel e transmitir sua posição em rota.";
+        }
+        if (btnIniciar) {
+            btnIniciar.innerText = "🟢 Iniciar Expediente / Ficar Disponível em Rota";
+            btnIniciar.classList.remove('hidden');
+        }
+        if (btnEncerrar) btnEncerrar.classList.add('hidden');
+    }
+}
+
+async function capturarEEnviarPosicaoRastreio(nomeEq, exibirAlertaErro = false) {
+    if (!nomeEq) return null;
+    try {
+        const coordStr = await capturarGpsReal(10000);
+        const partes = coordStr.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0]) && !isNaN(partes[1])) {
+            ultimaCoordRastreioCache = { lat: partes[0], lng: partes[1] };
+            await registrarPontoTelemetriaEquipe(nomeEq, partes[0], partes[1]);
+            return coordStr;
+        }
+    } catch (e) {
+        if (exibirAlertaErro) {
+            alert("⚠️ Não foi possível obter o sinal de GPS. Verifique se a Localização do celular está ativada.");
+        }
+    }
+    return null;
+}
+
+async function registrarPontoTelemetriaEquipe(nomeEq, lat, lng, statusCustom = null) {
+    if (!nomeEq) return;
+    const hojeISO = obterDataLocalISO();
+    const horaAgora = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    const anterior = (telemetriaEquipes[nomeEq] && telemetriaEquipes[nomeEq].data === hojeISO) ? telemetriaEquipes[nomeEq] : {};
+
+    const novoObjeto = {
+        equipe: nomeEq,
+        data: hojeISO,
+        statusTurno: statusCustom || anterior.statusTurno || 'DISPONIVEL',
+        horaInicio: anterior.horaInicio || horaAgora,
+        horaFim: statusCustom === 'ENCERRADO' ? horaAgora : (anterior.horaFim || null),
+        lat: lat !== null && lat !== undefined ? Number(Number(lat).toFixed(6)) : (anterior.lat || null),
+        lng: lng !== null && lng !== undefined ? Number(Number(lng).toFixed(6)) : (anterior.lng || null),
+        horaUltimoSinal: horaAgora,
+        timestampUltimoSinal: Date.now()
+    };
+
+    telemetriaEquipes[nomeEq] = novoObjeto;
+    await sincronizarTelemetriaNaNuvem(nomeEq, novoObjeto);
+    atualizarBarraExpedienteCampo();
+}
+
+function iniciarMonitoramentoContinuoGps(nomeEq) {
+    pararMonitoramentoContinuoGps();
+    if (!navigator.geolocation || !nomeEq) return;
+
+    ativarWakeLockTela();
+
+    watchIdRastreioGps = navigator.geolocation.watchPosition(
+        (pos) => {
+            const lat = Number(pos.coords.latitude.toFixed(6));
+            const lng = Number(pos.coords.longitude.toFixed(6));
+            ultimaCoordRastreioCache = { lat, lng };
+        },
+        (err) => {
+            console.warn("Aviso watchPosition:", err);
+        },
+        { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+    );
+
+    timerEnvioRastreioGps = setInterval(async () => {
+        const eqAtual = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao;
+        const info = eqAtual ? telemetriaEquipes[eqAtual] : null;
+        if (!eqAtual || !info || info.statusTurno !== 'DISPONIVEL') {
+            pararMonitoramentoContinuoGps();
+            return;
+        }
+        if (ultimaCoordRastreioCache) {
+            await registrarPontoTelemetriaEquipe(eqAtual, ultimaCoordRastreioCache.lat, ultimaCoordRastreioCache.lng, 'DISPONIVEL');
+        } else {
+            await capturarEEnviarPosicaoRastreio(eqAtual, false);
+        }
+    }, 60000);
+}
+
+function pararMonitoramentoContinuoGps() {
+    if (watchIdRastreioGps !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRastreioGps);
+        watchIdRastreioGps = null;
+    }
+    if (timerEnvioRastreioGps !== null) {
+        clearInterval(timerEnvioRastreioGps);
+        timerEnvioRastreioGps = null;
+    }
+    liberarWakeLockTela();
+}
+
+async function iniciarExpedienteRastreioCampo() {
+    const nomeEq = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao;
+    if (!nomeEq) {
+        alert("⚠️ Selecione a sua Equipe / Técnico primeiro.");
+        return;
+    }
+
+    const btn = document.getElementById('btn-iniciar-expediente-campo');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "📡 Capturando GPS e iniciando expediente...";
+    }
+
+    let latIni = null, lngIni = null;
+    try {
+        const coord = await capturarGpsReal(12000);
+        const partes = coord.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            latIni = partes[0];
+            lngIni = partes[1];
+            ultimaCoordRastreioCache = { lat: latIni, lng: lngIni };
+        }
+    } catch (e) {
+        alert("❌ Ative o GPS / Localização do celular para iniciar o expediente e ficar disponível em rota.");
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "🟢 Iniciar Expediente / Ficar Disponível em Rota";
+        }
+        return;
+    }
+
+    const hojeISO = obterDataLocalISO();
+    const horaAgora = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+    const dadosTurno = {
+        equipe: nomeEq,
+        data: hojeISO,
+        statusTurno: 'DISPONIVEL',
+        horaInicio: telemetriaEquipes[nomeEq]?.data === hojeISO && telemetriaEquipes[nomeEq]?.horaInicio ? telemetriaEquipes[nomeEq].horaInicio : horaAgora,
+        horaFim: null,
+        lat: latIni,
+        lng: lngIni,
+        horaUltimoSinal: horaAgora,
+        timestampUltimoSinal: Date.now()
+    };
+
+    telemetriaEquipes[nomeEq] = dadosTurno;
+    await sincronizarTelemetriaNaNuvem(nomeEq, dadosTurno);
+
+    if (btn) {
+        btn.disabled = false;
+        btn.innerText = "🟢 Iniciar Expediente / Ficar Disponível em Rota";
+    }
+
+    iniciarMonitoramentoContinuoGps(nomeEq);
+    atualizarBarraExpedienteCampo();
+    registrarLogAuditoria("INÍCIO DE EXPEDIENTE (ROTA)", `Técnico ${nomeEq} iniciou expediente às ${horaAgora} | GPS: ${latIni}, ${lngIni}`);
+    alert(`🟢 Expediente iniciado às ${horaAgora}!\nVocê já consta como DISPONÍVEL EM ROTA no mapa da gestão.`);
+}
+
+async function encerrarExpedienteRastreioCampo() {
+    const nomeEq = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao;
+    if (!nomeEq) return;
+
+    const posAberturaVisivel = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
+    if (posAberturaVisivel) {
+        alert("⚠️ Você possui um atendimento em andamento na tela. Finalize ou cancele o atendimento antes de encerrar o expediente do dia.");
+        return;
+    }
+
+    if (!confirm(`🔴 ENCERRAR EXPEDIENTE DO DIA\n\nConfirmar o encerramento do turno de hoje para ${nomeEq}? O compartilhamento de GPS em rota será desligado.`)) {
+        return;
+    }
+
+    let latFim = ultimaCoordRastreioCache?.lat || telemetriaEquipes[nomeEq]?.lat || null;
+    let lngFim = ultimaCoordRastreioCache?.lng || telemetriaEquipes[nomeEq]?.lng || null;
+
+    try {
+        const coord = await capturarGpsReal(6000);
+        const partes = coord.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            latFim = partes[0];
+            lngFim = partes[1];
+        }
+    } catch (e) {}
+
+    pararMonitoramentoContinuoGps();
+    await registrarPontoTelemetriaEquipe(nomeEq, latFim, lngFim, 'ENCERRADO');
+
+    const horaFim = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    registrarLogAuditoria("FIM DE EXPEDIENTE", `Técnico ${nomeEq} encerrou o expediente às ${horaFim}.`);
+    alert(`🔴 Expediente encerrado às ${horaFim}! Bom descanso.`);
+}
+
 function comprimirImagemBase64(file, maxWidth = 780, quality = 0.60) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -91,7 +389,7 @@ function baixarFotoDireto(srcBase64, nomeArquivo) {
     document.body.removeChild(a);
 }
 
-// ================= PONTO 03: SUB-ABAS DO MODO CAMPO (ATENDIMENTO vs MINHAS ATIVIDADES) =================
+// ================= SUB-ABAS DO MODO CAMPO (ATENDIMENTO vs MINHAS ATIVIDADES) =================
 
 function mudarSubAbaCampo(aba) {
     const vLanc = document.getElementById('subview-campo-lancamento');
@@ -139,9 +437,7 @@ async function atualizarAbaMinhasAtividadesCampo(forcarRecarregamentoNuvem = fal
     const hojeISO = obterDataLocalISO();
     const meusRegistros = registrosSalvos.filter(r => r.equipe === equipeSelecionada && r.projeto !== 'IMPREVISTO / ATRASO');
 
-    // Atividades ativas / pendentes de ação do técnico (qualquer data)
     const ativasPainel = meusRegistros.filter(r => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'PROGRAMADA'].includes(r.desfecho));
-    // Atividades finalizadas hoje pelo técnico
     const finalizadasHoje = meusRegistros.filter(r => r.dataRegistro === hojeISO && ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(r.desfecho));
 
     if (badgeQtd) badgeQtd.innerText = ativasPainel.length;
@@ -210,7 +506,6 @@ async function atualizarAbaMinhasAtividadesCampo(forcarRecarregamentoNuvem = fal
     container.innerHTML = html;
 }
 
-// Permite retomar uma atividade que já estava EM ANDAMENTO ou PARALISADA no painel (mesmo se o técnico limpou o cache ou trocou de aparelho)
 function retomarAtividadeEmAndamentoOuParalisadaNuvem(idReg) {
     if (dadosAtendimento.idEmAndamento && dadosAtendimento.idEmAndamento === idReg) {
         mudarSubAbaCampo('lancamento');
@@ -264,7 +559,7 @@ function retomarAtividadeEmAndamentoOuParalisadaNuvem(idReg) {
     salvarRascunhoCampo();
 }
 
-// ================= PONTO 02: PARALISAR E RETOMAR ATIVIDADE EM CAMPO =================
+// ================= PARALISAR E RETOMAR ATIVIDADE EM CAMPO =================
 
 function sincronizarVisualPausaCampo() {
     const btnParalisar = document.getElementById('btn-paralisar-atividade');
@@ -696,6 +991,7 @@ function restaurarRascunhoCampo() {
                 document.getElementById('current-user-team').innerText = equipeAutenticadaSessao;
                 atualizarProjetosPermitidosCampo(equipeAutenticadaSessao);
                 atualizarBarraSegurancaPinCampo();
+                atualizarBarraExpedienteCampo();
             }
             return;
         }
@@ -708,6 +1004,7 @@ function restaurarRascunhoCampo() {
             sessionStorage.setItem('gpd_equipe_autenticada_pin', r.equipe);
             atualizarProjetosPermitidosCampo(r.equipe, r.projeto);
             atualizarBarraSegurancaPinCampo();
+            atualizarBarraExpedienteCampo();
         }
         if (r.imovel) document.getElementById('inp-imovel').value = r.imovel;
 
@@ -786,11 +1083,13 @@ function aoSelecionarEquipeCampo() {
     const eq = selEq ? selEq.value : "";
 
     if (!eq) {
+        pararMonitoramentoContinuoGps();
         equipeAutenticadaSessao = "";
         sessionStorage.removeItem('gpd_equipe_autenticada_pin');
         document.getElementById('current-user-team').innerText = "Selecione Equipe";
         atualizarProjetosPermitidosCampo("");
         atualizarBarraSegurancaPinCampo();
+        atualizarBarraExpedienteCampo();
         verificarImprevistoAtivoEquipeCampo();
         verificarPendenciasReabertasEProgramadasCampo(false);
         atualizarAbaMinhasAtividadesCampo(false);
@@ -813,6 +1112,7 @@ function aoSelecionarEquipeCampo() {
             document.getElementById('current-user-team').innerText = "Selecione Equipe";
             atualizarProjetosPermitidosCampo("");
             atualizarBarraSegurancaPinCampo();
+            atualizarBarraExpedienteCampo();
             verificarImprevistoAtivoEquipeCampo();
             verificarPendenciasReabertasEProgramadasCampo(false);
             atualizarAbaMinhasAtividadesCampo(false);
@@ -826,6 +1126,7 @@ function aoSelecionarEquipeCampo() {
     document.getElementById('current-user-team').innerText = eq;
     atualizarProjetosPermitidosCampo(eq);
     atualizarBarraSegurancaPinCampo();
+    atualizarBarraExpedienteCampo();
     salvarRascunhoCampo();
     verificarImprevistoAtivoEquipeCampo();
     verificarPendenciasReabertasEProgramadasCampo(true);
@@ -840,6 +1141,7 @@ function desbloquearTrocaEquipeCampo() {
     }
     if (!confirm("Deseja encerrar sua sessão atual e liberar a seleção para outro técnico?")) return;
 
+    pararMonitoramentoContinuoGps();
     equipeAutenticadaSessao = "";
     sessionStorage.removeItem('gpd_equipe_autenticada_pin');
     localStorage.removeItem('gpd_rascunho_campo_ativo');
@@ -851,6 +1153,7 @@ function desbloquearTrocaEquipeCampo() {
     document.getElementById('current-user-team').innerText = "Selecione Equipe";
     atualizarProjetosPermitidosCampo("");
     atualizarBarraSegurancaPinCampo();
+    atualizarBarraExpedienteCampo();
     verificarImprevistoAtivoEquipeCampo();
     verificarPendenciasReabertasEProgramadasCampo(false);
     atualizarAbaMinhasAtividadesCampo(false);
@@ -1080,6 +1383,10 @@ async function iniciarAtividadeProgramadaCampo(idReg) {
     let coordReal = "Não capturado";
     try {
         coordReal = await capturarGpsReal(10000);
+        const partes = coordReal.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            await registrarPontoTelemetriaEquipe(r.equipe, partes[0], partes[1], 'DISPONIVEL');
+        }
     } catch (err) {
         alert("❌ Ative o GPS do celular para iniciar a atividade programada.");
         return;
@@ -1231,8 +1538,6 @@ async function copiarTextoAreaTransferencia(texto, msgSucesso) {
     }
 }
 
-// ================= PONTO 01 + PONTO 02 + PONTO 06: RESUMO WHATSAPP DETALHADO POR BLOCO =================
-
 function montarTextoResumoItem(r) {
     let iconeDesf = "🟢";
     if (r.desfecho === "PENDENTE" || r.desfecho === "IMPREVISTO") iconeDesf = "🟡";
@@ -1263,7 +1568,6 @@ function montarTextoResumoItem(r) {
 
     linhas.push(`📍 *GPS:* ${r.gpsEntrada}`);
 
-    // PONTO 01: Se houver mais de 1 bloco, detalha o material e status de cada bloco individualmente
     if (Array.isArray(r.blocosDetalhados) && r.blocosDetalhados.length > 1) {
         linhas.push(`────────────────────`);
         linhas.push(`🏢 *DETALHAMENTO POR BLOCO (${r.blocosDetalhados.length} BLOCOS):*`);
@@ -1458,11 +1762,18 @@ async function fazerCheckIn() {
         coordReal = await capturarGpsReal(12000);
         dadosAtendimento.gpsEntrada = coordReal;
         document.getElementById('lbl-gps-entrada').innerText = coordReal;
+
+        // Atualiza automaticamente a posição no mapa e garante expediente ativo
+        const partes = coordReal.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            await registrarPontoTelemetriaEquipe(equipe, partes[0], partes[1], 'DISPONIVEL');
+            iniciarMonitoramentoContinuoGps(equipe);
+        }
     } catch (err) {
         alert("❌ Não foi possível capturar o GPS. Verifique se a Localização do celular está ativada e se o navegador tem permissão.");
         if (btnCheckin) {
             btnCheckin.disabled = false;
-            btnCheckin.innerText = "🚀 Iniciar Atividade (Status: Em Andamento)";
+            btnCheckin.innerText = "🚀 Iniciar Atividade no Imóvel (Status: Em Andamento)";
         }
         return;
     }
@@ -1509,7 +1820,7 @@ async function fazerCheckIn() {
 
     if (btnCheckin) {
         btnCheckin.disabled = false;
-        btnCheckin.innerText = "🚀 Iniciar Atividade (Status: Em Andamento)";
+        btnCheckin.innerText = "🚀 Iniciar Atividade no Imóvel (Status: Em Andamento)";
     }
 
     dadosAtendimento.blocos = [criarObjetoBlocoPadrao(1)];
@@ -1583,6 +1894,10 @@ async function enviarImprevisto() {
     let gpsCapturado = "Não capturado";
     try {
         gpsCapturado = await capturarGpsReal(8000);
+        const partes = gpsCapturado.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            await registrarPontoTelemetriaEquipe(equipe, partes[0], partes[1]);
+        }
     } catch (e) {
         console.warn("Imprevisto enviado sem sinal exato de GPS.");
     }
@@ -1681,11 +1996,11 @@ function resetarFormularioCampo() {
         document.getElementById('current-user-team').innerText = equipeAtual;
         atualizarProjetosPermitidosCampo(equipeAtual);
         atualizarBarraSegurancaPinCampo();
+        atualizarBarraExpedienteCampo();
     }
 }
 
 async function salvarRegistro() {
-    // PONTO 02: Impede finalização caso a atividade esteja paralisada
     if (dadosAtendimento.emPausa) {
         alert("⚠️ A atividade encontra-se PARALISADA. Clique no botão verde '▶️ Retomar Atividade Agora' antes de finalizar o atendimento.");
         return;
@@ -1693,7 +2008,6 @@ async function salvarRegistro() {
 
     lerDadosBlocosDaTela();
 
-    // PONTO 06: Validação obrigatória de Endereço e Liberou o Acesso
     const enderecoGeral = document.getElementById('form-endereco').value.trim();
     if (!enderecoGeral) {
         alert("⚠️ O preenchimento do ENDEREÇO DO ATENDIMENTO é obrigatório.");
@@ -1710,7 +2024,6 @@ async function salvarRegistro() {
 
     const qtdBlocos = dadosAtendimento.blocos.length;
 
-    // PONTO 06: Validação obrigatória de Andares e HPs para cada bloco
     for (let i = 0; i < qtdBlocos; i++) {
         const b = dadosAtendimento.blocos[i];
         const nomeBloco = qtdBlocos > 1 ? `(${b.identificacao || 'Bloco ' + (i+1)})` : '';
@@ -1748,14 +2061,18 @@ async function salvarRegistro() {
         btnSalvar.innerText = "⏳ Capturando GPS de saída e salvando fotos...";
     }
 
+    const equipeNome = document.getElementById('sel-equipe').value;
     let gpsSaidaFinal = dadosAtendimento.gpsEntrada || "Não capturado";
     try {
         gpsSaidaFinal = await capturarGpsReal(4000);
+        const partes = gpsSaidaFinal.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            await registrarPontoTelemetriaEquipe(equipeNome, partes[0], partes[1]);
+        }
     } catch (e) {
         console.warn("Sinal interno fraco na saída, mantendo coordenada real da entrada.");
     }
 
-    const equipeNome = document.getElementById('sel-equipe').value;
     const projetoNome = document.getElementById('sel-projeto').value;
     const imovelBase = document.getElementById('inp-imovel').value.trim();
     const responsavelGeral = document.getElementById('form-responsavel').value.trim();
@@ -1791,7 +2108,6 @@ async function salvarRegistro() {
             : imovelBase;
 
         const tagLiberou = `[LIBEROU_ACESSO: ${liberouAcessoGeral}] `;
-        // Grava o tempo pausado no primeiro bloco do atendimento para evitar duplicação na soma e manter vínculo com o imóvel
         const tagPausa = (minutosPausaTotal > 0 && idx === 0) ? `[PAUSA_TOTAL: ${minutosPausaTotal}] ` : '';
         const sufixoFotos = (b.fotos && b.fotos.length > 0) ? ` [FOTOS:${JSON.stringify(b.fotos)}]` : '';
         const obsFinal = `[END: ${enderecoGeral}] ${tagLiberou}${tagPausa}${b.observacoes || ''}${sufixoFotos}`.trim();
@@ -1845,7 +2161,6 @@ async function salvarRegistro() {
     const primeiroReg = listaRegistrosParaInserir[0];
     const todasFotos = dadosAtendimento.blocos.flatMap(b => b.fotos || []);
 
-    // PONTO 01: Preparação dos blocos detalhados para o resumo do WhatsApp
     const blocosParaWhats = dadosAtendimento.blocos.map((b, idx) => ({
         identificacao: b.identificacao || `BLOCO ${idx + 1}`,
         andares: Number(b.andares) || 0,
