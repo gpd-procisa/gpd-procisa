@@ -19,10 +19,13 @@ function inicializarOuAtualizarMapaRastreio(listaPinos) {
 
     setTimeout(() => {
         if (mapaRastreioInstancia) mapaRastreioInstancia.invalidateSize();
-    }, 150);
+    }, 180);
 
     camadaMarcadoresRastreio.clearLayers();
     coordenadasPinosAtuais = [];
+
+    const containerAtalhos = document.getElementById('lista-atalhos-tecnicos-mapa');
+    if (containerAtalhos) containerAtalhos.innerHTML = "";
 
     listaPinos.forEach(p => {
         if (p.lat === null || p.lng === null || isNaN(p.lat) || isNaN(p.lng)) return;
@@ -63,11 +66,30 @@ function inicializarOuAtualizarMapaRastreio(listaPinos) {
             </div>
         `);
         marker.addTo(camadaMarcadoresRastreio);
+
+        if (containerAtalhos) {
+            const btnAtalho = document.createElement('button');
+            btnAtalho.type = "button";
+            btnAtalho.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold text-white shadow-sm transition hover:opacity-90 flex items-center gap-1";
+            btnAtalho.style.backgroundColor = p.corHex;
+            btnAtalho.innerHTML = `<span>${p.iconeEmoji}</span> <span>${p.nome}</span>`;
+            btnAtalho.onclick = () => focarTecnicoNoMapa(p.lat, p.lng, p.nome);
+            containerAtalhos.appendChild(btnAtalho);
+        }
     });
+
+    if (containerAtalhos && coordenadasPinosAtuais.length === 0) {
+        containerAtalhos.innerHTML = `<span class="text-[11px] text-slate-400 italic">Nenhum técnico transmitiu coordenada GPS hoje até o momento.</span>`;
+    }
 
     const lblCont = document.getElementById('lbl-contador-pinos-mapa');
     if (lblCont) {
-        lblCont.innerText = `${coordenadasPinosAtuais.length} técnico(s) com coordenada GPS ativa plotado(s) no mapa hoje`;
+        lblCont.innerText = `${coordenadasPinosAtuais.length} técnico(s) no mapa`;
+    }
+
+    const badgeAbaMapa = document.getElementById('badge-aba-mapa');
+    if (badgeAbaMapa) {
+        badgeAbaMapa.innerText = `${coordenadasPinosAtuais.length} no mapa`;
     }
 }
 
@@ -80,21 +102,34 @@ function centralizarMapaEquipes() {
         return;
     }
     if (coordenadasPinosAtuais.length === 1) {
-        mapaRastreioInstancia.setView(coordenadasPinosAtuais[0], 15);
+        mapaRastreioInstancia.setView(coordenadasPinosAtuais[0], 16);
     } else {
         const bounds = L.latLngBounds(coordenadasPinosAtuais);
-        mapaRastreioInstancia.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+        mapaRastreioInstancia.fitBounds(bounds, { padding: [45, 45], maxZoom: 16 });
     }
 }
 
 function focarTecnicoNoMapa(lat, lng, nome) {
-    if (!mapaRastreioInstancia || isNaN(lat) || isNaN(lng)) return;
+    if (isNaN(lat) || isNaN(lng)) return;
+
+    // Se o gestor clicar a partir da aba Disponibilidade, muda automaticamente para a aba independente do Mapa
+    const subMapa = document.getElementById('subview-mapa');
+    if (subMapa && subMapa.classList.contains('hidden')) {
+        mudarSubAbaGestor('mapa');
+    }
+
     const elMapa = document.getElementById('mapa-rastreio-equipes');
     if (elMapa) elMapa.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
     setTimeout(() => {
-        mapaRastreioInstancia.invalidateSize();
-        mapaRastreioInstancia.setView([lat, lng], 16);
-    }, 250);
+        if (!mapaRastreioInstancia) {
+            renderizarPainelDisponibilidade();
+        }
+        if (mapaRastreioInstancia) {
+            mapaRastreioInstancia.invalidateSize();
+            mapaRastreioInstancia.setView([lat, lng], 16);
+        }
+    }, 280);
 }
 
 function converterHorarioParaMinutos(strHora) {
@@ -480,7 +515,7 @@ async function processarImportacaoPlanilha() {
     alert(`✅ Sucesso! ${novosRegistros.length} atividade(s) foram enviadas para os técnicos com a quantidade de blocos configurada!`);
 }
 
-// ================= PAINEL DE DISPONIBILIDADE + MAPA EM TEMPO REAL =================
+// ================= PAINEL DE DISPONIBILIDADE + ABA INDEPENDENTE DO MAPA =================
 
 function renderizarPainelDisponibilidade() {
     try {
@@ -506,7 +541,6 @@ function renderizarPainelDisponibilidade() {
             const programadasHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.desfecho === 'PROGRAMADA').length;
             const concluidasHoje = regsHoje.filter(r => r.desfecho === 'CONCLUIDA').length;
 
-            // Dados de telemetria / turno de hoje
             const tel = (telemetriaEquipes && telemetriaEquipes[eq.nome] && telemetriaEquipes[eq.nome].data === hojeISO)
                 ? telemetriaEquipes[eq.nome]
                 : null;
@@ -524,7 +558,6 @@ function renderizarPainelDisponibilidade() {
                 turnoTextoPuro = `Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})`;
             }
 
-            // Determina a coordenada GPS mais recente do técnico (Telemetria em Rota ou Check-in de Obra)
             let latFinal = (tel && tel.lat) ? Number(tel.lat) : null;
             let lngFinal = (tel && tel.lng) ? Number(tel.lng) : null;
             let horaSinal = (tel && tel.horaUltimoSinal) ? tel.horaUltimoSinal : null;
@@ -606,7 +639,6 @@ function renderizarPainelDisponibilidade() {
                 ocupacaoLimpa = "Aguardando início do expediente";
             }
 
-            // Formatação inteligente do último sinal GPS recebido
             let gpsStr = `<span class="text-slate-400 text-[10px]">Sem sinal hoje</span>`;
             let sinalTextoPuro = "Sem sinal hoje";
 
@@ -634,7 +666,7 @@ function renderizarPainelDisponibilidade() {
                     </div>
                 `;
 
-                const btnFocarMapa = `<button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded mr-1">🎯 Focar Mapa</button>`;
+                const btnFocarMapa = `<button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded mr-1">🎯 Ver no Mapa</button>`;
                 acaoHtml = acaoHtml === "-" ? btnFocarMapa : `${btnFocarMapa} ${acaoHtml}`;
 
                 listaPinosParaMapa.push({
@@ -685,7 +717,7 @@ function renderizarPainelDisponibilidade() {
 
 async function atualizarDashboardGestor() {
     if (!registrosSalvos || registrosSalvos.length === 0) {
-        await carregarRegistrosDaNuvem();
+        await carregarRegistrosDaNuvem(true);
     }
 
     const dataInicio = document.getElementById('gestor-filtro-data-inicio')?.value || "";
@@ -2760,13 +2792,14 @@ function limparLogsAuditoria() {
     }
 }
 
+// PONTO 01 + PONTO 05: Navegação de Sub-Abas do Gestor com a nova aba independente 'mapa'
 function mudarSubAbaGestor(aba) {
     if (nivelUsuarioLogado === 'Visualizador' && !['atividades', 'graficos', 'materiais'].includes(aba)) {
         alert("⚠️ Seu perfil (Visualizador) possui acesso restrito às abas: Atividades, Gráficos & Indicadores e Materiais.");
         return;
     }
 
-    const subs = ['atividades', 'disponibilidade', 'graficos', 'imprevistos', 'materiais', 'financeiro', 'equipes', 'opcoes', 'usuarios', 'bonificacao', 'auditoria'];
+    const subs = ['atividades', 'disponibilidade', 'mapa', 'graficos', 'imprevistos', 'materiais', 'financeiro', 'equipes', 'opcoes', 'usuarios', 'bonificacao', 'auditoria'];
     subs.forEach(s => {
         const el = document.getElementById(`subview-${s}`);
         const btn = document.getElementById(`subtab-btn-${s}`);
@@ -2786,11 +2819,18 @@ function mudarSubAbaGestor(aba) {
     if (aba === 'equipes') renderizarTabelaEquipes();
     if (aba === 'opcoes') renderizarPainelOpcoesSistema();
     if (aba === 'auditoria') renderizarTabelaAuditoria();
-    if (aba === 'disponibilidade') {
+    if (aba === 'disponibilidade') renderizarPainelDisponibilidade();
+    if (aba === 'mapa') {
         renderizarPainelDisponibilidade();
         setTimeout(() => {
-            if (mapaRastreioInstancia) mapaRastreioInstancia.invalidateSize();
-        }, 200);
+            if (mapaRastreioInstancia) {
+                mapaRastreioInstancia.invalidateSize();
+                if (coordenadasPinosAtuais.length > 0) {
+                    const bounds = L.latLngBounds(coordenadasPinosAtuais);
+                    mapaRastreioInstancia.fitBounds(bounds, { padding: [45, 45], maxZoom: 16 });
+                }
+            }
+        }, 220);
     }
     if (aba === 'graficos') atualizarDashboardGestor();
     if (aba === 'bonificacao') atualizarDashboardGestor();
