@@ -193,7 +193,22 @@ equipesSistema = equipesSistema.map(eq => ({
     pin: (eq.pin && String(eq.pin).trim().length >= 4) ? String(eq.pin).trim() : "1234"
 }));
 
-let dadosAtendimento = { idEmAndamento: null, eraReaberta: false, eraProgramada: false, hEntrada: null, hSaida: null, gpsEntrada: null, gpsSaida: null, blocos: [] };
+// PONTO 02: Variáveis de controle de pausa adicionadas em dadosAtendimento
+let dadosAtendimento = { 
+    idEmAndamento: null, 
+    eraReaberta: false, 
+    eraProgramada: false, 
+    hEntrada: null, 
+    hSaida: null, 
+    gpsEntrada: null, 
+    gpsSaida: null, 
+    emPausa: false,
+    inicioPausa: null,
+    motivoPausaAtual: "",
+    minutosPausados: 0,
+    blocos: [] 
+};
+
 let registrosSalvos = [];
 let usuariosSistema = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [
     { id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", senha: "Leo290301@", nivel: "Master", status: "Ativo" }
@@ -266,7 +281,6 @@ function atualizarBarraSegurancaPinCampo() {
     }
 }
 
-// PONTO 03: Alerta sonoro automático no smartphone via Web Audio API + Vibração
 function tocarAlertaSonoroCelular() {
     try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -487,6 +501,9 @@ function obterClasseCorDesfecho(desfecho) {
     if (d === 'EM ANDAMENTO') {
         return 'bg-blue-600 text-white border border-blue-700 animate-pulse shadow-sm';
     }
+    if (d === 'PARALISADA') {
+        return 'bg-orange-500 text-white border border-orange-600 animate-pulse shadow-sm font-black';
+    }
     if (d === 'PROGRAMADA') {
         return 'bg-cyan-100 text-cyan-900 border border-cyan-300 font-black';
     }
@@ -520,6 +537,9 @@ window.onload = async function() {
     restaurarRascunhoCampo();
     verificarImprevistoAtivoEquipeCampo();
     verificarPendenciasReabertasEProgramadasCampo(false);
+    if (typeof atualizarAbaMinhasAtividadesCampo === "function") {
+        atualizarAbaMinhasAtividadesCampo(false);
+    }
 
     if (usuarioLogado) {
         document.getElementById('badge-usuario-logado').classList.remove('hidden');
@@ -544,7 +564,8 @@ window.onload = async function() {
             !document.getElementById('modal-imprevisto').classList.contains('hidden') ||
             !document.getElementById('modal-importar-planilha').classList.contains('hidden') ||
             !document.getElementById('modal-expandir-grafico').classList.contains('hidden') ||
-            !document.getElementById('modal-expandir-tabela').classList.contains('hidden');
+            !document.getElementById('modal-expandir-tabela').classList.contains('hidden') ||
+            (document.getElementById('modal-transferir-atividade') && !document.getElementById('modal-transferir-atividade').classList.contains('hidden'));
 
         if (usuarioLogado && viewGestorAtiva && !algumModalAberto) {
             await carregarRegistrosDaNuvem();
@@ -554,7 +575,7 @@ window.onload = async function() {
         }
     }, 180000);
 
-    // PONTO 03: Radar em segundo plano no celular do técnico a cada 35s para tocar alerta sonoro ao receber atividade
+    // Radar em segundo plano no celular do técnico a cada 35s
     setInterval(async () => {
         const viewCampoAtiva = !document.getElementById('view-campo').classList.contains('hidden');
         const formAberto = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
@@ -562,31 +583,79 @@ window.onload = async function() {
             await carregarRegistrosDaNuvem();
             verificarImprevistoAtivoEquipeCampo();
             verificarPendenciasReabertasEProgramadasCampo(true);
+            if (typeof atualizarAbaMinhasAtividadesCampo === "function") {
+                atualizarAbaMinhasAtividadesCampo(false);
+            }
         }
     }, 35000);
 };
 
+// PONTO 05: Restrição rigorosa de abas e botões para o perfil Visualizador
 function aplicarRestricoesInterface() {
     const btnNovaEquipe = document.getElementById('btn-nova-equipe');
     const btnNovoUsuario = document.getElementById('btn-novo-usuario');
     const btnLimparLogs = document.getElementById('btn-limpar-logs');
     const btnImpPlan = document.getElementById('btn-importar-planilha');
+    const btnBoletimWhats = document.getElementById('btn-boletim-whats-gestor');
+    const alertaImprevistos = document.getElementById('alerta-imprevistos-supervisao');
+
+    const abasRestritasVisualizador = [
+        'disponibilidade', 
+        'imprevistos', 
+        'financeiro', 
+        'equipes', 
+        'opcoes', 
+        'usuarios', 
+        'bonificacao', 
+        'auditoria'
+    ];
 
     if (nivelUsuarioLogado === 'Visualizador') {
         if (btnNovaEquipe) btnNovaEquipe.classList.add('hidden');
         if (btnNovoUsuario) btnNovoUsuario.classList.add('hidden');
         if (btnLimparLogs) btnLimparLogs.classList.add('hidden');
         if (btnImpPlan) btnImpPlan.classList.add('hidden');
+        if (btnBoletimWhats) btnBoletimWhats.classList.add('hidden');
+        if (alertaImprevistos) alertaImprevistos.classList.add('hidden');
+
+        abasRestritasVisualizador.forEach(aba => {
+            const btnAba = document.getElementById(`subtab-btn-${aba}`);
+            const viewAba = document.getElementById(`subview-${aba}`);
+            if (btnAba) btnAba.classList.add('hidden');
+            if (viewAba) viewAba.classList.add('hidden');
+        });
+
+        // Garante que o visualizador esteja sempre em uma das 3 abas permitidas
+        const viewAtivVisivel = !document.getElementById('subview-atividades')?.classList.contains('hidden');
+        const viewGrafVisivel = !document.getElementById('subview-graficos')?.classList.contains('hidden');
+        const viewMatVisivel  = !document.getElementById('subview-materiais')?.classList.contains('hidden');
+
+        if (!viewAtivVisivel && !viewGrafVisivel && !viewMatVisivel && typeof mudarSubAbaGestor === "function") {
+            mudarSubAbaGestor('atividades');
+        }
     } else if (nivelUsuarioLogado === 'Operador') {
         if (btnNovoUsuario) btnNovoUsuario.classList.add('hidden');
         if (btnLimparLogs) btnLimparLogs.classList.add('hidden');
         if (btnNovaEquipe) btnNovaEquipe.classList.remove('hidden');
         if (btnImpPlan) btnImpPlan.classList.remove('hidden');
+        if (btnBoletimWhats) btnBoletimWhats.classList.remove('hidden');
+
+        abasRestritasVisualizador.forEach(aba => {
+            const btnAba = document.getElementById(`subtab-btn-${aba}`);
+            if (btnAba) btnAba.classList.remove('hidden');
+        });
     } else {
+        // Master
         if (btnNovaEquipe) btnNovaEquipe.classList.remove('hidden');
         if (btnNovoUsuario) btnNovoUsuario.classList.remove('hidden');
         if (btnLimparLogs) btnLimparLogs.classList.remove('hidden');
         if (btnImpPlan) btnImpPlan.classList.remove('hidden');
+        if (btnBoletimWhats) btnBoletimWhats.classList.remove('hidden');
+
+        abasRestritasVisualizador.forEach(aba => {
+            const btnAba = document.getElementById(`subtab-btn-${aba}`);
+            if (btnAba) btnAba.classList.remove('hidden');
+        });
     }
 }
 
@@ -665,9 +734,12 @@ async function carregarRegistrosDaNuvem() {
             registrosSalvos = registrosReais.map(r => {
                 let obsBruta = r.observacoes || '';
                 let endExtraido = '';
+                let liberouAcessoExtraido = '';
                 let fotosExtraidas = [];
                 let qtdBlocosExtraida = 1;
+                let tempoPausadoExtraido = 0;
 
+                // Extrai Fotos
                 const posFotos = obsBruta.indexOf('[FOTOS:');
                 if (posFotos !== -1) {
                     const fimFotos = obsBruta.lastIndexOf(']');
@@ -680,13 +752,39 @@ async function carregarRegistrosDaNuvem() {
                     }
                 }
 
+                // Extrai Quantidade de Blocos Programados
                 const matchBlocos = obsBruta.match(/\[BLOCOS:\s*(\d+)\]/i);
                 if (matchBlocos) {
                     qtdBlocosExtraida = Math.max(1, Math.min(20, parseInt(matchBlocos[1], 10) || 1));
                     obsBruta = obsBruta.replace(matchBlocos[0], '').trim();
                 }
 
-                if (obsBruta.startsWith('[END:')) {
+                // PONTO 02: Extrai Tempo Total Paralisado (em minutos)
+                const matchPausaTotal = obsBruta.match(/\[PAUSA_TOTAL:\s*(\d+)\]/i);
+                if (matchPausaTotal) {
+                    tempoPausadoExtraido = parseInt(matchPausaTotal[1], 10) || 0;
+                    obsBruta = obsBruta.replace(matchPausaTotal[0], '').trim();
+                }
+
+                // Remove tag temporária de início de pausa da visualização limpa
+                const matchPausaInicio = obsBruta.match(/\[PAUSA_INICIO:\s*(\d+)\]/i);
+                if (matchPausaInicio) {
+                    obsBruta = obsBruta.replace(matchPausaInicio[0], '').trim();
+                }
+
+                // PONTO 06: Extrai quem Liberou o Acesso
+                const matchLiberou = obsBruta.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
+                if (matchLiberou) {
+                    liberouAcessoExtraido = matchLiberou[1].trim();
+                    obsBruta = obsBruta.replace(matchLiberou[0], '').trim();
+                }
+
+                // Extrai Endereço
+                const matchEnd = obsBruta.match(/\[END:\s*([^\]]+)\]/i);
+                if (matchEnd) {
+                    endExtraido = matchEnd[1].trim();
+                    obsBruta = obsBruta.replace(matchEnd[0], '').trim();
+                } else if (obsBruta.startsWith('[END:')) {
                     let fimTag = obsBruta.indexOf(']');
                     if (fimTag !== -1) {
                         endExtraido = obsBruta.substring(5, fimTag).trim();
@@ -705,6 +803,8 @@ async function carregarRegistrosDaNuvem() {
                     projeto: projNorm,
                     imovel: r.imovel || '',
                     endereco: endExtraido,
+                    liberouAcesso: liberouAcessoExtraido,
+                    tempoPausadoMinutos: tempoPausadoExtraido,
                     qtdBlocosProgramados: qtdBlocosExtraida,
                     fotos: Array.isArray(fotosExtraidas) ? fotosExtraidas : [],
                     hEntrada: r.h_entrada || '',
@@ -835,8 +935,12 @@ function alternarVisao(visao) {
         atualizarBarraSegurancaPinCampo();
         verificarImprevistoAtivoEquipeCampo();
         verificarPendenciasReabertasEProgramadasCampo(false);
+        if (typeof atualizarAbaMinhasAtividadesCampo === "function") {
+            atualizarAbaMinhasAtividadesCampo(false);
+        }
     }
 }
+
 // ================= FUNÇÕES DE SESSÃO, EQUIPES E AUDITORIA =================
 
 function verificarPermissoesSessao() {
