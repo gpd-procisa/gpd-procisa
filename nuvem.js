@@ -8,11 +8,15 @@ const ID_NUVEM_OPCOES    = 999999003;
 const ID_NUVEM_RASTREIO  = 999999004;
 const ID_NUVEM_AUDITORIA = 999999005;
 
+const PROJETO_SOLIC_COMBUSTIVEL = "__SOLIC_COMBUSTIVEL__";
+const PROJETO_SOLIC_MATERIAL    = "__SOLIC_MATERIAL__";
+const PRAZO_EXPURGO_48H_MS      = 48 * 60 * 60 * 1000;
+
 const LIMITE_TOTAL_SUPABASE_MB = 500;
 const ORDEM_SETORES = ["Vistoriador", "Instalador", "Ativador"];
 let cargaInicialGestorConcluida = false;
 
-// ================= ITEM 2: COFRE DE FOTOS SOB DEMANDA (LAZY LOADING / MEMÓRIA LEVE) =================
+// ================= COFRE DE FOTOS SOB DEMANDA (LAZY LOADING / MEMÓRIA LEVE) =================
 const cacheFotosSobDemanda = new Map();
 let totalBytesFotosAcumuladas = 0;
 
@@ -26,10 +30,10 @@ function reciclarContagemBytesFotos() {
     totalBytesFotosAcumuladas = soma;
 }
 
-// Busca sob demanda as fotos de um registro específico caso não estejam em memória
 async function obterFotosSobDemandaDoRegistro(idReg) {
     if (cacheFotosSobDemanda.has(idReg)) {
-        return cacheFotosSobDemanda.get(idReg) || [];
+        const emCache = cacheFotosSobDemanda.get(idReg) || [];
+        if (emCache.length > 0) return emCache;
     }
     try {
         const { data } = await supabaseClient
@@ -59,7 +63,7 @@ async function obterFotosSobDemandaDoRegistro(idReg) {
     return [];
 }
 
-// ================= ITEM 1: MOTOR REAL-TIME WEBSOCKETS (ESCUTA AO VIVO SUPABASE) =================
+// ================= MOTOR REAL-TIME WEBSOCKETS (ESCUTA AO VIVO SUPABASE) =================
 let canalRealtimeGpd = null;
 let statusConexaoRealtime = "CONECTANDO";
 let timerDebounceRealtime = null;
@@ -124,21 +128,17 @@ async function tratarEventoRealtimeRecebido(payload) {
         const regNovo = payload.new;
         const regAntigo = payload.old;
 
-        // 1. Se foi uma EXCLUSÃO na nuvem, remove imediatamente da memória local
         if (tipoEvento === 'DELETE' && regAntigo && regAntigo.id) {
             const idRemovido = Number(regAntigo.id);
             cacheFotosSobDemanda.delete(idRemovido);
             reciclarContagemBytesFotos();
             registrosSalvos = (registrosSalvos || []).filter(r => r.id !== idRemovido);
-        }
-        // 2. Se foi INSERÇÃO ou ATUALIZAÇÃO
-        else if ((tipoEvento === 'INSERT' || tipoEvento === 'UPDATE') && regNovo && regNovo.id) {
+        } else if ((tipoEvento === 'INSERT' || tipoEvento === 'UPDATE') && regNovo && regNovo.id) {
             await processarPacoteDadosNuvem([regNovo], false, false);
         }
 
         atualizarIndicadorVisualRealtime('ONLINE');
 
-        // Debounce de 350ms para redesenhar a tela suavemente sem piscar caso cheguem vários blocos juntos
         if (timerDebounceRealtime) clearTimeout(timerDebounceRealtime);
         timerDebounceRealtime = setTimeout(() => {
             const viewGestorVisivel = !document.getElementById('view-gestor')?.classList.contains('hidden');
@@ -159,12 +159,15 @@ async function tratarEventoRealtimeRecebido(payload) {
                 }
             }
 
-            if (viewCampoVisivel && equipeAutenticadaSessao) {
-                const formAberto = !document.getElementById('bloco-pos-abertura')?.classList.contains('hidden');
-                if (!formAberto) {
-                    if (typeof verificarImprevistoAtivoEquipeCampo === "function") verificarImprevistoAtivoEquipeCampo();
-                    if (typeof verificarPendenciasReabertasEProgramadasCampo === "function") verificarPendenciasReabertasEProgramadasCampo(true);
-                    if (typeof atualizarAbaMinhasAtividadesCampo === "function") atualizarAbaMinhasAtividadesCampo(false);
+            if (viewCampoVisivel) {
+                if (typeof renderizarResumoSolicitacoesCampo === "function") renderizarResumoSolicitacoesCampo();
+                if (equipeAutenticadaSessao) {
+                    const formAberto = !document.getElementById('bloco-pos-abertura')?.classList.contains('hidden');
+                    if (!formAberto) {
+                        if (typeof verificarImprevistoAtivoEquipeCampo === "function") verificarImprevistoAtivoEquipeCampo();
+                        if (typeof verificarPendenciasReabertasEProgramadasCampo === "function") verificarPendenciasReabertasEProgramadasCampo(true);
+                        if (typeof atualizarAbaMinhasAtividadesCampo === "function") atualizarAbaMinhasAtividadesCampo(false);
+                    }
                 }
             }
         }, 350);
@@ -185,7 +188,7 @@ function lerJsonSeguroLocal(chave, valorPadrao) {
     }
 }
 
-// ================= ESTRUTURA DINÂMICA E EDITÁVEL DE GRUPOS E PROJETOS =================
+// ================= ESTRUTURA DINÂMICA E EDITÁVEL DE GRUPOS, PROJETOS, COMBUSTÍVEL E MATERIAIS =================
 
 const CATALOGO_PROJETOS_PADRAO = [
     { nome: "VISTORIA", grupo: "ON GOING", setor: "Vistoriador" },
@@ -236,6 +239,26 @@ const OPCOES_CONCLUIDA_PADRAO = [
     "CAIXAS IDENTIFICADAS",
     "LIBERADO PARA COMERCIAL"
 ];
+
+let OPCOES_COMBUSTIVEL_PADRAO = lerJsonSeguroLocal('gpd_opcoes_combustivel', [
+    "ROTA LONGA / DESLOCAMENTO EXTRA",
+    "SALDO DO CARTÃO INSUFICIENTE",
+    "APOIO A OUTRA EQUIPE",
+    "ATENDIMENTO EM OUTRO MUNICÍPIO",
+    "RESERVA TÉCNICA / EMERGÊNCIA"
+]);
+
+let OPCOES_MATERIAL_SOLICITACAO = lerJsonSeguroLocal('gpd_opcoes_material_solic', [
+    "CABO RL (m)",
+    "CONECTORES (un)",
+    "CABO DROP (m)",
+    "NAP (un)",
+    "DIO (un)",
+    "FUSÕES / TUBETES (un)",
+    "CX. SOBREPOR (un)",
+    "CX. EMBUTIDA (un)",
+    "CX. FOSC (un)"
+]);
 
 function reconstruirMapasDeProjetosDinamicos(atualizarSelectsNaTela = true) {
     try {
@@ -388,6 +411,7 @@ function obterSetorDoProjeto(projeto) {
 
 function normalizarNomeProjeto(projBruto) {
     const p = (projBruto || '').toUpperCase().trim();
+    if (p === PROJETO_SOLIC_COMBUSTIVEL || p === PROJETO_SOLIC_MATERIAL) return p;
     if (p === 'ATIVAÇÃO ON GOIG') return 'ATIVAÇÃO ON GOING';
     if (p === 'CONTRUÇÃO NAP LOTADA' || p === 'NAP LOTADA CONSTRUÇÃO') return 'CONSTRUÇÃO NAP LOTADA';
     if (p === 'NAP LOTADA ATIVAÇÃO') return 'ATIVAÇÃO NAP LOTADA';
@@ -540,6 +564,8 @@ let graficoExpandidoInstancia = null;
 
 let dadosFiltradosAtuais = [];
 let listaImprevistosAtuais = [];
+let listaSolicitacoesCombustivelAtuais = [];
+let listaSolicitacoesMaterialAtuais = [];
 let ultimoResumoCampoTexto = "";
 let itemDetalheAtualModal = null;
 let totaisFinanceirosAtuais = null;
@@ -682,11 +708,15 @@ async function sincronizarOpcoesNaNuvem() {
         localStorage.setItem('gpd_opcoes_pendencia', JSON.stringify(OPCOES_PENDENCIA_PADRAO));
         localStorage.setItem('gpd_opcoes_malogro', JSON.stringify(OPCOES_MALOGRO_PADRAO));
         localStorage.setItem('gpd_opcoes_imprevisto', JSON.stringify(OPCOES_IMPREVISTO_PADRAO));
+        localStorage.setItem('gpd_opcoes_combustivel', JSON.stringify(OPCOES_COMBUSTIVEL_PADRAO));
+        localStorage.setItem('gpd_opcoes_material_solic', JSON.stringify(OPCOES_MATERIAL_SOLICITACAO));
 
         const pacoteOpcoes = {
             pendencia: OPCOES_PENDENCIA_PADRAO,
             malogro: OPCOES_MALOGRO_PADRAO,
             imprevisto: OPCOES_IMPREVISTO_PADRAO,
+            combustivel: OPCOES_COMBUSTIVEL_PADRAO,
+            materialSolicitacao: OPCOES_MATERIAL_SOLICITACAO,
             gruposProjeto: GRUPOS_PROJETO_SISTEMA,
             catalogoProjetos: CATALOGO_PROJETOS_SISTEMA
         };
@@ -862,7 +892,7 @@ function renderizarPainelCapacidadeNuvem() {
     }
 }
 
-// ================= FUNÇÕES DE INCLUSÃO, EDIÇÃO E EXCLUSÃO DE GRUPOS E PROJETOS =================
+// ================= FUNÇÕES DE INCLUSÃO, EDIÇÃO E EXCLUSÃO DE OPÇÕES, GRUPOS, PROJETOS, COMBUSTÍVEL E MATERIAIS =================
 
 function renderizarPainelOpcoesSistema() {
     reconstruirMapasDeProjetosDinamicos(true);
@@ -940,6 +970,8 @@ function renderizarPainelOpcoesSistema() {
         });
     };
 
+    desenharLista(OPCOES_COMBUSTIVEL_PADRAO, 'combustivel', 'lista-gestao-combustivel');
+    desenharLista(OPCOES_MATERIAL_SOLICITACAO, 'material_solic', 'lista-gestao-material-solic');
     desenharLista(OPCOES_PENDENCIA_PADRAO, 'pendencia', 'lista-gestao-pendencia');
     desenharLista(OPCOES_MALOGRO_PADRAO, 'malogro', 'lista-gestao-malogro');
     desenharLista(OPCOES_IMPREVISTO_PADRAO, 'imprevisto', 'lista-gestao-imprevisto');
@@ -1122,14 +1154,25 @@ async function excluirProjetoSistema(idx) {
     if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
 }
 
+function obterArrayPorTipoOpcao(tipo) {
+    if (tipo === 'pendencia') return OPCOES_PENDENCIA_PADRAO;
+    if (tipo === 'malogro') return OPCOES_MALOGRO_PADRAO;
+    if (tipo === 'imprevisto') return OPCOES_IMPREVISTO_PADRAO;
+    if (tipo === 'combustivel') return OPCOES_COMBUSTIVEL_PADRAO;
+    if (tipo === 'material_solic') return OPCOES_MATERIAL_SOLICITACAO;
+    return OPCOES_PENDENCIA_PADRAO;
+}
+
 async function adicionarNovaOpcaoSistema(tipo) {
     if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
-    const nome = prompt("Digite o nome da nova opção:")?.trim().toUpperCase();
+    const msgPrompt = tipo === 'material_solic'
+        ? "🧰 Digite o nome do novo item de Material e a unidade (Ex: ALÇA PREFORMADA (un), BAP (un)):"
+        : "Digite o nome da nova opção:";
+    const nome = prompt(msgPrompt)?.trim().toUpperCase();
     if (!nome) return;
 
-    if (tipo === 'pendencia' && !OPCOES_PENDENCIA_PADRAO.includes(nome)) OPCOES_PENDENCIA_PADRAO.push(nome);
-    if (tipo === 'malogro' && !OPCOES_MALOGRO_PADRAO.includes(nome)) OPCOES_MALOGRO_PADRAO.push(nome);
-    if (tipo === 'imprevisto' && !OPCOES_IMPREVISTO_PADRAO.includes(nome)) OPCOES_IMPREVISTO_PADRAO.push(nome);
+    const lista = obterArrayPorTipoOpcao(tipo);
+    if (!lista.includes(nome)) lista.push(nome);
 
     registrarLogAuditoria("NOVA OPÇÃO CADASTRADA", `Adicionada opção '${nome}' em ${tipo.toUpperCase()}`);
     await sincronizarOpcoesNaNuvem();
@@ -1139,7 +1182,7 @@ async function adicionarNovaOpcaoSistema(tipo) {
 
 async function editarOpcaoSistema(tipo, index) {
     if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
-    let lista = tipo === 'pendencia' ? OPCOES_PENDENCIA_PADRAO : (tipo === 'malogro' ? OPCOES_MALOGRO_PADRAO : OPCOES_IMPREVISTO_PADRAO);
+    let lista = obterArrayPorTipoOpcao(tipo);
     const atual = lista[index];
     const novo = prompt(`Renomear a opção "${atual}" para:`, atual)?.trim().toUpperCase();
     if (!novo || novo === atual) return;
@@ -1153,7 +1196,7 @@ async function editarOpcaoSistema(tipo, index) {
 
 async function excluirOpcaoSistema(tipo, index) {
     if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
-    let lista = tipo === 'pendencia' ? OPCOES_PENDENCIA_PADRAO : (tipo === 'malogro' ? OPCOES_MALOGRO_PADRAO : OPCOES_IMPREVISTO_PADRAO);
+    let lista = obterArrayPorTipoOpcao(tipo);
     const alvo = lista[index];
     if (!confirm(`Deseja realmente excluir a opção "${alvo}"?`)) return;
 
@@ -1178,10 +1221,10 @@ function obterClasseCorDesfecho(desfecho) {
     if (d === 'REABERTA') {
         return 'bg-purple-600 text-white border border-purple-700 animate-pulse shadow-sm';
     }
-    if (d === 'CONCLUIDA' || d === 'CONCLUÍDA' || d === 'IMPREVISTO RESOLVIDO') {
+    if (d === 'CONCLUIDA' || d === 'CONCLUÍDA' || d === 'IMPREVISTO RESOLVIDO' || d === 'TRATADA') {
         return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
     }
-    if (d === 'PENDENTE' || d === 'IMPREVISTO') {
+    if (d === 'PENDENTE' || d === 'IMPREVISTO' || d === 'AGUARDANDO TRATATIVA') {
         return 'bg-amber-100 text-amber-800 border border-amber-300';
     }
     if (d === 'MALOGRADA') {
@@ -1197,7 +1240,7 @@ function obterDataLocalISO(dateObj = new Date()) {
     return new Date(dateObj.getTime() - (dateObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 }
 
-// ================= CONVERSOR DE LINHA DO BANCO (DESACOPLANDO FOTOS PESADAS PARA O COFRE SOB DEMANDA) =================
+// ================= CONVERSOR DE LINHA DO BANCO (COM EXTRAÇÃO DE TRATATIVA E TIMESTAMPS DE 48H) =================
 
 function converterLinhaBancoParaObjetoGpd(r) {
     let obsBruta = r.observacoes || '';
@@ -1206,6 +1249,9 @@ function converterLinhaBancoParaObjetoGpd(r) {
     let fotosExtraidas = [];
     let qtdBlocosExtraida = 1;
     let tempoPausadoExtraido = 0;
+    let tratadoPorExtraido = '';
+    let tratadoDataHoraExtraida = '';
+    let tratadoTimestampExtraido = 0;
 
     const posFotos = obsBruta.indexOf('[FOTOS:');
     if (posFotos !== -1) {
@@ -1219,7 +1265,6 @@ function converterLinhaBancoParaObjetoGpd(r) {
         }
     }
 
-    // Guarda as imagens pesadas no Cofre Sob Demanda e mantém o objeto de listagem super leve
     if (Array.isArray(fotosExtraidas) && fotosExtraidas.length > 0) {
         cacheFotosSobDemanda.set(r.id, fotosExtraidas);
     } else if (!cacheFotosSobDemanda.has(r.id)) {
@@ -1227,6 +1272,24 @@ function converterLinhaBancoParaObjetoGpd(r) {
     }
 
     const fotosNoCofre = cacheFotosSobDemanda.get(r.id) || [];
+
+    const matchTratadoPor = obsBruta.match(/\[TRATADO_POR:\s*([^\]]+)\]/i);
+    if (matchTratadoPor) {
+        tratadoPorExtraido = matchTratadoPor[1].trim();
+        obsBruta = obsBruta.replace(matchTratadoPor[0], '').trim();
+    }
+
+    const matchTratadoEm = obsBruta.match(/\[TRATADO_EM:\s*([^\]]+)\]/i);
+    if (matchTratadoEm) {
+        tratadoDataHoraExtraida = matchTratadoEm[1].trim();
+        obsBruta = obsBruta.replace(matchTratadoEm[0], '').trim();
+    }
+
+    const matchTratadoTs = obsBruta.match(/\[TRATADO_TS:\s*(\d+)\]/i);
+    if (matchTratadoTs) {
+        tratadoTimestampExtraido = parseInt(matchTratadoTs[1], 10) || 0;
+        obsBruta = obsBruta.replace(matchTratadoTs[0], '').trim();
+    }
 
     const matchBlocos = obsBruta.match(/\[BLOCOS:\s*(\d+)\]/i);
     if (matchBlocos) {
@@ -1264,7 +1327,9 @@ function converterLinhaBancoParaObjetoGpd(r) {
     }
 
     const projBruto = r.projeto || '';
-    const projNorm = (projBruto === 'IMPREVISTO / ATRASO') ? projBruto : normalizarNomeProjeto(projBruto);
+    const projNorm = (projBruto === 'IMPREVISTO / ATRASO' || projBruto === PROJETO_SOLIC_COMBUSTIVEL || projBruto === PROJETO_SOLIC_MATERIAL)
+        ? projBruto
+        : normalizarNomeProjeto(projBruto);
 
     const objLeve = {
         id: r.id,
@@ -1278,6 +1343,9 @@ function converterLinhaBancoParaObjetoGpd(r) {
         tempoPausadoMinutos: tempoPausadoExtraido,
         qtdBlocosProgramados: qtdBlocosExtraida,
         qtdFotos: fotosNoCofre.length,
+        tratadoPor: tratadoPorExtraido,
+        tratadoDataHora: tratadoDataHoraExtraida,
+        tratadoTimestamp: tratadoTimestampExtraido,
         hEntrada: r.h_entrada || '',
         hSaida: r.h_saida || '',
         gpsEntrada: r.gps_entrada || '',
@@ -1304,7 +1372,6 @@ function converterLinhaBancoParaObjetoGpd(r) {
         cxFosc: Number(r.cx_fosc) || 0
     };
 
-    // Getter inteligente: JSON.stringify na listagem ignora as fotos pesadas, mas qualquer modal que acessar item.fotos recebe do cofre na hora!
     Object.defineProperty(objLeve, 'fotos', {
         get: function() {
             return cacheFotosSobDemanda.get(this.id) || [];
@@ -1320,6 +1387,35 @@ function converterLinhaBancoParaObjetoGpd(r) {
     });
 
     return objLeve;
+}
+
+// ================= ITEM 01 E 02: FAXINA AUTOMÁTICA DE 48H DAS SOLICITAÇÕES TRATADAS =================
+
+async function verificarEExpurgarSolicitacoesVencidas48h() {
+    try {
+        if (!Array.isArray(registrosSalvos) || registrosSalvos.length === 0) return;
+        const agora = Date.now();
+
+        const vencidos = registrosSalvos.filter(r =>
+            (r.projeto === PROJETO_SOLIC_COMBUSTIVEL || r.projeto === PROJETO_SOLIC_MATERIAL) &&
+            r.desfecho === 'TRATADA' &&
+            r.tratadoTimestamp > 0 &&
+            (agora - r.tratadoTimestamp) >= PRAZO_EXPURGO_48H_MS
+        );
+
+        if (vencidos.length === 0) return;
+
+        const idsVencidos = vencidos.map(v => v.id);
+        const setVencidos = new Set(idsVencidos);
+
+        await supabaseClient.from('registros_producao').delete().in('id', idsVencidos);
+
+        idsVencidos.forEach(id => cacheFotosSobDemanda.delete(id));
+        reciclarContagemBytesFotos();
+        registrosSalvos = registrosSalvos.filter(r => !setVencidos.has(r.id));
+    } catch (e) {
+        console.warn("Aviso no auto-expurgo de 48h:", e);
+    }
 }
 
 // ================= INICIALIZAÇÃO BLINDADA E RÁPIDA COM REAL-TIME WEBSOCKETS =================
@@ -1350,7 +1446,6 @@ window.onload = async function() {
         alternarVisao('campo');
     }
 
-    // Inicia imediatamente a escuta Ao Vivo (WebSockets) para atualização instantânea
     iniciarEscutaRealtimeSupabase();
 
     if (isMobile || !usuarioLogado) {
@@ -1365,12 +1460,12 @@ window.onload = async function() {
     try { if (typeof verificarPendenciasReabertasEProgramadasCampo === "function") verificarPendenciasReabertasEProgramadasCampo(false); } catch (e) {}
     try { if (typeof atualizarBarraExpedienteCampo === "function") atualizarBarraExpedienteCampo(); } catch (e) {}
     try { if (typeof atualizarAbaMinhasAtividadesCampo === "function") atualizarAbaMinhasAtividadesCampo(false); } catch (e) {}
+    try { if (typeof renderizarResumoSolicitacoesCampo === "function") renderizarResumoSolicitacoesCampo(); } catch (e) {}
 
     if (!isMobile && usuarioLogado && typeof atualizarDashboardGestor === "function") {
         atualizarDashboardGestor();
     }
 
-    // Sincronismo Delta de segurança a cada 180s
     setInterval(async () => {
         if (typeof modoConsultaBackupAtivo !== "undefined" && modoConsultaBackupAtivo) return;
         const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
@@ -1394,7 +1489,6 @@ window.onload = async function() {
         }
     }, 180000);
 
-    // Radar rápido (30s) quando o Gestor está na aba Disponibilidade ou Mapa
     setInterval(async () => {
         if (typeof modoConsultaBackupAtivo !== "undefined" && modoConsultaBackupAtivo) return;
         const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
@@ -1416,6 +1510,7 @@ window.onload = async function() {
             if (typeof verificarImprevistoAtivoEquipeCampo === "function") verificarImprevistoAtivoEquipeCampo();
             if (typeof verificarPendenciasReabertasEProgramadasCampo === "function") verificarPendenciasReabertasEProgramadasCampo(true);
             if (typeof atualizarAbaMinhasAtividadesCampo === "function") atualizarAbaMinhasAtividadesCampo(false);
+            if (typeof renderizarResumoSolicitacoesCampo === "function") renderizarResumoSolicitacoesCampo();
         }
     }, 35000);
 };
@@ -1431,6 +1526,8 @@ function aplicarRestricoesInterface() {
     const abasRestritasVisualizador = [
         'disponibilidade', 
         'mapa',
+        'combustivel',
+        'solicitacao_material',
         'imprevistos', 
         'financeiro', 
         'equipes', 
@@ -1536,6 +1633,12 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
             if (Array.isArray(nuvemOpc.pendencia)) OPCOES_PENDENCIA_PADRAO = nuvemOpc.pendencia;
             if (Array.isArray(nuvemOpc.malogro)) OPCOES_MALOGRO_PADRAO = nuvemOpc.malogro;
             if (Array.isArray(nuvemOpc.imprevisto)) OPCOES_IMPREVISTO_PADRAO = nuvemOpc.imprevisto;
+            if (Array.isArray(nuvemOpc.combustivel) && nuvemOpc.combustivel.length > 0) {
+                OPCOES_COMBUSTIVEL_PADRAO = nuvemOpc.combustivel;
+            }
+            if (Array.isArray(nuvemOpc.materialSolicitacao) && nuvemOpc.materialSolicitacao.length > 0) {
+                OPCOES_MATERIAL_SOLICITACAO = nuvemOpc.materialSolicitacao;
+            }
             if (Array.isArray(nuvemOpc.gruposProjeto) && nuvemOpc.gruposProjeto.length > 0) {
                 GRUPOS_PROJETO_SISTEMA = nuvemOpc.gruposProjeto;
             }
@@ -1590,6 +1693,8 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
         registrosSalvos = Array.from(mapa.values()).sort((a, b) => b.id - a.id);
     }
 
+    // Executa silenciosamente a faxina de 48h das solicitações de combustível e material já tratadas
+    await verificarEExpurgarSolicitacoesVencidas48h();
     renderizarPainelCapacidadeNuvem();
 }
 
@@ -1607,9 +1712,9 @@ async function sincronizarDeltaRapidoGestor() {
         const promRecentes = supabaseClient
             .from('registros_producao')
             .select('*')
-            .or(`data_registro.eq.${hojeISO},desfecho.in.(PROGRAMADA,REABERTA,EM ANDAMENTO,PARALISADA,IMPREVISTO)`)
+            .or(`data_registro.eq.${hojeISO},desfecho.in.(PROGRAMADA,REABERTA,EM ANDAMENTO,PARALISADA,IMPREVISTO,AGUARDANDO TRATATIVA,TRATADA)`)
             .order('id', { ascending: false })
-            .limit(150);
+            .limit(160);
 
         const [resConfig, resRecentes] = await Promise.all([promConfig, promRecentes]);
         const combinados = [...(resConfig.data || []), ...(resRecentes.data || [])];
@@ -1637,7 +1742,7 @@ async function carregarRegistrosModoCampoLeve() {
         if (eqAtiva) {
             queryAtiv = queryAtiv.or(`equipe.eq."${eqAtiva}",data_registro.eq.${hojeISO}`).limit(120);
         } else {
-            queryAtiv = queryAtiv.or(`data_registro.eq.${hojeISO},desfecho.in.(PROGRAMADA,REABERTA,EM ANDAMENTO,PARALISADA,IMPREVISTO)`).limit(120);
+            queryAtiv = queryAtiv.or(`data_registro.eq.${hojeISO},desfecho.in.(PROGRAMADA,REABERTA,EM ANDAMENTO,PARALISADA,IMPREVISTO,AGUARDANDO TRATATIVA,TRATADA)`).limit(120);
         }
 
         const [resConfig, resAtiv] = await Promise.all([promConfig, queryAtiv]);
@@ -1809,10 +1914,13 @@ function alternarVisao(visao) {
         if (typeof atualizarAbaMinhasAtividadesCampo === "function") {
             atualizarAbaMinhasAtividadesCampo(false);
         }
+        if (typeof renderizarResumoSolicitacoesCampo === "function") {
+            renderizarResumoSolicitacoesCampo();
+        }
     }
 }
 
-// ================= FUNÇÕES DE SESSÃO, EQUIPES E AUDITORIA =================
+// ================= FUNÇÕES DE SESSÃO, EQUIPES E AUDITORIA (ITEM 03: EXCLUSIVO GESTÃO) =================
 
 function verificarPermissoesSessao() {
     if (!usuarioLogado) return;
@@ -1826,12 +1934,13 @@ function verificarPermissoesSessao() {
     }
 }
 
+// ITEM 03: Registra na auditoria APENAS ações feitas no Modo Gestão (usuário logado)
 function registrarLogAuditoria(acao, detalhes) {
-    let userAtivo = usuarioLogado || "Sistema / Campo";
+    if (!usuarioLogado) return;
     let novoLog = {
-        id: Date.now(),
+        id: Date.now() + Math.floor(Math.random() * 100),
         dataHora: new Date().toLocaleString('pt-BR'),
-        usuario: userAtivo,
+        usuario: usuarioLogado,
         acao: acao,
         detalhes: detalhes
     };
