@@ -88,11 +88,11 @@
                         <!-- Atalhos de Período em 1 linha sem quebra -->
                         <div class="flex items-center gap-1 shrink-0">
                             <span class="text-[10px] font-black text-cyan-300 uppercase whitespace-nowrap mr-0.5">⚡ Período:</span>
-                            <button onclick="aplicarAtalhoPeriodo('hoje')" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 font-black text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap shadow-sm">📅 Hoje</button>
-                            <button onclick="aplicarAtalhoPeriodo('ontem')" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">Ontem</button>
-                            <button onclick="aplicarAtalhoPeriodo('7dias')" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">7 Dias</button>
-                            <button onclick="aplicarAtalhoPeriodo('mes')" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">Este Mês</button>
-                            <button onclick="aplicarAtalhoPeriodo('tudo')" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">🔄 Tudo</button>
+                            <button onclick="aplicarAtalhoPeriodo('hoje')" title="Filtrar apenas registros de hoje" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 font-black text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap shadow-sm">📅 Hoje</button>
+                            <button onclick="aplicarAtalhoPeriodo('ontem')" title="Filtrar registros de ontem" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">Ontem</button>
+                            <button onclick="aplicarAtalhoPeriodo('7dias')" title="Filtrar registros dos últimos 7 dias" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">7 Dias</button>
+                            <button onclick="aplicarAtalhoPeriodo('mes')" title="Filtrar registros do mês atual" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">Este Mês</button>
+                            <button onclick="aplicarAtalhoPeriodo('tudo')" title="Mostrar todo o histórico disponível" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">🔄 Tudo</button>
                         </div>
 
                         <!-- 5 Filtros alinhados na mesma linha -->
@@ -110,17 +110,6 @@
                             </select>
                             <select id="gestor-filtro-projeto" onchange="atualizarDashboardGestor()" class="w-40 text-[11px] border border-blue-400 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-800 truncate">
                                 <option value="">🏗️ Todos os Projetos</option>
-                                <optgroup label="Grupo ON GOING">
-                                    <option value="VISTORIA">VISTORIA (Vistoriador)</option>
-                                    <option value="CONSTRUÇÃO ON GOING">CONSTRUÇÃO ON GOING (Instalador)</option>
-                                    <option value="CONSTRUÇÃO NAP LOTADA">CONSTRUÇÃO NAP LOTADA (Instalador)</option>
-                                    <option value="ATIVAÇÃO ON GOING">ATIVAÇÃO ON GOING (Ativador)</option>
-                                    <option value="ATIVAÇÃO NAP LOTADA">ATIVAÇÃO NAP LOTADA (Ativador)</option>
-                                </optgroup>
-                                <optgroup label="Grupo PROJETO F">
-                                    <option value="CONSTRUÇÃO F">CONSTRUÇÃO F (Instalador)</option>
-                                    <option value="ATIVAÇÃO F">ATIVAÇÃO F (Ativador)</option>
-                                </optgroup>
                             </select>
                             <select id="gestor-filtro-desfecho" onchange="atualizarDashboardGestor()" class="w-36 text-[11px] border-2 border-cyan-400 rounded-lg px-2 py-1 bg-cyan-50 outline-none font-bold text-blue-950 truncate">
                                 <option value="">🎯 Todos os Status</option>
@@ -184,10 +173,10 @@
 
                     <!-- Botões Posicionados na Mesma Seção das Abas, no Canto Inferior à Direita -->
                     <div class="flex items-center gap-1.5 ml-auto shrink-0">
-                        <button type="button" onclick="mudarSubAbaGestor('mapa')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
+                        <button type="button" onclick="mudarSubAbaGestor('mapa')" title="Ir direto para o Mapa de Rastreamento em Tempo Real" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
                             🗺️ Abrir Mapa em Tempo Real
                         </button>
-                        <button type="button" onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
+                        <button type="button" onclick="recarregarDadosGestor()" title="Sincronizar posições e status das equipes agora" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
                             🔄 Atualizar Status
                         </button>
                     </div>
@@ -245,10 +234,10 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Disponibilidade (Quadros Compactos Fixos + Cabeçalho da Tabela Fixo com Fonte Reduzida) -->
+            <!-- Sub-Aba: Disponibilidade -->
             <div id="subview-disponibilidade" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden flex flex-col">
                 
-                <!-- Bloco Superior Fixo da Aba Disponibilidade: Título Harmonizado + 4 Quadros Compactos -->
+                <!-- Bloco Superior Fixo da Aba Disponibilidade -->
                 <div class="p-3 bg-white border-b border-slate-200 space-y-2.5 shrink-0">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                         <div class="flex flex-wrap items-baseline gap-2">
@@ -320,10 +309,10 @@
                         <span class="text-[11px] bg-emerald-50 text-emerald-900 border border-emerald-200 px-2.5 py-1.5 rounded-lg font-bold" id="lbl-contador-pinos-mapa">
                             0 técnicos no mapa
                         </span>
-                        <button type="button" onclick="centralizarMapaEquipes()" class="bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-bold text-xs px-3 py-1.5 rounded-lg transition">
+                        <button type="button" onclick="centralizarMapaEquipes()" title="Ajustar o zoom do mapa para enquadrar todos os técnicos ativos" class="bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-bold text-xs px-3 py-1.5 rounded-lg transition">
                             🎯 Centralizar Todos os Pinos
                         </button>
-                        <button type="button" onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm transition">
+                        <button type="button" onclick="recarregarDadosGestor()" title="Buscar novas coordenadas GPS na nuvem agora" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm transition">
                             🔄 Sincronizar Agora
                         </button>
                     </div>
@@ -357,7 +346,7 @@
                 <div class="p-4 border-b border-amber-200 bg-amber-50/60 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <h3 class="font-bold text-amber-950 text-sm">⚠️ Relatório de Imprevistos e Atrasos Operacionais (Apartado das Obras)</h3>
-                        <p class="text-[11px] text-amber-800">Quando o técnico resolve a pendência, o status muda para "RESOLVIDO" e ele volta a ficar disponível automaticamente.</p>
+                        <p class="text-[11px] text-amber-800">Quando o técnico resolve a pendência ou inicia uma atividade em campo, o status muda para "RESOLVIDO" automaticamente.</p>
                     </div>
                     <span class="text-xs font-bold bg-amber-200 text-amber-950 px-3 py-1 rounded-lg" id="contador-imprevistos">0 imprevistos</span>
                 </div>
@@ -459,7 +448,7 @@
                                         <span class="text-lg font-black" id="card-vist-media">0.0</span>
                                     </div>
                                 </div>
-                                <p class="text-[10px] text-purple-800 font-semibold pt-1">Projeto: <b>VISTORIA</b></p>
+                                <p class="text-[10px] text-purple-800 font-semibold pt-1">Atuação: <b>VISTORIA</b></p>
                             </div>
 
                             <!-- Card Instaladores -->
@@ -482,7 +471,7 @@
                                         <span class="text-lg font-black" id="card-inst-media">0.0</span>
                                     </div>
                                 </div>
-                                <p class="text-[10px] text-blue-900 font-semibold pt-1">Projetos: <b>CONSTRUÇÃO F • ON GOING • NAP LOTADA</b></p>
+                                <p class="text-[10px] text-blue-900 font-semibold pt-1">Atuação: <b>CONSTRUÇÃO MDU</b></p>
                             </div>
 
                             <!-- Card Ativadores -->
@@ -505,7 +494,7 @@
                                         <span class="text-lg font-black" id="card-ativ-media">0.0</span>
                                     </div>
                                 </div>
-                                <p class="text-[10px] text-emerald-900 font-semibold pt-1">Projetos: <b>ATIVAÇÃO F • ON GOING • NAP LOTADA</b></p>
+                                <p class="text-[10px] text-emerald-900 font-semibold pt-1">Atuação: <b>ATIVAÇÃO MDU</b></p>
                             </div>
                         </div>
 
@@ -543,11 +532,11 @@
                                         <th class="p-3 text-center">#</th>
                                         <th class="p-3">Executor / Técnico</th>
                                         <th class="p-3">Grupo / Função</th>
-                                        <th class="p-3 text-center bg-blue-900/40">Prod. Diária (Últ. Dia)</th>
-                                        <th class="p-3 text-center bg-emerald-900/40">Consolidado (Concluídas)</th>
-                                        <th class="p-3 text-center">Total Geral (c/ Pend/Malo)</th>
-                                        <th class="p-3 text-center">Dias Ativos</th>
-                                        <th class="p-3 text-center bg-indigo-900 font-black text-cyan-300">Média Diária / Executor</th>
+                                        <th class="p-3 text-center bg-blue-900/40">Prod. Diária</th>
+                                        <th class="p-3 text-center bg-emerald-900/40">Consolidado</th>
+                                        <th class="p-3 text-center">Total Geral</th>
+                                        <th class="p-3 text-center">Dias</th>
+                                        <th class="p-3 text-center bg-indigo-900 font-black text-cyan-300">Média / Dia</th>
                                         <th class="p-3 text-right">Eficácia (%)</th>
                                     </tr>
                                 </thead>
@@ -557,27 +546,24 @@
                     </div>
                 </div>
 
-                <!-- EVOLUÇÃO DOS PROJETOS (ON GOING vs PROJETO F) E CRUZAMENTO DE EXECUTORES -->
+                <!-- EVOLUÇÃO DOS PROJETOS E CRUZAMENTO DE EXECUTORES -->
                 <div class="bg-white rounded-2xl shadow-md border-2 border-indigo-900/20 overflow-hidden">
                     <div class="bg-indigo-950 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
                             <span class="bg-amber-400 text-indigo-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Análise por Grupos de Projeto</span>
-                            <h3 class="font-bold text-base mt-1">📈 Evolução e Cruzamento: Grupo ON GOING vs. Grupo PROJETO F</h3>
-                            <p class="text-xs text-indigo-200">
-                                <b>ON GOING:</b> Vistoria, Constr. On Going, Constr. Nap Lotada, Ativ. On Going, Ativ. Nap Lotada &nbsp;|&nbsp;
-                                <b>PROJETO F:</b> Construção F e Ativação F
-                            </p>
+                            <h3 class="font-bold text-base mt-1">📈 Evolução e Cruzamento por Grupos de Projeto</h3>
+                            <p class="text-xs text-indigo-200">Acompanhamento comparativo entre os grupos e tipos de projetos cadastrados no sistema</p>
                         </div>
                     </div>
 
                     <div class="p-5 space-y-6">
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <!-- Gráfico 2: Grupo ON GOING -->
+                            <!-- Gráfico 2: Grupo 1 -->
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
                                 <div class="flex justify-between items-start mb-2 gap-2">
                                     <div>
                                         <h4 class="text-xs font-black text-blue-950 uppercase">🏢 Grupo ON GOING (Volume e Desfecho por Projeto)</h4>
-                                        <p class="text-[10px] text-slate-500">Vistoria • Constr. On Going • Constr. Nap Lotada • Ativ. On Going • Ativ. Nap Lotada</p>
+                                        <p class="text-[10px] text-slate-500">Projetos vinculados ao grupo ON GOING</p>
                                     </div>
                                     <div class="flex items-center gap-1.5">
                                         <span id="badge-total-malling" class="bg-blue-100 text-blue-900 font-black text-xs px-2.5 py-1 rounded-lg whitespace-nowrap">0 total</span>
@@ -589,12 +575,12 @@
                                 <div class="relative h-72"><canvas id="graficoGrupoMalling"></canvas></div>
                             </div>
 
-                            <!-- Gráfico 3: Grupo Projeto F -->
+                            <!-- Gráfico 3: Grupo 2 -->
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
                                 <div class="flex justify-between items-start mb-2 gap-2">
                                     <div>
-                                        <h4 class="text-xs font-black text-indigo-950 uppercase">🚀 Grupo PROJETO F (Volume e Desfecho por Projeto)</h4>
-                                        <p class="text-[10px] text-slate-500">Construção F (Instalador) • Ativação F (Ativador)</p>
+                                        <h4 class="text-xs font-black text-indigo-950 uppercase">🚀 Grupo PROJETO F / Demais Grupos (Volume e Desfecho)</h4>
+                                        <p class="text-[10px] text-slate-500">Projetos vinculados ao grupo PROJETO F e novos grupos</p>
                                     </div>
                                     <div class="flex items-center gap-1.5">
                                         <span id="badge-total-projetof" class="bg-indigo-100 text-indigo-900 font-black text-xs px-2.5 py-1 rounded-lg whitespace-nowrap">0 total</span>
@@ -611,10 +597,10 @@
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                             <div class="flex justify-between items-start mb-3 gap-2">
                                 <div>
-                                    <h4 class="text-xs font-black text-slate-800 uppercase mb-0.5">📅 Curva de Evolução Diária: ON GOING vs. PROJETO F</h4>
-                                    <p class="text-[11px] text-slate-500">Acompanhamento dia a dia do ritmo de entregas de cada macrogrupo de projeto</p>
+                                    <h4 class="text-xs font-black text-slate-800 uppercase mb-0.5">📅 Curva de Evolução Diária por Grupos</h4>
+                                    <p class="text-[11px] text-slate-500">Acompanhamento dia a dia do ritmo de entregas de cada grupo de projeto</p>
                                 </div>
-                                <button type="button" onclick="expandirGraficoModal('graficoEvolucaoGrupos', '📅 Curva de Evolução Diária: ON GOING vs. PROJETO F')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                <button type="button" onclick="expandirGraficoModal('graficoEvolucaoGrupos', '📅 Curva de Evolução Diária por Grupos')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
                                     ⛶ Expandir
                                 </button>
                             </div>
@@ -624,28 +610,19 @@
                         <div class="space-y-2">
                             <div class="flex justify-between items-center">
                                 <div>
-                                    <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento: Executores × Projetos (ON GOING & PROJETO F)</h4>
-                                    <p class="text-[11px] text-slate-500">Visão cruzada de quantas atividades cada executor realizou em cada projeto e macrogrupo</p>
+                                    <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento: Executores × Projetos</h4>
+                                    <p class="text-[11px] text-slate-500">Visão cruzada de quantas atividades cada executor realizou em cada projeto</p>
                                 </div>
-                                <button type="button" onclick="expandirTabelaModal('tabela-cruzamento-executores-corpo', '🔀 Matriz de Cruzamento: Executores × Projetos (ON GOING & PROJETO F)')" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
+                                <button type="button" onclick="expandirTabelaModal('tabela-cruzamento-executores-corpo', '🔀 Matriz de Cruzamento: Executores × Projetos')" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
                                     ⛶ Expandir Tabela
                                 </button>
                             </div>
                             <div class="overflow-x-auto border border-slate-200 rounded-xl">
                                 <table class="w-full text-left border-collapse text-[11px]">
-                                    <thead>
+                                    <thead id="thead-cruzamento-executores">
                                         <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] border-b">
                                             <th class="p-2.5">Executor / Técnico</th>
                                             <th class="p-2.5">Função</th>
-                                            <th class="p-2 text-center bg-blue-50 text-blue-900">Vistoria</th>
-                                            <th class="p-2 text-center bg-blue-50 text-blue-900">Const. On Going</th>
-                                            <th class="p-2 text-center bg-blue-50 text-blue-900">Const. Nap Lot.</th>
-                                            <th class="p-2 text-center bg-blue-50 text-blue-900">Ativ. On Going</th>
-                                            <th class="p-2 text-center bg-blue-50 text-blue-900">Ativ. Nap Lot.</th>
-                                            <th class="p-2 text-center bg-blue-200 text-blue-950 font-black">Subtotal ON GOING</th>
-                                            <th class="p-2 text-center bg-indigo-50 text-indigo-900">Construção F</th>
-                                            <th class="p-2 text-center bg-indigo-50 text-indigo-900">Ativação F</th>
-                                            <th class="p-2 text-center bg-indigo-200 text-indigo-950 font-black">Subtotal PROJ. F</th>
                                             <th class="p-2.5 text-center bg-slate-800 text-white font-black">Total Geral</th>
                                         </tr>
                                     </thead>
@@ -710,7 +687,7 @@
                         <div class="flex justify-between items-start mb-4 gap-2">
                             <div>
                                 <h3 class="text-sm font-bold text-slate-800 uppercase">📊 Volume Geral por Projeto (Clique para Explodir)</h3>
-                                <p class="text-xs text-slate-500">Comparativo entre os 7 projetos ativos</p>
+                                <p class="text-xs text-slate-500">Comparativo entre todos os projetos ativos</p>
                             </div>
                             <button type="button" onclick="expandirGraficoModal('graficoProjetos', '📊 Volume Geral por Projeto')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
                                 ⛶ Expandir
@@ -799,111 +776,6 @@
                                     </tr>
                                 </thead>
                                 <tbody id="tabela-ofensores-malogro-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Ranking de Tempos e Horários por Técnico -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50">
-                        <div>
-                            <h3 class="font-bold text-slate-800 text-sm">⏱️ Monitoramento de Horários (Abertura, Fechamento, Pausas e TMA) por Técnico</h3>
-                            <p class="text-[11px] text-slate-500">Clique na linha de qualquer técnico para explodir as atividades realizadas por ele no período</p>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span id="contador-tecnicos-ativos" class="bg-blue-100 text-blue-900 font-bold px-3 py-1 rounded-lg text-xs">0 técnicos acionados</span>
-                            <button type="button" onclick="expandirTabelaModal('tabela-ranking-tecnicos-corpo', '⏱️ Monitoramento de Horários (Abertura, Fechamento, Pausas e TMA) por Técnico')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
-                                ⛶ Expandir Tabela
-                            </button>
-                        </div>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse text-xs">
-                            <thead>
-                                <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
-                                    <th class="p-3 text-center">#</th>
-                                    <th class="p-3">Técnico / Equipe</th>
-                                    <th class="p-3 text-center">Total</th>
-                                    <th class="p-3 text-center text-emerald-700">Concluídas</th>
-                                    <th class="p-3 text-center text-amber-600">Pendentes</th>
-                                    <th class="p-3 text-center text-red-600">Malogradas</th>
-                                    <th class="p-3 text-center">Média Abertura</th>
-                                    <th class="p-3 text-center">Média Fechamento</th>
-                                    <th class="p-3 text-center text-orange-700">Tempo Pausado</th>
-                                    <th class="p-3 text-center">TMA Líquido</th>
-                                    <th class="p-3 text-right">Eficácia (%)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tabela-ranking-tecnicos-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Rankings Separados por Desfecho -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-white rounded-xl shadow-sm border border-emerald-200 overflow-hidden">
-                        <div class="bg-emerald-50 p-3 border-b border-emerald-200 font-bold text-emerald-900 text-xs flex justify-between items-center gap-1">
-                            <span>🟢 Ranking: Concluídas</span>
-                            <div class="flex items-center gap-1">
-                                <span id="rank-conc-total" class="bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded text-[10px]">0 total</span>
-                                <button type="button" onclick="expandirTabelaModal('tabela-rank-concluida', '🟢 Ranking por Projeto: Concluídas')" class="bg-emerald-700 text-white text-[9px] px-2 py-0.5 rounded">⛶</button>
-                            </div>
-                        </div>
-                        <div class="p-3">
-                            <table class="w-full text-left text-xs">
-                                <thead>
-                                    <tr class="text-[10px] text-slate-400 uppercase border-b">
-                                        <th class="pb-2">Projeto</th>
-                                        <th class="pb-2 text-center">Qtd</th>
-                                        <th class="pb-2 text-right">% Geral</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabela-rank-concluida" class="divide-y divide-slate-100 text-slate-600"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden">
-                        <div class="bg-amber-50 p-3 border-b border-amber-200 font-bold text-amber-900 text-xs flex justify-between items-center gap-1">
-                            <span>🟡 Ranking: Pendentes</span>
-                            <div class="flex items-center gap-1">
-                                <span id="rank-pend-total" class="bg-amber-200 text-amber-900 px-2 py-0.5 rounded text-[10px]">0 total</span>
-                                <button type="button" onclick="expandirTabelaModal('tabela-rank-pendente', '🟡 Ranking por Projeto: Pendentes')" class="bg-amber-600 text-white text-[9px] px-2 py-0.5 rounded">⛶</button>
-                            </div>
-                        </div>
-                        <div class="p-3">
-                            <table class="w-full text-left text-xs">
-                                <thead>
-                                    <tr class="text-[10px] text-slate-400 uppercase border-b">
-                                        <th class="pb-2">Projeto</th>
-                                        <th class="pb-2 text-center">Qtd</th>
-                                        <th class="pb-2 text-right">% Geral</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabela-rank-pendente" class="divide-y divide-slate-100 text-slate-600"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden">
-                        <div class="bg-red-50 p-3 border-b border-red-200 font-bold text-red-900 text-xs flex justify-between items-center gap-1">
-                            <span>🔴 Ranking: Malogradas</span>
-                            <div class="flex items-center gap-1">
-                                <span id="rank-malo-total" class="bg-red-200 text-red-900 px-2 py-0.5 rounded text-[10px]">0 total</span>
-                                <button type="button" onclick="expandirTabelaModal('tabela-rank-malograda', '🔴 Ranking por Projeto: Malogradas')" class="bg-red-700 text-white text-[9px] px-2 py-0.5 rounded">⛶</button>
-                            </div>
-                        </div>
-                        <div class="p-3">
-                            <table class="w-full text-left text-xs">
-                                <thead>
-                                    <tr class="text-[10px] text-slate-400 uppercase border-b">
-                                        <th class="pb-2">Projeto</th>
-                                        <th class="pb-2 text-center">Qtd</th>
-                                        <th class="pb-2 text-right">% Geral</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabela-rank-malograda" class="divide-y divide-slate-100 text-slate-600"></tbody>
                             </table>
                         </div>
                     </div>
@@ -1059,38 +931,69 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Opções -->
-            <div id="subview-opcoes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
+            <!-- Sub-Aba: Opções (COM GESTÃO EDITÁVEL DE GRUPOS E PROJETOS + MONITOR DE CAPACIDADE) -->
+            <div id="subview-opcoes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-5 hidden">
                 <div class="border-b pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
-                        <h3 class="font-bold text-slate-800 text-sm">⚙️ Gestão de Opções Pré-Definidas (Sincronizado na Nuvem)</h3>
-                        <p class="text-[11px] text-emerald-700 font-medium">☁️ Adicione, renomeie ou remova opções de Pendência, Malogro e Imprevistos em tempo real para todas as equipes.</p>
+                        <h3 class="font-bold text-slate-800 text-sm">⚙️ Gestão de Opções, Projetos, Grupos e Capacidade da Nuvem</h3>
+                        <p class="text-[11px] text-emerald-700 font-medium">☁️ Todas as inclusões, edições e exclusões feitas aqui sincronizam em tempo real para todos os técnicos e gestores.</p>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- ITEM 04: Painel de Capacidade Livre / Ocupada do Banco na Nuvem (500 MB) -->
+                <div id="painel-capacidade-opcoes" class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 space-y-2.5"></div>
+
+                <!-- ITEM 01: Gestão Editável de Grupos de Projeto e Tipos de Projetos / Serviços -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <!-- Coluna 1: Grupos de Projeto (Macrogrupos) -->
+                    <div class="border-2 border-indigo-200 rounded-xl overflow-hidden flex flex-col">
+                        <div class="bg-indigo-50 p-3 border-b border-indigo-200 flex justify-between items-center">
+                            <div>
+                                <span class="font-black text-indigo-950 text-xs block">📂 Grupos de Projetos</span>
+                                <span class="text-[10px] text-indigo-700">Ex: ON GOING, PROJETO F...</span>
+                            </div>
+                            <button onclick="adicionarNovoGrupoProjetoSistema()" title="Criar um novo Grupo de Projetos no sistema" class="bg-indigo-700 hover:bg-indigo-800 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm">+ Novo Grupo</button>
+                        </div>
+                        <div id="lista-gestao-grupos-projeto" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-80 overflow-y-auto"></div>
+                    </div>
+
+                    <!-- Coluna 2 e 3: Tipos de Projetos / Serviços (Vinculados a Grupo e Setor) -->
+                    <div class="lg:col-span-2 border-2 border-cyan-200 rounded-xl overflow-hidden flex flex-col">
+                        <div class="bg-cyan-50 p-3 border-b border-cyan-200 flex flex-wrap justify-between items-center gap-2">
+                            <div>
+                                <span class="font-black text-cyan-950 text-xs block">🏗️ Tipos de Projetos / Serviços Habilitados</span>
+                                <span class="text-[10px] text-cyan-800">Defina o nome do projeto, a qual Grupo pertence e qual função executa em campo</span>
+                            </div>
+                            <button onclick="adicionarNovoProjetoSistema()" title="Cadastrar um novo Tipo de Projeto/Serviço e definir seu Grupo e Setor" class="bg-cyan-700 hover:bg-cyan-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm">+ Novo Projeto / Serviço</button>
+                        </div>
+                        <div id="lista-gestao-projetos-sistema" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-80 overflow-y-auto"></div>
+                    </div>
+                </div>
+
+                <!-- Listas de Pendência, Malogro e Imprevisto -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                     <div class="border border-amber-200 rounded-xl overflow-hidden flex flex-col">
                         <div class="bg-amber-50 p-3 border-b border-amber-200 flex justify-between items-center">
                             <span class="font-bold text-amber-950 text-xs">🟡 Opções de Pendência</span>
-                            <button onclick="adicionarNovaOpcaoSistema('pendencia')" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Nova</button>
+                            <button onclick="adicionarNovaOpcaoSistema('pendencia')" title="Adicionar nova opção de Pendência" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Nova</button>
                         </div>
-                        <div id="lista-gestao-pendencia" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-96 overflow-y-auto"></div>
+                        <div id="lista-gestao-pendencia" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-80 overflow-y-auto"></div>
                     </div>
 
                     <div class="border border-red-200 rounded-xl overflow-hidden flex flex-col">
                         <div class="bg-red-50 p-3 border-b border-red-200 flex justify-between items-center">
                             <span class="font-bold text-red-950 text-xs">🔴 Ofensores de Malogro</span>
-                            <button onclick="adicionarNovaOpcaoSistema('malogro')" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Novo</button>
+                            <button onclick="adicionarNovaOpcaoSistema('malogro')" title="Adicionar novo ofensor de Malogro" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Novo</button>
                         </div>
-                        <div id="lista-gestao-malogro" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-96 overflow-y-auto"></div>
+                        <div id="lista-gestao-malogro" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-80 overflow-y-auto"></div>
                     </div>
 
                     <div class="border border-blue-200 rounded-xl overflow-hidden flex flex-col">
                         <div class="bg-blue-50 p-3 border-b border-blue-200 flex justify-between items-center">
                             <span class="font-bold text-blue-950 text-xs">⚠️ Motivos de Imprevisto</span>
-                            <button onclick="adicionarNovaOpcaoSistema('imprevisto')" class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Novo</button>
+                            <button onclick="adicionarNovaOpcaoSistema('imprevisto')" title="Adicionar novo motivo de Imprevisto" class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Novo</button>
                         </div>
-                        <div id="lista-gestao-imprevisto" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-96 overflow-y-auto"></div>
+                        <div id="lista-gestao-imprevisto" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-80 overflow-y-auto"></div>
                     </div>
                 </div>
             </div>
@@ -1145,12 +1048,16 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Auditoria -->
+            <!-- Sub-Aba: Auditoria (COM MONITOR DE CAPACIDADE DA NUVEM NO TOPO) -->
             <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
-                    <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria e Logs (Quem fez o quê)</h3>
-                    <button onclick="limparLogsAuditoria()" class="bg-red-50 text-red-600 hover:bg-red-100 text-xs px-3 py-1.5 rounded-lg font-medium" id="btn-limpar-logs">Limpar Logs</button>
+                    <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria, Monitor de Armazenamento e Logs</h3>
+                    <button onclick="limparLogsAuditoria()" title="Limpar o histórico de logs de auditoria" class="bg-red-50 text-red-600 hover:bg-red-100 text-xs px-3 py-1.5 rounded-lg font-medium" id="btn-limpar-logs">Limpar Logs</button>
                 </div>
+
+                <!-- ITEM 04: Painel de Capacidade Livre / Ocupada na Aba Auditoria -->
+                <div id="painel-capacidade-auditoria" class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 space-y-2.5"></div>
+
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
@@ -1225,6 +1132,7 @@
                             <div>
                                 <h4 class="text-xs font-black text-amber-950 uppercase">Você está com Imprevisto em Aberto!</h4>
                                 <p class="text-[11px] text-amber-800 mt-0.5" id="lbl-info-imprevisto-ativo">Motivo: -</p>
+                                <p class="text-[10px] text-amber-700 italic mt-0.5">💡 Ele será encerrado automaticamente assim que você iniciar qualquer atividade ou clicar abaixo.</p>
                             </div>
                         </div>
                         <button onclick="finalizarImprevistoCampo()" id="btn-finalizar-imprevisto-campo" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-1.5">
@@ -1528,7 +1436,7 @@
             </div>
             <div class="p-4 space-y-3 text-xs">
                 <p class="text-[11px] text-slate-600 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
-                    Ao registrar um imprevisto, o seu status no painel mudará para <b>Indisponível</b> até que você clique em <b>"Resolver Imprevisto"</b>.
+                    Ao registrar um imprevisto, o seu status no painel mudará para <b>Indisponível</b>. Assim que você iniciar qualquer atividade em campo (ou clicar em Resolver), o imprevisto será encerrado automaticamente!
                 </p>
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Motivo do Imprevisto / Atraso:*</label>
@@ -1546,7 +1454,7 @@
         </div>
     </div>
 
-    <!-- SUPER MODAL DE EDIÇÃO COMPLETA (ATIVIDADES, PENDÊNCIAS, MALOGROS, IMPREVISTOS E FOTOS) -->
+    <!-- SUPER MODAL DE EDIÇÃO COMPLETA -->
     <div id="modal-edicao" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-2 sm:p-4 hidden z-50">
         <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[94vh]">
             <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-cyan-400">
@@ -1577,16 +1485,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <div>
                             <label class="block font-bold mb-1">🏗️ Projeto / Tipo de Registro</label>
-                            <select id="edit-reg-projeto" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none font-bold text-slate-800">
-                                <option value="VISTORIA">VISTORIA</option>
-                                <option value="CONSTRUÇÃO F">CONSTRUÇÃO F</option>
-                                <option value="CONSTRUÇÃO ON GOING">CONSTRUÇÃO ON GOING</option>
-                                <option value="CONSTRUÇÃO NAP LOTADA">CONSTRUÇÃO NAP LOTADA</option>
-                                <option value="ATIVAÇÃO F">ATIVAÇÃO F</option>
-                                <option value="ATIVAÇÃO ON GOING">ATIVAÇÃO ON GOING</option>
-                                <option value="ATIVAÇÃO NAP LOTADA">ATIVAÇÃO NAP LOTADA</option>
-                                <option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>
-                            </select>
+                            <select id="edit-reg-projeto" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none font-bold text-slate-800"></select>
                         </div>
                         <div>
                             <label class="block font-bold mb-1">🎯 Status / Desfecho (Altera as opções abaixo)</label>
@@ -1679,7 +1578,7 @@
                     </div>
                 </div>
 
-                <!-- 3. Checkboxes Dinâmicos: Pendências, Malogros, Imprevistos ou Itens Concluídos -->
+                <!-- 3. Checkboxes Dinâmicos -->
                 <div class="bg-amber-50/60 p-3.5 rounded-xl border-2 border-amber-300 space-y-2.5">
                     <div class="flex flex-wrap justify-between items-center gap-2 border-b border-amber-200 pb-1.5">
                         <h4 class="font-black text-amber-950 uppercase text-[11px]" id="lbl-titulo-opcoes-modal-edicao">
