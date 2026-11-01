@@ -2,51 +2,130 @@ const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const ID_NUVEM_USUARIOS = 999999001;
-const ID_NUVEM_EQUIPES  = 999999002;
-const ID_NUVEM_OPCOES   = 999999003;
-const ID_NUVEM_RASTREIO = 999999004;
+const ID_NUVEM_USUARIOS  = 999999001;
+const ID_NUVEM_EQUIPES   = 999999002;
+const ID_NUVEM_OPCOES    = 999999003;
+const ID_NUVEM_RASTREIO  = 999999004;
+const ID_NUVEM_AUDITORIA = 999999005;
 
+const LIMITE_TOTAL_SUPABASE_MB = 500;
 const ORDEM_SETORES = ["Vistoriador", "Instalador", "Ativador"];
 
-const PROJETOS_POR_SETOR = {
-    "Vistoriador": [
-        "VISTORIA"
-    ],
-    "Instalador": [
-        "CONSTRUÇÃO F",
-        "CONSTRUÇÃO ON GOING",
-        "CONSTRUÇÃO NAP LOTADA"
-    ],
-    "Ativador": [
-        "ATIVAÇÃO F",
-        "ATIVAÇÃO ON GOING",
-        "ATIVAÇÃO NAP LOTADA"
-    ]
-};
+// ================= ITEM 01: ESTRUTURA DINÂMICA E EDITÁVEL DE GRUPOS E PROJETOS =================
 
-const TODOS_OS_PROJETOS = [
-    "VISTORIA",
-    "CONSTRUÇÃO F",
-    "CONSTRUÇÃO ON GOING",
-    "CONSTRUÇÃO NAP LOTADA",
-    "ATIVAÇÃO F",
-    "ATIVAÇÃO ON GOING",
-    "ATIVAÇÃO NAP LOTADA"
+const CATALOGO_PROJETOS_PADRAO = [
+    { nome: "VISTORIA", grupo: "ON GOING", setor: "Vistoriador" },
+    { nome: "CONSTRUÇÃO F", grupo: "PROJETO F", setor: "Instalador" },
+    { nome: "CONSTRUÇÃO ON GOING", grupo: "ON GOING", setor: "Instalador" },
+    { nome: "CONSTRUÇÃO NAP LOTADA", grupo: "ON GOING", setor: "Instalador" },
+    { nome: "ATIVAÇÃO F", grupo: "PROJETO F", setor: "Ativador" },
+    { nome: "ATIVAÇÃO ON GOING", grupo: "ON GOING", setor: "Ativador" },
+    { nome: "ATIVAÇÃO NAP LOTADA", grupo: "ON GOING", setor: "Ativador" }
 ];
 
-const PROJETOS_GRUPO_MALLING = [
-    "VISTORIA",
-    "CONSTRUÇÃO ON GOING",
-    "CONSTRUÇÃO NAP LOTADA",
-    "ATIVAÇÃO ON GOING",
-    "ATIVAÇÃO NAP LOTADA"
+let GRUPOS_PROJETO_SISTEMA = JSON.parse(localStorage.getItem('gpd_grupos_projeto')) || [
+    "ON GOING",
+    "PROJETO F"
 ];
 
-const PROJETOS_GRUPO_PROJETO_F = [
-    "CONSTRUÇÃO F",
-    "ATIVAÇÃO F"
-];
+let CATALOGO_PROJETOS_SISTEMA = JSON.parse(localStorage.getItem('gpd_catalogo_projetos')) || CATALOGO_PROJETOS_PADRAO;
+
+let PROJETOS_POR_SETOR = { "Vistoriador": [], "Instalador": [], "Ativador": [] };
+let TODOS_OS_PROJETOS = [];
+let PROJETOS_GRUPO_MALLING = [];
+let PROJETOS_GRUPO_PROJETO_F = [];
+
+function reconstruirMapasDeProjetosDinamicos() {
+    if (!Array.isArray(GRUPOS_PROJETO_SISTEMA) || GRUPOS_PROJETO_SISTEMA.length === 0) {
+        GRUPOS_PROJETO_SISTEMA = ["ON GOING", "PROJETO F"];
+    }
+    if (!Array.isArray(CATALOGO_PROJETOS_SISTEMA) || CATALOGO_PROJETOS_SISTEMA.length === 0) {
+        CATALOGO_PROJETOS_SISTEMA = JSON.parse(JSON.stringify(CATALOGO_PROJETOS_PADRAO));
+    }
+
+    PROJETOS_POR_SETOR = { "Vistoriador": [], "Instalador": [], "Ativador": [] };
+    TODOS_OS_PROJETOS = [];
+    PROJETOS_GRUPO_MALLING = [];
+    PROJETOS_GRUPO_PROJETO_F = [];
+
+    CATALOGO_PROJETOS_SISTEMA.forEach(item => {
+        const nomeLimpo = String(item.nome || "").trim().toUpperCase();
+        if (!nomeLimpo) return;
+        const grupoLimpo = String(item.grupo || GRUPOS_PROJETO_SISTEMA[0] || "ON GOING").trim().toUpperCase();
+        const setorLimpo = ORDEM_SETORES.includes(item.setor) ? item.setor : "Instalador";
+
+        item.nome = nomeLimpo;
+        item.grupo = grupoLimpo;
+        item.setor = setorLimpo;
+
+        if (!GRUPOS_PROJETO_SISTEMA.includes(grupoLimpo)) {
+            GRUPOS_PROJETO_SISTEMA.push(grupoLimpo);
+        }
+
+        if (!TODOS_OS_PROJETOS.includes(nomeLimpo)) {
+            TODOS_OS_PROJETOS.push(nomeLimpo);
+        }
+        if (!PROJETOS_POR_SETOR[setorLimpo].includes(nomeLimpo)) {
+            PROJETOS_POR_SETOR[setorLimpo].push(nomeLimpo);
+        }
+
+        if (grupoLimpo === "ON GOING") {
+            PROJETOS_GRUPO_MALLING.push(nomeLimpo);
+        } else {
+            PROJETOS_GRUPO_PROJETO_F.push(nomeLimpo);
+        }
+    });
+
+    localStorage.setItem('gpd_grupos_projeto', JSON.stringify(GRUPOS_PROJETO_SISTEMA));
+    localStorage.setItem('gpd_catalogo_projetos', JSON.stringify(CATALOGO_PROJETOS_SISTEMA));
+    popularSelectProjetosGlobal();
+}
+
+function popularSelectProjetosGlobal() {
+    // 1. Atualiza o filtro de Projetos no cabeçalho azul do Gestor
+    const selFiltroProj = document.getElementById('gestor-filtro-projeto');
+    if (selFiltroProj) {
+        const valAtual = selFiltroProj.value;
+        let html = `<option value="">🏗️ Todos os Projetos</option>`;
+        GRUPOS_PROJETO_SISTEMA.forEach(grp => {
+            const projsDoGrupo = CATALOGO_PROJETOS_SISTEMA.filter(p => p.grupo === grp);
+            if (projsDoGrupo.length > 0) {
+                html += `<optgroup label="Grupo ${grp}">` +
+                    projsDoGrupo.map(p => `<option value="${p.nome}">${p.nome} (${p.setor})</option>`).join('') +
+                    `</optgroup>`;
+            }
+        });
+        selFiltroProj.innerHTML = html;
+        if (valAtual && TODOS_OS_PROJETOS.includes(valAtual)) {
+            selFiltroProj.value = valAtual;
+        }
+    }
+
+    // 2. Atualiza o select de Projetos dentro do Super Modal de Edição
+    const selEditProj = document.getElementById('edit-reg-projeto');
+    if (selEditProj) {
+        const valEdit = selEditProj.value;
+        let htmlEdit = "";
+        GRUPOS_PROJETO_SISTEMA.forEach(grp => {
+            const projsDoGrupo = CATALOGO_PROJETOS_SISTEMA.filter(p => p.grupo === grp);
+            if (projsDoGrupo.length > 0) {
+                htmlEdit += `<optgroup label="Grupo ${grp}">` +
+                    projsDoGrupo.map(p => `<option value="${p.nome}">${p.nome} (${p.setor})</option>`).join('') +
+                    `</optgroup>`;
+            }
+        });
+        htmlEdit += `<option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>`;
+        selEditProj.innerHTML = htmlEdit;
+        if (valEdit) selEditProj.value = valEdit;
+    }
+
+    // 3. Atualiza o select de Projetos do Modo Campo caso haja equipe selecionada
+    const selEqCampo = document.getElementById('sel-equipe');
+    const selProjCampo = document.getElementById('sel-projeto');
+    if (selEqCampo && selEqCampo.value && typeof atualizarProjetosPermitidosCampo === "function") {
+        atualizarProjetosPermitidosCampo(selEqCampo.value, selProjCampo ? selProjCampo.value : null);
+    }
+}
 
 const OPCOES_CONCLUIDA_PADRAO = [
     "REDE INTERNA CONCLUÍDA",
@@ -92,8 +171,10 @@ function obterProjetosPermitidosParaSetores(setorCampo) {
 
 function obterSetorDoProjeto(projeto) {
     const p = normalizarNomeProjeto(projeto);
-    if (PROJETOS_POR_SETOR["Vistoriador"].includes(p)) return "Vistoriador";
-    if (PROJETOS_POR_SETOR["Ativador"].includes(p)) return "Ativador";
+    const encontrado = CATALOGO_PROJETOS_SISTEMA.find(item => item.nome === p);
+    if (encontrado && ORDEM_SETORES.includes(encontrado.setor)) return encontrado.setor;
+    if ((PROJETOS_POR_SETOR["Vistoriador"] || []).includes(p)) return "Vistoriador";
+    if ((PROJETOS_POR_SETOR["Ativador"] || []).includes(p)) return "Ativador";
     return "Instalador";
 }
 
@@ -110,9 +191,11 @@ function normalizarNomeProjeto(projBruto) {
 
 function obterMacroGrupoProjeto(projeto) {
     const p = normalizarNomeProjeto(projeto);
+    const encontrado = CATALOGO_PROJETOS_SISTEMA.find(item => item.nome === p);
+    if (encontrado && encontrado.grupo) return encontrado.grupo;
     if (PROJETOS_GRUPO_PROJETO_F.includes(p)) return "PROJETO F";
     if (PROJETOS_GRUPO_MALLING.includes(p)) return "ON GOING";
-    return "OUTROS";
+    return GRUPOS_PROJETO_SISTEMA[0] || "OUTROS";
 }
 
 function obterBadgeSetorHtml(setorCampo) {
@@ -158,6 +241,9 @@ let OPCOES_IMPREVISTO_PADRAO = JSON.parse(localStorage.getItem('gpd_opcoes_impre
     "SEM TEMPO HÁBIL",
     "AGUARDANDO LIBERAÇÃO / BASE"
 ];
+
+// Inicializa os mapas dinâmicos de projetos logo na carga do script
+reconstruirMapasDeProjetosDinamicos();
 
 const listaEquipesInicial = [
     "ANDREO FAGUNDES",
@@ -377,6 +463,7 @@ async function sincronizarEquipesNaNuvem() {
 
 async function sincronizarOpcoesNaNuvem() {
     try {
+        reconstruirMapasDeProjetosDinamicos();
         localStorage.setItem('gpd_opcoes_pendencia', JSON.stringify(OPCOES_PENDENCIA_PADRAO));
         localStorage.setItem('gpd_opcoes_malogro', JSON.stringify(OPCOES_MALOGRO_PADRAO));
         localStorage.setItem('gpd_opcoes_imprevisto', JSON.stringify(OPCOES_IMPREVISTO_PADRAO));
@@ -384,7 +471,9 @@ async function sincronizarOpcoesNaNuvem() {
         const pacoteOpcoes = {
             pendencia: OPCOES_PENDENCIA_PADRAO,
             malogro: OPCOES_MALOGRO_PADRAO,
-            imprevisto: OPCOES_IMPREVISTO_PADRAO
+            imprevisto: OPCOES_IMPREVISTO_PADRAO,
+            gruposProjeto: GRUPOS_PROJETO_SISTEMA,
+            catalogoProjetos: CATALOGO_PROJETOS_SISTEMA
         };
 
         const payloadConfig = {
@@ -481,16 +570,152 @@ function popularSelectImprevistos() {
     `).join('');
 }
 
+// ================= ITEM 04: MEDIDOR DE CAPACIDADE LIVRE E OCUPADA DA NUVEM (500 MB) =================
+
+function calcularEstatisticasArmazenamentoNuvem() {
+    try {
+        const bytesRegistros = JSON.stringify(registrosSalvos || []).length;
+        const bytesConfigs   = JSON.stringify(usuariosSistema || []).length +
+                               JSON.stringify(equipesSistema || []).length +
+                               JSON.stringify(telemetriaEquipes || {}).length +
+                               JSON.stringify(trilhaAuditoria || []).length;
+        const totalBytes = bytesRegistros + bytesConfigs;
+        const usadoMB = Number((totalBytes / (1024 * 1024)).toFixed(2));
+        const livreMB = Number(Math.max(0, LIMITE_TOTAL_SUPABASE_MB - usadoMB).toFixed(2));
+        const percentual = Number(Math.min(100, (usadoMB / LIMITE_TOTAL_SUPABASE_MB) * 100).toFixed(1));
+        const totalFotos = (registrosSalvos || []).reduce((acc, r) => acc + (Array.isArray(r.fotos) ? r.fotos.length : 0), 0);
+
+        return { usadoMB, livreMB, percentual, totalRegistros: (registrosSalvos || []).length, totalFotos };
+    } catch (e) {
+        return { usadoMB: 0, livreMB: LIMITE_TOTAL_SUPABASE_MB, percentual: 0, totalRegistros: 0, totalFotos: 0 };
+    }
+}
+
+function renderizarPainelCapacidadeNuvem() {
+    const stats = calcularEstatisticasArmazenamentoNuvem();
+
+    let corBarra = "bg-emerald-600";
+    let corBoxAlerta = "bg-emerald-50 border-emerald-300 text-emerald-950";
+    let msgRecomendacao = "✅ Capacidade Segura: O banco de dados está operando com ampla folga de armazenamento.";
+
+    if (stats.percentual >= 85) {
+        corBarra = "bg-red-600 animate-pulse";
+        corBoxAlerta = "bg-red-100 border-red-400 text-red-950";
+        msgRecomendacao = "🚨 ALERTA CRÍTICO DE CAPACIDADE (≥ 85%): Recomendamos IMEDIATAMENTE baixar o '📦 Backup Integral (.JSON)' na Central Master abaixo e clicar em '🧹 Limpar Só Fotos' para evitar lentidão ou bloqueio dos 500 MB da nuvem!";
+    } else if (stats.percentual >= 70) {
+        corBarra = "bg-amber-500";
+        corBoxAlerta = "bg-amber-100 border-amber-400 text-amber-950";
+        msgRecomendacao = "⚠️ ATENÇÃO PREVENTIVA (≥ 70%): O uso da nuvem está se aproximando do limite. Programe o download de um Backup (.JSON) e a limpeza de fotos de meses anteriores em breve.";
+    }
+
+    const htmlPainel = `
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+            <div>
+                <h4 class="font-black text-slate-800 text-xs uppercase flex items-center gap-1.5">
+                    ☁️ Monitoramento de Capacidade de Dados na Nuvem (Limite Supabase: ${LIMITE_TOTAL_SUPABASE_MB} MB)
+                </h4>
+                <p class="text-[11px] text-slate-500">
+                    Total atual: <b>${stats.totalRegistros} registros</b> e <b>${stats.totalFotos} foto(s)</b> armazenadas em banco
+                </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 text-xs">
+                <span class="bg-blue-100 text-blue-950 border border-blue-300 font-black px-3 py-1 rounded-xl">
+                    📦 Ocupado: ${stats.usadoMB} MB (${stats.percentual}%)
+                </span>
+                <span class="bg-emerald-100 text-emerald-950 border border-emerald-300 font-black px-3 py-1 rounded-xl">
+                    🟢 Livre: ${stats.livreMB} MB (${(100 - stats.percentual).toFixed(1)}%)
+                </span>
+            </div>
+        </div>
+        <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden border border-slate-300">
+            <div class="${corBarra} h-3 transition-all duration-500" style="width: ${Math.max(2, stats.percentual)}%"></div>
+        </div>
+        <div class="p-2.5 rounded-xl border text-[11px] font-bold flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 ${corBoxAlerta}">
+            <span>${msgRecomendacao}</span>
+            ${nivelUsuarioLogado === 'Master' ? `<button type="button" onclick="mudarSubAbaGestor('opcoes'); document.getElementById('central-master-backup-nuvem')?.scrollIntoView({behavior:'smooth'})" title="Ir direto para a Central de Backup e Limpeza Inteligente" class="bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0">💾 Ir p/ Backup & Limpeza</button>` : ''}
+        </div>
+    `;
+
+    const elOpcoes = document.getElementById('painel-capacidade-opcoes');
+    const elAudit  = document.getElementById('painel-capacidade-auditoria');
+    if (elOpcoes) elOpcoes.innerHTML = htmlPainel;
+    if (elAudit) elAudit.innerHTML = htmlPainel;
+
+    const badgeMaster = document.getElementById('badge-estimativa-peso-nuvem');
+    if (badgeMaster) {
+        badgeMaster.innerText = `📊 Ocupado: ${stats.usadoMB} MB (${stats.percentual}%) | Livre: ${stats.livreMB} MB`;
+    }
+}
+
+// ================= ITEM 01: FUNÇÕES DE INCLUSÃO, EDIÇÃO E EXCLUSÃO DE GRUPOS E PROJETOS =================
+
 function renderizarPainelOpcoesSistema() {
+    reconstruirMapasDeProjetosDinamicos();
+    renderizarPainelCapacidadeNuvem();
+
+    const podeEditar = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador');
+
+    // 1. Renderiza Lista de Grupos de Projeto
+    const contGrupos = document.getElementById('lista-gestao-grupos-projeto');
+    if (contGrupos) {
+        contGrupos.innerHTML = "";
+        GRUPOS_PROJETO_SISTEMA.forEach((grp, idx) => {
+            const qtdProjs = CATALOGO_PROJETOS_SISTEMA.filter(p => p.grupo === grp).length;
+            const botoes = podeEditar
+                ? `<div class="flex gap-1">
+                     <button onclick="editarGrupoProjetoSistema(${idx})" title="Renomear este Grupo de Projetos" class="text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px]">✏️ Editar</button>
+                     <button onclick="excluirGrupoProjetoSistema(${idx})" title="Excluir este Grupo de Projetos" class="text-red-600 hover:bg-red-50 px-2 py-0.5 rounded font-bold text-[10px]">🗑️</button>
+                   </div>`
+                : `<span class="text-slate-400 text-[10px]">Leitura</span>`;
+
+            contGrupos.innerHTML += `
+                <div class="py-2 flex justify-between items-center hover:bg-indigo-50/40 px-1.5 rounded">
+                    <div>
+                        <span class="font-black text-indigo-950">${grp}</span>
+                        <span class="ml-1.5 text-[10px] bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded font-semibold">${qtdProjs} projeto(s)</span>
+                    </div>
+                    ${botoes}
+                </div>
+            `;
+        });
+    }
+
+    // 2. Renderiza Lista de Tipos de Projetos / Serviços
+    const contProjetos = document.getElementById('lista-gestao-projetos-sistema');
+    if (contProjetos) {
+        contProjetos.innerHTML = "";
+        CATALOGO_PROJETOS_SISTEMA.forEach((proj, idx) => {
+            const badgeSetor = obterBadgeSetorHtml(proj.setor);
+            const botoes = podeEditar
+                ? `<div class="flex gap-1 shrink-0">
+                     <button onclick="editarProjetoSistema(${idx})" title="Editar Nome, Grupo ou Setor deste Projeto" class="text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px] border border-blue-200">✏️ Editar</button>
+                     <button onclick="excluirProjetoSistema(${idx})" title="Remover este Tipo de Projeto da lista" class="text-red-600 hover:bg-red-50 px-2 py-0.5 rounded font-bold text-[10px] border border-red-200">🗑️</button>
+                   </div>`
+                : `<span class="text-slate-400 text-[10px]">Leitura</span>`;
+
+            contProjetos.innerHTML += `
+                <div class="py-2 flex flex-wrap justify-between items-center gap-2 hover:bg-cyan-50/40 px-1.5 rounded">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-black text-slate-800">${proj.nome}</span>
+                        <span class="bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold px-2 py-0.5 rounded text-[9px]">📂 ${proj.grupo}</span>
+                        ${badgeSetor}
+                    </div>
+                    ${botoes}
+                </div>
+            `;
+        });
+    }
+
+    // 3. Renderiza Listas de Pendência, Malogro e Imprevisto
     const desenharLista = (arrayOpcoes, tipo, idContainer) => {
         const container = document.getElementById(idContainer);
         if (!container) return;
         container.innerHTML = "";
         arrayOpcoes.forEach((op, idx) => {
-            const botoes = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador')
+            const botoes = podeEditar
                 ? `<div class="flex gap-1">
-                     <button onclick="editarOpcaoSistema('${tipo}', ${idx})" class="text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px]">✏️ Editar</button>
-                     <button onclick="excluirOpcaoSistema('${tipo}', ${idx})" class="text-red-600 hover:bg-red-50 px-2 py-0.5 rounded font-bold text-[10px]">🗑️</button>
+                     <button onclick="editarOpcaoSistema('${tipo}', ${idx})" title="Renomear esta opção" class="text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px]">✏️ Editar</button>
+                     <button onclick="excluirOpcaoSistema('${tipo}', ${idx})" title="Excluir esta opção" class="text-red-600 hover:bg-red-50 px-2 py-0.5 rounded font-bold text-[10px]">🗑️</button>
                    </div>`
                 : `<span class="text-slate-400 text-[10px]">Leitura</span>`;
 
@@ -509,6 +734,182 @@ function renderizarPainelOpcoesSistema() {
     popularSelectImprevistos();
 }
 
+async function adicionarNovoGrupoProjetoSistema() {
+    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+    const nome = prompt("📂 NOVO GRUPO DE PROJETOS\n\nDigite o nome do novo Grupo (Ex: EXPANSÃO, ESPECIAL, PROJETO G):")?.trim().toUpperCase();
+    if (!nome) return;
+
+    if (GRUPOS_PROJETO_SISTEMA.includes(nome)) {
+        alert("⚠️ Este grupo já está cadastrado.");
+        return;
+    }
+
+    GRUPOS_PROJETO_SISTEMA.push(nome);
+    registrarLogAuditoria("NOVO GRUPO DE PROJETO", `Criado o grupo de projetos '${nome}'.`);
+    await sincronizarOpcoesNaNuvem();
+    renderizarPainelOpcoesSistema();
+    if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
+}
+
+async function editarGrupoProjetoSistema(idx) {
+    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+    const atual = GRUPOS_PROJETO_SISTEMA[idx];
+    if (!atual) return;
+
+    const novo = prompt(`✏️ RENOMEAR GRUPO DE PROJETOS\n\nNome atual: ${atual}\nDigite o novo nome para este grupo:`, atual)?.trim().toUpperCase();
+    if (!novo || novo === atual) return;
+
+    GRUPOS_PROJETO_SISTEMA[idx] = novo;
+    CATALOGO_PROJETOS_SISTEMA.forEach(p => {
+        if (p.grupo === atual) p.grupo = novo;
+    });
+
+    registrarLogAuditoria("EDIÇÃO DE GRUPO DE PROJETO", `Grupo '${atual}' renomeado para '${novo}'.`);
+    await sincronizarOpcoesNaNuvem();
+    renderizarPainelOpcoesSistema();
+    if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
+}
+
+async function excluirGrupoProjetoSistema(idx) {
+    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+    if (GRUPOS_PROJETO_SISTEMA.length <= 1) {
+        alert("⚠️ O sistema precisa manter pelo menos 1 grupo de projetos ativo.");
+        return;
+    }
+
+    const alvo = GRUPOS_PROJETO_SISTEMA[idx];
+    const vinculados = CATALOGO_PROJETOS_SISTEMA.filter(p => p.grupo === alvo);
+
+    if (vinculados.length > 0) {
+        const outroGrupo = GRUPOS_PROJETO_SISTEMA.find((_, i) => i !== idx) || "ON GOING";
+        if (!confirm(`⚠️ O grupo "${alvo}" possui ${vinculados.length} projeto(s) vinculado(s).\n\nSe confirmar a exclusão, esses projetos serão movidos automaticamente para o grupo "${outroGrupo}". Deseja continuar?`)) {
+            return;
+        }
+        CATALOGO_PROJETOS_SISTEMA.forEach(p => {
+            if (p.grupo === alvo) p.grupo = outroGrupo;
+        });
+    } else {
+        if (!confirm(`Deseja realmente excluir o grupo "${alvo}"?`)) return;
+    }
+
+    GRUPOS_PROJETO_SISTEMA.splice(idx, 1);
+    registrarLogAuditoria("EXCLUSÃO DE GRUPO DE PROJETO", `Grupo '${alvo}' removido.`);
+    await sincronizarOpcoesNaNuvem();
+    renderizarPainelOpcoesSistema();
+    if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
+}
+
+async function adicionarNovoProjetoSistema() {
+    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+
+    const nome = prompt("🏗️ NOVO TIPO DE PROJETO / SERVIÇO (Passo 1 de 3)\n\nDigite o nome do novo projeto (Ex: MANUTENÇÃO MDU, VISTORIA F):")?.trim().toUpperCase();
+    if (!nome) return;
+
+    if (CATALOGO_PROJETOS_SISTEMA.some(p => p.nome === nome)) {
+        alert("⚠️ Já existe um projeto com este nome.");
+        return;
+    }
+
+    const opcoesGruposTexto = GRUPOS_PROJETO_SISTEMA.map((g, i) => `${i + 1} - ${g}`).join('\n');
+    const respGrupo = prompt(`📂 VINCULAR AO GRUPO (Passo 2 de 3)\n\nEscolha o número ou digite o nome do Grupo para "${nome}":\n${opcoesGruposTexto}`, "1")?.trim().toUpperCase();
+    if (!respGrupo) return;
+
+    let grupoEscolhido = GRUPOS_PROJETO_SISTEMA[0];
+    const numGrp = parseInt(respGrupo, 10);
+    if (!isNaN(numGrp) && GRUPOS_PROJETO_SISTEMA[numGrp - 1]) {
+        grupoEscolhido = GRUPOS_PROJETO_SISTEMA[numGrp - 1];
+    } else if (GRUPOS_PROJETO_SISTEMA.includes(respGrupo)) {
+        grupoEscolhido = respGrupo;
+    } else {
+        grupoEscolhido = respGrupo;
+        GRUPOS_PROJETO_SISTEMA.push(grupoEscolhido);
+    }
+
+    const respSetor = prompt(
+        `👷 FUNÇÃO / SETOR EXECUTOR (Passo 3 de 3)\n\nQual função executa o projeto "${nome}" em campo?\n1 - Vistoriador\n2 - Instalador\n3 - Ativador`,
+        "2"
+    )?.trim();
+
+    let setorEscolhido = "Instalador";
+    if (respSetor === "1" || (respSetor && respSetor.toLowerCase().startsWith("vist"))) setorEscolhido = "Vistoriador";
+    else if (respSetor === "3" || (respSetor && respSetor.toLowerCase().startsWith("ativ"))) setorEscolhido = "Ativador";
+
+    CATALOGO_PROJETOS_SISTEMA.push({
+        nome: nome,
+        grupo: grupoEscolhido,
+        setor: setorEscolhido
+    });
+
+    registrarLogAuditoria("NOVO PROJETO CADASTRADO", `Projeto '${nome}' adicionado no grupo '${grupoEscolhido}' para o setor '${setorEscolhido}'.`);
+    await sincronizarOpcoesNaNuvem();
+    renderizarPainelOpcoesSistema();
+    if (typeof renderizarTabelaEquipes === "function") renderizarTabelaEquipes();
+    if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
+}
+
+async function editarProjetoSistema(idx) {
+    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+    const atual = CATALOGO_PROJETOS_SISTEMA[idx];
+    if (!atual) return;
+
+    const novoNome = prompt(`✏️ EDITAR PROJETO (Passo 1 de 3)\n\nNome atual: ${atual.nome}\nDigite o novo nome (ou mantenha o atual):`, atual.nome)?.trim().toUpperCase();
+    if (!novoNome) return;
+
+    const opcoesGruposTexto = GRUPOS_PROJETO_SISTEMA.map((g, i) => `${i + 1} - ${g}`).join('\n');
+    const respGrupo = prompt(`📂 ALTERAR GRUPO (Passo 2 de 3)\n\nGrupo atual: ${atual.grupo}\nDigite o nome ou número do Grupo:\n${opcoesGruposTexto}`, atual.grupo)?.trim().toUpperCase();
+    if (!respGrupo) return;
+
+    let novoGrupo = atual.grupo;
+    const numGrp = parseInt(respGrupo, 10);
+    if (!isNaN(numGrp) && GRUPOS_PROJETO_SISTEMA[numGrp - 1]) {
+        novoGrupo = GRUPOS_PROJETO_SISTEMA[numGrp - 1];
+    } else {
+        novoGrupo = respGrupo;
+        if (!GRUPOS_PROJETO_SISTEMA.includes(novoGrupo)) GRUPOS_PROJETO_SISTEMA.push(novoGrupo);
+    }
+
+    const respSetor = prompt(
+        `👷 ALTERAR SETOR EXECUTOR (Passo 3 de 3)\n\nSetor atual: ${atual.setor}\n1 - Vistoriador\n2 - Instalador\n3 - Ativador`,
+        atual.setor === "Vistoriador" ? "1" : (atual.setor === "Ativador" ? "3" : "2")
+    )?.trim();
+
+    let novoSetor = atual.setor;
+    if (respSetor === "1" || (respSetor && respSetor.toLowerCase().startsWith("vist"))) novoSetor = "Vistoriador";
+    else if (respSetor === "2" || (respSetor && respSetor.toLowerCase().startsWith("inst"))) novoSetor = "Instalador";
+    else if (respSetor === "3" || (respSetor && respSetor.toLowerCase().startsWith("ativ"))) novoSetor = "Ativador";
+
+    const nomeAntigo = atual.nome;
+    CATALOGO_PROJETOS_SISTEMA[idx] = {
+        nome: novoNome,
+        grupo: novoGrupo,
+        setor: novoSetor
+    };
+
+    registrarLogAuditoria("EDIÇÃO DE PROJETO", `Projeto '${nomeAntigo}' atualizado para '${novoNome}' (Grupo: ${novoGrupo} | Setor: ${novoSetor}).`);
+    await sincronizarOpcoesNaNuvem();
+    renderizarPainelOpcoesSistema();
+    if (typeof renderizarTabelaEquipes === "function") renderizarTabelaEquipes();
+    if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
+}
+
+async function excluirProjetoSistema(idx) {
+    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+    if (CATALOGO_PROJETOS_SISTEMA.length <= 1) {
+        alert("⚠️ O sistema deve possuir pelo menos 1 projeto ativo.");
+        return;
+    }
+
+    const alvo = CATALOGO_PROJETOS_SISTEMA[idx];
+    if (!confirm(`Deseja realmente remover o projeto "${alvo.nome}" (${alvo.grupo}) da lista de opções?`)) return;
+
+    CATALOGO_PROJETOS_SISTEMA.splice(idx, 1);
+    registrarLogAuditoria("EXCLUSÃO DE PROJETO", `Projeto '${alvo.nome}' removido do catálogo.`);
+    await sincronizarOpcoesNaNuvem();
+    renderizarPainelOpcoesSistema();
+    if (typeof renderizarTabelaEquipes === "function") renderizarTabelaEquipes();
+    if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
+}
+
 async function adicionarNovaOpcaoSistema(tipo) {
     if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
     const nome = prompt("Digite o nome da nova opção:")?.trim().toUpperCase();
@@ -521,7 +922,7 @@ async function adicionarNovaOpcaoSistema(tipo) {
     registrarLogAuditoria("NOVA OPÇÃO CADASTRADA", `Adicionada opção '${nome}' em ${tipo.toUpperCase()}`);
     await sincronizarOpcoesNaNuvem();
     renderizarPainelOpcoesSistema();
-    renderizarBlocosCampo();
+    if (typeof renderizarBlocosCampo === "function") renderizarBlocosCampo();
 }
 
 async function editarOpcaoSistema(tipo, index) {
@@ -535,7 +936,7 @@ async function editarOpcaoSistema(tipo, index) {
     registrarLogAuditoria("EDIÇÃO DE OPÇÃO", `Opção '${atual}' alterada para '${novo}' (${tipo.toUpperCase()})`);
     await sincronizarOpcoesNaNuvem();
     renderizarPainelOpcoesSistema();
-    renderizarBlocosCampo();
+    if (typeof renderizarBlocosCampo === "function") renderizarBlocosCampo();
 }
 
 async function excluirOpcaoSistema(tipo, index) {
@@ -548,7 +949,7 @@ async function excluirOpcaoSistema(tipo, index) {
     registrarLogAuditoria("EXCLUSÃO DE OPÇÃO", `Opção '${alvo}' removida de ${tipo.toUpperCase()}`);
     await sincronizarOpcoesNaNuvem();
     renderizarPainelOpcoesSistema();
-    renderizarBlocosCampo();
+    if (typeof renderizarBlocosCampo === "function") renderizarBlocosCampo();
 }
 
 function obterClasseCorDesfecho(desfecho) {
@@ -589,13 +990,12 @@ function obterDataLocalISO(dateObj = new Date()) {
 window.onload = async function() { 
     const isMobile = ehDispositivoMovel();
 
-    // 1. Renderiza IMEDIATAMENTE os menus e o rascunho local da memória do celular (0ms de espera)
+    reconstruirMapasDeProjetosDinamicos();
     popularSelectImprevistos();
     popularSelectEquipes();
     verificarPermissoesSessao();
     restaurarRascunhoCampo();
 
-    // 2. Se for smartphone, força automaticamente o Modo Campo para máxima leveza
     if (isMobile) {
         const grupoTopo = document.getElementById('grupo-botoes-visao-topo');
         const rodapeMobile = document.getElementById('rodape-acesso-gestor-mobile');
@@ -612,7 +1012,6 @@ window.onload = async function() {
         alternarVisao('campo');
     }
 
-    // 3. Sincroniza os dados da nuvem em segundo plano (Modo Leve para Campo / Modo Completo para Gestor no PC)
     if (isMobile || !usuarioLogado) {
         await carregarRegistrosModoCampoLeve();
     } else {
@@ -620,6 +1019,7 @@ window.onload = async function() {
     }
 
     popularSelectEquipes();
+    popularSelectProjetosGlobal();
     verificarImprevistoAtivoEquipeCampo();
     verificarPendenciasReabertasEProgramadasCampo(false);
     if (typeof atualizarBarraExpedienteCampo === "function") {
@@ -633,7 +1033,6 @@ window.onload = async function() {
         atualizarDashboardGestor();
     }
 
-    // Sincronização automática geral do Painel do Gestor a cada 180s
     setInterval(async () => {
         if (typeof modoConsultaBackupAtivo !== "undefined" && modoConsultaBackupAtivo) return;
         const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
@@ -658,7 +1057,6 @@ window.onload = async function() {
         }
     }, 180000);
 
-    // Radar rápido (30s) quando o Gestor está com a aba Disponibilidade ou a aba Mapa em Tempo Real aberta
     setInterval(async () => {
         if (typeof modoConsultaBackupAtivo !== "undefined" && modoConsultaBackupAtivo) return;
         const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
@@ -672,7 +1070,6 @@ window.onload = async function() {
         }
     }, 30000);
 
-    // Radar ultra-leve em segundo plano no celular do técnico a cada 35s
     setInterval(async () => {
         const viewCampoAtiva = !document.getElementById('view-campo').classList.contains('hidden');
         const formAberto = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
@@ -800,9 +1197,16 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
     if (rowOpcoes && rowOpcoes.observacoes) {
         try {
             const nuvemOpc = JSON.parse(rowOpcoes.observacoes);
-            if (nuvemOpc.pendencia) OPCOES_PENDENCIA_PADRAO = nuvemOpc.pendencia;
-            if (nuvemOpc.malogro) OPCOES_MALOGRO_PADRAO = nuvemOpc.malogro;
-            if (nuvemOpc.imprevisto) OPCOES_IMPREVISTO_PADRAO = nuvemOpc.imprevisto;
+            if (Array.isArray(nuvemOpc.pendencia)) OPCOES_PENDENCIA_PADRAO = nuvemOpc.pendencia;
+            if (Array.isArray(nuvemOpc.malogro)) OPCOES_MALOGRO_PADRAO = nuvemOpc.malogro;
+            if (Array.isArray(nuvemOpc.imprevisto)) OPCOES_IMPREVISTO_PADRAO = nuvemOpc.imprevisto;
+            if (Array.isArray(nuvemOpc.gruposProjeto) && nuvemOpc.gruposProjeto.length > 0) {
+                GRUPOS_PROJETO_SISTEMA = nuvemOpc.gruposProjeto;
+            }
+            if (Array.isArray(nuvemOpc.catalogoProjetos) && nuvemOpc.catalogoProjetos.length > 0) {
+                CATALOGO_PROJETOS_SISTEMA = nuvemOpc.catalogoProjetos;
+            }
+            reconstruirMapasDeProjetosDinamicos();
             popularSelectImprevistos();
         } catch (e) { console.warn("Erro ao ler JSON de opções da nuvem:", e); }
     } else if (permitirUploadInicialConfig) {
@@ -825,7 +1229,7 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
         r.id !== ID_NUVEM_EQUIPES && 
         r.id !== ID_NUVEM_OPCOES &&
         r.id !== ID_NUVEM_RASTREIO &&
-        r.id !== 999999005 &&
+        r.id !== ID_NUVEM_AUDITORIA &&
         r.equipe !== '__CONFIG_SISTEMA__' &&
         r.projeto !== '__CONFIG_USUARIOS__' &&
         r.projeto !== '__CONFIG_EQUIPES__' &&
@@ -930,6 +1334,8 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
             cxFosc: Number(r.cx_fosc) || 0
         };
     });
+
+    renderizarPainelCapacidadeNuvem();
 }
 
 // Carregador Ultra-Leve exclusivo para o Modo Campo no Smartphone
@@ -994,10 +1400,11 @@ async function carregarRegistrosDaNuvem(forcarCompletoGestor = false) {
 async function recarregarDadosGestor() {
     await carregarRegistrosDaNuvem(true);
     popularSelectEquipes();
+    popularSelectProjetosGlobal();
     atualizarDashboardGestor();
     const lblHora = document.getElementById('txt-hora-sync');
     if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
-    alert("🔄 Dados, posições GPS no mapa, fotos e indicadores atualizados da nuvem!");
+    alert("🔄 Dados, posições GPS no mapa, fotos, projetos e indicadores atualizados da nuvem!");
 }
 
 async function tentarAcessarGestor() {
@@ -1082,6 +1489,7 @@ function alternarVisao(visao) {
         subtitle.innerText = "Painel Gerencial - Setor Construção MDU • PROCISA RJ";
         
         aplicarRestricoesInterface();
+        popularSelectProjetosGlobal();
         atualizarDashboardGestor();
     } else {
         vGestor.classList.add('hidden');
