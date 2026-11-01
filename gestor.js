@@ -5,7 +5,6 @@ let coordenadasPinosAtuais = [];
 let fotosEdicaoTemporarias = [];
 let opcoesMarcadasEdicaoTemporarias = [];
 
-const ID_NUVEM_AUDITORIA = 999999005;
 let modoConsultaBackupAtivo = false;
 let cacheRegistrosNuvemOriginal = null;
 
@@ -74,7 +73,6 @@ async function carregarAuditoriaDaNuvem() {
     }
 }
 
-// Sobrescreve registrarLogAuditoria para sincronizar automaticamente na nuvem
 registrarLogAuditoria = function(acao, detalhes) {
     let userAtivo = usuarioLogado || equipeAutenticadaSessao || "Sistema / Campo";
     let novoLog = {
@@ -105,10 +103,10 @@ function aplicarTooltipsExplicativosGlobais() {
         'subtab-btn-materiais': 'Ver o somatório consolidado e o consumo individual de cabos, conectores, fusões e caixas',
         'subtab-btn-financeiro': 'Calcular automaticamente a medição financeira com base nos materiais e vistorias realizadas',
         'subtab-btn-equipes': 'Cadastrar técnicos, definir grupos de atuação (Vistoriador/Instalador/Ativador) e gerir PINs',
-        'subtab-btn-opcoes': 'Personalizar listas de Pendências/Malogros e acessar a Central Master de Backup e Limpeza da Nuvem',
+        'subtab-btn-opcoes': 'Personalizar Projetos, Grupos, listas de Pendências/Malogros e acessar a Central Master de Backup e Limpeza da Nuvem',
         'subtab-btn-usuarios': 'Gerir contas de acesso ao painel (Master, Operador e Visualizador) e alterar senhas',
         'subtab-btn-bonificacao': 'Consultar os indicadores de metas e elegibilidade à bonificação no período',
-        'subtab-btn-auditoria': 'Rastrear o histórico completo de quem criou, editou, transferiu ou excluiu registos no sistema'
+        'subtab-btn-auditoria': 'Rastrear o histórico completo de ações e monitorar a capacidade livre/ocupada da nuvem'
     };
 
     Object.entries(mapaTooltips).forEach(([id, texto]) => {
@@ -129,23 +127,23 @@ function inicializarMelhoriasVisuaisGestor() {
         btnMulti.type = 'button';
         btnMulti.id = 'btn-abrir-filtro-multiplo';
         btnMulti.onclick = abrirModalFiltroMultiplo;
-        btnMulti.title = 'Abrir seletor avançado para marcar simultaneamente várias Equipes, Grupos (Vistoriador/Instalador/Ativador), Projetos e Status';
+        btnMulti.title = 'Abrir seletor avançado para marcar simultaneamente várias Equipes, Grupos, Projetos e Status';
         btnMulti.className = 'bg-amber-400 hover:bg-amber-300 text-blue-950 font-black text-[11px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap flex items-center gap-1 shrink-0';
         btnMulti.innerHTML = `☑️ Filtro Múltiplo <span id="badge-qtd-filtros-multi" class="bg-blue-950 text-cyan-300 px-1.5 py-0.2 rounded text-[9px] hidden">0</span>`;
         selDesf.parentNode.appendChild(btnMulti);
     }
 
-    // 2. Oculta os dois botões duplicados na sub-barra de abas quando fora da aba Disponibilidade
+    // 2. Oculta os dois botões extras na sub-barra quando fora da aba Disponibilidade
     const subBarra = document.getElementById('header-gestor-subbarra');
     if (subBarra) {
         const divBotoesExtras = subBarra.querySelector('.ml-auto');
-        if (divBotoesExtras) {
+        if (divBotoesExtras && !divBotoesExtras.id) {
             divBotoesExtras.id = 'botoes-atalho-exclusivos-disponibilidade';
             divBotoesExtras.classList.add('hidden');
         }
     }
 
-    // 3. Limpa duplicidades na aba Gráficos & Indicadores e adiciona cabeçalho da Super Tabela + Botão PDF
+    // 3. Configura cabeçalho da Super Tabela Unificada + Botão PDF na aba de Gráficos
     const viewGraficos = document.getElementById('subview-graficos');
     if (viewGraficos && !document.getElementById('btn-imprimir-relatorio-pdf')) {
         const barraResumoTopo = viewGraficos.firstElementChild?.firstElementChild;
@@ -160,7 +158,6 @@ function inicializarMelhoriasVisuaisGestor() {
             barraResumoTopo.appendChild(btnPdf);
         }
 
-        // Atualiza o cabeçalho da Tabela Principal de Executores para a Super Tabela Unificada (12 colunas)
         const tbodyExec = document.getElementById('tabela-principal-executores-corpo');
         const theadExec = tbodyExec ? tbodyExec.previousElementSibling : null;
         if (theadExec) {
@@ -181,13 +178,6 @@ function inicializarMelhoriasVisuaisGestor() {
                 </tr>
             `;
         }
-
-        // Oculta as tabelas redundantes do final da aba de Gráficos para eliminar informação duplicada
-        const cardRankingAntigo = document.getElementById('tabela-ranking-tecnicos-corpo')?.closest('.bg-white.rounded-xl');
-        if (cardRankingAntigo) cardRankingAntigo.classList.add('hidden');
-
-        const gridTresRankings = document.getElementById('tabela-rank-concluida')?.closest('.grid');
-        if (gridTresRankings) gridTresRankings.classList.add('hidden');
     }
 
     // 4. Injeta Modal de Filtro Múltiplo no corpo da página
@@ -207,14 +197,14 @@ function inicializarMelhoriasVisuaisGestor() {
                 <div class="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs text-slate-700">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-                            <div class="font-black text-blue-950 uppercase text-[11px] border-b pb-1">1. Grupos de Atuação (Setor)</div>
+                            <div class="font-black text-blue-950 uppercase text-[11px] border-b pb-1">1. Funções / Setores</div>
                             <div id="multi-lista-setores" class="space-y-1.5"></div>
-                            <div class="font-black text-indigo-950 uppercase text-[11px] border-b pb-1 pt-2">2. Macrogrupos de Projeto</div>
+                            <div class="font-black text-indigo-950 uppercase text-[11px] border-b pb-1 pt-2">2. Grupos de Projeto</div>
                             <div id="multi-lista-macrogrupos" class="space-y-1.5"></div>
                         </div>
                         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
                             <div class="font-black text-blue-950 uppercase text-[11px] border-b pb-1">3. Tipos de Serviço / Projetos</div>
-                            <div id="multi-lista-projetos" class="space-y-1.5"></div>
+                            <div id="multi-lista-projetos" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
                             <div class="font-black text-emerald-950 uppercase text-[11px] border-b pb-1 pt-2">4. Status / Desfechos</div>
                             <div id="multi-lista-desfechos" class="space-y-1.5"></div>
                         </div>
@@ -270,7 +260,7 @@ function inicializarMelhoriasVisuaisGestor() {
                     <div class="bg-slate-800/90 border border-slate-700 p-3.5 rounded-xl space-y-2.5 flex flex-col justify-between">
                         <div>
                             <h5 class="font-black text-cyan-300 text-xs uppercase">1. Exportar Backup Completo (.JSON)</h5>
-                            <p class="text-[11px] text-slate-300 mt-1">Salva num único ficheiro no seu PC 100% dos registos, fotos em alta definição, opções, equipes e trilha de auditoria.</p>
+                            <p class="text-[11px] text-slate-300 mt-1">Salva num único ficheiro no seu PC 100% dos registos, fotos em alta definição, opções, projetos, grupos, equipes e auditoria.</p>
                             <div class="grid grid-cols-2 gap-1.5 mt-2">
                                 <div>
                                     <label class="text-[9px] text-slate-400 uppercase font-bold block">De (Opcional):</label>
@@ -359,12 +349,17 @@ function abrirModalFiltroMultiplo() {
         { valor: 'Ativador', label: '⚡ Ativador' }
     ], filtrosMultiplosAtivos.setores, 'chk-multi-setor');
 
-    desenharChecks('multi-lista-macrogrupos', [
-        { valor: 'ON GOING', label: '🏢 Grupo ON GOING' },
-        { valor: 'PROJETO F', label: '🚀 Grupo PROJETO F' }
-    ], filtrosMultiplosAtivos.macrogrupos, 'chk-multi-macro');
+    desenharChecks('multi-lista-macrogrupos',
+        GRUPOS_PROJETO_SISTEMA.map(grp => ({ valor: grp, label: `📂 Grupo ${grp}` })),
+        filtrosMultiplosAtivos.macrogrupos,
+        'chk-multi-macro'
+    );
 
-    desenharChecks('multi-lista-projetos', TODOS_OS_PROJETOS.map(p => ({ valor: p, label: p })), filtrosMultiplosAtivos.projetos, 'chk-multi-projeto');
+    desenharChecks('multi-lista-projetos',
+        CATALOGO_PROJETOS_SISTEMA.map(p => ({ valor: p.nome, label: `${p.nome} (${p.grupo})` })),
+        filtrosMultiplosAtivos.projetos,
+        'chk-multi-projeto'
+    );
 
     desenharChecks('multi-lista-desfechos', [
         { valor: 'PROGRAMADA', label: '📋 Programadas' },
@@ -416,7 +411,6 @@ function aplicarFiltrosMultiplosDoModal() {
     filtrosMultiplosAtivos.desfechos = lerGrupo('chk-multi-desfecho');
     filtrosMultiplosAtivos.equipes = lerGrupo('chk-multi-equipe');
 
-    // Limpa os selects simples do topo para prevalecer o filtro múltiplo sem conflito
     if (filtrosMultiplosAtivos.equipes.length > 0) document.getElementById('gestor-filtro-equipe').value = "";
     if (filtrosMultiplosAtivos.projetos.length > 0) document.getElementById('gestor-filtro-projeto').value = "";
     if (filtrosMultiplosAtivos.desfechos.length > 0) document.getElementById('gestor-filtro-desfecho').value = "";
@@ -436,15 +430,8 @@ function limparFiltrosMultiplos() {
 // ================= CENTRAL MASTER DE BACKUP (.JSON), RESTAURAÇÃO E EXPURGO SEGURO =================
 
 function atualizarEstimativaPesoNuvem() {
-    const badge = document.getElementById('badge-estimativa-peso-nuvem');
-    if (!badge) return;
-    try {
-        const bytesAprox = JSON.stringify(registrosSalvos).length;
-        const mb = (bytesAprox / (1024 * 1024)).toFixed(2);
-        const totalFotos = registrosSalvos.reduce((acc, r) => acc + (Array.isArray(r.fotos) ? r.fotos.length : 0), 0);
-        badge.innerText = `📊 Uso Atual: ~${mb} MB / 500 MB (${registrosSalvos.length} reg. | ${totalFotos} fotos)`;
-    } catch (e) {
-        badge.innerText = `📊 ${registrosSalvos.length} registos ativos`;
+    if (typeof renderizarPainelCapacidadeNuvem === "function") {
+        renderizarPainelCapacidadeNuvem();
     }
 }
 
@@ -470,13 +457,15 @@ function baixarBackupIntegralJSON() {
 
     const pacoteBackup = {
         sistema: "GPD MDU PROCISA RJ",
-        versaoBackup: "2.0",
+        versaoBackup: "3.0",
         dataExportacao: new Date().toISOString(),
         exportadoPor: usuarioLogado,
         periodoFiltro: { inicio: dIni || "INICIO", fim: dFim || "HOJE" },
         configuracoes: {
             equipes: equipesSistema,
             usuarios: usuariosSistema,
+            gruposProjeto: GRUPOS_PROJETO_SISTEMA,
+            catalogoProjetos: CATALOGO_PROJETOS_SISTEMA,
             opcoesPendencia: OPCOES_PENDENCIA_PADRAO,
             opcoesMalogro: OPCOES_MALOGRO_PADRAO,
             opcoesImprevisto: OPCOES_IMPREVISTO_PADRAO,
@@ -497,7 +486,7 @@ function baixarBackupIntegralJSON() {
     document.body.removeChild(a);
 
     registrarLogAuditoria("BACKUP INTEGRAL (.JSON)", `Baixado ficheiro de backup com ${listaExportar.length} registos (Período: ${sufixoData}).`);
-    alert(`✅ Backup Integral (.JSON) gerado com sucesso!\n\nForam exportados ${listaExportar.length} registos com todas as fotos e configurações. Guarde este ficheiro em local seguro.`);
+    alert(`✅ Backup Integral (.JSON) gerado com sucesso!\n\nForam exportados ${listaExportar.length} registos com todas as fotos, projetos, grupos e configurações. Guarde este ficheiro em local seguro.`);
 }
 
 async function processarArquivoBackupJSON(modo) {
@@ -535,6 +524,13 @@ async function processarArquivoBackupJSON(modo) {
             } else if (modo === 'nuvem') {
                 if (!confirm(`☁️ RESTAURAR BACKUP PARA A NUVEM\n\nDeseja enviar os ${pacote.registros.length} registos do ficheiro "${file.name}" de volta para o banco de dados Supabase?`)) {
                     return;
+                }
+
+                // Se o backup contiver grupos e projetos customizados, restaura também
+                if (pacote.configuracoes) {
+                    if (Array.isArray(pacote.configuracoes.gruposProjeto)) GRUPOS_PROJETO_SISTEMA = pacote.configuracoes.gruposProjeto;
+                    if (Array.isArray(pacote.configuracoes.catalogoProjetos)) CATALOGO_PROJETOS_SISTEMA = pacote.configuracoes.catalogoProjetos;
+                    await sincronizarOpcoesNaNuvem();
                 }
 
                 const linhasParaUpsert = pacote.registros.map(r => {
@@ -579,7 +575,6 @@ async function processarArquivoBackupJSON(modo) {
                     };
                 });
 
-                // Envia em lotes de 25 para evitar sobrecarga de payload com fotos
                 for (let i = 0; i < linhasParaUpsert.length; i += 25) {
                     const lote = linhasParaUpsert.slice(i, i + 25);
                     const { error } = await supabaseClient.from('registros_producao').upsert(lote, { onConflict: 'id' });
@@ -1158,7 +1153,7 @@ async function processarImportacaoPlanilha() {
 
         const imovel      = partes[0];
         const endereco    = partes[1] || "Endereço a confirmar";
-        const projeto     = normalizarNomeProjeto(partes[2] || "CONSTRUÇÃO ON GOING");
+        const projeto     = normalizarNomeProjeto(partes[2] || (TODOS_OS_PROJETOS[0] || "CONSTRUÇÃO ON GOING"));
         const tecnico     = (partes[3] || "").toUpperCase().trim();
         const qtdBlocos   = Math.max(1, Math.min(20, Number(partes[4]) || 1));
         const andares     = Number(partes[5]) || 0;
@@ -1175,7 +1170,7 @@ async function processarImportacaoPlanilha() {
             data_registro: hojeISO,
             equipe: tecnico,
             membros: tecnico,
-            projeto: TODOS_OS_PROJETOS.includes(projeto) ? projeto : "CONSTRUÇÃO ON GOING",
+            projeto: TODOS_OS_PROJETOS.includes(projeto) ? projeto : (TODOS_OS_PROJETOS[0] || "CONSTRUÇÃO ON GOING"),
             imovel: imovel,
             h_entrada: "Programada",
             h_saida: "Aguardando",
@@ -1461,7 +1456,6 @@ async function atualizarDashboardGestor() {
             mData = item.dataRegistro <= dataFim;
         }
 
-        // Suporte combinado: Select simples OU Filtro Múltiplo de Equipes
         let mEquipe = true;
         if (filtrosMultiplosAtivos.equipes.length > 0) {
             mEquipe = filtrosMultiplosAtivos.equipes.includes(item.equipe);
@@ -1469,7 +1463,6 @@ async function atualizarDashboardGestor() {
             mEquipe = item.equipe === fEquipe;
         }
 
-        // Filtro Múltiplo de Setores (Vistoriador / Instalador / Ativador)
         let mSetor = true;
         if (filtrosMultiplosAtivos.setores.length > 0) {
             const eqObj = equipesSistema.find(e => e.nome === item.equipe);
@@ -1908,7 +1901,7 @@ async function atualizarDashboardGestor() {
     try { renderizarTabelaUsuariosPermissao(); } catch (e) { console.warn("Aviso Tabela Usuários:", e); }
 }
 
-// ================= SUPER TABELA UNIFICADA DE EXECUTORES (PRODUÇÃO + HORÁRIOS + PAUSAS + TMA) =================
+// ================= SUPER TABELA UNIFICADA DE EXECUTORES =================
 
 function renderizarPainelPrincipalExecutores(dados) {
     const tbody = document.getElementById('tabela-principal-executores-corpo');
@@ -2102,12 +2095,13 @@ function renderizarPainelPrincipalExecutores(dados) {
 }
 
 function renderizarPainelMallingEProjetoF(dados) {
-    const dadosOnGoing = dados.filter(d => obterMacroGrupoProjeto(d.projeto) === 'ON GOING');
+    const projsOnGoing = PROJETOS_GRUPO_MALLING.length > 0 ? PROJETOS_GRUPO_MALLING : ["VISTORIA"];
+    const dadosOnGoing = dados.filter(d => projsOnGoing.includes(d.projeto));
     const badgeOnGoing = document.getElementById('badge-total-malling');
     if (badgeOnGoing) badgeOnGoing.innerText = `${dadosOnGoing.length} total`;
 
-    const onGoingConcluidas = PROJETOS_GRUPO_MALLING.map(p => dadosOnGoing.filter(d => d.projeto === p && d.desfecho === 'CONCLUIDA').length);
-    const onGoingPendMalo   = PROJETOS_GRUPO_MALLING.map(p => dadosOnGoing.filter(d => d.projeto === p && d.desfecho !== 'CONCLUIDA').length);
+    const onGoingConcluidas = projsOnGoing.map(p => dadosOnGoing.filter(d => d.projeto === p && d.desfecho === 'CONCLUIDA').length);
+    const onGoingPendMalo   = projsOnGoing.map(p => dadosOnGoing.filter(d => d.projeto === p && d.desfecho !== 'CONCLUIDA').length);
 
     const ctxOnGoing = document.getElementById('graficoGrupoMalling')?.getContext('2d');
     if (ctxOnGoing) {
@@ -2115,7 +2109,7 @@ function renderizarPainelMallingEProjetoF(dados) {
         graficoGrupoMallingInstancia = new Chart(ctxOnGoing, {
             type: 'bar',
             data: {
-                labels: PROJETOS_GRUPO_MALLING,
+                labels: projsOnGoing,
                 datasets: [
                     { label: 'Concluídas', data: onGoingConcluidas, backgroundColor: '#0284c7', borderRadius: 5 },
                     { label: 'Pendentes / Malogradas', data: onGoingPendMalo, backgroundColor: '#f59e0b', borderRadius: 5 }
@@ -2126,18 +2120,19 @@ function renderizarPainelMallingEProjetoF(dados) {
                 maintainAspectRatio: false,
                 scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } },
                 onClick: (e, el) => {
-                    if (el.length > 0) dispararExplosaoGrafico('projeto', PROJETOS_GRUPO_MALLING[el[0].index]);
+                    if (el.length > 0) dispararExplosaoGrafico('projeto', projsOnGoing[el[0].index]);
                 }
             }
         });
     }
 
-    const dadosProjF = dados.filter(d => obterMacroGrupoProjeto(d.projeto) === 'PROJETO F');
+    const projsProjF = PROJETOS_GRUPO_PROJETO_F.length > 0 ? PROJETOS_GRUPO_PROJETO_F : ["CONSTRUÇÃO F"];
+    const dadosProjF = dados.filter(d => projsProjF.includes(d.projeto));
     const badgeProjF = document.getElementById('badge-total-projetof');
     if (badgeProjF) badgeProjF.innerText = `${dadosProjF.length} total`;
 
-    const projFConcluidas = PROJETOS_GRUPO_PROJETO_F.map(p => dadosProjF.filter(d => d.projeto === p && d.desfecho === 'CONCLUIDA').length);
-    const projFPendMalo   = PROJETOS_GRUPO_PROJETO_F.map(p => dadosProjF.filter(d => d.projeto === p && d.desfecho !== 'CONCLUIDA').length);
+    const projFConcluidas = projsProjF.map(p => dadosProjF.filter(d => d.projeto === p && d.desfecho === 'CONCLUIDA').length);
+    const projFPendMalo   = projsProjF.map(p => dadosProjF.filter(d => d.projeto === p && d.desfecho !== 'CONCLUIDA').length);
 
     const ctxProjF = document.getElementById('graficoGrupoProjetoF')?.getContext('2d');
     if (ctxProjF) {
@@ -2145,7 +2140,7 @@ function renderizarPainelMallingEProjetoF(dados) {
         graficoGrupoProjetoFInstancia = new Chart(ctxProjF, {
             type: 'bar',
             data: {
-                labels: PROJETOS_GRUPO_PROJETO_F,
+                labels: projsProjF,
                 datasets: [
                     { label: 'Concluídas', data: projFConcluidas, backgroundColor: '#4f46e5', borderRadius: 6 },
                     { label: 'Pendentes / Malogradas', data: projFPendMalo, backgroundColor: '#ec4899', borderRadius: 6 }
@@ -2156,15 +2151,25 @@ function renderizarPainelMallingEProjetoF(dados) {
                 maintainAspectRatio: false,
                 scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } },
                 onClick: (e, el) => {
-                    if (el.length > 0) dispararExplosaoGrafico('projeto', PROJETOS_GRUPO_PROJETO_F[el[0].index]);
+                    if (el.length > 0) dispararExplosaoGrafico('projeto', projsProjF[el[0].index]);
                 }
             }
         });
     }
 
     const datasOrdenadas = [...new Set(dados.map(d => d.dataRegistro).filter(Boolean))].sort();
-    const serieOnGoingDia = datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && obterMacroGrupoProjeto(d.projeto) === 'ON GOING').length);
-    const serieProjFDia   = datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && obterMacroGrupoProjeto(d.projeto) === 'PROJETO F').length);
+    const coresGrupos = ['#0284c7', '#4f46e5', '#059669', '#d97706', '#dc2626', '#7c3aed'];
+
+    const datasetsEvolucao = GRUPOS_PROJETO_SISTEMA.map((grp, i) => ({
+        label: `📂 Grupo ${grp}`,
+        data: datasOrdenadas.length > 0
+            ? datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && obterMacroGrupoProjeto(d.projeto) === grp).length)
+            : [0],
+        borderColor: coresGrupos[i % coresGrupos.length],
+        backgroundColor: 'rgba(37, 99, 235, 0.10)',
+        fill: true,
+        tension: 0.3
+    }));
 
     const ctxEvo = document.getElementById('graficoEvolucaoGrupos')?.getContext('2d');
     if (ctxEvo) {
@@ -2173,24 +2178,7 @@ function renderizarPainelMallingEProjetoF(dados) {
             type: 'line',
             data: {
                 labels: datasOrdenadas.length > 0 ? datasOrdenadas : ['Sem datas'],
-                datasets: [
-                    {
-                        label: '🏢 Evolução Grupo ON GOING',
-                        data: datasOrdenadas.length > 0 ? serieOnGoingDia : [0],
-                        borderColor: '#0284c7',
-                        backgroundColor: 'rgba(2, 132, 199, 0.15)',
-                        fill: true,
-                        tension: 0.3
-                    },
-                    {
-                        label: '🚀 Evolução Grupo PROJETO F',
-                        data: datasOrdenadas.length > 0 ? serieProjFDia : [0],
-                        borderColor: '#4f46e5',
-                        backgroundColor: 'rgba(79, 70, 229, 0.15)',
-                        fill: true,
-                        tension: 0.3
-                    }
-                ]
+                datasets: datasetsEvolucao
             },
             options: {
                 responsive: true,
@@ -2200,9 +2188,26 @@ function renderizarPainelMallingEProjetoF(dados) {
         });
     }
 
+    // Matriz Dinâmica de Cruzamento: Executores × Todos os Projetos e Grupos Cadastrados
+    const theadCruz = document.getElementById('thead-cruzamento-executores') || document.getElementById('tabela-cruzamento-executores-corpo')?.previousElementSibling;
     const tbodyCruz = document.getElementById('tabela-cruzamento-executores-corpo');
     if (!tbodyCruz) return;
     tbodyCruz.innerHTML = "";
+
+    if (theadCruz) {
+        let colsHeader = `<th class="p-2.5">Executor / Técnico</th><th class="p-2.5">Função</th>`;
+        GRUPOS_PROJETO_SISTEMA.forEach((grp, gIdx) => {
+            const projsDoGrupo = CATALOGO_PROJETOS_SISTEMA.filter(p => p.grupo === grp);
+            const bgCol = gIdx % 2 === 0 ? 'bg-blue-50 text-blue-900' : 'bg-indigo-50 text-indigo-900';
+            const bgSub = gIdx % 2 === 0 ? 'bg-blue-200 text-blue-950' : 'bg-indigo-200 text-indigo-950';
+            projsDoGrupo.forEach(p => {
+                colsHeader += `<th class="p-2 text-center ${bgCol}">${p.nome}</th>`;
+            });
+            colsHeader += `<th class="p-2 text-center ${bgSub} font-black">Sub. ${grp}</th>`;
+        });
+        colsHeader += `<th class="p-2.5 text-center bg-slate-800 text-white font-black">Total Geral</th>`;
+        theadCruz.innerHTML = `<tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] border-b">${colsHeader}</tr>`;
+    }
 
     const mapaCruz = {};
     dados.forEach(d => {
@@ -2216,23 +2221,34 @@ function renderizarPainelMallingEProjetoF(dados) {
             };
             TODOS_OS_PROJETOS.forEach(p => mapaCruz[nome].contagem[p] = 0);
         }
-        if (mapaCruz[nome].contagem[d.projeto] !== undefined) {
-            mapaCruz[nome].contagem[d.projeto]++;
-        }
+        mapaCruz[nome].contagem[d.projeto] = (mapaCruz[nome].contagem[d.projeto] || 0) + 1;
     });
 
     const listaCruz = Object.values(mapaCruz).sort((a, b) => a.nome.localeCompare(b.nome));
+    const totalColunas = 3 + TODOS_OS_PROJETOS.length + GRUPOS_PROJETO_SISTEMA.length;
 
     if (listaCruz.length === 0) {
-        tbodyCruz.innerHTML = `<tr><td colspan="12" class="p-4 text-center text-slate-400">Nenhuma atividade registrada no período para exibir o cruzamento entre executores e projetos.</td></tr>`;
+        tbodyCruz.innerHTML = `<tr><td colspan="${totalColunas}" class="p-4 text-center text-slate-400">Nenhuma atividade registrada no período para exibir o cruzamento entre executores e projetos.</td></tr>`;
         return;
     }
 
     listaCruz.forEach(item => {
         const c = item.contagem;
-        const subOnGoing = (c['VISTORIA'] || 0) + (c['CONSTRUÇÃO ON GOING'] || 0) + (c['CONSTRUÇÃO NAP LOTADA'] || 0) + (c['ATIVAÇÃO ON GOING'] || 0) + (c['ATIVAÇÃO NAP LOTADA'] || 0);
-        const subProjF   = (c['CONSTRUÇÃO F'] || 0) + (c['ATIVAÇÃO F'] || 0);
-        const totalGeral = subOnGoing + subProjF;
+        let totalGeral = 0;
+        let celulasMeio = "";
+
+        GRUPOS_PROJETO_SISTEMA.forEach((grp, gIdx) => {
+            const projsDoGrupo = CATALOGO_PROJETOS_SISTEMA.filter(p => p.grupo === grp);
+            let subGrupo = 0;
+            projsDoGrupo.forEach(p => {
+                const val = c[p.nome] || 0;
+                subGrupo += val;
+                celulasMeio += `<td class="p-2 text-center ${val > 0 ? 'font-bold text-slate-800' : 'text-slate-300'}">${val}</td>`;
+            });
+            totalGeral += subGrupo;
+            const bgSub = gIdx % 2 === 0 ? 'bg-blue-100/70 text-blue-950' : 'bg-indigo-100/70 text-indigo-950';
+            celulasMeio += `<td class="p-2 text-center font-black ${bgSub}">${subGrupo}</td>`;
+        });
 
         const tr = document.createElement('tr');
         tr.className = "hover:bg-slate-50 border-b cursor-pointer";
@@ -2241,15 +2257,7 @@ function renderizarPainelMallingEProjetoF(dados) {
         tr.innerHTML = `
             <td class="p-2.5 font-bold text-slate-800">${item.nome}</td>
             <td class="p-2.5">${obterBadgeSetorHtml(item.setor)}</td>
-            <td class="p-2 text-center ${c['VISTORIA'] > 0 ? 'font-bold text-purple-800' : 'text-slate-300'}">${c['VISTORIA']}</td>
-            <td class="p-2 text-center ${c['CONSTRUÇÃO ON GOING'] > 0 ? 'font-bold text-blue-800' : 'text-slate-300'}">${c['CONSTRUÇÃO ON GOING']}</td>
-            <td class="p-2 text-center ${c['CONSTRUÇÃO NAP LOTADA'] > 0 ? 'font-bold text-blue-800' : 'text-slate-300'}">${c['CONSTRUÇÃO NAP LOTADA']}</td>
-            <td class="p-2 text-center ${c['ATIVAÇÃO ON GOING'] > 0 ? 'font-bold text-emerald-800' : 'text-slate-300'}">${c['ATIVAÇÃO ON GOING']}</td>
-            <td class="p-2 text-center ${c['ATIVAÇÃO NAP LOTADA'] > 0 ? 'font-bold text-emerald-800' : 'text-slate-300'}">${c['ATIVAÇÃO NAP LOTADA']}</td>
-            <td class="p-2 text-center font-black bg-blue-100/70 text-blue-950">${subOnGoing}</td>
-            <td class="p-2 text-center ${c['CONSTRUÇÃO F'] > 0 ? 'font-bold text-indigo-800' : 'text-slate-300'}">${c['CONSTRUÇÃO F']}</td>
-            <td class="p-2 text-center ${c['ATIVAÇÃO F'] > 0 ? 'font-bold text-indigo-800' : 'text-slate-300'}">${c['ATIVAÇÃO F']}</td>
-            <td class="p-2 text-center font-black bg-indigo-100/70 text-indigo-950">${subProjF}</td>
+            ${celulasMeio}
             <td class="p-2.5 text-center font-black bg-slate-100 text-slate-900">${totalGeral}</td>
         `;
         tbodyCruz.appendChild(tr);
@@ -2489,6 +2497,8 @@ function abrirModalEdicao(id) {
     let reg = registrosSalvos.find(r => r.id === id);
     if (!reg) return;
 
+    popularSelectProjetosGlobal();
+
     document.getElementById('edit-reg-id').value = reg.id;
     document.getElementById('edit-reg-data').value = reg.dataRegistro || obterDataLocalISO();
 
@@ -2502,6 +2512,11 @@ function abrirModalEdicao(id) {
         selEqEdit.value = reg.equipe || "";
     }
 
+    const selProjEdit = document.getElementById('edit-reg-projeto');
+    if (selProjEdit && reg.projeto && !Array.from(selProjEdit.options).some(o => o.value === reg.projeto)) {
+        selProjEdit.innerHTML += `<option value="${reg.projeto}">${reg.projeto}</option>`;
+    }
+
     document.getElementById('edit-reg-imovel').value = reg.imovel || '';
     document.getElementById('edit-reg-endereco').value = reg.endereco || '';
     document.getElementById('edit-reg-liberou-acesso').value = reg.liberouAcesso || '';
@@ -2509,7 +2524,7 @@ function abrirModalEdicao(id) {
     document.getElementById('edit-reg-contato').value = reg.contato || '';
     document.getElementById('edit-reg-email').value = reg.email || '';
 
-    document.getElementById('edit-reg-projeto').value = reg.projeto || 'CONSTRUÇÃO ON GOING';
+    document.getElementById('edit-reg-projeto').value = reg.projeto || (TODOS_OS_PROJETOS[0] || 'CONSTRUÇÃO ON GOING');
     document.getElementById('edit-reg-desfecho').value = reg.desfecho || 'CONCLUIDA';
 
     document.getElementById('edit-reg-h-entrada').value = reg.hEntrada || '';
@@ -2985,9 +3000,7 @@ function renderizarGraficos(dados, todosFiltrados = []) {
     TODOS_OS_PROJETOS.forEach(k => duracaoPorProjeto[k] = []);
 
     dados.forEach(d => {
-        if (projetosCount[d.projeto] !== undefined) {
-            projetosCount[d.projeto]++;
-        }
+        projetosCount[d.projeto] = (projetosCount[d.projeto] || 0) + 1;
         if (desfechosCount[d.desfecho] !== undefined) {
             desfechosCount[d.desfecho]++;
         }
@@ -3012,9 +3025,8 @@ function renderizarGraficos(dados, todosFiltrados = []) {
             const durLiquida = Math.max(0, (minOut - minIn) - pausaItem);
             if (durLiquida > 0 && durLiquida <= 840) {
                 listaDuracoes.push(durLiquida);
-                if (duracaoPorProjeto[d.projeto]) {
-                    duracaoPorProjeto[d.projeto].push(durLiquida);
-                }
+                if (!duracaoPorProjeto[d.projeto]) duracaoPorProjeto[d.projeto] = [];
+                duracaoPorProjeto[d.projeto].push(durLiquida);
             }
         }
     });
@@ -3079,7 +3091,7 @@ function renderizarGraficos(dados, todosFiltrados = []) {
                 datasets: [{
                     label: 'Volume de Atendimentos',
                     data: Object.values(projetosCount),
-                    backgroundColor: ['#7c3aed', '#4f46e5', '#2563eb', '#ea580c', '#059669', '#0d9488', '#d97706'],
+                    backgroundColor: ['#7c3aed', '#4f46e5', '#2563eb', '#ea580c', '#059669', '#0d9488', '#d97706', '#0284c7'],
                     borderRadius: 6
                 }]
             },
@@ -3627,6 +3639,7 @@ async function excluirUsuario(id, email) {
 }
 
 async function renderizarTabelaAuditoria() {
+    renderizarPainelCapacidadeNuvem();
     await carregarAuditoriaDaNuvem();
     const corpo = document.getElementById('tabela-auditoria-corpo');
     if (!corpo) return;
@@ -3636,7 +3649,7 @@ async function renderizarTabelaAuditoria() {
         return;
     }
     trilhaAuditoria.forEach(log => {
-        const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO") || log.acao.includes("PIN") || log.acao.includes("TRANSFERÊNCIA") || log.acao.includes("EXPEDIENTE") || log.acao.includes("EDIÇÃO") || log.acao.includes("BACKUP") || log.acao.includes("EXPURGO")
+        const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO") || log.acao.includes("PIN") || log.acao.includes("TRANSFERÊNCIA") || log.acao.includes("EXPEDIENTE") || log.acao.includes("EDIÇÃO") || log.acao.includes("BACKUP") || log.acao.includes("EXPURGO") || log.acao.includes("PROJETO") || log.acao.includes("GRUPO")
             ? "bg-purple-100 text-purple-900 border border-purple-300"
             : "bg-slate-100 text-slate-800";
 
@@ -3685,14 +3698,12 @@ function mudarSubAbaGestor(aba) {
     if (targetView) targetView.classList.remove('hidden');
     if (targetBtn) targetBtn.className = "px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1";
 
-    // Exibe os dois botões de atalho à direita apenas quando estiver na aba Disponibilidade
     const divBotoesDisp = document.getElementById('botoes-atalho-exclusivos-disponibilidade');
     if (divBotoesDisp) {
         if (aba === 'disponibilidade') divBotoesDisp.classList.remove('hidden');
         else divBotoesDisp.classList.add('hidden');
     }
 
-    // Oculta a Central Master de Backup se não for perfil Master
     const boxBackupMaster = document.getElementById('central-master-backup-nuvem');
     if (boxBackupMaster) {
         if (nivelUsuarioLogado === 'Master') boxBackupMaster.classList.remove('hidden');
