@@ -12,6 +12,167 @@ const LIMITE_TOTAL_SUPABASE_MB = 500;
 const ORDEM_SETORES = ["Vistoriador", "Instalador", "Ativador"];
 let cargaInicialGestorConcluida = false;
 
+// ================= ITEM 2: COFRE DE FOTOS SOB DEMANDA (LAZY LOADING / MEMÓRIA LEVE) =================
+const cacheFotosSobDemanda = new Map();
+let totalBytesFotosAcumuladas = 0;
+
+function reciclarContagemBytesFotos() {
+    let soma = 0;
+    cacheFotosSobDemanda.forEach(arr => {
+        if (Array.isArray(arr) && arr.length > 0) {
+            soma += JSON.stringify(arr).length;
+        }
+    });
+    totalBytesFotosAcumuladas = soma;
+}
+
+// Busca sob demanda as fotos de um registro específico caso não estejam em memória
+async function obterFotosSobDemandaDoRegistro(idReg) {
+    if (cacheFotosSobDemanda.has(idReg)) {
+        return cacheFotosSobDemanda.get(idReg) || [];
+    }
+    try {
+        const { data } = await supabaseClient
+            .from('registros_producao')
+            .select('observacoes')
+            .eq('id', idReg)
+            .maybeSingle();
+
+        if (data && data.observacoes) {
+            const obs = data.observacoes;
+            const posFotos = obs.indexOf('[FOTOS:');
+            if (posFotos !== -1) {
+                const fimFotos = obs.lastIndexOf(']');
+                if (fimFotos > posFotos) {
+                    const fotos = JSON.parse(obs.substring(posFotos + 7, fimFotos));
+                    if (Array.isArray(fotos)) {
+                        cacheFotosSobDemanda.set(idReg, fotos);
+                        reciclarContagemBytesFotos();
+                        return fotos;
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("Aviso ao buscar fotos sob demanda:", e);
+    }
+    return [];
+}
+
+// ================= ITEM 1: MOTOR REAL-TIME WEBSOCKETS (ESCUTA AO VIVO SUPABASE) =================
+let canalRealtimeGpd = null;
+let statusConexaoRealtime = "CONECTANDO";
+let timerDebounceRealtime = null;
+
+function atualizarIndicadorVisualRealtime(estado) {
+    statusConexaoRealtime = estado;
+    const lblSync = document.getElementById('lbl-status-autosync');
+    const badgeModoLeve = document.getElementById('badge-modo-leve-4g');
+    const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    if (lblSync) {
+        if (estado === 'ONLINE') {
+            lblSync.className = "text-[10px] bg-emerald-950 text-emerald-300 px-2.5 py-1.5 rounded-lg border border-emerald-600 font-mono flex items-center gap-1.5 shadow-sm";
+            lblSync.title = "Conectado em Tempo Real via WebSockets: Qualquer lançamento ou alteração aparece na tela instantaneamente";
+            lblSync.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block"></span> <b>AO VIVO (Real-Time):</b> <span id="txt-hora-sync" class="text-white">${horaAgora}</span>`;
+        } else if (estado === 'RECONECTANDO') {
+            lblSync.className = "text-[10px] bg-amber-950 text-amber-300 px-2.5 py-1.5 rounded-lg border border-amber-600 font-mono flex items-center gap-1.5";
+            lblSync.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse inline-block"></span> <b>Sincronismo Ativo:</b> <span id="txt-hora-sync" class="text-white">${horaAgora}</span>`;
+        }
+    }
+
+    if (badgeModoLeve) {
+        if (estado === 'ONLINE') {
+            badgeModoLeve.innerText = "🟢 Ao Vivo 4G";
+            badgeModoLeve.title = "Conectado em tempo real com o painel de gestão";
+        } else {
+            badgeModoLeve.innerText = "⚡ 4G Leve";
+        }
+    }
+}
+
+function iniciarEscutaRealtimeSupabase() {
+    try {
+        if (canalRealtimeGpd) return;
+
+        canalRealtimeGpd = supabaseClient
+            .channel('gpd-procisa-realtime-channel')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'registros_producao' },
+                (payload) => {
+                    tratarEventoRealtimeRecebido(payload);
+                }
+            )
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    atualizarIndicadorVisualRealtime('ONLINE');
+                } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+                    atualizarIndicadorVisualRealtime('RECONECTANDO');
+                }
+            });
+    } catch (e) {
+        console.warn("Aviso ao iniciar canal Realtime:", e);
+    }
+}
+
+async function tratarEventoRealtimeRecebido(payload) {
+    try {
+        if (typeof modoConsultaBackupAtivo !== "undefined" && modoConsultaBackupAtivo) return;
+
+        const tipoEvento = payload.eventType;
+        const regNovo = payload.new;
+        const regAntigo = payload.old;
+
+        // 1. Se foi uma EXCLUSÃO na nuvem, remove imediatamente da memória local
+        if (tipoEvento === 'DELETE' && regAntigo && regAntigo.id) {
+            const idRemovido = Number(regAntigo.id);
+            cacheFotosSobDemanda.delete(idRemovido);
+            reciclarContagemBytesFotos();
+            registrosSalvos = (registrosSalvos || []).filter(r => r.id !== idRemovido);
+        }
+        // 2. Se foi INSERÇÃO ou ATUALIZAÇÃO
+        else if ((tipoEvento === 'INSERT' || tipoEvento === 'UPDATE') && regNovo && regNovo.id) {
+            await processarPacoteDadosNuvem([regNovo], false, false);
+        }
+
+        atualizarIndicadorVisualRealtime('ONLINE');
+
+        // Debounce de 350ms para redesenhar a tela suavemente sem piscar caso cheguem vários blocos juntos
+        if (timerDebounceRealtime) clearTimeout(timerDebounceRealtime);
+        timerDebounceRealtime = setTimeout(() => {
+            const viewGestorVisivel = !document.getElementById('view-gestor')?.classList.contains('hidden');
+            const viewCampoVisivel = !document.getElementById('view-campo')?.classList.contains('hidden');
+
+            if (viewGestorVisivel && usuarioLogado) {
+                const algumModalEdicaoAberto =
+                    !document.getElementById('modal-edicao')?.classList.contains('hidden') ||
+                    !document.getElementById('modal-equipe')?.classList.contains('hidden') ||
+                    !document.getElementById('modal-usuario')?.classList.contains('hidden') ||
+                    !document.getElementById('modal-importar-planilha')?.classList.contains('hidden') ||
+                    (document.getElementById('modal-transferir-atividade') && !document.getElementById('modal-transferir-atividade').classList.contains('hidden'));
+
+                if (!algumModalEdicaoAberto && typeof atualizarDashboardGestor === "function") {
+                    atualizarDashboardGestor();
+                } else if (typeof renderizarPainelDisponibilidade === "function") {
+                    renderizarPainelDisponibilidade();
+                }
+            }
+
+            if (viewCampoVisivel && equipeAutenticadaSessao) {
+                const formAberto = !document.getElementById('bloco-pos-abertura')?.classList.contains('hidden');
+                if (!formAberto) {
+                    if (typeof verificarImprevistoAtivoEquipeCampo === "function") verificarImprevistoAtivoEquipeCampo();
+                    if (typeof verificarPendenciasReabertasEProgramadasCampo === "function") verificarPendenciasReabertasEProgramadasCampo(true);
+                    if (typeof atualizarAbaMinhasAtividadesCampo === "function") atualizarAbaMinhasAtividadesCampo(false);
+                }
+            }
+        }, 350);
+    } catch (e) {
+        console.warn("Aviso ao processar evento Realtime:", e);
+    }
+}
+
 function lerJsonSeguroLocal(chave, valorPadrao) {
     try {
         const bruto = localStorage.getItem(chave);
@@ -628,16 +789,16 @@ function popularSelectImprevistos() {
 
 function calcularEstatisticasArmazenamentoNuvem() {
     try {
-        const bytesRegistros = JSON.stringify(registrosSalvos || []).length;
-        const bytesConfigs   = JSON.stringify(usuariosSistema || []).length +
-                               JSON.stringify(equipesSistema || []).length +
-                               JSON.stringify(telemetriaEquipes || {}).length +
-                               JSON.stringify(trilhaAuditoria || []).length;
-        const totalBytes = bytesRegistros + bytesConfigs;
+        const bytesRegistrosLeves = JSON.stringify(registrosSalvos || []).length;
+        const bytesConfigs = JSON.stringify(usuariosSistema || []).length +
+                             JSON.stringify(equipesSistema || []).length +
+                             JSON.stringify(telemetriaEquipes || {}).length +
+                             JSON.stringify(trilhaAuditoria || []).length;
+        const totalBytes = bytesRegistrosLeves + totalBytesFotosAcumuladas + bytesConfigs;
         const usadoMB = Number((totalBytes / (1024 * 1024)).toFixed(2));
         const livreMB = Number(Math.max(0, LIMITE_TOTAL_SUPABASE_MB - usadoMB).toFixed(2));
         const percentual = Number(Math.min(100, (usadoMB / LIMITE_TOTAL_SUPABASE_MB) * 100).toFixed(1));
-        const totalFotos = (registrosSalvos || []).reduce((acc, r) => acc + (Array.isArray(r.fotos) ? r.fotos.length : 0), 0);
+        const totalFotos = (registrosSalvos || []).reduce((acc, r) => acc + (Number(r.qtdFotos) || (Array.isArray(r.fotos) ? r.fotos.length : 0)), 0);
 
         return { usadoMB, livreMB, percentual, totalRegistros: (registrosSalvos || []).length, totalFotos };
     } catch (e) {
@@ -1036,7 +1197,7 @@ function obterDataLocalISO(dateObj = new Date()) {
     return new Date(dateObj.getTime() - (dateObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 }
 
-// ================= CONVERSOR INDIVIDUAL DE LINHA DO BANCO PARA OBJETO DO SISTEMA =================
+// ================= CONVERSOR DE LINHA DO BANCO (DESACOPLANDO FOTOS PESADAS PARA O COFRE SOB DEMANDA) =================
 
 function converterLinhaBancoParaObjetoGpd(r) {
     let obsBruta = r.observacoes || '';
@@ -1057,6 +1218,15 @@ function converterLinhaBancoParaObjetoGpd(r) {
             obsBruta = (obsBruta.substring(0, posFotos) + obsBruta.substring(fimFotos + 1)).trim();
         }
     }
+
+    // Guarda as imagens pesadas no Cofre Sob Demanda e mantém o objeto de listagem super leve
+    if (Array.isArray(fotosExtraidas) && fotosExtraidas.length > 0) {
+        cacheFotosSobDemanda.set(r.id, fotosExtraidas);
+    } else if (!cacheFotosSobDemanda.has(r.id)) {
+        cacheFotosSobDemanda.set(r.id, []);
+    }
+
+    const fotosNoCofre = cacheFotosSobDemanda.get(r.id) || [];
 
     const matchBlocos = obsBruta.match(/\[BLOCOS:\s*(\d+)\]/i);
     if (matchBlocos) {
@@ -1096,7 +1266,7 @@ function converterLinhaBancoParaObjetoGpd(r) {
     const projBruto = r.projeto || '';
     const projNorm = (projBruto === 'IMPREVISTO / ATRASO') ? projBruto : normalizarNomeProjeto(projBruto);
 
-    return {
+    const objLeve = {
         id: r.id,
         dataRegistro: r.data_registro || '',
         equipe: r.equipe || '',
@@ -1107,7 +1277,7 @@ function converterLinhaBancoParaObjetoGpd(r) {
         liberouAcesso: liberouAcessoExtraido,
         tempoPausadoMinutos: tempoPausadoExtraido,
         qtdBlocosProgramados: qtdBlocosExtraida,
-        fotos: Array.isArray(fotosExtraidas) ? fotosExtraidas : [],
+        qtdFotos: fotosNoCofre.length,
         hEntrada: r.h_entrada || '',
         hSaida: r.h_saida || '',
         gpsEntrada: r.gps_entrada || '',
@@ -1133,9 +1303,26 @@ function converterLinhaBancoParaObjetoGpd(r) {
         cxEmbutida: Number(r.cx_embutida) || 0,
         cxFosc: Number(r.cx_fosc) || 0
     };
+
+    // Getter inteligente: JSON.stringify na listagem ignora as fotos pesadas, mas qualquer modal que acessar item.fotos recebe do cofre na hora!
+    Object.defineProperty(objLeve, 'fotos', {
+        get: function() {
+            return cacheFotosSobDemanda.get(this.id) || [];
+        },
+        set: function(novoArr) {
+            const arrValido = Array.isArray(novoArr) ? novoArr : [];
+            cacheFotosSobDemanda.set(this.id, arrValido);
+            this.qtdFotos = arrValido.length;
+            reciclarContagemBytesFotos();
+        },
+        enumerable: false,
+        configurable: true
+    });
+
+    return objLeve;
 }
 
-// ================= INICIALIZAÇÃO BLINDADA E RÁPIDA =================
+// ================= INICIALIZAÇÃO BLINDADA E RÁPIDA COM REAL-TIME WEBSOCKETS =================
 
 window.onload = async function() { 
     const isMobile = ehDispositivoMovel();
@@ -1163,6 +1350,9 @@ window.onload = async function() {
         alternarVisao('campo');
     }
 
+    // Inicia imediatamente a escuta Ao Vivo (WebSockets) para atualização instantânea
+    iniciarEscutaRealtimeSupabase();
+
     if (isMobile || !usuarioLogado) {
         await carregarRegistrosModoCampoLeve();
     } else {
@@ -1180,7 +1370,7 @@ window.onload = async function() {
         atualizarDashboardGestor();
     }
 
-    // Sincronismo Delta leve a cada 180s no Gestor (sem travar baixando o histórico inteiro se já carregou)
+    // Sincronismo Delta de segurança a cada 180s
     setInterval(async () => {
         if (typeof modoConsultaBackupAtivo !== "undefined" && modoConsultaBackupAtivo) return;
         const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
@@ -1200,12 +1390,11 @@ window.onload = async function() {
         if (usuarioLogado && viewGestorAtiva && !algumModalAberto) {
             await sincronizarDeltaRapidoGestor();
             atualizarDashboardGestor();
-            const lblHora = document.getElementById('txt-hora-sync');
-            if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
+            atualizarIndicadorVisualRealtime(statusConexaoRealtime);
         }
     }, 180000);
 
-    // Radar super-rápido (30s) quando o Gestor está na aba Disponibilidade ou Mapa (busca só o dia de hoje + telemetria)
+    // Radar rápido (30s) quando o Gestor está na aba Disponibilidade ou Mapa
     setInterval(async () => {
         if (typeof modoConsultaBackupAtivo !== "undefined" && modoConsultaBackupAtivo) return;
         const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
@@ -1385,12 +1574,16 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
         r.projeto !== '__CONFIG_AUDITORIA__'
     );
 
+    if (substituirTudo) {
+        cacheFotosSobDemanda.clear();
+    }
+
     const convertidos = registrosReais.map(converterLinhaBancoParaObjetoGpd);
+    reciclarContagemBytesFotos();
 
     if (substituirTudo) {
         registrosSalvos = convertidos;
     } else {
-        // Mescla cirurgicamente apenas os registros novos/atualizados sem precisar baixar todo o banco antigo
         const mapa = new Map();
         (registrosSalvos || []).forEach(item => mapa.set(item.id, item));
         convertidos.forEach(item => mapa.set(item.id, item));
@@ -1400,7 +1593,6 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
     renderizarPainelCapacidadeNuvem();
 }
 
-// Sincronismo Delta Ultra-Rápido para o Gestor (Atualiza telemetria, configurações e os registros recentes sem baixar todo o banco)
 async function sincronizarDeltaRapidoGestor() {
     if (!cargaInicialGestorConcluida || !registrosSalvos || registrosSalvos.length === 0) {
         return await carregarRegistrosDaNuvem(true);
@@ -1502,9 +1694,7 @@ async function recarregarDadosGestor(forcarDownloadCompleto = true) {
     popularSelectEquipes();
     popularSelectProjetosGlobal();
     atualizarDashboardGestor();
-
-    const lblHora = document.getElementById('txt-hora-sync');
-    if (lblHora) lblHora.innerText = new Date().toLocaleTimeString('pt-BR');
+    atualizarIndicadorVisualRealtime(statusConexaoRealtime);
 
     if (btnAtu) {
         btnAtu.disabled = false;
