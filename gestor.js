@@ -16,7 +16,7 @@ let filtrosMultiplosAtivos = {
     desfechos: []
 };
 
-// ================= SINCRONIZAÇÃO DE AUDITORIA NA NUVEM E TOOLTIPS =================
+// ================= SINCRONIZAÇÃO DE AUDITORIA NA NUVEM (EM SEGUNDO PLANO) E TOOLTIPS =================
 
 async function sincronizarAuditoriaNaNuvem() {
     try {
@@ -73,6 +73,7 @@ async function carregarAuditoriaDaNuvem() {
     }
 }
 
+// Grava o log localmente na hora e sincroniza na nuvem em segundo plano sem travar a interface
 registrarLogAuditoria = function(acao, detalhes) {
     let userAtivo = usuarioLogado || equipeAutenticadaSessao || "Sistema / Campo";
     let novoLog = {
@@ -83,7 +84,7 @@ registrarLogAuditoria = function(acao, detalhes) {
         detalhes: detalhes
     };
     trilhaAuditoria.unshift(novoLog);
-    sincronizarAuditoriaNaNuvem();
+    setTimeout(() => { sincronizarAuditoriaNaNuvem(); }, 10);
 };
 
 function aplicarTooltipsExplicativosGlobais() {
@@ -120,7 +121,6 @@ function aplicarTooltipsExplicativosGlobais() {
 function inicializarMelhoriasVisuaisGestor() {
     aplicarTooltipsExplicativosGlobais();
 
-    // 1. Injeta botão de Filtro de Marcação Múltipla na barra de filtros do cabeçalho azul
     const selDesf = document.getElementById('gestor-filtro-desfecho');
     if (selDesf && !document.getElementById('btn-abrir-filtro-multiplo')) {
         const btnMulti = document.createElement('button');
@@ -133,7 +133,6 @@ function inicializarMelhoriasVisuaisGestor() {
         selDesf.parentNode.appendChild(btnMulti);
     }
 
-    // 2. Oculta os dois botões extras na sub-barra quando fora da aba Disponibilidade
     const subBarra = document.getElementById('header-gestor-subbarra');
     if (subBarra) {
         const divBotoesExtras = subBarra.querySelector('.ml-auto');
@@ -143,7 +142,6 @@ function inicializarMelhoriasVisuaisGestor() {
         }
     }
 
-    // 3. Configura cabeçalho da Super Tabela Unificada + Botão PDF na aba de Gráficos
     const viewGraficos = document.getElementById('subview-graficos');
     if (viewGraficos && !document.getElementById('btn-imprimir-relatorio-pdf')) {
         const barraResumoTopo = viewGraficos.firstElementChild?.firstElementChild;
@@ -180,7 +178,6 @@ function inicializarMelhoriasVisuaisGestor() {
         }
     }
 
-    // 4. Injeta Modal de Filtro Múltiplo no corpo da página
     if (!document.getElementById('modal-filtro-multiplo')) {
         const modalMulti = document.createElement('div');
         modalMulti.id = 'modal-filtro-multiplo';
@@ -236,7 +233,6 @@ function inicializarMelhoriasVisuaisGestor() {
         document.body.appendChild(modalMulti);
     }
 
-    // 5. Injeta Central Master de Backup (.JSON) e Limpeza Inteligente na aba Opções
     const viewOpcoes = document.getElementById('subview-opcoes');
     if (viewOpcoes && !document.getElementById('central-master-backup-nuvem')) {
         const divBackup = document.createElement('div');
@@ -256,7 +252,6 @@ function inicializarMelhoriasVisuaisGestor() {
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-                    <!-- Bloco 1: Download de Backup -->
                     <div class="bg-slate-800/90 border border-slate-700 p-3.5 rounded-xl space-y-2.5 flex flex-col justify-between">
                         <div>
                             <h5 class="font-black text-cyan-300 text-xs uppercase">1. Exportar Backup Completo (.JSON)</h5>
@@ -277,7 +272,6 @@ function inicializarMelhoriasVisuaisGestor() {
                         </button>
                     </div>
 
-                    <!-- Bloco 2: Restaurar ou Consultar Backup -->
                     <div class="bg-slate-800/90 border border-slate-700 p-3.5 rounded-xl space-y-2.5 flex flex-col justify-between">
                         <div>
                             <h5 class="font-black text-amber-300 text-xs uppercase">2. Carregar / Restaurar Backup (.JSON)</h5>
@@ -294,7 +288,6 @@ function inicializarMelhoriasVisuaisGestor() {
                         </div>
                     </div>
 
-                    <!-- Bloco 3: Expurgo Seguro de Fotos / Dados Antigos -->
                     <div class="bg-slate-800/90 border border-red-900/60 p-3.5 rounded-xl space-y-2.5 flex flex-col justify-between">
                         <div>
                             <h5 class="font-black text-red-400 text-xs uppercase">3. Limpeza Inteligente da Nuvem</h5>
@@ -526,7 +519,6 @@ async function processarArquivoBackupJSON(modo) {
                     return;
                 }
 
-                // Se o backup contiver grupos e projetos customizados, restaura também
                 if (pacote.configuracoes) {
                     if (Array.isArray(pacote.configuracoes.gruposProjeto)) GRUPOS_PROJETO_SISTEMA = pacote.configuracoes.gruposProjeto;
                     if (Array.isArray(pacote.configuracoes.catalogoProjetos)) CATALOGO_PROJETOS_SISTEMA = pacote.configuracoes.catalogoProjetos;
@@ -583,7 +575,7 @@ async function processarArquivoBackupJSON(modo) {
 
                 registrarLogAuditoria("RESTAURAÇÃO DE BACKUP NUVEM", `Restaurados ${linhasParaUpsert.length} registos a partir do ficheiro ${file.name}.`);
                 inp.value = "";
-                await recarregarDadosGestor();
+                await recarregarDadosGestor(true);
                 alert(`✅ ${linhasParaUpsert.length} registos foram restaurados para a nuvem com sucesso!`);
             }
         } catch (err) {
@@ -675,10 +667,11 @@ async function executarLimpezaInteligenteNuvem(tipoExpurgo) {
             let obsSemFotos = `${tagEnd}${tagLiberou}${tagPausa}${r.observacoes || ''}${sufixoBlocos}`.trim();
 
             await supabaseClient.from('registros_producao').update({ observacoes: obsSemFotos }).eq('id', r.id);
+            r.fotos = [];
         }
 
         registrarLogAuditoria("LIMPEZA DE FOTOS ANTIGAS", `Removidas fotos de ${comFotos.length} registos anteriores a ${dataLimite} (dados numéricos preservados).`);
-        await recarregarDadosGestor();
+        atualizarDashboardGestor();
         alert(`✅ Limpeza concluída! As fotos de ${comFotos.length} registos antigos foram removidas e todos os indicadores numéricos foram preservados.`);
     } else if (tipoExpurgo === 'registros_completos') {
         const conf = confirm(
@@ -690,13 +683,15 @@ async function executarLimpezaInteligenteNuvem(tipoExpurgo) {
         if (!conf) return;
 
         const idsParaExcluir = alvos.map(r => r.id);
+        const setExcluir = new Set(idsParaExcluir);
         for (let i = 0; i < idsParaExcluir.length; i += 100) {
             const loteIds = idsParaExcluir.slice(i, i + 100);
             await supabaseClient.from('registros_producao').delete().in('id', loteIds);
         }
 
+        registrosSalvos = registrosSalvos.filter(r => !setExcluir.has(r.id));
         registrarLogAuditoria("EXPURGO DE REGISTOS ANTIGOS", `Excluídos da nuvem ${idsParaExcluir.length} registos anteriores a ${dataLimite}.`);
-        await recarregarDadosGestor();
+        atualizarDashboardGestor();
         alert(`✅ ${idsParaExcluir.length} registos antigos foram removidos da nuvem com sucesso!`);
     }
 }
@@ -999,16 +994,19 @@ async function autorizarReaberturaCampo(id) {
         return;
     }
 
+    const statusAntigo = reg.desfecho;
+    reg.desfecho = "REABERTA";
+    atualizarDashboardGestor();
+
     registrarLogAuditoria(
         "REABERTURA AUTORIZADA",
-        `Gestor ${usuarioLogado} autorizou a reabertura do imóvel ${reg.imovel} (ID: ${id}) para o técnico ${reg.equipe}. Status anterior: ${reg.desfecho} | Motivo: ${motivoReabertura || 'Ajuste operacional'}`
+        `Gestor ${usuarioLogado} autorizou a reabertura do imóvel ${reg.imovel} (ID: ${id}) para o técnico ${reg.equipe}. Status anterior: ${statusAntigo} | Motivo: ${motivoReabertura || 'Ajuste operacional'}`
     );
 
-    alert(`✅ Atividade do imóvel "${reg.imovel}" foi REABERTA!\n\nO técnico ${reg.equipe} já pode visualizá-la e editá-la no Modo Campo.`);
-    await recarregarDadosGestor();
+    alert(`✅ Atividade do imóvel "${reg.imovel}" foi REABERTA instantaneamente!`);
 }
 
-// ================= MOVIMENTAÇÃO / TRANSFERÊNCIA DE ATIVIDADE ENTRE TÉCNICOS =================
+// ================= MOVIMENTAÇÃO / TRANSFERÊNCIA INSTANTÂNEA DE ATIVIDADE =================
 
 function abrirModalTransferirAtividade(id) {
     if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
@@ -1079,13 +1077,19 @@ async function confirmarTransferenciaAtividade() {
         return;
     }
 
+    // Atualização Instantânea Local sem precisar baixar todo o banco
+    reg.equipe = novoTecnico;
+    reg.membros = novoTecnico;
+    reg.motivoDesfecho = novoMotivoDesfecho;
+
+    fecharModalTransferirAtividade();
+    atualizarDashboardGestor();
+
     registrarLogAuditoria(
         "TRANSFERÊNCIA DE ATIVIDADE",
         `Imóvel ${reg.imovel} (${reg.projeto} - Status: ${reg.desfecho}) movimentado de '${tecnicoAnterior}' para '${novoTecnico}' por ${usuarioLogado}.${infoMotivo}`
     );
 
-    fecharModalTransferirAtividade();
-    await recarregarDadosGestor();
     alert(`✅ Atividade do imóvel "${reg.imovel}" transferida com sucesso para ${novoTecnico}!`);
 }
 
@@ -1213,14 +1217,20 @@ async function processarImportacaoPlanilha() {
         return;
     }
 
+    // Insere imediatamente na lista local sem precisar baixar todo o banco
+    if (typeof converterLinhaBancoParaObjetoGpd === "function") {
+        const novosConvertidos = novosRegistros.map(converterLinhaBancoParaObjetoGpd);
+        registrosSalvos = [...novosConvertidos, ...registrosSalvos];
+    }
+
     registrarLogAuditoria(
         "IMPORTAÇÃO DE PLANILHA",
         `Importadas ${novosRegistros.length} atividade(s) programada(s) com definição de blocos diretamente para os técnicos.`
     );
 
     fecharModalImportarPlanilha();
-    await recarregarDadosGestor();
-    alert(`✅ Sucesso! ${novosRegistros.length} atividade(s) foram enviadas para os técnicos com a quantidade de blocos configurada!`);
+    atualizarDashboardGestor();
+    alert(`✅ Sucesso! ${novosRegistros.length} atividade(s) foram enviadas para os técnicos instantaneamente!`);
 }
 
 // ================= PAINEL DE DISPONIBILIDADE + ABA INDEPENDENTE DO MAPA =================
@@ -1426,7 +1436,7 @@ function renderizarPainelDisponibilidade() {
 async function atualizarDashboardGestor() {
     inicializarMelhoriasVisuaisGestor();
 
-    if ((!registrosSalvos || registrosSalvos.length === 0) && !modoConsultaBackupAtivo) {
+    if (!cargaInicialGestorConcluida && (!registrosSalvos || registrosSalvos.length === 0) && !modoConsultaBackupAtivo) {
         await carregarRegistrosDaNuvem(true);
     }
 
@@ -2188,7 +2198,6 @@ function renderizarPainelMallingEProjetoF(dados) {
         });
     }
 
-    // Matriz Dinâmica de Cruzamento: Executores × Todos os Projetos e Grupos Cadastrados
     const theadCruz = document.getElementById('thead-cruzamento-executores') || document.getElementById('tabela-cruzamento-executores-corpo')?.previousElementSibling;
     const tbodyCruz = document.getElementById('tabela-cruzamento-executores-corpo');
     if (!tbodyCruz) return;
@@ -2348,7 +2357,7 @@ function renderizarOfensoresMalogro(dados) {
     }
 }
 
-// ================= SUPER MODAL DE EDIÇÃO COMPLETA =================
+// ================= SUPER MODAL DE EDIÇÃO COMPLETA E EXCLUSÃO INSTANTÂNEA =================
 
 function lerCheckboxesAtuaisModalEdicao() {
     const checks = document.querySelectorAll('input[name="chk-opcao-modal-edicao"]:checked');
@@ -2666,27 +2675,66 @@ async function salvarEdicaoRegistro() {
         return;
     }
 
+    // Atualização Instantânea Local sem precisar baixar todo o banco
+    if (regOriginal) {
+        regOriginal.dataRegistro = data_registro;
+        regOriginal.equipe = equipe;
+        regOriginal.membros = equipe;
+        regOriginal.imovel = imovel;
+        regOriginal.endereco = endereco;
+        regOriginal.liberouAcesso = liberouAcesso;
+        regOriginal.responsavel = responsavel;
+        regOriginal.contato = contato;
+        regOriginal.email = email;
+        regOriginal.projeto = projeto;
+        regOriginal.desfecho = desfecho;
+        regOriginal.hEntrada = h_entrada;
+        regOriginal.hSaida = h_saida;
+        regOriginal.tempoPausadoMinutos = pausaMin;
+        regOriginal.gpsEntrada = gps_entrada;
+        regOriginal.gpsSaida = gps_saida;
+        regOriginal.servicoObra = servico_obra;
+        regOriginal.motivoDesfecho = motivo_desfecho;
+        regOriginal.malogros = listaMalogrosOpcoes;
+        regOriginal.andares = andares;
+        regOriginal.hps = hps;
+        regOriginal.observacoes = obsLimpa;
+        regOriginal.fotos = [...fotosEdicaoTemporarias];
+        regOriginal.caboRL = cabo_rl;
+        regOriginal.conectores = conectores;
+        regOriginal.caboDrop = cabo_drop;
+        regOriginal.nap = nap;
+        regOriginal.dio = dio;
+        regOriginal.fusoes = fusoes;
+        regOriginal.cxSobrepor = cx_sobrepor;
+        regOriginal.cxEmbutida = cx_embutida;
+        regOriginal.cxFosc = cx_fosc;
+    }
+
+    fecharModalEdicao();
+    atualizarDashboardGestor();
+
     registrarLogAuditoria(
         "EDIÇÃO COMPLETA DE REGISTRO",
         `Registro ID ${id} (Imóvel: ${imovel} | Equipe: ${equipe}) atualizado para status ${desfecho} com ${listaMalogrosOpcoes.length} opção(ões) marcada(s).`
     );
-    alert("✅ Registro atualizado com sucesso!");
-    fecharModalEdicao();
-    await recarregarDadosGestor();
+    alert("✅ Registro atualizado instantaneamente!");
 }
 
+// EXCLUSÃO INSTANTÂNEA (Atualiza a memória e a tela no mesmo milissegundo sem baixar o banco inteiro)
 async function excluirRegistro(id, imovelCod) {
     if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
         alert("⚠️ Acesso restrito para exclusão.");
         return;
     }
-    if (confirm("Deseja excluir este registro de produção?")) {
+    if (confirm(`Deseja excluir o registro "${imovelCod}"?`)) {
         const { error } = await supabaseClient.from('registros_producao').delete().eq('id', id);
         if (error) {
             alert("Erro ao excluir: " + error.message);
         } else {
+            registrosSalvos = registrosSalvos.filter(r => r.id !== id);
+            atualizarDashboardGestor();
             registrarLogAuditoria("EXCLUSÃO DE REGISTRO", `Registro do imóvel ${imovelCod} (ID: ${id}) foi apagado.`);
-            await recarregarDadosGestor();
         }
     }
 }
