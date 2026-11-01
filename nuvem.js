@@ -584,12 +584,12 @@ function obterDataLocalISO(dateObj = new Date()) {
     return new Date(dateObj.getTime() - (dateObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 }
 
-// ================= INICIALIZAÇÃO INSTANTÂNEA E OTIMIZADA PARA MOBILE (PONTO 02) =================
+// ================= INICIALIZAÇÃO INSTANTÂNEA E OTIMIZADA PARA MOBILE =================
 
 window.onload = async function() { 
     const isMobile = ehDispositivoMovel();
 
-    // 1. Renderiza IMEDIATAMENTE os menus e o rascunho local da memória do celular (0ms de espera, sem travar a tela)
+    // 1. Renderiza IMEDIATAMENTE os menus e o rascunho local da memória do celular (0ms de espera)
     popularSelectImprevistos();
     popularSelectEquipes();
     verificarPermissoesSessao();
@@ -635,6 +635,7 @@ window.onload = async function() {
 
     // Sincronização automática geral do Painel do Gestor a cada 180s
     setInterval(async () => {
+        if (typeof modoConsultaBackupAtivo !== "undefined" && modoConsultaBackupAtivo) return;
         const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
         const algumModalAberto = 
             !document.getElementById('modal-edicao').classList.contains('hidden') ||
@@ -657,8 +658,9 @@ window.onload = async function() {
         }
     }, 180000);
 
-    // Radar rápido (30s) quando o Gestor está com a aba Disponibilidade ou a nova aba Mapa em Tempo Real aberta
+    // Radar rápido (30s) quando o Gestor está com a aba Disponibilidade ou a aba Mapa em Tempo Real aberta
     setInterval(async () => {
+        if (typeof modoConsultaBackupAtivo !== "undefined" && modoConsultaBackupAtivo) return;
         const viewGestorAtiva = !document.getElementById('view-gestor').classList.contains('hidden');
         const subDispAtiva = !document.getElementById('subview-disponibilidade')?.classList.contains('hidden');
         const subMapaAtiva = !document.getElementById('subview-mapa')?.classList.contains('hidden');
@@ -752,7 +754,6 @@ function aplicarRestricoesInterface() {
     }
 }
 
-// Função auxiliar que processa as linhas de configuração e converte registros brutos do Supabase
 async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = false) {
     if (!data) return;
 
@@ -824,11 +825,13 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
         r.id !== ID_NUVEM_EQUIPES && 
         r.id !== ID_NUVEM_OPCOES &&
         r.id !== ID_NUVEM_RASTREIO &&
+        r.id !== 999999005 &&
         r.equipe !== '__CONFIG_SISTEMA__' &&
         r.projeto !== '__CONFIG_USUARIOS__' &&
         r.projeto !== '__CONFIG_EQUIPES__' &&
         r.projeto !== '__CONFIG_OPCOES__' &&
-        r.projeto !== '__CONFIG_RASTREIO__'
+        r.projeto !== '__CONFIG_RASTREIO__' &&
+        r.projeto !== '__CONFIG_AUDITORIA__'
     );
 
     registrosSalvos = registrosReais.map(r => {
@@ -929,29 +932,25 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
     });
 }
 
-// PONTO 02: Carregador Ultra-Leve exclusivo para o Modo Campo no Smartphone (Não baixa histórico antigo nem fotos de terceiros)
+// Carregador Ultra-Leve exclusivo para o Modo Campo no Smartphone
 async function carregarRegistrosModoCampoLeve() {
     try {
         const hojeISO = obterDataLocalISO();
         const eqAtiva = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "";
 
-        // 1. Busca apenas os 4 registros leves de configuração
         const promConfig = supabaseClient
             .from('registros_producao')
             .select('*')
             .in('id', [ID_NUVEM_USUARIOS, ID_NUVEM_EQUIPES, ID_NUVEM_OPCOES, ID_NUVEM_RASTREIO]);
 
-        // 2. Busca apenas as atividades pertinentes ao Modo Campo (sem baixar o histórico pesado de meses anteriores)
         let queryAtiv = supabaseClient
             .from('registros_producao')
             .select('*')
             .order('id', { ascending: false });
 
         if (eqAtiva) {
-            // Se o técnico já está selecionado, baixa somente os registros dele ou do dia de hoje (para checagem de duplicidade)
             queryAtiv = queryAtiv.or(`equipe.eq."${eqAtiva}",data_registro.eq.${hojeISO}`).limit(120);
         } else {
-            // Se ainda não selecionou o técnico, baixa apenas o que está ativo na fila ou foi feito hoje
             queryAtiv = queryAtiv.or(`data_registro.eq.${hojeISO},desfecho.in.(PROGRAMADA,REABERTA,EM ANDAMENTO,PARALISADA,IMPREVISTO)`).limit(120);
         }
 
@@ -962,7 +961,6 @@ async function carregarRegistrosModoCampoLeve() {
             ...(resAtiv.data || [])
         ];
 
-        // Remove eventuais duplicatas por ID
         const mapaUnico = new Map();
         combinados.forEach(item => mapaUnico.set(item.id, item));
 
@@ -972,7 +970,6 @@ async function carregarRegistrosModoCampoLeve() {
     }
 }
 
-// Carregador Geral (Redireciona automaticamente para o Modo Leve se estiver apenas na tela de Campo)
 async function carregarRegistrosDaNuvem(forcarCompletoGestor = false) {
     const viewGestorVisivel = !document.getElementById('view-gestor')?.classList.contains('hidden');
     if (!forcarCompletoGestor && !viewGestorVisivel) {
