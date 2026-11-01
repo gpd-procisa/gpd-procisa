@@ -1,4 +1,4 @@
-// ================= CONTROLE DE RASTREIO GPS E WAKE LOCK =================
+// ================= CONTROLE DE RASTREIO GPS, WAKE LOCK E FILA OFFLINE =================
 let watchIdRastreioGps = null;
 let timerEnvioRastreioGps = null;
 let wakeLockAtivo = null;
@@ -37,6 +37,179 @@ document.addEventListener('visibilitychange', () => {
         capturarEEnviarPosicaoRastreio(nomeEq, false);
     }
 });
+
+// ================= FILA OFFLINE DE SALVAMENTO (PROTEÇÃO CONTRA SUBSOLO / SEM SINAL 4G) =================
+
+function obterFilaOfflineCampo() {
+    try {
+        return JSON.parse(localStorage.getItem('gpd_fila_offline_campo')) || [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function salvarNaFilaOfflineCampo(pacoteRegistros, resumoTexto, logAcao, logDetalhe) {
+    const fila = obterFilaOfflineCampo();
+    fila.push({
+        idFila: Date.now(),
+        dataHora: new Date().toLocaleString('pt-BR'),
+        idEmAndamentoParaDeletar: dadosAtendimento.idEmAndamento || null,
+        registros: pacoteRegistros,
+        resumoWhats: resumoTexto,
+        logAcao: logAcao,
+        logDetalhe: logDetalhe
+    });
+    localStorage.setItem('gpd_fila_offline_campo', JSON.stringify(fila));
+    renderizarBannerFilaOfflineCampo();
+}
+
+function renderizarBannerFilaOfflineCampo() {
+    const fila = obterFilaOfflineCampo();
+    let banner = document.getElementById('banner-fila-offline-campo');
+    const containerPai = document.getElementById('subview-campo-lancamento');
+    if (!containerPai) return;
+
+    if (fila.length === 0) {
+        if (banner) banner.classList.add('hidden');
+        return;
+    }
+
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'banner-fila-offline-campo';
+        banner.className = 'bg-amber-100 border-2 border-amber-500 p-3 rounded-xl space-y-2 shadow-sm';
+        containerPai.insertBefore(banner, containerPai.firstChild);
+    }
+
+    banner.classList.remove('hidden');
+    banner.innerHTML = `
+        <div class="flex justify-between items-start gap-2">
+            <div>
+                <h4 class="text-xs font-black text-amber-950 uppercase flex items-center gap-1">
+                    📡 ${fila.length} Atendimento(s) Guardado(s) na Fila Offline
+                </h4>
+                <p class="text-[10px] text-amber-900 mt-0.5">
+                    Salvo(s) no celular durante queda de sinal 4G. Assim que a conexão estabilizar, clique abaixo ou aguarde o envio automático.
+                </p>
+            </div>
+        </div>
+        <button type="button" onclick="sincronizarFilaOfflineCampo(true)" title="Enviar agora os atendimentos que foram salvos sem internet no subsolo/DG para a nuvem do GPD" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-2 rounded-lg text-xs transition shadow-sm">
+            🔄 Sincronizar Fila Offline Agora (${fila.length})
+        </button>
+    `;
+}
+
+async function sincronizarFilaOfflineCampo(exibirFeedback = false) {
+    const fila = obterFilaOfflineCampo();
+    if (fila.length === 0) return;
+
+    let restantes = [];
+    let enviados = 0;
+
+    for (const item of fila) {
+        try {
+            if (item.idEmAndamentoParaDeletar) {
+                await supabaseClient.from('registros_producao').delete().eq('id', item.idEmAndamentoParaDeletar);
+            }
+            const { error } = await supabaseClient.from('registros_producao').insert(item.registros);
+            if (error) {
+                restantes.push(item);
+            } else {
+                enviados++;
+                registrarLogAuditoria(item.logAcao || "SINCRONIZAÇÃO OFFLINE", `${item.logDetalhe || ''} (Enviado da Fila Offline)`);
+            }
+        } catch (err) {
+            restantes.push(item);
+        }
+    }
+
+    localStorage.setItem('gpd_fila_offline_campo', JSON.stringify(restantes));
+    renderizarBannerFilaOfflineCampo();
+
+    if (enviados > 0) {
+        await carregarRegistrosModoCampoLeve();
+        atualizarAbaMinhasAtividadesCampo(false);
+        if (exibirFeedback) {
+            alert(`✅ ${enviados} atendimento(s) da Fila Offline foram sincronizados com sucesso na nuvem!`);
+        }
+    } else if (exibirFeedback && restantes.length > 0) {
+        alert("⚠️ Ainda sem conexão estável com a nuvem. Os dados continuam seguros no aparelho.");
+    }
+}
+
+window.addEventListener('online', () => {
+    sincronizarFilaOfflineCampo(true);
+});
+
+// ================= ALERTA DE HISTÓRICO / REINCIDÊNCIA DO IMÓVEL NO CHECK-IN =================
+
+function verificarHistoricoReincidenciaImovelCampo(codDigitado) {
+    const codigo = (codDigitado || "").trim().toUpperCase();
+    const inpImovel = document.getElementById('inp-imovel');
+    if (!inpImovel) return null;
+
+    let boxAlerta = document.getElementById('box-alerta-reincidencia-imovel');
+    if (!boxAlerta) {
+        boxAlerta = document.createElement('div');
+        boxAlerta.id = 'box-alerta-reincidencia-imovel';
+        boxAlerta.className = 'mt-1.5 p-2.5 rounded-xl border text-[11px] hidden space-y-1';
+        inpImovel.parentNode.appendChild(boxAlerta);
+    }
+
+    if (codigo.length < 3) {
+        boxAlerta.classList.add('hidden');
+        return null;
+    }
+
+    const historico = registrosSalvos.filter(r => {
+        const codReg = (r.imovel || "").toUpperCase().trim();
+        return (codReg === codigo || codReg.startsWith(codigo + " -")) &&
+               ['PENDENTE', 'MALOGRADA', 'CONCLUIDA'].includes(r.desfecho);
+    });
+
+    if (historico.length === 0) {
+        boxAlerta.classList.add('hidden');
+        return null;
+    }
+
+    const ultimo = historico[0];
+    const opcoesStr = (Array.isArray(ultimo.malogros) && ultimo.malogros.length > 0) ? ultimo.malogros.join(' + ') : 'Sem ofensor marcado';
+    const motivoStr = ultimo.motivoDesfecho || ultimo.observacoes || 'Sem observações detalhadas';
+
+    if (ultimo.desfecho === 'PENDENTE' || ultimo.desfecho === 'MALOGRADA') {
+        boxAlerta.className = 'mt-1.5 p-2.5 rounded-xl border-2 border-amber-400 bg-amber-50 text-amber-950 text-[11px] space-y-1 shadow-sm';
+        boxAlerta.innerHTML = `
+            <div class="font-black uppercase flex items-center justify-between">
+                <span>⚠️ Histórico de Reincidência (${ultimo.desfecho})</span>
+                <span class="text-[10px] font-mono bg-amber-200 px-1.5 py-0.5 rounded">${ultimo.dataRegistro}</span>
+            </div>
+            <div><b>Projeto:</b> ${ultimo.projeto} • <b>Técnico:</b> ${ultimo.equipe}</div>
+            <div><b>Ofensor/Opção:</b> <span class="font-bold text-red-800">${opcoesStr}</span></div>
+            <div class="italic text-[10px] bg-white p-1.5 rounded border border-amber-200">💬 "${motivoStr}"</div>
+        `;
+    } else {
+        boxAlerta.className = 'mt-1.5 p-2.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-950 text-[11px] space-y-0.5';
+        boxAlerta.innerHTML = `
+            <div class="font-bold flex items-center justify-between">
+                <span>ℹ️ Imóvel com registro anterior CONCLUÍDO</span>
+                <span class="text-[10px] font-mono">${ultimo.dataRegistro}</span>
+            </div>
+            <div class="text-[10px]"><b>Projeto:</b> ${ultimo.projeto} • <b>Técnico:</b> ${ultimo.equipe}</div>
+        `;
+    }
+
+    boxAlerta.classList.remove('hidden');
+    return ultimo;
+}
+
+// Vincula o detector de reincidência ao campo de imóvel assim que o script carrega
+setTimeout(() => {
+    const inp = document.getElementById('inp-imovel');
+    if (inp) {
+        inp.addEventListener('input', (e) => verificarHistoricoReincidenciaImovelCampo(e.target.value));
+    }
+    renderizarBannerFilaOfflineCampo();
+}, 400);
 
 function atualizarBarraExpedienteCampo() {
     const nomeEq = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "";
@@ -461,11 +634,11 @@ async function atualizarAbaMinhasAtividadesCampo(forcarRecarregamentoNuvem = fal
             let btnAcao = "";
 
             if (r.desfecho === 'PROGRAMADA') {
-                btnAcao = `<button type="button" onclick="mudarSubAbaCampo('lancamento'); iniciarAtividadeProgramadaCampo(${r.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">🚀 Iniciar Agora</button>`;
+                btnAcao = `<button type="button" onclick="mudarSubAbaCampo('lancamento'); iniciarAtividadeProgramadaCampo(${r.id})" title="Capturar GPS e iniciar esta atividade programada" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">🚀 Iniciar Agora</button>`;
             } else if (r.desfecho === 'REABERTA') {
-                btnAcao = `<button type="button" onclick="mudarSubAbaCampo('lancamento'); retomarAtividadeReabertaCampo(${r.id})" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">✏️ Editar Reaberta</button>`;
+                btnAcao = `<button type="button" onclick="mudarSubAbaCampo('lancamento'); retomarAtividadeReabertaCampo(${r.id})" title="Abrir atividade liberada pelo gestor para edição" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">✏️ Editar Reaberta</button>`;
             } else if (r.desfecho === 'EM ANDAMENTO' || r.desfecho === 'PARALISADA') {
-                btnAcao = `<button type="button" onclick="mudarSubAbaCampo('lancamento'); retomarAtividadeEmAndamentoOuParalisadaNuvem(${r.id})" class="bg-blue-800 hover:bg-blue-900 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">▶️ Abrir / Continuar</button>`;
+                btnAcao = `<button type="button" onclick="mudarSubAbaCampo('lancamento'); retomarAtividadeEmAndamentoOuParalisadaNuvem(${r.id})" title="Retomar o preenchimento desta atividade em andamento" class="bg-blue-800 hover:bg-blue-900 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">▶️ Abrir / Continuar</button>`;
             }
 
             html += `
@@ -791,7 +964,7 @@ function renderizarBlocosCampo() {
         const miniaturasFotosHtml = b.fotos.map((fotoSrc, fIdx) => `
             <div class="relative group border border-slate-300 rounded-lg overflow-hidden w-16 h-16 bg-slate-100">
                 <img src="${fotoSrc}" onclick="abrirZoomFoto('${fotoSrc}', 'Foto_${fIdx + 1}.jpg')" class="w-full h-full object-cover cursor-pointer">
-                <button type="button" onclick="removerFotoBloco(${idx}, ${fIdx})" class="absolute top-0.5 right-0.5 bg-red-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow">✕</button>
+                <button type="button" onclick="removerFotoBloco(${idx}, ${fIdx})" title="Remover esta foto" class="absolute top-0.5 right-0.5 bg-red-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow">✕</button>
             </div>
         `).join('');
 
@@ -845,9 +1018,9 @@ function renderizarBlocosCampo() {
             <div class="space-y-2 pt-2 border-t border-slate-200">
                 <label class="block text-[11px] font-bold text-slate-800 uppercase">Desfecho ${qtdTotal > 1 ? `deste Bloco` : `da Atividade`}: <span class="text-red-600">*</span></label>
                 <div class="grid grid-cols-3 gap-2">
-                    <button type="button" onclick="selecionarDesfechoBloco(${idx}, 'CONCLUIDA')" class="${btnConcClass} font-bold p-2 rounded-lg text-[11px] transition">CONCLUÍDA</button>
-                    <button type="button" onclick="selecionarDesfechoBloco(${idx}, 'PENDENTE')" class="${btnPendClass} font-bold p-2 rounded-lg text-[11px] transition">PENDENTE</button>
-                    <button type="button" onclick="selecionarDesfechoBloco(${idx}, 'MALOGRADA')" class="${btnMaloClass} font-bold p-2 rounded-lg text-[11px] transition">MALOGRADA</button>
+                    <button type="button" onclick="selecionarDesfechoBloco(${idx}, 'CONCLUIDA')" title="Marcar este bloco como Concluído" class="${btnConcClass} font-bold p-2 rounded-lg text-[11px] transition">CONCLUÍDA</button>
+                    <button type="button" onclick="selecionarDesfechoBloco(${idx}, 'PENDENTE')" title="Marcar este bloco como Pendente" class="${btnPendClass} font-bold p-2 rounded-lg text-[11px] transition">PENDENTE</button>
+                    <button type="button" onclick="selecionarDesfechoBloco(${idx}, 'MALOGRADA')" title="Marcar este bloco como Malogrado" class="${btnMaloClass} font-bold p-2 rounded-lg text-[11px] transition">MALOGRADA</button>
                 </div>
 
                 <div class="${d === 'CONCLUIDA' ? '' : 'hidden'} space-y-2 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
@@ -886,7 +1059,7 @@ function renderizarBlocosCampo() {
             <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
                 <div class="flex justify-between items-center">
                     <label class="text-[11px] font-bold text-blue-950 flex items-center gap-1">📷 Fotos do Fechamento (${b.fotos.length}/10)</label>
-                    <label class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg cursor-pointer shadow-sm transition">
+                    <label title="Tirar foto pela câmera ou anexar da galeria (comprimida automaticamente para 4G)" class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg cursor-pointer shadow-sm transition">
                         + Tirar / Anexar Foto
                         <input type="file" accept="image/*" multiple onchange="aoSelecionarFotosBloco(${idx}, this)" class="hidden">
                     </label>
@@ -937,8 +1110,53 @@ function salvarRascunhoCampo() {
     }
 }
 
+function atualizarProjetosPermitidosCampo(nomeEquipe, projetoPreSelecionado = null) {
+    const selProj = document.getElementById('sel-projeto');
+    const badgeSetor = document.getElementById('badge-setor-campo');
+    if (!selProj) return;
+
+    if (!nomeEquipe) {
+        selProj.innerHTML = `<option value="">Selecione primeiro o técnico acima...</option>`;
+        if (badgeSetor) {
+            badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600";
+            badgeSetor.innerText = "Selecione o técnico";
+        }
+        return;
+    }
+
+    const eqObj = equipesSistema.find(e => e.nome === nomeEquipe);
+    const setoresArr = obterArraySetores(eqObj ? eqObj.setor : "Instalador");
+    const listaProjetos = obterProjetosPermitidosParaSetores(setoresArr);
+
+    if (badgeSetor) {
+        badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-950 border border-indigo-300";
+        badgeSetor.innerText = `Grupos: ${setoresArr.join(' + ')}`;
+    }
+
+    if (setoresArr.length > 1) {
+        selProj.innerHTML = setoresArr.map(s => {
+            const projs = PROJETOS_POR_SETOR[s] || [];
+            return `<optgroup label="Grupo: ${s.toUpperCase()}">${projs.map(p => `<option value="${p}">${p}</option>`).join('')}</optgroup>`;
+        }).join('');
+    } else {
+        selProj.innerHTML = listaProjetos.map(p => `<option value="${p}">${p}</option>`).join('');
+    }
+
+    const projNorm = projetoPreSelecionado ? normalizarNomeProjeto(projetoPreSelecionado) : null;
+    if (projNorm && listaProjetos.includes(projNorm)) {
+        selProj.value = projNorm;
+    } else if (projNorm) {
+        selProj.innerHTML += `<option value="${projNorm}">${projNorm}</option>`;
+        selProj.value = projNorm;
+    } else {
+        selProj.value = listaProjetos[0];
+    }
+    mudarTipoProjeto();
+}
+
 function restaurarRascunhoCampo() {
     try {
+        renderizarBannerFilaOfflineCampo();
         const salvo = localStorage.getItem('gpd_rascunho_campo_ativo');
         if (!salvo) {
             if (equipeAutenticadaSessao) {
@@ -1219,7 +1437,7 @@ function verificarPendenciasReabertasEProgramadasCampo(permitirSom = true) {
                         <div class="font-bold text-purple-950 text-xs">🏢 ${r.imovel} (${r.projeto})</div>
                         <div class="text-[10px] text-slate-500">📍 ${r.endereco || 'Sem endereço'} • Data: ${r.dataRegistro}</div>
                     </div>
-                    <button type="button" onclick="retomarAtividadeReabertaCampo(${r.id})" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
+                    <button type="button" onclick="retomarAtividadeReabertaCampo(${r.id})" title="Carregar dados desta atividade reaberta pelo gestor para correção" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
                         ✏️ Editar Agora
                     </button>
                 </div>
@@ -1245,7 +1463,7 @@ function verificarPendenciasReabertasEProgramadasCampo(permitirSom = true) {
                         <div class="text-[10px] text-slate-600 mt-0.5">📍 ${r.endereco || 'Endereço a confirmar'}</div>
                         <div class="text-[9px] text-slate-500">Andares: <b>${r.andares || '-'}</b> | HPs: <b>${r.hps || '-'}</b> ${r.responsavel ? `| Resp: <b>${r.responsavel}</b>` : ''}</div>
                     </div>
-                    <button type="button" onclick="iniciarAtividadeProgramadaCampo(${r.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
+                    <button type="button" onclick="iniciarAtividadeProgramadaCampo(${r.id})" title="Capturar GPS e iniciar esta atividade programada" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
                         🚀 Iniciar
                     </button>
                 </div>
@@ -1335,6 +1553,7 @@ async function iniciarAtividadeProgramadaCampo(idReg) {
     atualizarProjetosPermitidosCampo(r.equipe, r.projeto);
     document.getElementById('sel-projeto').value = r.projeto;
     document.getElementById('inp-imovel').value = r.imovel;
+    verificarHistoricoReincidenciaImovelCampo(r.imovel);
 
     let coordReal = "Não capturado";
     try {
@@ -1600,11 +1819,111 @@ function copiarUltimoResumoCampoWhatsApp() {
     copiarTextoAreaTransferencia(ultimoResumoCampoTexto, "📲 Resumo da atividade copiado! Agora é só colar no WhatsApp.");
 }
 
+function copiarDetalheModalWhatsApp() {
+    if (!itemDetalheAtualModal) return;
+    const texto = montarTextoResumoItem(itemDetalheAtualModal);
+    copiarTextoAreaTransferencia(texto, "📲 Detalhes do registro copiados para o WhatsApp!");
+}
+
+function copiarBoletimGestorWhatsApp() {
+    const emAndamento = dadosFiltradosAtuais.filter(i => i.desfecho === 'EM ANDAMENTO').length;
+    const paralisadas = dadosFiltradosAtuais.filter(i => i.desfecho === 'PARALISADA').length;
+    const programadas = dadosFiltradosAtuais.filter(i => i.desfecho === 'PROGRAMADA').length;
+    const finalizadas = dadosFiltradosAtuais.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
+    const totalObras = finalizadas.length;
+    const conc = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
+    const pend = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
+    const malo = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
+    const impr = listaImprevistosAtuais.length;
+    const efic = totalObras > 0 ? ((conc / totalObras) * 100).toFixed(1) : "0.0";
+
+    const totOnGoing = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'ON GOING').length;
+    const totProjF = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === 'PROJETO F').length;
+
+    const dIni = document.getElementById('gestor-filtro-data-inicio').value;
+    const dFim = document.getElementById('gestor-filtro-data-fim').value;
+    const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Período Geral';
+
+    const tmaStr = document.getElementById('ind-tempo-medio')?.innerText || '--';
+    const pausaStr = document.getElementById('ind-tempo-paralisado')?.innerText || '0 min';
+    const medTotal = document.getElementById('fin-total-geral')?.innerText || 'R$ 0,00';
+
+    const textoBoletim = [
+        `📊 *BOLETIM OPERACIONAL GPD • MDU PROCISA RJ*`,
+        `📅 *Período:* ${periodoStr}`,
+        `────────────────────`,
+        `📋 *Programadas na Fila:* ${programadas}`,
+        `🔵 *Em Andamento Agora:* ${emAndamento}`,
+        `⏸️ *Paralisadas no Momento:* ${paralisadas}`,
+        `🏗️ *Total Finalizadas:* ${totalObras}`,
+        `🟢 *Concluídas:* ${conc} (${efic}%)`,
+        `🟡 *Pendentes:* ${pend}`,
+        `🔴 *Malogradas:* ${malo}`,
+        `⚠️ *Imprevistos Reportados:* ${impr}`,
+        `────────────────────`,
+        `🏢 *Grupo ON GOING:* ${totOnGoing} ativ.`,
+        `🚀 *Grupo PROJETO F:* ${totProjF} ativ.`,
+        `────────────────────`,
+        `⏱️ *TMA Líquido:* ${tmaStr}`,
+        `⏸️ *Tempo Paralisado:* ${pausaStr}`,
+        `💰 *Medição Estimada:* ${medTotal}`
+    ].join('\n');
+
+    copiarTextoAreaTransferencia(textoBoletim, "📲 Boletim Operacional copiado! Pronto para colar no WhatsApp da diretoria/supervisão.");
+}
+
+function mudarTipoProjeto() {
+    const projeto = document.getElementById('sel-projeto').value;
+    const titulo = document.getElementById('titulo-form-dinamico');
+    if (!titulo) return;
+    if (!projeto) {
+        titulo.innerText = "1. Dados Gerais do Condomínio / Imóvel";
+    } else if (projeto === 'VISTORIA') {
+        titulo.innerText = "1. Dados Gerais da Vistoria e Endereço (ON GOING)";
+    } else {
+        titulo.innerText = `1. Dados Gerais do Imóvel (${projeto} • ${obterMacroGrupoProjeto(projeto)})`;
+    }
+}
+
+function capturarGpsReal(tempoLimite = 12000) {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject("Geolocalização não suportada pelo navegador.");
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude.toFixed(6);
+                const lng = pos.coords.longitude.toFixed(6);
+                resolve(`${lat}, ${lng}`);
+            },
+            (err) => {
+                reject(err);
+            },
+            { enableHighAccuracy: true, timeout: tempoLimite, maximumAge: 0 }
+        );
+    });
+}
+
 async function fazerCheckIn() {
     const equipe = document.getElementById('sel-equipe').value;
     const projeto = document.getElementById('sel-projeto').value;
     const imovel = document.getElementById('inp-imovel').value.trim();
     if (!equipe || !projeto || !imovel) { alert("⚠️ Selecione a Equipe, o Projeto e informe o Cód. Imóvel."); return; }
+
+    // Alerta de Histórico / Reincidência se o imóvel teve Pendência ou Malogro recente
+    const regReincidente = verificarHistoricoReincidenciaImovelCampo(imovel);
+    if (regReincidente && (regReincidente.desfecho === 'PENDENTE' || regReincidente.desfecho === 'MALOGRADA')) {
+        const ofensorAnt = (regReincidente.malogros && regReincidente.malogros.length > 0) ? regReincidente.malogros.join(' + ') : 'Não especificado';
+        const continuarReinc = confirm(
+            `⚠️ ALERTA DE HISTÓRICO DO IMÓVEL (${imovel}):\n\n` +
+            `Este imóvel teve status "${regReincidente.desfecho}" em ${regReincidente.dataRegistro} (${regReincidente.projeto} - Equipe: ${regReincidente.equipe}).\n` +
+            `• Ofensor/Motivo: ${ofensorAnt}\n` +
+            `• Detalhe: ${regReincidente.motivoDesfecho || regReincidente.observacoes || '-'}\n\n` +
+            `Deseja confirmar a abertura do atendimento para este imóvel?`
+        );
+        if (!continuarReinc) return;
+    }
 
     const hojeISO = obterDataLocalISO();
     const duplicadoHoje = registrosSalvos.find(r => 
@@ -1674,14 +1993,21 @@ async function fazerCheckIn() {
         observacoes: "Em andamento"
     };
 
-    const { error } = await supabaseClient.from('registros_producao').insert([registroEmAndamentoDB]);
-    if (error) {
-        console.warn("Aviso ao registrar status Em Andamento:", error.message);
-    } else {
-        dadosAtendimento.idEmAndamento = idTemp;
-        dadosAtendimento.eraReaberta = false;
-        dadosAtendimento.eraProgramada = false;
+    try {
+        const { error } = await supabaseClient.from('registros_producao').insert([registroEmAndamentoDB]);
+        if (!error) {
+            dadosAtendimento.idEmAndamento = idTemp;
+        }
+    } catch (e) {
+        console.warn("Abertura salva em rascunho local (oscilação de rede).");
     }
+
+    dadosAtendimento.eraReaberta = false;
+    dadosAtendimento.eraProgramada = false;
+    dadosAtendimento.emPausa = false;
+    dadosAtendimento.inicioPausa = null;
+    dadosAtendimento.motivoPausaAtual = "";
+    dadosAtendimento.minutosPausados = 0;
 
     if (btnCheckin) {
         btnCheckin.disabled = false;
@@ -1690,6 +2016,11 @@ async function fazerCheckIn() {
 
     dadosAtendimento.blocos = [criarObjetoBlocoPadrao(1)];
     document.getElementById('inp-qtd-blocos').value = 1;
+
+    // Se o imóvel já tinha endereço cadastrado em visita anterior, preenche automaticamente para agilizar o técnico
+    if (regReincidente && regReincidente.endereco && !document.getElementById('form-endereco').value) {
+        document.getElementById('form-endereco').value = regReincidente.endereco;
+    }
 
     document.getElementById('lbl-status-execucao-campo').innerText = "Status: Em Andamento no Painel";
     document.getElementById('form-campo-container').classList.add('hidden');
@@ -1704,7 +2035,169 @@ async function fazerCheckIn() {
     atualizarAbaMinhasAtividadesCampo(false);
 }
 
-// PONTO 06: Validação de preenchimento obrigatório para Endereço, Liberou o Acesso, Andares e HPs
+function abrirModalImprevisto() {
+    const equipe = document.getElementById('sel-equipe').value;
+    if (!equipe) {
+        alert("⚠️ Selecione primeiro a sua Equipe / Técnico antes de informar um imprevisto.");
+        return;
+    }
+    document.getElementById('inp-detalhe-imprevisto').value = '';
+    popularSelectImprevistos();
+    document.getElementById('modal-imprevisto').classList.remove('hidden');
+}
+
+function fecharModalImprevisto() {
+    document.getElementById('modal-imprevisto').classList.add('hidden');
+}
+
+function fecharAlertaImprevistos() {
+    const alerta = document.getElementById('alerta-imprevistos-supervisao');
+    if (alerta) {
+        alerta.classList.add('hidden');
+        alerta.dataset.fechadoPeloGestor = "true";
+    }
+}
+
+async function enviarImprevisto() {
+    const equipe = document.getElementById('sel-equipe').value;
+    const checksImp = document.querySelectorAll('input[name="chk-motivo-imprevisto"]:checked');
+    let motivosSelecionados = Array.from(checksImp).map(c => c.value);
+
+    if (motivosSelecionados.length === 0) {
+        const fallbackSel = document.getElementById('sel-motivo-imprevisto')?.value;
+        if (fallbackSel) motivosSelecionados = [fallbackSel];
+    }
+
+    if (motivosSelecionados.length === 0) {
+        alert("⚠️ Selecione pelo menos um motivo de imprevisto.");
+        return;
+    }
+
+    const motivoStr = motivosSelecionados.join(" + ");
+    const detalhe = document.getElementById('inp-detalhe-imprevisto').value.trim();
+
+    if (!equipe) {
+        alert("⚠️ Equipe não selecionada.");
+        return;
+    }
+
+    const btnEnviar = document.getElementById('btn-enviar-imprevisto');
+    if (btnEnviar) {
+        btnEnviar.disabled = true;
+        btnEnviar.innerText = "⏳ Capturando GPS...";
+    }
+
+    let gpsCapturado = "Não capturado";
+    try {
+        gpsCapturado = await capturarGpsReal(8000);
+        const partes = gpsCapturado.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            await registrarPontoTelemetriaEquipe(equipe, partes[0], partes[1]);
+        }
+    } catch (e) {
+        console.warn("Imprevisto enviado sem sinal exato de GPS.");
+    }
+
+    const dataLocalCorreta = obterDataLocalISO();
+    const horaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+    const registroImprevistoDB = {
+        id: Date.now(),
+        data_registro: dataLocalCorreta,
+        equipe: equipe,
+        membros: equipe,
+        projeto: "IMPREVISTO / ATRASO",
+        imovel: "SEM ATIVIDADE (Imprevisto)",
+        h_entrada: horaAtual,
+        h_saida: "Em Aberto",
+        gps_entrada: gpsCapturado,
+        gps_saida: gpsCapturado,
+        desfecho: "IMPREVISTO",
+        motivo_desfecho: detalhe ? `${motivoStr}: ${detalhe}` : motivoStr,
+        malogros: motivosSelecionados,
+        responsavel: '',
+        contato: '',
+        email: '',
+        agendamento: null,
+        andares: 0,
+        hps: 0,
+        servico_obra: "NÃO",
+        observacoes: detalhe,
+        fusoes: 0,
+        conectores: 0,
+        cabo_rl: 0,
+        cabo_drop: 0,
+        nap: 0,
+        dio: 0,
+        cx_sobrepor: 0,
+        cx_embutida: 0,
+        cx_fosc: 0
+    };
+
+    const { error } = await supabaseClient.from('registros_producao').insert([registroImprevistoDB]);
+
+    if (btnEnviar) {
+        btnEnviar.disabled = false;
+        btnEnviar.innerText = "📍 Capturar GPS e Iniciar Imprevisto";
+    }
+
+    if (error) {
+        alert("❌ Erro ao registrar imprevisto: " + error.message);
+        return;
+    }
+
+    registrarLogAuditoria("IMPREVISTO REPORTADO", `Equipe: ${equipe} | Motivo(s): ${motivoStr} | Status: INDISPONÍVEL`);
+    alert("⚠️ Imprevisto registrado! Quando o problema for resolvido, clique no botão verde 'Resolver Imprevisto e Ficar Disponível' na sua tela.");
+    fecharModalImprevisto();
+    await carregarRegistrosModoCampoLeve();
+    verificarImprevistoAtivoEquipeCampo();
+}
+
+function resetarFormularioCampo() {
+    const equipeAtual = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '';
+    dadosAtendimento.idEmAndamento = null;
+    dadosAtendimento.eraReaberta = false;
+    dadosAtendimento.eraProgramada = false;
+    dadosAtendimento.emPausa = false;
+    dadosAtendimento.inicioPausa = null;
+    dadosAtendimento.motivoPausaAtual = "";
+    dadosAtendimento.minutosPausados = 0;
+    dadosAtendimento.gpsEntrada = null;
+    dadosAtendimento.gpsSaida = null;
+    dadosAtendimento.blocos = [];
+    document.getElementById('inp-imovel').value = '';
+    const boxReinc = document.getElementById('box-alerta-reincidencia-imovel');
+    if (boxReinc) boxReinc.classList.add('hidden');
+    document.getElementById('form-endereco').value = '';
+    if (document.getElementById('form-liberou-acesso')) {
+        document.getElementById('form-liberou-acesso').value = '';
+    }
+    document.getElementById('form-responsavel').value = '';
+    document.getElementById('form-contato').value = '';
+    document.getElementById('form-email').value = '';
+    document.getElementById('inp-qtd-blocos').value = '1';
+    document.getElementById('container-blocos-dinamicos').innerHTML = '';
+    document.getElementById('lbl-gps-entrada').innerText = '-';
+    document.getElementById('lbl-imovel-aberto').innerText = '-';
+    if (document.getElementById('lbl-tempo-pausado-acumulado')) {
+        document.getElementById('lbl-tempo-pausado-acumulado').innerText = '';
+    }
+    
+    document.getElementById('bloco-pos-abertura').classList.add('hidden');
+    document.getElementById('form-campo-container').classList.remove('hidden');
+    sincronizarVisualPausaCampo();
+    localStorage.removeItem('gpd_rascunho_campo_ativo');
+
+    if (equipeAtual) {
+        const selEq = document.getElementById('sel-equipe');
+        if (selEq) selEq.value = equipeAtual;
+        document.getElementById('current-user-team').innerText = equipeAtual;
+        atualizarProjetosPermitidosCampo(equipeAtual);
+        atualizarBarraSegurancaPinCampo();
+        atualizarBarraExpedienteCampo();
+    }
+}
+
 async function salvarRegistro() {
     if (dadosAtendimento.emPausa) {
         alert("⚠️ A atividade encontra-se PARALISADA. Clique no botão verde '▶️ Retomar Atividade Agora' antes de finalizar o atendimento.");
@@ -1789,10 +2282,6 @@ async function salvarRegistro() {
     const foiReaberta = dadosAtendimento.eraReaberta;
     const minutosPausaTotal = Number(dadosAtendimento.minutosPausados) || 0;
 
-    if (dadosAtendimento.idEmAndamento) {
-        await supabaseClient.from('registros_producao').delete().eq('id', dadosAtendimento.idEmAndamento);
-    }
-
     const listaRegistrosParaInserir = dadosAtendimento.blocos.map((b, idx) => {
         let motivoDesfecho = "";
         let opcoesMarcadas = [];
@@ -1851,18 +2340,6 @@ async function salvarRegistro() {
         };
     });
 
-    const { error } = await supabaseClient.from('registros_producao').insert(listaRegistrosParaInserir);
-    
-    if (btnSalvar) {
-        btnSalvar.disabled = false;
-        btnSalvar.innerText = "💾 Finalizar e Salvar Atendimento";
-    }
-
-    if (error) {
-        alert("❌ Erro ao salvar: " + error.message);
-        return;
-    }
-
     const primeiroReg = listaRegistrosParaInserir[0];
     const todasFotos = dadosAtendimento.blocos.flatMap(b => b.fotos || []);
 
@@ -1886,7 +2363,7 @@ async function salvarRegistro() {
         fotos: b.fotos || []
     }));
     
-    ultimoResumoCampoTexto = montarTextoResumoItem({
+    const resumoMontado = montarTextoResumoItem({
         dataRegistro: dataLocalCorreta,
         equipe: equipeNome,
         imovel: qtdBlocos > 1 ? `${imovelBase} (${qtdBlocos} Blocos)` : imovelBase,
@@ -1915,15 +2392,46 @@ async function salvarRegistro() {
         fotos: todasFotos,
         blocosDetalhados: blocosParaWhats
     });
-    
-    document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
 
     const tipoAcaoAudit = foiReaberta ? "ATIVIDADE REABERTA FINALIZADA" : "INSERÇÃO DE REGISTRO";
-    registrarLogAuditoria(tipoAcaoAudit, `Equipe: ${equipeNome} | Imóvel: ${imovelBase} (${qtdBlocos} bloco(s)) | Liberou: ${liberouAcessoGeral} | Fotos: ${todasFotos.length}`);
-    
-    alert(`✅ Atendimento finalizado (${qtdBlocos} bloco(s) e ${todasFotos.length} foto(s)) e sincronizado com sucesso!`);
-    resetarFormularioCampo();
-    await carregarRegistrosModoCampoLeve();
-    verificarPendenciasReabertasEProgramadasCampo(false);
-    atualizarAbaMinhasAtividadesCampo(false);
+    const detalheAudit = `Equipe: ${equipeNome} | Imóvel: ${imovelBase} (${qtdBlocos} bloco(s)) | Liberou: ${liberouAcessoGeral} | Fotos: ${todasFotos.length}`;
+
+    try {
+        if (!navigator.onLine) {
+            throw new Error("Sem conexão 4G no momento");
+        }
+        if (dadosAtendimento.idEmAndamento) {
+            await supabaseClient.from('registros_producao').delete().eq('id', dadosAtendimento.idEmAndamento);
+        }
+        const { error } = await supabaseClient.from('registros_producao').insert(listaRegistrosParaInserir);
+        if (error) throw error;
+
+        if (btnSalvar) {
+            btnSalvar.disabled = false;
+            btnSalvar.innerText = "💾 Finalizar e Salvar Atendimento";
+        }
+
+        ultimoResumoCampoTexto = resumoMontado;
+        document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
+
+        registrarLogAuditoria(tipoAcaoAudit, detalheAudit);
+        alert(`✅ Atendimento finalizado (${qtdBlocos} bloco(s) e ${todasFotos.length} foto(s)) e sincronizado com sucesso!`);
+        resetarFormularioCampo();
+        await carregarRegistrosModoCampoLeve();
+        verificarPendenciasReabertasEProgramadasCampo(false);
+        atualizarAbaMinhasAtividadesCampo(false);
+    } catch (errOffline) {
+        if (btnSalvar) {
+            btnSalvar.disabled = false;
+            btnSalvar.innerText = "💾 Finalizar e Salvar Atendimento";
+        }
+
+        // Proteção contra perda em Subsolo/DG: Guarda na Fila Offline
+        salvarNaFilaOfflineCampo(listaRegistrosParaInserir, resumoMontado, tipoAcaoAudit, detalheAudit);
+        ultimoResumoCampoTexto = resumoMontado;
+        document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
+
+        resetarFormularioCampo();
+        alert(`📡 SINAL 4G INDISPONÍVEL NO LOCAL!\n\nSeu atendimento (${imovelBase}) e todas as fotos foram GUARDADOS COM SEGURANÇA na Fila Offline do aparelho.\n\nVocê já pode copiar o resumo para o WhatsApp e seguir para o próximo prédio. Assim que o sinal voltar, basta clicar em "Sincronizar Fila Offline"!`);
+    }
 }
