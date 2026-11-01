@@ -1,8 +1,14 @@
-// ================= CONTROLE DE RASTREIO GPS, WAKE LOCK E FILA OFFLINE =================
+// ================= CONTROLE DE RASTREIO GPS, WAKE LOCK, FILA OFFLINE E SOLICITAÇÕES =================
 let watchIdRastreioGps = null;
 let timerEnvioRastreioGps = null;
 let wakeLockAtivo = null;
 let ultimaCoordRastreioCache = null;
+
+let fotosSolicCombustivelTemp = {
+    painel: null,
+    mapa: null,
+    cartao: null
+};
 
 async function ativarWakeLockTela() {
     try {
@@ -38,6 +44,344 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
+// ================= ITEM 01, 02 e 04: SOLICITAÇÃO DE COMBUSTÍVEL EXTRA E DE MATERIAL NO MODO CAMPO =================
+
+function validarTecnicoSelecionadoParaSolicitacao() {
+    const selEq = document.getElementById('sel-equipe');
+    const nomeEq = selEq?.value || equipeAutenticadaSessao || "";
+    if (!nomeEq || equipeAutenticadaSessao !== nomeEq) {
+        alert("⚠️ Selecione primeiro o seu nome em 'Equipe / Técnico' e digite seu PIN de 4 dígitos para enviar solicitações.");
+        if (selEq) selEq.focus();
+        return null;
+    }
+    return nomeEq;
+}
+
+function abrirModalSolicitacaoCombustivelCampo() {
+    const nomeEq = validarTecnicoSelecionadoParaSolicitacao();
+    if (!nomeEq) return;
+
+    document.getElementById('lbl-tec-solic-comb').innerText = nomeEq;
+    document.getElementById('inp-comb-placa').value = localStorage.getItem(`gpd_ultima_placa_${nomeEq}`) || "";
+    document.getElementById('inp-comb-km').value = "";
+    document.getElementById('inp-comb-motivo').value = "";
+
+    const selSug = document.getElementById('sel-comb-motivo-sugerido');
+    if (selSug) {
+        const opcoes = (typeof OPCOES_COMBUSTIVEL_PADRAO !== 'undefined' && Array.isArray(OPCOES_COMBUSTIVEL_PADRAO))
+            ? OPCOES_COMBUSTIVEL_PADRAO
+            : [];
+        selSug.innerHTML = `<option value="">Selecione um motivo rápido (opcional) ou digite abaixo...</option>` +
+            opcoes.map(op => `<option value="${op}">⛽ ${op}</option>`).join('');
+    }
+
+    fotosSolicCombustivelTemp = { painel: null, mapa: null, cartao: null };
+    atualizarPreviewSlotCombustivel('painel', null, 'Nenhuma foto anexada');
+    atualizarPreviewSlotCombustivel('mapa', null, 'Nenhuma foto anexada');
+    atualizarPreviewSlotCombustivel('cartao', null, 'Opcional');
+
+    document.getElementById('modal-solic-combustivel').classList.remove('hidden');
+}
+
+function fecharModalSolicitacaoCombustivelCampo() {
+    document.getElementById('modal-solic-combustivel')?.classList.add('hidden');
+}
+
+function aoSelecionarMotivoSugeridoCombustivel(valor) {
+    if (valor) {
+        document.getElementById('inp-comb-motivo').value = valor;
+    }
+}
+
+function atualizarPreviewSlotCombustivel(slot, base64, textoPadrao) {
+    const imgEl = document.getElementById(`prev-foto-comb-${slot}`);
+    const statusEl = document.getElementById(`status-foto-comb-${slot}`);
+    if (base64) {
+        if (imgEl) {
+            imgEl.src = base64;
+            imgEl.classList.remove('hidden');
+        }
+        if (statusEl) {
+            statusEl.innerText = "✅ Foto anexada com sucesso";
+            statusEl.className = "text-[10px] text-emerald-700 font-bold";
+        }
+    } else {
+        if (imgEl) {
+            imgEl.src = "";
+            imgEl.classList.add('hidden');
+        }
+        if (statusEl) {
+            statusEl.innerText = textoPadrao;
+            statusEl.className = "text-[10px] text-slate-500";
+        }
+    }
+}
+
+async function processarFotoSlotCombustivel(slot, inputEl) {
+    const file = inputEl.files && inputEl.files[0];
+    if (!file) return;
+    try {
+        const comprimida = await comprimirImagemBase64(file, 780, 0.60);
+        fotosSolicCombustivelTemp[slot] = comprimida;
+        atualizarPreviewSlotCombustivel(slot, comprimida, "");
+    } catch (e) {
+        alert("⚠️ Erro ao processar imagem. Tente novamente.");
+    }
+    inputEl.value = "";
+}
+
+async function enviarSolicitacaoCombustivelCampo() {
+    const nomeEq = validarTecnicoSelecionadoParaSolicitacao();
+    if (!nomeEq) return;
+
+    const placa = (document.getElementById('inp-comb-placa')?.value || "").trim().toUpperCase();
+    const km = (document.getElementById('inp-comb-km')?.value || "").trim();
+    const motivo = (document.getElementById('inp-comb-motivo')?.value || "").trim() || "Solicitação de recarga em campo";
+
+    if (!placa) {
+        alert("⚠️ Informe obrigatoriamente a PLACA do veículo.");
+        document.getElementById('inp-comb-placa')?.focus();
+        return;
+    }
+    if (!km || isNaN(Number(km)) || Number(km) <= 0) {
+        alert("⚠️ Informe obrigatoriamente o KM ATUAL do veículo.");
+        document.getElementById('inp-comb-km')?.focus();
+        return;
+    }
+    if (!fotosSolicCombustivelTemp.painel) {
+        alert("⚠️ A foto do PAINEL DO CARRO é obrigatória.");
+        return;
+    }
+    if (!fotosSolicCombustivelTemp.mapa) {
+        alert("⚠️ A foto do MAPA DE BORDO é obrigatória.");
+        return;
+    }
+
+    localStorage.setItem(`gpd_ultima_placa_${nomeEq}`, placa);
+
+    const btn = document.getElementById('btn-enviar-solic-comb');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "⏳ Enviando solicitação e fotos...";
+    }
+
+    let gpsAtual = "Sem GPS no momento";
+    try {
+        gpsAtual = await capturarGpsReal(5000);
+    } catch (e) {}
+
+    const fotosArray = [
+        fotosSolicCombustivelTemp.painel,
+        fotosSolicCombustivelTemp.mapa
+    ];
+    if (fotosSolicCombustivelTemp.cartao) {
+        fotosArray.push(fotosSolicCombustivelTemp.cartao);
+    }
+
+    const tagsLabelsFotos = fotosSolicCombustivelTemp.cartao
+        ? ["PAINEL DO CARRO", "MAPA DE BORDO", "CARTÃO DE COMBUSTÍVEL"]
+        : ["PAINEL DO CARRO", "MAPA DE BORDO"];
+
+    const hojeISO = obterDataLocalISO();
+    const horaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+    const novoRegDB = {
+        id: Date.now(),
+        data_registro: hojeISO,
+        equipe: nomeEq,
+        membros: nomeEq,
+        projeto: PROJETO_SOLIC_COMBUSTIVEL,
+        imovel: `PLACA: ${placa} | KM: ${km}`,
+        h_entrada: horaAtual,
+        h_saida: "Pendente",
+        gps_entrada: gpsAtual,
+        gps_saida: "-",
+        desfecho: "AGUARDANDO TRATATIVA",
+        motivo_desfecho: motivo,
+        malogros: tagsLabelsFotos,
+        responsavel: placa,
+        contato: String(km),
+        email: "",
+        agendamento: null,
+        andares: Number(km) || 0,
+        hps: fotosArray.length,
+        servico_obra: "NÃO",
+        observacoes: `[END: Placa ${placa} • KM ${km}] ${motivo} [FOTOS:${JSON.stringify(fotosArray)}]`
+    };
+
+    try {
+        const { error } = await supabaseClient.from('registros_producao').insert([novoRegDB]);
+        if (error) throw error;
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "🚀 Enviar Solicitação de Recarga";
+        }
+
+        fecharModalSolicitacaoCombustivelCampo();
+        await carregarRegistrosModoCampoLeve();
+        renderizarResumoSolicitacoesCampo();
+        alert(`✅ Solicitação de Combustível enviada com sucesso!\n\nPlaca: ${placa} | KM: ${km}\nA gestão já recebeu seu pedido em tempo real.`);
+    } catch (err) {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "🚀 Enviar Solicitação de Recarga";
+        }
+        alert("❌ Erro ao enviar solicitação: " + (err.message || "Verifique sua conexão."));
+    }
+}
+
+function abrirModalSolicitacaoMaterialCampo() {
+    const nomeEq = validarTecnicoSelecionadoParaSolicitacao();
+    if (!nomeEq) return;
+
+    document.getElementById('lbl-tec-solic-mat').innerText = nomeEq;
+    document.getElementById('inp-obs-solic-material').value = "";
+
+    const container = document.getElementById('lista-itens-solic-material-campo');
+    if (container) {
+        const catalogoMat = (typeof OPCOES_MATERIAL_SOLICITACAO !== 'undefined' && Array.isArray(OPCOES_MATERIAL_SOLICITACAO) && OPCOES_MATERIAL_SOLICITACAO.length > 0)
+            ? OPCOES_MATERIAL_SOLICITACAO
+            : ["CABO RL (m)", "CONECTORES (un)", "CABO DROP (m)", "NAP (un)", "DIO (un)", "FUSÕES / TUBETES (un)", "CX. SOBREPOR (un)", "CX. EMBUTIDA (un)", "CX. FOSC (un)"];
+
+        container.innerHTML = catalogoMat.map((item, idx) => `
+            <div class="py-1.5 flex justify-between items-center gap-2">
+                <label class="font-bold text-slate-800 text-[11px] flex-1" for="inp-qtd-mat-solic-${idx}">📦 ${item}</label>
+                <input type="number" id="inp-qtd-mat-solic-${idx}" data-nome-material="${item}" min="0" placeholder="0" class="w-20 text-center font-black text-xs border-2 border-indigo-200 rounded-lg p-1.5 bg-white text-indigo-950 outline-none focus:border-indigo-600">
+            </div>
+        `).join('');
+    }
+
+    document.getElementById('modal-solic-material').classList.remove('hidden');
+}
+
+function fecharModalSolicitacaoMaterialCampo() {
+    document.getElementById('modal-solic-material')?.classList.add('hidden');
+}
+
+async function enviarSolicitacaoMaterialCampo() {
+    const nomeEq = validarTecnicoSelecionadoParaSolicitacao();
+    if (!nomeEq) return;
+
+    const inputs = document.querySelectorAll('#lista-itens-solic-material-campo input[data-nome-material]');
+    const itensPedidos = [];
+
+    inputs.forEach(inp => {
+        const qtd = Number(inp.value) || 0;
+        if (qtd > 0) {
+            itensPedidos.push(`${inp.dataset.nomeMaterial}: ${qtd}`);
+        }
+    });
+
+    if (itensPedidos.length === 0) {
+        alert("⚠️ Informe a quantidade (maior que zero) em pelo menos 1 item de material.");
+        return;
+    }
+
+    const obs = (document.getElementById('inp-obs-solic-material')?.value || "").trim();
+    const btn = document.getElementById('btn-enviar-solic-mat');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "⏳ Enviando pedido de material...";
+    }
+
+    let gpsAtual = "Sem GPS no momento";
+    try {
+        gpsAtual = await capturarGpsReal(4000);
+    } catch (e) {}
+
+    const hojeISO = obterDataLocalISO();
+    const horaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    const resumoPedido = itensPedidos.join(" | ");
+
+    const novoRegDB = {
+        id: Date.now(),
+        data_registro: hojeISO,
+        equipe: nomeEq,
+        membros: nomeEq,
+        projeto: PROJETO_SOLIC_MATERIAL,
+        imovel: `PEDIDO (${itensPedidos.length} item/itens)`,
+        h_entrada: horaAtual,
+        h_saida: "Pendente",
+        gps_entrada: gpsAtual,
+        gps_saida: "-",
+        desfecho: "AGUARDANDO TRATATIVA",
+        motivo_desfecho: resumoPedido,
+        malogros: itensPedidos,
+        responsavel: obs || "Solicitação via Modo Campo",
+        contato: "",
+        email: "",
+        agendamento: null,
+        andares: itensPedidos.length,
+        hps: 0,
+        servico_obra: "NÃO",
+        observacoes: obs || "Aguardando separação/entrega"
+    };
+
+    try {
+        const { error } = await supabaseClient.from('registros_producao').insert([novoRegDB]);
+        if (error) throw error;
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "🚀 Enviar Pedido de Material";
+        }
+
+        fecharModalSolicitacaoMaterialCampo();
+        await carregarRegistrosModoCampoLeve();
+        renderizarResumoSolicitacoesCampo();
+        alert(`✅ Pedido de Material enviado com sucesso!\n\nItens solicitados:\n• ${itensPedidos.join('\n• ')}`);
+    } catch (err) {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "🚀 Enviar Pedido de Material";
+        }
+        alert("❌ Erro ao enviar pedido de material: " + (err.message || "Verifique sua conexão."));
+    }
+}
+
+function renderizarResumoSolicitacoesCampo() {
+    const box = document.getElementById('box-status-solicitacoes-campo');
+    if (!box) return;
+
+    const nomeEq = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "";
+    if (!nomeEq) {
+        box.classList.add('hidden');
+        return;
+    }
+
+    const minhasSolic = (registrosSalvos || []).filter(r =>
+        r.equipe === nomeEq &&
+        (r.projeto === PROJETO_SOLIC_COMBUSTIVEL || r.projeto === PROJETO_SOLIC_MATERIAL)
+    ).slice(0, 4);
+
+    if (minhasSolic.length === 0) {
+        box.classList.add('hidden');
+        return;
+    }
+
+    box.classList.remove('hidden');
+    box.innerHTML = minhasSolic.map(s => {
+        const ehComb = s.projeto === PROJETO_SOLIC_COMBUSTIVEL;
+        const icone = ehComb ? "⛽" : "🧰";
+        const tipoTitulo = ehComb ? s.imovel : `Material (${(s.malogros || []).length} itens)`;
+        const tratada = s.desfecho === 'TRATADA';
+        const badge = tratada
+            ? `<span class="bg-emerald-100 text-emerald-900 border border-emerald-300 font-black px-1.5 py-0.5 rounded text-[9px]">🟢 TRATADA por ${s.tratadoPor || 'Gestor'} (${s.tratadoDataHora || s.hSaida})</span>`
+            : `<span class="bg-amber-100 text-amber-900 border border-amber-300 font-bold px-1.5 py-0.5 rounded text-[9px]">🟡 AGUARDANDO TRATATIVA (${s.hEntrada})</span>`;
+
+        return `
+            <div class="bg-white p-2 rounded-lg border border-slate-200 flex flex-col gap-0.5 text-[10px]">
+                <div class="flex justify-between items-center gap-1">
+                    <span class="font-bold text-slate-800">${icone} ${tipoTitulo}</span>
+                    <span class="text-[9px] text-slate-400">${s.dataRegistro}</span>
+                </div>
+                <div>${badge}</div>
+            </div>
+        `;
+    }).join('');
+}
+
 // ================= FILA OFFLINE DE SALVAMENTO (PROTEÇÃO CONTRA SUBSOLO / SEM SINAL 4G) =================
 
 function obterFilaOfflineCampo() {
@@ -51,16 +395,14 @@ function obterFilaOfflineCampo() {
     }
 }
 
-function salvarNaFilaOfflineCampo(pacoteRegistros, resumoTexto, logAcao, logDetalhe) {
+function salvarNaFilaOfflineCampo(pacoteRegistros, resumoTexto) {
     const fila = obterFilaOfflineCampo();
     fila.push({
         idFila: Date.now(),
         dataHora: new Date().toLocaleString('pt-BR'),
         idEmAndamentoParaDeletar: dadosAtendimento.idEmAndamento || null,
         registros: pacoteRegistros,
-        resumoWhats: resumoTexto,
-        logAcao: logAcao,
-        logDetalhe: logDetalhe
+        resumoWhats: resumoTexto
     });
     localStorage.setItem('gpd_fila_offline_campo', JSON.stringify(fila));
     renderizarBannerFilaOfflineCampo();
@@ -119,7 +461,6 @@ async function sincronizarFilaOfflineCampo(exibirFeedback = false) {
                 restantes.push(item);
             } else {
                 enviados++;
-                registrarLogAuditoria(item.logAcao || "SINCRONIZAÇÃO OFFLINE", `${item.logDetalhe || ''} (Enviado da Fila Offline)`);
             }
         } catch (err) {
             restantes.push(item);
@@ -144,7 +485,7 @@ window.addEventListener('online', () => {
     sincronizarFilaOfflineCampo(true);
 });
 
-// ================= ITEM 03: BAIXA AUTOMÁTICA DE IMPREVISTO AO INICIAR ATIVIDADE =================
+// ================= BAIXA AUTOMÁTICA DE IMPREVISTO AO INICIAR ATIVIDADE =================
 
 async function encerrarImprevistosAbertosAoIniciarAtividade(nomeEquipe, gpsAtual = null) {
     if (!nomeEquipe) return;
@@ -171,10 +512,6 @@ async function encerrarImprevistosAbertosAoIniciarAtividade(nomeEquipe, gpsAtual
                 imp.desfecho = "IMPREVISTO RESOLVIDO";
                 imp.hSaida = horaFim;
             });
-            registrarLogAuditoria(
-                "IMPREVISTO ENCERRADO AUTOMATICAMENTE",
-                `Imprevisto do técnico ${nomeEquipe} encerrado automaticamente às ${horaFim} ao iniciar atividade em campo.`
-            );
         }
 
         const boxImp = document.getElementById('box-imprevisto-ativo-campo');
@@ -477,11 +814,8 @@ async function iniciarExpedienteRastreioCampo() {
 
     iniciarMonitoramentoContinuoGps(nomeEq);
     atualizarBarraExpedienteCampo();
-    registrarLogAuditoria("INÍCIO DE EXPEDIENTE (ROTA)", `Técnico ${nomeEq} iniciou expediente às ${horaAgora} | GPS: ${latIni}, ${lngIni}`);
     alert(`🟢 Expediente iniciado às ${horaAgora}!\nVocê já consta como DISPONÍVEL EM ROTA no mapa da gestão.`);
 }
-
-// ================= ITEM 02: BLOQUEIO RIGOROSO DE ENCERRAMENTO DE TURNO COM ATIVIDADE EM ABERTO =================
 
 async function encerrarExpedienteRastreioCampo() {
     const nomeEq = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao;
@@ -508,6 +842,8 @@ async function encerrarExpedienteRastreioCampo() {
 
     const pendentesAbertasNuvem = (registrosSalvos || []).filter(r =>
         r.equipe === nomeEq &&
+        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+        r.projeto !== PROJETO_SOLIC_MATERIAL &&
         ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'IMPREVISTO'].includes(r.desfecho)
     );
 
@@ -542,7 +878,6 @@ async function encerrarExpedienteRastreioCampo() {
     await registrarPontoTelemetriaEquipe(nomeEq, latFim, lngFim, 'ENCERRADO');
 
     const horaFim = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-    registrarLogAuditoria("FIM DE EXPEDIENTE", `Técnico ${nomeEq} encerrou o expediente às ${horaFim}.`);
     alert(`🔴 Expediente encerrado às ${horaFim}! Bom descanso.`);
 }
 
@@ -668,6 +1003,8 @@ async function atualizarAbaMinhasAtividadesCampo(forcarRecarregamentoNuvem = fal
         await carregarRegistrosModoCampoLeve();
     }
 
+    renderizarResumoSolicitacoesCampo();
+
     const equipeSelecionada = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "";
     const container = document.getElementById('lista-minhas-atividades-campo');
     const badgeQtd = document.getElementById('badge-qtd-minhas-ativ');
@@ -685,7 +1022,12 @@ async function atualizarAbaMinhasAtividadesCampo(forcarRecarregamentoNuvem = fal
     }
 
     const hojeISO = obterDataLocalISO();
-    const meusRegistros = (registrosSalvos || []).filter(r => r.equipe === equipeSelecionada && r.projeto !== 'IMPREVISTO / ATRASO');
+    const meusRegistros = (registrosSalvos || []).filter(r =>
+        r.equipe === equipeSelecionada &&
+        r.projeto !== 'IMPREVISTO / ATRASO' &&
+        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+        r.projeto !== PROJETO_SOLIC_MATERIAL
+    );
 
     const ativasPainel = meusRegistros.filter(r => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'PROGRAMADA'].includes(r.desfecho));
     const finalizadasHoje = meusRegistros.filter(r => r.dataRegistro === hojeISO && ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(r.desfecho));
@@ -877,7 +1219,6 @@ async function paralisarAtividadeAtualCampo() {
 
     sincronizarVisualPausaCampo();
     salvarRascunhoCampo();
-    registrarLogAuditoria("ATIVIDADE PARALISADA", `Imóvel paralisado às ${horaStr}. Motivo: ${motivoLimpo}`);
     await carregarRegistrosModoCampoLeve();
     atualizarAbaMinhasAtividadesCampo(false);
     alert(`⏸️ Atividade paralisada às ${horaStr}!\nSeus dados preenchidos estão salvos. Clique em "Retomar Atividade Agora" quando voltar ao serviço.`);
@@ -911,7 +1252,6 @@ async function retomarAtividadeParalisadaCampo() {
 
     sincronizarVisualPausaCampo();
     salvarRascunhoCampo();
-    registrarLogAuditoria("ATIVIDADE RETOMADA", `Imóvel retomado às ${horaStr}. Tempo paralisado acumulado: ${dadosAtendimento.minutosPausados} min.`);
     await carregarRegistrosModoCampoLeve();
     atualizarAbaMinhasAtividadesCampo(false);
     alert(`▶️ Atividade retomada com sucesso!\nTempo desta pausa: ${minutosDestaPausa} min (Total acumulado: ${dadosAtendimento.minutosPausados} min).`);
@@ -1253,6 +1593,7 @@ function restaurarRascunhoCampo() {
                 atualizarProjetosPermitidosCampo(equipeAutenticadaSessao);
                 atualizarBarraSegurancaPinCampo();
                 atualizarBarraExpedienteCampo();
+                renderizarResumoSolicitacoesCampo();
             }
             return;
         }
@@ -1267,6 +1608,7 @@ function restaurarRascunhoCampo() {
             atualizarProjetosPermitidosCampo(r.equipe, r.projeto);
             atualizarBarraSegurancaPinCampo();
             atualizarBarraExpedienteCampo();
+            renderizarResumoSolicitacoesCampo();
         }
         if (r && r.imovel) document.getElementById('inp-imovel').value = r.imovel;
 
@@ -1356,6 +1698,7 @@ function aoSelecionarEquipeCampo() {
         verificarImprevistoAtivoEquipeCampo();
         verificarPendenciasReabertasEProgramadasCampo(false);
         atualizarAbaMinhasAtividadesCampo(false);
+        renderizarResumoSolicitacoesCampo();
         return;
     }
 
@@ -1379,6 +1722,7 @@ function aoSelecionarEquipeCampo() {
             verificarImprevistoAtivoEquipeCampo();
             verificarPendenciasReabertasEProgramadasCampo(false);
             atualizarAbaMinhasAtividadesCampo(false);
+            renderizarResumoSolicitacoesCampo();
             return;
         }
 
@@ -1394,6 +1738,7 @@ function aoSelecionarEquipeCampo() {
     verificarImprevistoAtivoEquipeCampo();
     verificarPendenciasReabertasEProgramadasCampo(true);
     atualizarAbaMinhasAtividadesCampo(false);
+    renderizarResumoSolicitacoesCampo();
 }
 
 function desbloquearTrocaEquipeCampo() {
@@ -1420,6 +1765,7 @@ function desbloquearTrocaEquipeCampo() {
     verificarImprevistoAtivoEquipeCampo();
     verificarPendenciasReabertasEProgramadasCampo(false);
     atualizarAbaMinhasAtividadesCampo(false);
+    renderizarResumoSolicitacoesCampo();
 }
 
 async function alterarPinPeloTecnicoCampo() {
@@ -1454,7 +1800,6 @@ async function alterarPinPeloTecnicoCampo() {
     }
 
     eqObj.pin = novoPinLimpo;
-    registrarLogAuditoria("ALTERAÇÃO DE PIN (CAMPO)", `O técnico ${eqObj.nome} alterou seu próprio PIN de acesso no Modo Campo.`);
     await sincronizarEquipesNaNuvem();
     if (typeof renderizarTabelaEquipes === "function") renderizarTabelaEquipes();
     alert("✅ Seu novo PIN de 4 dígitos foi salvo e sincronizado na nuvem com sucesso!");
@@ -1566,7 +1911,7 @@ function verificarPendenciasReabertasEProgramadasCampo(permitirSom = true) {
     atualizarAbaMinhasAtividadesCampo(false);
 }
 
-function retomarAtividadeReabertaCampo(idReg) {
+async function retomarAtividadeReabertaCampo(idReg) {
     const r = (registrosSalvos || []).find(item => item.id === idReg);
     if (!r) return;
 
@@ -1584,6 +1929,11 @@ function retomarAtividadeReabertaCampo(idReg) {
     dadosAtendimento.minutosPausados = Number(r.tempoPausadoMinutos) || 0;
     dadosAtendimento.hEntrada = r.hEntrada || new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
     dadosAtendimento.gpsEntrada = r.gpsEntrada || "Mantido da abertura";
+
+    let fotosRecuperadas = Array.isArray(r.fotos) ? [...r.fotos] : [];
+    if (fotosRecuperadas.length === 0 && typeof obterFotosSobDemandaDoRegistro === 'function') {
+        fotosRecuperadas = await obterFotosSobDemandaDoRegistro(r.id);
+    }
 
     const blocoRecuperado = {
         identificacao: "BLOCO 1",
@@ -1607,7 +1957,7 @@ function retomarAtividadeReabertaCampo(idReg) {
         obsMalograda: r.motivoDesfecho || "",
         malogros: Array.isArray(r.malogros) ? r.malogros : [],
         observacoes: r.observacoes || "",
-        fotos: Array.isArray(r.fotos) ? [...r.fotos] : []
+        fotos: fotosRecuperadas
     };
 
     dadosAtendimento.blocos = [blocoRecuperado];
@@ -1782,11 +2132,17 @@ async function resolverImprevistoPorId(idImp, chamadoPeloGestor = true) {
         return;
     }
 
-    registrarLogAuditoria("IMPREVISTO RESOLVIDO", `Imprevisto da equipe ${reg?.equipe || ''} encerrado às ${horaFim}. Técnico novamente disponível.`);
-    await carregarRegistrosModoCampoLeve();
+    if (reg) {
+        reg.desfecho = "IMPREVISTO RESOLVIDO";
+        reg.hSaida = horaFim;
+    }
+
     if (chamadoPeloGestor) {
+        registrarLogAuditoria("IMPREVISTO RESOLVIDO (GESTOR)", `Imprevisto da equipe ${reg?.equipe || ''} encerrado pelo gestor às ${horaFim}.`);
         if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
         alert("✅ Imprevisto marcado como RESOLVIDO! O técnico voltou a ficar disponível.");
+    } else {
+        await carregarRegistrosModoCampoLeve();
     }
 }
 
@@ -2238,7 +2594,6 @@ async function enviarImprevisto() {
         return;
     }
 
-    registrarLogAuditoria("IMPREVISTO REPORTADO", `Equipe: ${equipe} | Motivo(s): ${motivoStr} | Status: INDISPONÍVEL`);
     alert("⚠️ Imprevisto registrado! Assim que você iniciar qualquer atividade em campo (ou clicar no botão verde 'Resolver Imprevisto'), ele será finalizado automaticamente.");
     fecharModalImprevisto();
     await carregarRegistrosModoCampoLeve();
@@ -2287,6 +2642,7 @@ function resetarFormularioCampo() {
         atualizarProjetosPermitidosCampo(equipeAtual);
         atualizarBarraSegurancaPinCampo();
         atualizarBarraExpedienteCampo();
+        renderizarResumoSolicitacoesCampo();
     }
 }
 
@@ -2371,7 +2727,6 @@ async function salvarRegistro() {
     const dataLocalCorreta = obterDataLocalISO();
     const horaEntradaOriginal = document.getElementById('lbl-h-entrada').innerText || "08:30";
     const horaSaidaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-    const foiReaberta = dadosAtendimento.eraReaberta;
     const minutosPausaTotal = Number(dadosAtendimento.minutosPausados) || 0;
 
     const listaRegistrosParaInserir = dadosAtendimento.blocos.map((b, idx) => {
@@ -2485,9 +2840,6 @@ async function salvarRegistro() {
         blocosDetalhados: blocosParaWhats
     });
 
-    const tipoAcaoAudit = foiReaberta ? "ATIVIDADE REABERTA FINALIZADA" : "INSERÇÃO DE REGISTRO";
-    const detalheAudit = `Equipe: ${equipeNome} | Imóvel: ${imovelBase} (${qtdBlocos} bloco(s)) | Liberou: ${liberouAcessoGeral} | Fotos: ${todasFotos.length}`;
-
     try {
         if (!navigator.onLine) {
             throw new Error("Sem conexão 4G no momento");
@@ -2506,7 +2858,6 @@ async function salvarRegistro() {
         ultimoResumoCampoTexto = resumoMontado;
         document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
 
-        registrarLogAuditoria(tipoAcaoAudit, detalheAudit);
         alert(`✅ Atendimento finalizado (${qtdBlocos} bloco(s) e ${todasFotos.length} foto(s)) e sincronizado com sucesso!`);
         resetarFormularioCampo();
         await carregarRegistrosModoCampoLeve();
@@ -2518,7 +2869,7 @@ async function salvarRegistro() {
             btnSalvar.innerText = "💾 Finalizar e Salvar Atendimento";
         }
 
-        salvarNaFilaOfflineCampo(listaRegistrosParaInserir, resumoMontado, tipoAcaoAudit, detalheAudit);
+        salvarNaFilaOfflineCampo(listaRegistrosParaInserir, resumoMontado);
         ultimoResumoCampoTexto = resumoMontado;
         document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
 
