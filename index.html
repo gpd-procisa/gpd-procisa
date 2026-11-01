@@ -140,7 +140,13 @@
                             📡 Disponibilidade (<span id="badge-aba-indisp" class="text-red-600 font-black">0 indisp.</span>)
                         </button>
                         <button onclick="mudarSubAbaGestor('mapa')" id="subtab-btn-mapa" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            🗺️ Mapa em Tempo Real (<span id="badge-aba-mapa" class="text-emerald-600 font-black">0 no mapa</span>)
+                            🗺️ Mapa (<span id="badge-aba-mapa" class="text-emerald-600 font-black">0 no mapa</span>)
+                        </button>
+                        <button onclick="mudarSubAbaGestor('combustivel')" id="subtab-btn-combustivel" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1" title="Solicitações de Recarga de Combustível Extra enviadas pelos técnicos (Exclusão automática 48h após tratativa)">
+                            ⛽ Combustível (<span id="badge-aba-combustivel" class="text-orange-600 font-black">0 pend.</span>)
+                        </button>
+                        <button onclick="mudarSubAbaGestor('solicitacao_material')" id="subtab-btn-solicitacao_material" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1" title="Solicitações de Reposição de Material enviadas pelos técnicos (Exclusão automática 48h após tratativa)">
+                            🧰 Solic. Material (<span id="badge-aba-solic-material" class="text-indigo-600 font-black">0 pend.</span>)
                         </button>
                         <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
                             📊 Gráficos & Indicadores
@@ -149,7 +155,7 @@
                             ⚠️ Imprevistos (<span id="badge-aba-imprevistos">0</span>)
                         </button>
                         <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            📦 Materiais
+                            📦 Consumo Materiais
                         </button>
                         <button onclick="mudarSubAbaGestor('financeiro')" id="subtab-btn-financeiro" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
                             💰 Medição Financeira
@@ -230,6 +236,67 @@
                             </tr>
                         </thead>
                         <tbody id="tabela-gestor-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- NOVA SUB-ABA: SOLICITAÇÕES DE RECARGA DE COMBUSTÍVEL EXTRA -->
+            <div id="subview-combustivel" class="bg-white rounded-xl shadow-sm border-2 border-orange-200 overflow-hidden hidden">
+                <div class="p-4 bg-orange-50/70 border-b border-orange-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                        <h3 class="font-black text-orange-950 text-sm uppercase flex items-center gap-1.5">
+                            ⛽ Gestão de Solicitações de Recarga de Combustível Extra
+                        </h3>
+                        <p class="text-[11px] text-orange-800 mt-0.5">
+                            Acompanhamento de Placa, KM Atual, Motivo e Fotos (Painel do Carro, Mapa de Bordo e Cartão). <b>🧹 Auto-limpeza:</b> Registros e fotos marcados como tratados são excluídos automaticamente da nuvem após <b>48 horas</b>.
+                        </p>
+                    </div>
+                    <span class="text-xs font-black bg-orange-200 text-orange-950 px-3 py-1 rounded-lg whitespace-nowrap" id="contador-solic-combustivel">0 solicitações</span>
+                </div>
+                <div class="overflow-x-auto max-h-[65vh]">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b">
+                                <th class="p-2.5">Data / Hora</th>
+                                <th class="p-2.5">Técnico / Equipe</th>
+                                <th class="p-2.5">Placa & KM Atual</th>
+                                <th class="p-2.5">Motivo Informado</th>
+                                <th class="p-2.5">Fotos Obrigatórias / Opcional</th>
+                                <th class="p-2.5">Status / Tratado Por & Data/Hora</th>
+                                <th class="p-2.5">Ações (Master / Operador)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-solic-combustivel-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- NOVA SUB-ABA: SOLICITAÇÕES DE MATERIAL -->
+            <div id="subview-solicitacao_material" class="bg-white rounded-xl shadow-sm border-2 border-indigo-200 overflow-hidden hidden">
+                <div class="p-4 bg-indigo-50/70 border-b border-indigo-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                        <h3 class="font-black text-indigo-950 text-sm uppercase flex items-center gap-1.5">
+                            🧰 Gestão de Solicitações de Material de Campo
+                        </h3>
+                        <p class="text-[11px] text-indigo-800 mt-0.5">
+                            Pedidos quantificados pelos técnicos. <b>🧹 Auto-limpeza:</b> Solicitações marcadas como tratadas são excluídas automaticamente da nuvem após <b>48 horas</b> para não ocupar espaço.
+                        </p>
+                    </div>
+                    <span class="text-xs font-black bg-indigo-200 text-indigo-950 px-3 py-1 rounded-lg whitespace-nowrap" id="contador-solic-material">0 solicitações</span>
+                </div>
+                <div class="overflow-x-auto max-h-[65vh]">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b">
+                                <th class="p-2.5">Data / Hora</th>
+                                <th class="p-2.5">Técnico / Equipe</th>
+                                <th class="p-2.5">Itens e Quantidades Solicitadas</th>
+                                <th class="p-2.5">Observações do Técnico</th>
+                                <th class="p-2.5">Status / Tratado Por & Data/Hora</th>
+                                <th class="p-2.5">Ações (Master / Operador)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-solic-material-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
                     </table>
                 </div>
             </div>
@@ -428,7 +495,6 @@
 
                     <div class="p-5 space-y-6">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <!-- Card Vistoriadores -->
                             <div class="bg-purple-50/70 border-2 border-purple-200 p-4 rounded-xl space-y-2">
                                 <div class="flex justify-between items-center border-b border-purple-200 pb-2">
                                     <span class="font-black text-purple-950 text-xs uppercase flex items-center gap-1.5">🔍 Grupo: VISTORIADOR</span>
@@ -451,7 +517,6 @@
                                 <p class="text-[10px] text-purple-800 font-semibold pt-1">Atuação: <b>VISTORIA</b></p>
                             </div>
 
-                            <!-- Card Instaladores -->
                             <div class="bg-blue-50/70 border-2 border-blue-200 p-4 rounded-xl space-y-2">
                                 <div class="flex justify-between items-center border-b border-blue-200 pb-2">
                                     <span class="font-black text-blue-950 text-xs uppercase flex items-center gap-1.5">🛠️ Grupo: INSTALADOR</span>
@@ -474,7 +539,6 @@
                                 <p class="text-[10px] text-blue-900 font-semibold pt-1">Atuação: <b>CONSTRUÇÃO MDU</b></p>
                             </div>
 
-                            <!-- Card Ativadores -->
                             <div class="bg-emerald-50/70 border-2 border-emerald-200 p-4 rounded-xl space-y-2">
                                 <div class="flex justify-between items-center border-b border-emerald-200 pb-2">
                                     <span class="font-black text-emerald-950 text-xs uppercase flex items-center gap-1.5">⚡ Grupo: ATIVADOR</span>
@@ -498,7 +562,6 @@
                             </div>
                         </div>
 
-                        <!-- Gráfico 1: Principal Executores -->
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
                                 <div>
@@ -558,7 +621,6 @@
 
                     <div class="p-5 space-y-6">
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <!-- Gráfico 2: Grupo 1 -->
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
                                 <div class="flex justify-between items-start mb-2 gap-2">
                                     <div>
@@ -575,7 +637,6 @@
                                 <div class="relative h-72"><canvas id="graficoGrupoMalling"></canvas></div>
                             </div>
 
-                            <!-- Gráfico 3: Grupo 2 -->
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
                                 <div class="flex justify-between items-start mb-2 gap-2">
                                     <div>
@@ -593,7 +654,6 @@
                             </div>
                         </div>
 
-                        <!-- Gráfico 4: Curva de Evolução Diária -->
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                             <div class="flex justify-between items-start mb-3 gap-2">
                                 <div>
@@ -806,7 +866,7 @@
             <!-- Sub-Aba: Materiais -->
             <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
                 <div class="flex justify-between items-center border-b pb-3">
-                    <h3 class="font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais & Caixas Utilizados</h3>
+                    <h3 class="font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais & Caixas Utilizados em Obras</h3>
                     <span class="text-xs font-normal text-slate-500" id="contador-materiais">0 registros</span>
                 </div>
 
@@ -931,21 +991,20 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Opções (COM GESTÃO EDITÁVEL DE GRUPOS E PROJETOS + MONITOR DE CAPACIDADE) -->
+            <!-- Sub-Aba: Opções (COM GESTÃO DE COMBUSTÍVEL E CATÁLOGO DE SOLICITAÇÃO DE MATERIAL) -->
             <div id="subview-opcoes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-5 hidden">
                 <div class="border-b pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
-                        <h3 class="font-bold text-slate-800 text-sm">⚙️ Gestão de Opções, Projetos, Grupos e Capacidade da Nuvem</h3>
+                        <h3 class="font-bold text-slate-800 text-sm">⚙️ Gestão de Opções, Projetos, Grupos, Combustível, Materiais e Capacidade da Nuvem</h3>
                         <p class="text-[11px] text-emerald-700 font-medium">☁️ Todas as inclusões, edições e exclusões feitas aqui sincronizam em tempo real para todos os técnicos e gestores.</p>
                     </div>
                 </div>
 
-                <!-- ITEM 04: Painel de Capacidade Livre / Ocupada do Banco na Nuvem (500 MB) -->
+                <!-- Painel de Capacidade Livre / Ocupada do Banco na Nuvem (500 MB) -->
                 <div id="painel-capacidade-opcoes" class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 space-y-2.5"></div>
 
-                <!-- ITEM 01: Gestão Editável de Grupos de Projeto e Tipos de Projetos / Serviços -->
+                <!-- Gestão Editável de Grupos de Projeto e Tipos de Projetos / Serviços -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <!-- Coluna 1: Grupos de Projeto (Macrogrupos) -->
                     <div class="border-2 border-indigo-200 rounded-xl overflow-hidden flex flex-col">
                         <div class="bg-indigo-50 p-3 border-b border-indigo-200 flex justify-between items-center">
                             <div>
@@ -957,7 +1016,6 @@
                         <div id="lista-gestao-grupos-projeto" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-80 overflow-y-auto"></div>
                     </div>
 
-                    <!-- Coluna 2 e 3: Tipos de Projetos / Serviços (Vinculados a Grupo e Setor) -->
                     <div class="lg:col-span-2 border-2 border-cyan-200 rounded-xl overflow-hidden flex flex-col">
                         <div class="bg-cyan-50 p-3 border-b border-cyan-200 flex flex-wrap justify-between items-center gap-2">
                             <div>
@@ -967,6 +1025,31 @@
                             <button onclick="adicionarNovoProjetoSistema()" title="Cadastrar um novo Tipo de Projeto/Serviço e definir seu Grupo e Setor" class="bg-cyan-700 hover:bg-cyan-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm">+ Novo Projeto / Serviço</button>
                         </div>
                         <div id="lista-gestao-projetos-sistema" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-80 overflow-y-auto"></div>
+                    </div>
+                </div>
+
+                <!-- NOVO BLOCO: GESTÃO DE OPÇÕES DE SOLICITAÇÃO DE COMBUSTÍVEL E CATÁLOGO DE SOLICITAÇÃO DE MATERIAL -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                    <div class="border-2 border-orange-200 rounded-xl overflow-hidden flex flex-col">
+                        <div class="bg-orange-50 p-3 border-b border-orange-200 flex justify-between items-center">
+                            <div>
+                                <span class="font-black text-orange-950 text-xs block">⛽ Opções / Motivos de Solicitação de Combustível</span>
+                                <span class="text-[10px] text-orange-800">Sugestões de motivo exibidas ao técnico na recarga</span>
+                            </div>
+                            <button onclick="adicionarNovaOpcaoSistema('combustivel')" title="Adicionar nova opção de motivo para solicitação de combustível" class="bg-orange-600 hover:bg-orange-700 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm">+ Nova Opção</button>
+                        </div>
+                        <div id="lista-gestao-combustivel" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-72 overflow-y-auto"></div>
+                    </div>
+
+                    <div class="border-2 border-indigo-200 rounded-xl overflow-hidden flex flex-col">
+                        <div class="bg-indigo-50 p-3 border-b border-indigo-200 flex justify-between items-center">
+                            <div>
+                                <span class="font-black text-indigo-950 text-xs block">🧰 Catálogo de Materiais para Solicitação em Campo</span>
+                                <span class="text-[10px] text-indigo-800">Itens que o técnico pode quantificar e pedir pelo celular</span>
+                            </div>
+                            <button onclick="adicionarNovaOpcaoSistema('material_solic')" title="Incluir novo item de material para os técnicos solicitarem no Modo Campo" class="bg-indigo-700 hover:bg-indigo-800 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm">+ Novo Material</button>
+                        </div>
+                        <div id="lista-gestao-material-solic" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-72 overflow-y-auto"></div>
                     </div>
                 </div>
 
@@ -1048,14 +1131,17 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Auditoria (COM MONITOR DE CAPACIDADE DA NUVEM NO TOPO) -->
+            <!-- Sub-Aba: Auditoria (EXCLUSIVA PARA AÇÕES REALIZADAS NO MODO GESTÃO) -->
             <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
-                    <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria, Monitor de Armazenamento e Logs</h3>
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria Exclusiva da Gestão e Monitor de Armazenamento</h3>
+                        <p class="text-[11px] text-slate-500">Registra exclusivamente as ações administrativas realizadas por usuários autenticados no Modo Gestão</p>
+                    </div>
                     <button onclick="limparLogsAuditoria()" title="Limpar o histórico de logs de auditoria" class="bg-red-50 text-red-600 hover:bg-red-100 text-xs px-3 py-1.5 rounded-lg font-medium" id="btn-limpar-logs">Limpar Logs</button>
                 </div>
 
-                <!-- ITEM 04: Painel de Capacidade Livre / Ocupada na Aba Auditoria -->
+                <!-- Painel de Capacidade Livre / Ocupada na Aba Auditoria -->
                 <div id="painel-capacidade-auditoria" class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 space-y-2.5"></div>
 
                 <div class="overflow-x-auto">
@@ -1063,8 +1149,8 @@
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
                                 <th class="p-3">Data / Hora</th>
-                                <th class="p-3">Usuário / Responsável</th>
-                                <th class="p-3">Ação Realizada</th>
+                                <th class="p-3">Gestor / Operador Responsável</th>
+                                <th class="p-3">Ação Realizada no Modo Gestão</th>
                                 <th class="p-3">Detalhes</th>
                             </tr>
                         </thead>
@@ -1087,6 +1173,24 @@
                         <p class="text-[10px] text-blue-900 font-bold">Construção MDU - PROCISA RJ</p>
                     </div>
                     <span class="text-[11px] bg-blue-50 text-blue-900 px-2.5 py-1 rounded-lg font-bold" id="current-user-team">Selecione Equipe</span>
+                </div>
+
+                <!-- ITEM 01 e 04: BOTÕES DE SOLICITAÇÃO DE COMBUSTÍVEL E MATERIAL (ACIONÁVEIS A QUALQUER MOMENTO COM OU SEM ROTA) -->
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] font-black text-slate-600 uppercase">⚡ Solicitações Rápidas à Gestão (24h):</span>
+                        <span class="text-[9px] text-slate-400">Exclusão auto. 48h após tratada</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="abrirModalSolicitacaoCombustivelCampo()" title="Solicitar recarga de combustível extra a qualquer momento (com ou sem início de rota)" class="bg-orange-600 hover:bg-orange-700 text-white font-black py-2.5 px-2 rounded-xl text-[11px] transition shadow-sm flex items-center justify-center gap-1">
+                            ⛽ Solicitar Combustível
+                        </button>
+                        <button type="button" onclick="abrirModalSolicitacaoMaterialCampo()" title="Solicitar reposição de materiais a qualquer momento (com ou sem início de rota)" class="bg-indigo-700 hover:bg-indigo-800 text-white font-black py-2.5 px-2 rounded-xl text-[11px] transition shadow-sm flex items-center justify-center gap-1">
+                            🧰 Solicitar Material
+                        </button>
+                    </div>
+                    <!-- Resumo de solicitações recentes do técnico (Mostra se foi tratada e por quem) -->
+                    <div id="box-status-solicitacoes-campo" class="space-y-1 pt-1 hidden"></div>
                 </div>
 
                 <!-- Navegação de Sub-Abas do Técnico no Modo Campo -->
@@ -1306,6 +1410,134 @@
 
     <!-- ================= MODAIS DO SISTEMA ================= -->
 
+    <!-- ITEM 02: MODAL DE SOLICITAÇÃO DE RECARGA DE COMBUSTÍVEL EXTRA -->
+    <div id="modal-solic-combustivel" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[76]">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
+            <div class="bg-orange-600 text-white p-4 flex justify-between items-center">
+                <div>
+                    <span class="bg-white text-orange-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Frota • Campo</span>
+                    <h3 class="font-bold text-sm mt-0.5">⛽ Solicitação de Recarga de Combustível Extra</h3>
+                </div>
+                <button onclick="fecharModalSolicitacaoCombustivelCampo()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
+                <div class="bg-orange-50 p-2.5 rounded-xl border border-orange-200 text-[11px] text-orange-950">
+                    👷 <b>Técnico:</b> <span id="lbl-tec-solic-comb" class="font-black">-</span>
+                </div>
+
+                <!-- Campos Obrigatórios: Placa e KM Atual -->
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-black text-slate-800 mb-1">🚗 Placa do Veículo <span class="text-red-600">* (Obrig.)</span></label>
+                        <input type="text" id="inp-comb-placa" placeholder="Ex: RJA-4B21" class="w-full border-2 border-orange-300 rounded-xl p-2 uppercase font-black text-slate-900 outline-none focus:border-orange-600">
+                    </div>
+                    <div>
+                        <label class="block font-black text-slate-800 mb-1">🔢 KM Atual <span class="text-red-600">* (Obrig.)</span></label>
+                        <input type="number" id="inp-comb-km" placeholder="Ex: 58420" class="w-full border-2 border-orange-300 rounded-xl p-2 font-black text-slate-900 outline-none focus:border-orange-600">
+                    </div>
+                </div>
+
+                <!-- Campo Não Obrigatório: Motivo -->
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">💬 Motivo da Solicitação (Opcional):</label>
+                    <select id="sel-comb-motivo-sugerido" onchange="aoSelecionarMotivoSugeridoCombustivel(this.value)" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50 mb-1.5 text-[11px] font-semibold text-slate-700">
+                        <option value="">Selecione um motivo rápido ou digite abaixo...</option>
+                    </select>
+                    <input type="text" id="inp-comb-motivo" placeholder="Descreva o motivo se desejar (não obrigatório)..." class="w-full border border-slate-300 rounded-lg p-2 outline-none">
+                </div>
+
+                <!-- Espaços Pré-Definidos para Fotos (2 Obrigatórias + 1 Não Obrigatória) -->
+                <div class="space-y-2.5 pt-2 border-t border-slate-200">
+                    <h4 class="font-black text-slate-800 uppercase text-[11px]">📷 Fotos Comprobatórias</h4>
+
+                    <!-- Foto 1 Obrigatória: Painel do Carro -->
+                    <div class="bg-red-50/60 p-2.5 rounded-xl border border-red-200 flex items-center justify-between gap-2">
+                        <div>
+                            <span class="font-black text-red-950 text-[11px] block">1. Foto: Painel do Carro <span class="text-red-600">* (Obrigatória)</span></span>
+                            <span class="text-[10px] text-slate-500" id="status-foto-comb-painel">Nenhuma foto anexada</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <img id="prev-foto-comb-painel" src="" class="w-10 h-10 object-cover rounded border border-red-300 hidden">
+                            <label class="bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg cursor-pointer shadow-sm whitespace-nowrap">
+                                📷 Fotografar
+                                <input type="file" accept="image/*" capture="environment" onchange="processarFotoSlotCombustivel('painel', this)" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Foto 2 Obrigatória: Mapa de Bordo -->
+                    <div class="bg-red-50/60 p-2.5 rounded-xl border border-red-200 flex items-center justify-between gap-2">
+                        <div>
+                            <span class="font-black text-red-950 text-[11px] block">2. Foto: Mapa de Bordo <span class="text-red-600">* (Obrigatória)</span></span>
+                            <span class="text-[10px] text-slate-500" id="status-foto-comb-mapa">Nenhuma foto anexada</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <img id="prev-foto-comb-mapa" src="" class="w-10 h-10 object-cover rounded border border-red-300 hidden">
+                            <label class="bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg cursor-pointer shadow-sm whitespace-nowrap">
+                                📷 Fotografar
+                                <input type="file" accept="image/*" capture="environment" onchange="processarFotoSlotCombustivel('mapa', this)" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Foto 3 Opcional: Cartão de Combustível -->
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+                        <div>
+                            <span class="font-bold text-slate-800 text-[11px] block">3. Foto: Cartão de Combustível <span class="text-slate-400">(Opcional)</span></span>
+                            <span class="text-[10px] text-slate-500" id="status-foto-comb-cartao">Opcional</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <img id="prev-foto-comb-cartao" src="" class="w-10 h-10 object-cover rounded border border-slate-300 hidden">
+                            <label class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg cursor-pointer shadow-sm whitespace-nowrap">
+                                📷 Anexar
+                                <input type="file" accept="image/*" onchange="processarFotoSlotCombustivel('cartao', this)" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-slate-100 p-3 border-t flex justify-end gap-2">
+                <button type="button" onclick="fecharModalSolicitacaoCombustivelCampo()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-xl font-bold">Cancelar</button>
+                <button type="button" onclick="enviarSolicitacaoCombustivelCampo()" id="btn-enviar-solic-comb" class="bg-orange-600 hover:bg-orange-700 text-white text-xs px-4 py-2 rounded-xl font-black shadow-md">
+                    🚀 Enviar Solicitação de Recarga
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ITEM 02: MODAL DE SOLICITAÇÃO DE MATERIAL EM CAMPO -->
+    <div id="modal-solic-material" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[76]">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
+            <div class="bg-indigo-800 text-white p-4 flex justify-between items-center">
+                <div>
+                    <span class="bg-cyan-400 text-indigo-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Almoxarifado • Campo</span>
+                    <h3 class="font-bold text-sm mt-0.5">🧰 Solicitação de Material</h3>
+                </div>
+                <button onclick="fecharModalSolicitacaoMaterialCampo()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
+                <div class="bg-indigo-50 p-2.5 rounded-xl border border-indigo-200 text-[11px] text-indigo-950 flex justify-between items-center">
+                    <span>👷 <b>Técnico:</b> <b id="lbl-tec-solic-mat">-</b></span>
+                    <span class="text-[10px] text-indigo-700">Informe a qtd. ao lado de cada item</span>
+                </div>
+
+                <!-- Lista Dinâmica de Materiais para Quantificar -->
+                <div id="lista-itens-solic-material-campo" class="space-y-1.5 max-h-64 overflow-y-auto pr-1 divide-y divide-slate-100 border border-slate-200 rounded-xl p-2.5 bg-slate-50"></div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">📝 Observações / Urgência (Opcional):</label>
+                    <input type="text" id="inp-obs-solic-material" placeholder="Ex: Material para obra de amanhã, buscar na base..." class="w-full border border-slate-300 rounded-lg p-2 outline-none">
+                </div>
+            </div>
+            <div class="bg-slate-100 p-3 border-t flex justify-end gap-2">
+                <button type="button" onclick="fecharModalSolicitacaoMaterialCampo()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-xl font-bold">Cancelar</button>
+                <button type="button" onclick="enviarSolicitacaoMaterialCampo()" id="btn-enviar-solic-mat" class="bg-indigo-800 hover:bg-indigo-900 text-white text-xs px-4 py-2 rounded-xl font-black shadow-md">
+                    🚀 Enviar Pedido de Material
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE TRANSFERÊNCIA / MOVIMENTAÇÃO DE ATIVIDADE ENTRE TÉCNICOS -->
     <div id="modal-transferir-atividade" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[72]">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
@@ -1468,7 +1700,6 @@
             <div class="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs text-slate-700">
                 <input type="hidden" id="edit-reg-id">
 
-                <!-- 1. Identificação, Data, Equipe, Projeto e Desfecho -->
                 <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
                     <h4 class="font-black text-blue-950 uppercase text-[11px] border-b border-slate-200 pb-1">1. Identificação, Equipe e Status Principal</h4>
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -1530,7 +1761,6 @@
                     </div>
                 </div>
 
-                <!-- 2. Horários, Pausas, GPS e Dados do Edifício -->
                 <div class="bg-blue-50/50 p-3.5 rounded-xl border border-blue-200 space-y-3">
                     <h4 class="font-black text-blue-950 uppercase text-[11px] border-b border-blue-200 pb-1">2. Horários, Pausas, GPS e Estrutura do Imóvel</h4>
                     <div class="grid grid-cols-2 sm:grid-cols-6 gap-2">
@@ -1578,7 +1808,6 @@
                     </div>
                 </div>
 
-                <!-- 3. Checkboxes Dinâmicos -->
                 <div class="bg-amber-50/60 p-3.5 rounded-xl border-2 border-amber-300 space-y-2.5">
                     <div class="flex flex-wrap justify-between items-center gap-2 border-b border-amber-200 pb-1.5">
                         <h4 class="font-black text-amber-950 uppercase text-[11px]" id="lbl-titulo-opcoes-modal-edicao">
@@ -1605,7 +1834,6 @@
                     </div>
                 </div>
 
-                <!-- 4. Materiais e Caixas -->
                 <div class="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-200 space-y-2">
                     <h4 class="font-black text-emerald-950 uppercase text-[11px] border-b border-emerald-200 pb-1">4. Materiais e Caixas Utilizados</h4>
                     <div class="grid grid-cols-3 sm:grid-cols-9 gap-2">
@@ -1621,7 +1849,6 @@
                     </div>
                 </div>
 
-                <!-- 5. Gestão de Fotos no Modal de Edição -->
                 <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
                     <div class="flex justify-between items-center">
                         <h4 class="font-black text-slate-800 uppercase text-[11px]">📷 5. Fotos Anexadas (<span id="lbl-qtd-fotos-edicao">0</span>/10)</h4>
@@ -1692,7 +1919,7 @@
     </div>
 
     <!-- MODAL DE ZOOM DE FOTO -->
-    <div id="modal-zoom-foto" class="fixed inset-0 bg-black/85 backdrop-blur-sm flex flex-col justify-center items-center p-4 hidden z-[75]">
+    <div id="modal-zoom-foto" class="fixed inset-0 bg-black/85 backdrop-blur-sm flex flex-col justify-center items-center p-4 hidden z-[85]">
         <div class="w-full max-w-3xl flex justify-between items-center text-white mb-3 px-2">
             <span class="font-bold text-sm" id="lbl-titulo-zoom-foto">📷 Visualização da Foto</span>
             <div class="flex items-center gap-2">
