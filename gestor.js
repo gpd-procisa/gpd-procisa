@@ -1,16 +1,727 @@
-// ================= VARIÁVEIS GLOBAIS DO MAPA DE RASTREAMENTO (LEAFLET) E EDIÇÃO =================
+// ================= VARIÁVEIS GLOBAIS DO MAPA, EDIÇÃO, FILTROS MÚLTIPLOS E BACKUP =================
 let mapaRastreioInstancia = null;
 let camadaMarcadoresRastreio = null;
 let coordenadasPinosAtuais = [];
 let fotosEdicaoTemporarias = [];
 let opcoesMarcadasEdicaoTemporarias = [];
 
+const ID_NUVEM_AUDITORIA = 999999005;
+let modoConsultaBackupAtivo = false;
+let cacheRegistrosNuvemOriginal = null;
+
+let filtrosMultiplosAtivos = {
+    equipes: [],
+    setores: [],
+    macrogrupos: [],
+    projetos: [],
+    desfechos: []
+};
+
+// ================= SINCRONIZAÇÃO DE AUDITORIA NA NUVEM E TOOLTIPS =================
+
+async function sincronizarAuditoriaNaNuvem() {
+    try {
+        if (trilhaAuditoria.length > 250) {
+            trilhaAuditoria = trilhaAuditoria.slice(0, 250);
+        }
+        localStorage.setItem('gpd_trilha_auditoria', JSON.stringify(trilhaAuditoria));
+
+        const payloadAudit = {
+            id: ID_NUVEM_AUDITORIA,
+            data_registro: "2000-01-01",
+            equipe: "__CONFIG_SISTEMA__",
+            membros: "__CONFIG_SISTEMA__",
+            projeto: "__CONFIG_AUDITORIA__",
+            imovel: "__CONFIG_AUDITORIA__",
+            h_entrada: "00:00",
+            h_saida: "00:00",
+            gps_entrada: "",
+            gps_saida: "",
+            desfecho: "CONFIG",
+            motivo_desfecho: "",
+            malogros: [],
+            agendamento: null,
+            observacoes: JSON.stringify(trilhaAuditoria)
+        };
+
+        await supabaseClient.from('registros_producao').upsert([payloadAudit], { onConflict: 'id' });
+    } catch (e) {
+        console.warn("Aviso ao sincronizar auditoria na nuvem:", e);
+    }
+}
+
+async function carregarAuditoriaDaNuvem() {
+    try {
+        const { data } = await supabaseClient
+            .from('registros_producao')
+            .select('observacoes')
+            .eq('id', ID_NUVEM_AUDITORIA)
+            .maybeSingle();
+
+        if (data && data.observacoes) {
+            const listaNuvem = JSON.parse(data.observacoes);
+            if (Array.isArray(listaNuvem)) {
+                const mapaLogs = new Map();
+                [...trilhaAuditoria, ...listaNuvem].forEach(item => {
+                    if (item && item.id) mapaLogs.set(item.id, item);
+                });
+                trilhaAuditoria = Array.from(mapaLogs.values()).sort((a, b) => b.id - a.id).slice(0, 250);
+                localStorage.setItem('gpd_trilha_auditoria', JSON.stringify(trilhaAuditoria));
+            }
+        }
+    } catch (e) {
+        console.warn("Aviso ao ler auditoria da nuvem:", e);
+    }
+}
+
+// Sobrescreve registrarLogAuditoria para sincronizar automaticamente na nuvem
+registrarLogAuditoria = function(acao, detalhes) {
+    let userAtivo = usuarioLogado || equipeAutenticadaSessao || "Sistema / Campo";
+    let novoLog = {
+        id: Date.now() + Math.floor(Math.random() * 100),
+        dataHora: new Date().toLocaleString('pt-BR'),
+        usuario: userAtivo,
+        acao: acao,
+        detalhes: detalhes
+    };
+    trilhaAuditoria.unshift(novoLog);
+    sincronizarAuditoriaNaNuvem();
+};
+
+function aplicarTooltipsExplicativosGlobais() {
+    const mapaTooltips = {
+        'btn-modo-campo': 'Alternar para a interface móvel de lançamento de atividades dos técnicos em campo',
+        'btn-modo-gestor': 'Acessar o Painel Gerencial completo com indicadores, mapas e controle operacional',
+        'btn-sair-gestor': 'Encerrar a sessão atual do gestor e bloquear o acesso administrativo',
+        'btn-importar-planilha': 'Importar uma planilha CSV ou colar linhas do Excel para distribuir atividades programadas aos técnicos',
+        'btn-boletim-whats-gestor': 'Copiar um resumo executivo formatado com os números do período filtrado para colar no WhatsApp',
+        'btn-baixar-excel-gestor': 'Baixar planilha Excel (.xls) com todos os detalhes, materiais, tempos e endereços filtrados na tela',
+        'btn-atualizar-registros-gestor': 'Buscar imediatamente na nuvem todas as novas atividades, fotos e posições de GPS das equipes',
+        'subtab-btn-atividades': 'Visualizar e gerir todas as atividades em andamento, programadas, paralisadas e finalizadas',
+        'subtab-btn-disponibilidade': 'Acompanhar quem iniciou o expediente, quem está livre em rota, em atendimento ou com imprevisto',
+        'subtab-btn-mapa': 'Abrir o mapa interativo em tempo real com a localização GPS de todas as equipes ativas hoje',
+        'subtab-btn-graficos': 'Analisar os gráficos executivos, Super Tabela de Executores, TMA líquido e ofensores de malogro',
+        'subtab-btn-imprevistos': 'Consultar e resolver ocorrências de atraso ou problemas operacionais reportados em campo',
+        'subtab-btn-materiais': 'Ver o somatório consolidado e o consumo individual de cabos, conectores, fusões e caixas',
+        'subtab-btn-financeiro': 'Calcular automaticamente a medição financeira com base nos materiais e vistorias realizadas',
+        'subtab-btn-equipes': 'Cadastrar técnicos, definir grupos de atuação (Vistoriador/Instalador/Ativador) e gerir PINs',
+        'subtab-btn-opcoes': 'Personalizar listas de Pendências/Malogros e acessar a Central Master de Backup e Limpeza da Nuvem',
+        'subtab-btn-usuarios': 'Gerir contas de acesso ao painel (Master, Operador e Visualizador) e alterar senhas',
+        'subtab-btn-bonificacao': 'Consultar os indicadores de metas e elegibilidade à bonificação no período',
+        'subtab-btn-auditoria': 'Rastrear o histórico completo de quem criou, editou, transferiu ou excluiu registos no sistema'
+    };
+
+    Object.entries(mapaTooltips).forEach(([id, texto]) => {
+        const el = document.getElementById(id);
+        if (el) el.title = texto;
+    });
+}
+
+// ================= INJEÇÃO DE ELEMENTOS AVANÇADOS (FILTRO MÚLTIPLO, SUPER TABELA, BACKUP E PDF) =================
+
+function inicializarMelhoriasVisuaisGestor() {
+    aplicarTooltipsExplicativosGlobais();
+
+    // 1. Injeta botão de Filtro de Marcação Múltipla na barra de filtros do cabeçalho azul
+    const selDesf = document.getElementById('gestor-filtro-desfecho');
+    if (selDesf && !document.getElementById('btn-abrir-filtro-multiplo')) {
+        const btnMulti = document.createElement('button');
+        btnMulti.type = 'button';
+        btnMulti.id = 'btn-abrir-filtro-multiplo';
+        btnMulti.onclick = abrirModalFiltroMultiplo;
+        btnMulti.title = 'Abrir seletor avançado para marcar simultaneamente várias Equipes, Grupos (Vistoriador/Instalador/Ativador), Projetos e Status';
+        btnMulti.className = 'bg-amber-400 hover:bg-amber-300 text-blue-950 font-black text-[11px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap flex items-center gap-1 shrink-0';
+        btnMulti.innerHTML = `☑️ Filtro Múltiplo <span id="badge-qtd-filtros-multi" class="bg-blue-950 text-cyan-300 px-1.5 py-0.2 rounded text-[9px] hidden">0</span>`;
+        selDesf.parentNode.appendChild(btnMulti);
+    }
+
+    // 2. Oculta os dois botões duplicados na sub-barra de abas quando fora da aba Disponibilidade
+    const subBarra = document.getElementById('header-gestor-subbarra');
+    if (subBarra) {
+        const divBotoesExtras = subBarra.querySelector('.ml-auto');
+        if (divBotoesExtras) {
+            divBotoesExtras.id = 'botoes-atalho-exclusivos-disponibilidade';
+            divBotoesExtras.classList.add('hidden');
+        }
+    }
+
+    // 3. Limpa duplicidades na aba Gráficos & Indicadores e adiciona cabeçalho da Super Tabela + Botão PDF
+    const viewGraficos = document.getElementById('subview-graficos');
+    if (viewGraficos && !document.getElementById('btn-imprimir-relatorio-pdf')) {
+        const barraResumoTopo = viewGraficos.firstElementChild?.firstElementChild;
+        if (barraResumoTopo) {
+            const btnPdf = document.createElement('button');
+            btnPdf.type = 'button';
+            btnPdf.id = 'btn-imprimir-relatorio-pdf';
+            btnPdf.onclick = gerarRelatorioVisualImpressaoPDF;
+            btnPdf.title = 'Gerar uma versão limpa para impressão ou salvar em PDF com todos os gráficos e tabelas do período filtrado';
+            btnPdf.className = 'bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1';
+            btnPdf.innerHTML = '🖨️ Gerar Relatório Visual (PDF)';
+            barraResumoTopo.appendChild(btnPdf);
+        }
+
+        // Atualiza o cabeçalho da Tabela Principal de Executores para a Super Tabela Unificada (12 colunas)
+        const tbodyExec = document.getElementById('tabela-principal-executores-corpo');
+        const theadExec = tbodyExec ? tbodyExec.previousElementSibling : null;
+        if (theadExec) {
+            theadExec.innerHTML = `
+                <tr class="bg-slate-800 text-white uppercase font-bold text-[9px] tracking-wider">
+                    <th class="p-2.5 text-center">#</th>
+                    <th class="p-2.5">Executor / Técnico</th>
+                    <th class="p-2.5">Grupo / Função</th>
+                    <th class="p-2.5 text-center bg-blue-900/40" title="Atividades concluídas no último dia ativo">Prod. Diária</th>
+                    <th class="p-2.5 text-center bg-emerald-900/40" title="Total de atividades concluídas no período filtrado">Consolidado</th>
+                    <th class="p-2.5 text-center" title="Soma de Concluídas + Pendentes + Malogradas">Total Geral</th>
+                    <th class="p-2.5 text-center" title="Quantidade de dias com produção lançada">Dias</th>
+                    <th class="p-2.5 text-center bg-indigo-900 font-black text-cyan-300" title="Média de atividades concluídas por dia trabalhado">Média/Dia</th>
+                    <th class="p-2.5 text-center" title="Horário médio de início e término em campo">Méd. Início / Fim</th>
+                    <th class="p-2.5 text-center text-orange-300" title="Soma de minutos em que a atividade ficou paralisada">Pausas</th>
+                    <th class="p-2.5 text-center text-emerald-300" title="Tempo Médio de Atendimento descontando as pausas">TMA Líquido</th>
+                    <th class="p-2.5 text-right" title="Percentual de conclusão sobre o total acionado">Eficácia</th>
+                </tr>
+            `;
+        }
+
+        // Oculta as tabelas redundantes do final da aba de Gráficos para eliminar informação duplicada
+        const cardRankingAntigo = document.getElementById('tabela-ranking-tecnicos-corpo')?.closest('.bg-white.rounded-xl');
+        if (cardRankingAntigo) cardRankingAntigo.classList.add('hidden');
+
+        const gridTresRankings = document.getElementById('tabela-rank-concluida')?.closest('.grid');
+        if (gridTresRankings) gridTresRankings.classList.add('hidden');
+    }
+
+    // 4. Injeta Modal de Filtro Múltiplo no corpo da página
+    if (!document.getElementById('modal-filtro-multiplo')) {
+        const modalMulti = document.createElement('div');
+        modalMulti.id = 'modal-filtro-multiplo';
+        modalMulti.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[78]';
+        modalMulti.innerHTML = `
+            <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+                <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-amber-400">
+                    <div>
+                        <span class="bg-amber-400 text-blue-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Filtro Avançado Combinado</span>
+                        <h3 class="font-bold text-sm sm:text-base mt-0.5">☑️ Seleção Múltipla de Equipes, Grupos, Projetos e Status</h3>
+                    </div>
+                    <button onclick="fecharModalFiltroMultiplo()" class="text-white font-bold text-lg hover:text-red-300">✕</button>
+                </div>
+                <div class="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs text-slate-700">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                            <div class="font-black text-blue-950 uppercase text-[11px] border-b pb-1">1. Grupos de Atuação (Setor)</div>
+                            <div id="multi-lista-setores" class="space-y-1.5"></div>
+                            <div class="font-black text-indigo-950 uppercase text-[11px] border-b pb-1 pt-2">2. Macrogrupos de Projeto</div>
+                            <div id="multi-lista-macrogrupos" class="space-y-1.5"></div>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                            <div class="font-black text-blue-950 uppercase text-[11px] border-b pb-1">3. Tipos de Serviço / Projetos</div>
+                            <div id="multi-lista-projetos" class="space-y-1.5"></div>
+                            <div class="font-black text-emerald-950 uppercase text-[11px] border-b pb-1 pt-2">4. Status / Desfechos</div>
+                            <div id="multi-lista-desfechos" class="space-y-1.5"></div>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col">
+                            <div class="flex justify-between items-center border-b pb-1 mb-2">
+                                <span class="font-black text-blue-950 uppercase text-[11px]">5. Equipes / Técnicos</span>
+                                <div class="flex gap-1">
+                                    <button type="button" onclick="marcarOuDesmarcarTodasEquipesMulti(true)" class="text-[9px] bg-blue-100 text-blue-900 font-bold px-1.5 py-0.5 rounded">Todos</button>
+                                    <button type="button" onclick="marcarOuDesmarcarTodasEquipesMulti(false)" class="text-[9px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded">Limpar</button>
+                                </div>
+                            </div>
+                            <div id="multi-lista-equipes" class="space-y-1 overflow-y-auto max-h-64 pr-1"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-slate-100 px-5 py-3 border-t flex justify-between items-center">
+                    <button type="button" onclick="limparFiltrosMultiplos()" title="Desmarcar todas as seleções múltiplas e voltar à visão padrão" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs px-4 py-2 rounded-xl font-bold">
+                        🗑️ Limpar Seleção Múltipla
+                    </button>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="fecharModalFiltroMultiplo()" class="bg-slate-300 text-slate-800 text-xs px-4 py-2 rounded-xl font-bold">Cancelar</button>
+                        <button type="button" onclick="aplicarFiltrosMultiplosDoModal()" title="Filtrar imediatamente tabelas, gráficos e relatórios com as opções marcadas" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-5 py-2 rounded-xl font-black shadow-md">
+                            ✅ Aplicar Filtros Selecionados
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modalMulti);
+    }
+
+    // 5. Injeta Central Master de Backup (.JSON) e Limpeza Inteligente na aba Opções
+    const viewOpcoes = document.getElementById('subview-opcoes');
+    if (viewOpcoes && !document.getElementById('central-master-backup-nuvem')) {
+        const divBackup = document.createElement('div');
+        divBackup.id = 'central-master-backup-nuvem';
+        divBackup.className = 'mt-6 pt-5 border-t-2 border-slate-200 space-y-4';
+        divBackup.innerHTML = `
+            <div class="bg-slate-900 text-white p-4 rounded-2xl shadow-md space-y-3">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-700 pb-3">
+                    <div>
+                        <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Exclusivo Master • Proteção de Dados</span>
+                        <h4 class="font-bold text-sm sm:text-base mt-1">💾 Central de Backup Integral (.JSON), Consulta Histórica e Alívio de Nuvem</h4>
+                        <p class="text-[11px] text-slate-300">Faça o download completo com fotos para o seu computador, consulte arquivos antigos sem ocupar o banco ou limpe fotos antigas para evitar pane nos 500 MB do Supabase.</p>
+                    </div>
+                    <span id="badge-estimativa-peso-nuvem" class="bg-slate-800 border border-slate-600 text-cyan-300 font-mono text-xs px-3 py-1.5 rounded-xl whitespace-nowrap">
+                        Calculando uso...
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                    <!-- Bloco 1: Download de Backup -->
+                    <div class="bg-slate-800/90 border border-slate-700 p-3.5 rounded-xl space-y-2.5 flex flex-col justify-between">
+                        <div>
+                            <h5 class="font-black text-cyan-300 text-xs uppercase">1. Exportar Backup Completo (.JSON)</h5>
+                            <p class="text-[11px] text-slate-300 mt-1">Salva num único ficheiro no seu PC 100% dos registos, fotos em alta definição, opções, equipes e trilha de auditoria.</p>
+                            <div class="grid grid-cols-2 gap-1.5 mt-2">
+                                <div>
+                                    <label class="text-[9px] text-slate-400 uppercase font-bold block">De (Opcional):</label>
+                                    <input type="date" id="bkp-data-inicio" class="w-full text-[11px] bg-slate-900 border border-slate-600 rounded p-1 text-white">
+                                </div>
+                                <div>
+                                    <label class="text-[9px] text-slate-400 uppercase font-bold block">Até (Opcional):</label>
+                                    <input type="date" id="bkp-data-fim" class="w-full text-[11px] bg-slate-900 border border-slate-600 rounded p-1 text-white">
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="baixarBackupIntegralJSON()" title="Baixar um ficheiro .JSON completo contendo todos os dados e fotos do período selecionado (ou de todo o banco se deixar as datas em branco)" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 rounded-xl text-xs transition shadow">
+                            📦 Baixar Backup Integral (.JSON)
+                        </button>
+                    </div>
+
+                    <!-- Bloco 2: Restaurar ou Consultar Backup -->
+                    <div class="bg-slate-800/90 border border-slate-700 p-3.5 rounded-xl space-y-2.5 flex flex-col justify-between">
+                        <div>
+                            <h5 class="font-black text-amber-300 text-xs uppercase">2. Carregar / Restaurar Backup (.JSON)</h5>
+                            <p class="text-[11px] text-slate-300 mt-1">Abra um ficheiro de backup antigo no <b>Modo Consulta Temporária</b> (sem gastar espaço na nuvem) ou restaure os dados de volta para o Supabase.</p>
+                            <input type="file" id="inp-upload-backup-json" accept=".json" class="w-full text-[10px] bg-slate-900 border border-slate-600 rounded-lg p-1.5 text-slate-200 mt-2">
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button type="button" onclick="processarArquivoBackupJSON('consulta')" title="Carregar os dados e fotos do ficheiro apenas na sua tela atual para consulta, auditoria e exportação, sem gravar no banco da nuvem" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-2 px-2 rounded-xl text-[11px] transition shadow">
+                                👁️ Modo Consulta
+                            </button>
+                            <button type="button" onclick="processarArquivoBackupJSON('nuvem')" title="Reinserir os registos e fotos deste ficheiro de backup diretamente no banco de dados da nuvem (Supabase)" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black py-2 px-2 rounded-xl text-[11px] transition shadow">
+                                ☁️ Subir p/ Nuvem
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bloco 3: Expurgo Seguro de Fotos / Dados Antigos -->
+                    <div class="bg-slate-800/90 border border-red-900/60 p-3.5 rounded-xl space-y-2.5 flex flex-col justify-between">
+                        <div>
+                            <h5 class="font-black text-red-400 text-xs uppercase">3. Limpeza Inteligente da Nuvem</h5>
+                            <p class="text-[11px] text-slate-300 mt-1">Após baixar o seu backup, limpe as fotos antigas (mantendo todos os números e relatórios financeiros) ou remova registos antigos.</p>
+                            <div class="mt-2">
+                                <label class="text-[9px] text-red-300 uppercase font-bold block">Limpar registos anteriores a:*</label>
+                                <input type="date" id="expurgo-data-limite" class="w-full text-[11px] bg-slate-900 border border-red-700 rounded p-1 text-white">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button type="button" onclick="executarLimpezaInteligenteNuvem('apenas_fotos')" title="Apaga SOMENTE as fotos pesadas anteriores à data escolhida, preservando 100% dos números, materiais, tempos e medição financeira nos gráficos" class="bg-orange-600 hover:bg-orange-500 text-white font-bold py-2 px-2 rounded-xl text-[10px] transition shadow">
+                                🧹 Limpar Só Fotos
+                            </button>
+                            <button type="button" onclick="executarLimpezaInteligenteNuvem('registros_completos')" title="Exclui definitivamente do banco da nuvem os registos anteriores à data escolhida (Certifique-se de ter baixado o Backup .JSON antes!)" class="bg-red-700 hover:bg-red-600 text-white font-bold py-2 px-2 rounded-xl text-[10px] transition shadow">
+                                🗑️ Excluir Antigos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        viewOpcoes.appendChild(divBackup);
+    }
+}
+
+setTimeout(inicializarMelhoriasVisuaisGestor, 350);
+
+// ================= LÓGICA DO MODAL DE FILTROS DE MARCAÇÃO MÚLTIPLA =================
+
+function abrirModalFiltroMultiplo() {
+    inicializarMelhoriasVisuaisGestor();
+    const modal = document.getElementById('modal-filtro-multiplo');
+    if (!modal) return;
+
+    const desenharChecks = (idContainer, opcoes, arraySelecionados, nomeGrupo) => {
+        const el = document.getElementById(idContainer);
+        if (!el) return;
+        el.innerHTML = opcoes.map(op => {
+            const checked = arraySelecionados.includes(op.valor) ? 'checked' : '';
+            return `
+                <label class="flex items-center gap-2 font-semibold text-slate-700 hover:bg-blue-50 p-1 rounded cursor-pointer">
+                    <input type="checkbox" name="${nomeGrupo}" value="${op.valor}" ${checked} class="w-4 h-4 accent-blue-900 rounded">
+                    <span class="text-[11px]">${op.label}</span>
+                </label>
+            `;
+        }).join('');
+    };
+
+    desenharChecks('multi-lista-setores', [
+        { valor: 'Vistoriador', label: '🔍 Vistoriador' },
+        { valor: 'Instalador', label: '🛠️ Instalador' },
+        { valor: 'Ativador', label: '⚡ Ativador' }
+    ], filtrosMultiplosAtivos.setores, 'chk-multi-setor');
+
+    desenharChecks('multi-lista-macrogrupos', [
+        { valor: 'ON GOING', label: '🏢 Grupo ON GOING' },
+        { valor: 'PROJETO F', label: '🚀 Grupo PROJETO F' }
+    ], filtrosMultiplosAtivos.macrogrupos, 'chk-multi-macro');
+
+    desenharChecks('multi-lista-projetos', TODOS_OS_PROJETOS.map(p => ({ valor: p, label: p })), filtrosMultiplosAtivos.projetos, 'chk-multi-projeto');
+
+    desenharChecks('multi-lista-desfechos', [
+        { valor: 'PROGRAMADA', label: '📋 Programadas' },
+        { valor: 'EM ANDAMENTO', label: '🔵 Em Andamento' },
+        { valor: 'PARALISADA', label: '⏸️ Paralisadas' },
+        { valor: 'REABERTA', label: '🔄 Reabertas' },
+        { valor: 'CONCLUIDA', label: '🟢 Concluídas' },
+        { valor: 'PENDENTE', label: '🟡 Pendentes' },
+        { valor: 'MALOGRADA', label: '🔴 Malogradas' }
+    ], filtrosMultiplosAtivos.desfechos, 'chk-multi-desfecho');
+
+    desenharChecks('multi-lista-equipes', equipesSistema.map(e => ({
+        valor: e.nome,
+        label: `${e.nome} (${formatarSetoresString(e.setor)})`
+    })), filtrosMultiplosAtivos.equipes, 'chk-multi-equipe');
+
+    modal.classList.remove('hidden');
+}
+
+function fecharModalFiltroMultiplo() {
+    document.getElementById('modal-filtro-multiplo')?.classList.add('hidden');
+}
+
+function marcarOuDesmarcarTodasEquipesMulti(marcar) {
+    document.querySelectorAll('input[name="chk-multi-equipe"]').forEach(c => c.checked = marcar);
+}
+
+function atualizarBadgeFiltroMultiplo() {
+    const total = filtrosMultiplosAtivos.equipes.length +
+                  filtrosMultiplosAtivos.setores.length +
+                  filtrosMultiplosAtivos.macrogrupos.length +
+                  filtrosMultiplosAtivos.projetos.length +
+                  filtrosMultiplosAtivos.desfechos.length;
+    const badge = document.getElementById('badge-qtd-filtros-multi');
+    if (!badge) return;
+    if (total > 0) {
+        badge.innerText = total;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+function aplicarFiltrosMultiplosDoModal() {
+    const lerGrupo = (nome) => Array.from(document.querySelectorAll(`input[name="${nome}"]:checked`)).map(c => c.value);
+    filtrosMultiplosAtivos.setores = lerGrupo('chk-multi-setor');
+    filtrosMultiplosAtivos.macrogrupos = lerGrupo('chk-multi-macro');
+    filtrosMultiplosAtivos.projetos = lerGrupo('chk-multi-projeto');
+    filtrosMultiplosAtivos.desfechos = lerGrupo('chk-multi-desfecho');
+    filtrosMultiplosAtivos.equipes = lerGrupo('chk-multi-equipe');
+
+    // Limpa os selects simples do topo para prevalecer o filtro múltiplo sem conflito
+    if (filtrosMultiplosAtivos.equipes.length > 0) document.getElementById('gestor-filtro-equipe').value = "";
+    if (filtrosMultiplosAtivos.projetos.length > 0) document.getElementById('gestor-filtro-projeto').value = "";
+    if (filtrosMultiplosAtivos.desfechos.length > 0) document.getElementById('gestor-filtro-desfecho').value = "";
+
+    atualizarBadgeFiltroMultiplo();
+    fecharModalFiltroMultiplo();
+    atualizarDashboardGestor();
+}
+
+function limparFiltrosMultiplos() {
+    filtrosMultiplosAtivos = { equipes: [], setores: [], macrogrupos: [], projetos: [], desfechos: [] };
+    atualizarBadgeFiltroMultiplo();
+    fecharModalFiltroMultiplo();
+    atualizarDashboardGestor();
+}
+
+// ================= CENTRAL MASTER DE BACKUP (.JSON), RESTAURAÇÃO E EXPURGO SEGURO =================
+
+function atualizarEstimativaPesoNuvem() {
+    const badge = document.getElementById('badge-estimativa-peso-nuvem');
+    if (!badge) return;
+    try {
+        const bytesAprox = JSON.stringify(registrosSalvos).length;
+        const mb = (bytesAprox / (1024 * 1024)).toFixed(2);
+        const totalFotos = registrosSalvos.reduce((acc, r) => acc + (Array.isArray(r.fotos) ? r.fotos.length : 0), 0);
+        badge.innerText = `📊 Uso Atual: ~${mb} MB / 500 MB (${registrosSalvos.length} reg. | ${totalFotos} fotos)`;
+    } catch (e) {
+        badge.innerText = `📊 ${registrosSalvos.length} registos ativos`;
+    }
+}
+
+function baixarBackupIntegralJSON() {
+    if (nivelUsuarioLogado !== 'Master') {
+        alert("⚠️ Apenas o perfil Master pode exportar o Backup Integral do banco de dados.");
+        return;
+    }
+
+    const dIni = document.getElementById('bkp-data-inicio')?.value || "";
+    const dFim = document.getElementById('bkp-data-fim')?.value || "";
+
+    let listaExportar = registrosSalvos.filter(r => {
+        if (dIni && r.dataRegistro < dIni) return false;
+        if (dFim && r.dataRegistro > dFim) return false;
+        return true;
+    });
+
+    if (listaExportar.length === 0) {
+        alert("⚠️ Nenhum registo encontrado no intervalo de datas selecionado para gerar o backup.");
+        return;
+    }
+
+    const pacoteBackup = {
+        sistema: "GPD MDU PROCISA RJ",
+        versaoBackup: "2.0",
+        dataExportacao: new Date().toISOString(),
+        exportadoPor: usuarioLogado,
+        periodoFiltro: { inicio: dIni || "INICIO", fim: dFim || "HOJE" },
+        configuracoes: {
+            equipes: equipesSistema,
+            usuarios: usuariosSistema,
+            opcoesPendencia: OPCOES_PENDENCIA_PADRAO,
+            opcoesMalogro: OPCOES_MALOGRO_PADRAO,
+            opcoesImprevisto: OPCOES_IMPREVISTO_PADRAO,
+            auditoria: trilhaAuditoria
+        },
+        registros: listaExportar
+    };
+
+    const jsonString = JSON.stringify(pacoteBackup);
+    const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const sufixoData = (dIni || dFim) ? `${dIni || 'inicio'}_a_${dFim || 'hoje'}` : `completo_${obterDataLocalISO()}`;
+    a.href = url;
+    a.download = `BACKUP_GPD_PROCISA_${sufixoData}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    registrarLogAuditoria("BACKUP INTEGRAL (.JSON)", `Baixado ficheiro de backup com ${listaExportar.length} registos (Período: ${sufixoData}).`);
+    alert(`✅ Backup Integral (.JSON) gerado com sucesso!\n\nForam exportados ${listaExportar.length} registos com todas as fotos e configurações. Guarde este ficheiro em local seguro.`);
+}
+
+async function processarArquivoBackupJSON(modo) {
+    if (nivelUsuarioLogado !== 'Master') {
+        alert("⚠️ Apenas o perfil Master pode carregar ou restaurar ficheiros de backup.");
+        return;
+    }
+
+    const inp = document.getElementById('inp-upload-backup-json');
+    const file = inp?.files && inp.files[0];
+    if (!file) {
+        alert("⚠️ Selecione primeiro um ficheiro .JSON de backup no seu computador.");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const pacote = JSON.parse(e.target.result);
+            if (!pacote || !Array.isArray(pacote.registros)) {
+                alert("❌ Ficheiro inválido! Selecione um ficheiro .JSON gerado pela Central de Backup do GPD.");
+                return;
+            }
+
+            if (modo === 'consulta') {
+                if (!modoConsultaBackupAtivo) {
+                    cacheRegistrosNuvemOriginal = [...registrosSalvos];
+                }
+                modoConsultaBackupAtivo = true;
+                registrosSalvos = pacote.registros;
+                exibirBannerModoConsultaBackup(file.name, pacote.registros.length);
+                atualizarDashboardGestor();
+                mudarSubAbaGestor('atividades');
+                alert(`👁️ MODO CONSULTA DE BACKUP ATIVADO!\n\nVocê está visualizando ${pacote.registros.length} registos do ficheiro "${file.name}" (incluindo fotos e gráficos) sem gastar espaço na nuvem.\n\nPara voltar aos dados ao vivo, basta clicar em "Sair do Modo Consulta" no topo da tela.`);
+            } else if (modo === 'nuvem') {
+                if (!confirm(`☁️ RESTAURAR BACKUP PARA A NUVEM\n\nDeseja enviar os ${pacote.registros.length} registos do ficheiro "${file.name}" de volta para o banco de dados Supabase?`)) {
+                    return;
+                }
+
+                const linhasParaUpsert = pacote.registros.map(r => {
+                    let tagEnd = r.endereco ? `[END: ${r.endereco}] ` : '';
+                    let tagLiberou = r.liberouAcesso ? `[LIBEROU_ACESSO: ${r.liberouAcesso}] ` : '';
+                    let tagPausa = r.tempoPausadoMinutos > 0 ? `[PAUSA_TOTAL: ${r.tempoPausadoMinutos}] ` : '';
+                    let sufixoBlocos = r.qtdBlocosProgramados > 1 ? ` [BLOCOS: ${r.qtdBlocosProgramados}]` : '';
+                    let sufixoFotos = (r.fotos && r.fotos.length > 0) ? ` [FOTOS:${JSON.stringify(r.fotos)}]` : '';
+                    let obsCompleta = `${tagEnd}${tagLiberou}${tagPausa}${r.observacoes || ''}${sufixoBlocos}${sufixoFotos}`.trim();
+
+                    return {
+                        id: r.id,
+                        data_registro: r.dataRegistro,
+                        equipe: r.equipe,
+                        membros: r.membros || r.equipe,
+                        projeto: r.projeto,
+                        imovel: r.imovel,
+                        h_entrada: r.hEntrada,
+                        h_saida: r.hSaida,
+                        gps_entrada: r.gpsEntrada,
+                        gps_saida: r.gpsSaida,
+                        desfecho: r.desfecho,
+                        motivo_desfecho: r.motivoDesfecho,
+                        malogros: r.malogros || [],
+                        responsavel: r.responsavel || '',
+                        contato: r.contato || '',
+                        email: r.email || '',
+                        agendamento: null,
+                        andares: Number(r.andares) || 0,
+                        hps: Number(r.hps) || 0,
+                        servico_obra: r.servicoObra || 'SIM',
+                        observacoes: obsCompleta,
+                        fusoes: Number(r.fusoes) || 0,
+                        conectores: Number(r.conectores) || 0,
+                        cabo_rl: Number(r.caboRL) || 0,
+                        cabo_drop: Number(r.caboDrop) || 0,
+                        nap: Number(r.nap) || 0,
+                        dio: Number(r.dio) || 0,
+                        cx_sobrepor: Number(r.cxSobrepor) || 0,
+                        cx_embutida: Number(r.cxEmbutida) || 0,
+                        cx_fosc: Number(r.cxFosc) || 0
+                    };
+                });
+
+                // Envia em lotes de 25 para evitar sobrecarga de payload com fotos
+                for (let i = 0; i < linhasParaUpsert.length; i += 25) {
+                    const lote = linhasParaUpsert.slice(i, i + 25);
+                    const { error } = await supabaseClient.from('registros_producao').upsert(lote, { onConflict: 'id' });
+                    if (error) throw error;
+                }
+
+                registrarLogAuditoria("RESTAURAÇÃO DE BACKUP NUVEM", `Restaurados ${linhasParaUpsert.length} registos a partir do ficheiro ${file.name}.`);
+                inp.value = "";
+                await recarregarDadosGestor();
+                alert(`✅ ${linhasParaUpsert.length} registos foram restaurados para a nuvem com sucesso!`);
+            }
+        } catch (err) {
+            alert("❌ Erro ao processar ficheiro de backup: " + err.message);
+        }
+    };
+    reader.readAsText(file, 'UTF-8');
+}
+
+function exibirBannerModoConsultaBackup(nomeArquivo, qtd) {
+    let banner = document.getElementById('banner-modo-consulta-backup');
+    const mainGestor = document.getElementById('view-gestor');
+    if (!mainGestor) return;
+
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'banner-modo-consulta-backup';
+        banner.className = 'bg-indigo-950 text-white p-3.5 rounded-xl border-2 border-amber-400 flex flex-col sm:flex-row justify-between items-center gap-3 shadow-lg';
+        mainGestor.insertBefore(banner, mainGestor.firstChild);
+    }
+
+    banner.classList.remove('hidden');
+    banner.innerHTML = `
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">📂</span>
+            <div>
+                <h4 class="font-black text-amber-300 text-xs uppercase">Modo Consulta de Backup Histórico Ativo (${nomeArquivo})</h4>
+                <p class="text-xs text-indigo-100">Exibindo <b>${qtd} registos</b> carregados localmente do ficheiro. A sincronização automática está pausada durante a consulta.</p>
+            </div>
+        </div>
+        <button type="button" onclick="sairModoConsultaBackup()" class="bg-amber-400 hover:bg-amber-300 text-indigo-950 font-black text-xs px-4 py-2 rounded-xl shadow whitespace-nowrap">
+            🔙 Sair do Modo Consulta e Voltar ao Vivo
+        </button>
+    `;
+}
+
+async function sairModoConsultaBackup() {
+    modoConsultaBackupAtivo = false;
+    if (cacheRegistrosNuvemOriginal) {
+        registrosSalvos = [...cacheRegistrosNuvemOriginal];
+        cacheRegistrosNuvemOriginal = null;
+    } else {
+        await carregarRegistrosDaNuvem(true);
+    }
+    const banner = document.getElementById('banner-modo-consulta-backup');
+    if (banner) banner.classList.add('hidden');
+    atualizarDashboardGestor();
+}
+
+async function executarLimpezaInteligenteNuvem(tipoExpurgo) {
+    if (nivelUsuarioLogado !== 'Master') {
+        alert("⚠️ Apenas o usuário Master pode executar a limpeza inteligente da nuvem.");
+        return;
+    }
+
+    const dataLimite = document.getElementById('expurgo-data-limite')?.value;
+    if (!dataLimite) {
+        alert("⚠️ Selecione primeiro a data limite (ex: limpar registos anteriores a 60 dias atrás).");
+        return;
+    }
+
+    const alvos = registrosSalvos.filter(r => r.dataRegistro && r.dataRegistro < dataLimite);
+    if (alvos.length === 0) {
+        alert(`ℹ️ Nenhum registo encontrado com data anterior a ${dataLimite}.`);
+        return;
+    }
+
+    if (tipoExpurgo === 'apenas_fotos') {
+        const comFotos = alvos.filter(r => Array.isArray(r.fotos) && r.fotos.length > 0);
+        if (comFotos.length === 0) {
+            alert(`ℹ️ Nenhum registo anterior a ${dataLimite} possui fotos anexadas para limpar.`);
+            return;
+        }
+
+        const conf = confirm(
+            `🧹 LIMPAR APENAS FOTOS ANTIGAS (ANTERIORES A ${dataLimite})\n\n` +
+            `Foram encontrados ${comFotos.length} registos com fotos antes desta data.\n` +
+            `• O que será feito: Apenas as imagens pesadas serão removidas para libertar espaço no Supabase.\n` +
+            `• Todos os números, datas, materiais, valores financeiros e históricos continuarão 100% intactos nos gráficos!\n\n` +
+            `Você já baixou o Backup Integral (.JSON) e confirma esta limpeza?`
+        );
+        if (!conf) return;
+
+        for (const r of comFotos) {
+            let tagEnd = r.endereco ? `[END: ${r.endereco}] ` : '';
+            let tagLiberou = r.liberouAcesso ? `[LIBEROU_ACESSO: ${r.liberouAcesso}] ` : '';
+            let tagPausa = r.tempoPausadoMinutos > 0 ? `[PAUSA_TOTAL: ${r.tempoPausadoMinutos}] ` : '';
+            let sufixoBlocos = r.qtdBlocosProgramados > 1 ? ` [BLOCOS: ${r.qtdBlocosProgramados}]` : '';
+            let obsSemFotos = `${tagEnd}${tagLiberou}${tagPausa}${r.observacoes || ''}${sufixoBlocos}`.trim();
+
+            await supabaseClient.from('registros_producao').update({ observacoes: obsSemFotos }).eq('id', r.id);
+        }
+
+        registrarLogAuditoria("LIMPEZA DE FOTOS ANTIGAS", `Removidas fotos de ${comFotos.length} registos anteriores a ${dataLimite} (dados numéricos preservados).`);
+        await recarregarDadosGestor();
+        alert(`✅ Limpeza concluída! As fotos de ${comFotos.length} registos antigos foram removidas e todos os indicadores numéricos foram preservados.`);
+    } else if (tipoExpurgo === 'registros_completos') {
+        const conf = confirm(
+            `🗑️ EXCLUIR REGISTOS ANTIGOS DA NUVEM (ANTERIORES A ${dataLimite})\n\n` +
+            `ATENÇÃO: Serão removidos definitivamente da nuvem ${alvos.length} registos anteriores a ${dataLimite}.\n` +
+            `Certifique-se de ter clicado antes em "📦 Baixar Backup Integral (.JSON)"!\n\n` +
+            `Deseja prosseguir com a exclusão?`
+        );
+        if (!conf) return;
+
+        const idsParaExcluir = alvos.map(r => r.id);
+        for (let i = 0; i < idsParaExcluir.length; i += 100) {
+            const loteIds = idsParaExcluir.slice(i, i + 100);
+            await supabaseClient.from('registros_producao').delete().in('id', loteIds);
+        }
+
+        registrarLogAuditoria("EXPURGO DE REGISTOS ANTIGOS", `Excluídos da nuvem ${idsParaExcluir.length} registos anteriores a ${dataLimite}.`);
+        await recarregarDadosGestor();
+        alert(`✅ ${idsParaExcluir.length} registos antigos foram removidos da nuvem com sucesso!`);
+    }
+}
+
+// ================= RELATÓRIO VISUAL PARA IMPRESSÃO / PDF =================
+
+function gerarRelatorioVisualImpressaoPDF() {
+    mudarSubAbaGestor('graficos');
+    setTimeout(() => {
+        window.print();
+    }, 300);
+}
+
+// ================= MAPA DE RASTREAMENTO EM TEMPO REAL (LEAFLET) =================
+
 function inicializarOuAtualizarMapaRastreio(listaPinos) {
     const containerMapa = document.getElementById('mapa-rastreio-equipes');
     if (!containerMapa || typeof L === 'undefined') return;
 
     if (!mapaRastreioInstancia) {
-        // Inicia centralizado no Rio de Janeiro por padrão
         mapaRastreioInstancia = L.map('mapa-rastreio-equipes').setView([-22.9068, -43.1729], 11);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -72,6 +783,7 @@ function inicializarOuAtualizarMapaRastreio(listaPinos) {
         if (containerAtalhos) {
             const btnAtalho = document.createElement('button');
             btnAtalho.type = "button";
+            btnAtalho.title = `Centralizar o mapa na rua onde o técnico ${p.nome} está agora`;
             btnAtalho.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold text-white shadow-sm transition hover:opacity-90 flex items-center gap-1";
             btnAtalho.style.backgroundColor = p.corHex;
             btnAtalho.innerHTML = `<span>${p.iconeEmoji}</span> <span>${p.nome}</span>`;
@@ -592,7 +1304,7 @@ function renderizarPainelDisponibilidade() {
                 detalheTexto = `<span class="font-bold text-red-900">${mot}</span> <span class="text-slate-500">(Desde ${impAberto.hEntrada})</span>`;
                 ocupacaoLimpa = `Imprevisto: ${mot}`;
                 if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
-                    acaoHtml = `<button onclick="resolverImprevistoPorId(${impAberto.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Liberar</button>`;
+                    acaoHtml = `<button onclick="resolverImprevistoPorId(${impAberto.id}, true)" title="Encerrar este imprevisto e tornar o técnico disponível novamente" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Liberar</button>`;
                 }
             } else if (obraParalisada) {
                 countAtend++;
@@ -602,7 +1314,7 @@ function renderizarPainelDisponibilidade() {
                 statusBadge = `<span class="bg-orange-500 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block animate-pulse">⏸️ ATIVIDADE PARALISADA</span>`;
                 detalheTexto = `Imóvel: <b>${obraParalisada.imovel}</b> (${obraParalisada.projeto}) • <span class="text-orange-800 font-semibold">${obraParalisada.motivoDesfecho || 'Em pausa'}</span>`;
                 ocupacaoLimpa = `Pausa no imóvel ${obraParalisada.imovel}`;
-                acaoHtml = `<button onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${obraParalisada.id}))" class="bg-orange-50 text-orange-800 font-bold text-[10px] px-2.5 py-1 rounded border border-orange-200">👁️ Ver Obra</button>`;
+                acaoHtml = `<button onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${obraParalisada.id}))" title="Abrir os detalhes da atividade paralisada" class="bg-orange-50 text-orange-800 font-bold text-[10px] px-2.5 py-1 rounded border border-orange-200">👁️ Ver Obra</button>`;
             } else if (obraAndamento) {
                 countAtend++;
                 corPinoHex = "#2563eb";
@@ -611,7 +1323,7 @@ function renderizarPainelDisponibilidade() {
                 statusBadge = `<span class="bg-blue-600 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block animate-pulse">🔵 EM ATENDIMENTO</span>`;
                 detalheTexto = `Imóvel: <b>${obraAndamento.imovel}</b> (${obraAndamento.projeto}) • Início às <b>${obraAndamento.hEntrada}</b>`;
                 ocupacaoLimpa = `Atendendo ${obraAndamento.imovel} (${obraAndamento.projeto})`;
-                acaoHtml = `<button onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${obraAndamento.id}))" class="bg-blue-50 text-blue-800 font-bold text-[10px] px-2.5 py-1 rounded border border-blue-200">👁️ Ver Obra</button>`;
+                acaoHtml = `<button onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${obraAndamento.id}))" title="Abrir os detalhes da atividade em andamento" class="bg-blue-50 text-blue-800 font-bold text-[10px] px-2.5 py-1 rounded border border-blue-200">👁️ Ver Obra</button>`;
             } else if (turnoEncerrado) {
                 countOffline++;
                 corPinoHex = "#475569";
@@ -667,7 +1379,7 @@ function renderizarPainelDisponibilidade() {
                     </div>
                 `;
 
-                const btnFocarMapa = `<button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded mr-1">🎯 Ver no Mapa</button>`;
+                const btnFocarMapa = `<button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" title="Ir para a aba Mapa em Tempo Real e focar na localização deste técnico" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded mr-1">🎯 Ver no Mapa</button>`;
                 acaoHtml = acaoHtml === "-" ? btnFocarMapa : `${btnFocarMapa} ${acaoHtml}`;
 
                 listaPinosParaMapa.push({
@@ -717,9 +1429,13 @@ function renderizarPainelDisponibilidade() {
 }
 
 async function atualizarDashboardGestor() {
-    if (!registrosSalvos || registrosSalvos.length === 0) {
+    inicializarMelhoriasVisuaisGestor();
+
+    if ((!registrosSalvos || registrosSalvos.length === 0) && !modoConsultaBackupAtivo) {
         await carregarRegistrosDaNuvem(true);
     }
+
+    atualizarEstimativaPesoNuvem();
 
     const dataInicio = document.getElementById('gestor-filtro-data-inicio')?.value || "";
     const dataFim = document.getElementById('gestor-filtro-data-fim')?.value || "";
@@ -745,7 +1461,21 @@ async function atualizarDashboardGestor() {
             mData = item.dataRegistro <= dataFim;
         }
 
-        let mEquipe = fEquipe ? item.equipe === fEquipe : true;
+        // Suporte combinado: Select simples OU Filtro Múltiplo de Equipes
+        let mEquipe = true;
+        if (filtrosMultiplosAtivos.equipes.length > 0) {
+            mEquipe = filtrosMultiplosAtivos.equipes.includes(item.equipe);
+        } else if (fEquipe) {
+            mEquipe = item.equipe === fEquipe;
+        }
+
+        // Filtro Múltiplo de Setores (Vistoriador / Instalador / Ativador)
+        let mSetor = true;
+        if (filtrosMultiplosAtivos.setores.length > 0) {
+            const eqObj = equipesSistema.find(e => e.nome === item.equipe);
+            const setoresTec = obterArraySetores(eqObj ? eqObj.setor : obterSetorDoProjeto(item.projeto));
+            mSetor = filtrosMultiplosAtivos.setores.some(s => setoresTec.includes(s));
+        }
 
         let mBusca = true;
         if (termoBusca) {
@@ -758,18 +1488,35 @@ async function atualizarDashboardGestor() {
                      (item.desfecho && item.desfecho.toLowerCase().includes(termoBusca));
         }
 
-        return mData && mEquipe && mBusca;
+        return mData && mEquipe && mSetor && mBusca;
     });
 
     let listaImprevistos = filtradosBase.filter(i => i.projeto === 'IMPREVISTO / ATRASO' || i.desfecho === 'IMPREVISTO' || i.desfecho === 'IMPREVISTO RESOLVIDO');
     
-    let filtrados = filtradosBase.filter(i => 
-        i.projeto !== 'IMPREVISTO / ATRASO' && 
-        i.desfecho !== 'IMPREVISTO' && 
-        i.desfecho !== 'IMPREVISTO RESOLVIDO' && 
-        (fProjeto ? i.projeto === fProjeto : true) &&
-        (fDesfecho ? i.desfecho === fDesfecho : true)
-    );
+    let filtrados = filtradosBase.filter(i => {
+        if (i.projeto === 'IMPREVISTO / ATRASO' || i.desfecho === 'IMPREVISTO' || i.desfecho === 'IMPREVISTO RESOLVIDO') return false;
+
+        let mMacro = true;
+        if (filtrosMultiplosAtivos.macrogrupos.length > 0) {
+            mMacro = filtrosMultiplosAtivos.macrogrupos.includes(obterMacroGrupoProjeto(i.projeto));
+        }
+
+        let mProj = true;
+        if (filtrosMultiplosAtivos.projetos.length > 0) {
+            mProj = filtrosMultiplosAtivos.projetos.includes(i.projeto);
+        } else if (fProjeto) {
+            mProj = i.projeto === fProjeto;
+        }
+
+        let mDesf = true;
+        if (filtrosMultiplosAtivos.desfechos.length > 0) {
+            mDesf = filtrosMultiplosAtivos.desfechos.includes(i.desfecho);
+        } else if (fDesfecho) {
+            mDesf = i.desfecho === fDesfecho;
+        }
+
+        return mMacro && mProj && mDesf;
+    });
 
     dadosFiltradosAtuais = filtrados;
     listaImprevistosAtuais = listaImprevistos;
@@ -819,10 +1566,10 @@ async function atualizarDashboardGestor() {
                 let acoesImp = "";
                 if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
                     if (estaAberto) {
-                        acoesImp += `<button onclick="resolverImprevistoPorId(${imp.id}, true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded mr-1 shadow-sm">✅ Resolver</button>`;
+                        acoesImp += `<button onclick="resolverImprevistoPorId(${imp.id}, true)" title="Marcar este imprevisto como resolvido e liberar o técnico" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded mr-1 shadow-sm">✅ Resolver</button>`;
                     }
-                    acoesImp += `<button onclick="abrirModalEdicao(${imp.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded mr-1">✏️ Editar</button>`;
-                    acoesImp += `<button onclick="excluirRegistro(${imp.id}, 'IMPREVISTO')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>`;
+                    acoesImp += `<button onclick="abrirModalEdicao(${imp.id})" title="Editar motivos, observações ou horários deste imprevisto" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded mr-1">✏️ Editar</button>`;
+                    acoesImp += `<button onclick="excluirRegistro(${imp.id}, 'IMPREVISTO')" title="Excluir este registo de imprevisto" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>`;
                 } else {
                     acoesImp = `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
                 }
@@ -988,8 +1735,8 @@ async function atualizarDashboardGestor() {
                         <div class="flex flex-wrap gap-1">
                             ${btnMover}
                             ${btnReabrir}
-                            <button onclick="abrirModalEdicao(${itemMaster.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded">✏️ Editar</button>
-                            <button onclick="excluirRegistro(${itemMaster.id}, '${itemMaster.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 border border-red-200 px-2 py-1 rounded">Excluir</button>
+                            <button onclick="abrirModalEdicao(${itemMaster.id})" title="Editar dados, pendências, malogros, materiais e fotos deste registo" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded">✏️ Editar</button>
+                            <button onclick="excluirRegistro(${itemMaster.id}, '${itemMaster.imovel}')" title="Excluir permanentemente este registo" class="text-red-500 font-bold text-[10px] bg-red-50 border border-red-200 px-2 py-1 rounded">Excluir</button>
                         </div>
                     `;
                 } else {
@@ -1035,7 +1782,7 @@ async function atualizarDashboardGestor() {
                     : '';
 
                 const botaoExpandirBlocos = qtdBlocosNoGrupo > 1 ? `
-                    <button type="button" onclick="event.stopPropagation(); alternarVisualizacaoBlocosAgrupados('${idGrupoUnico}', this)" class="mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition">
+                    <button type="button" onclick="event.stopPropagation(); alternarVisualizacaoBlocosAgrupados('${idGrupoUnico}', this)" title="Mostrar ou ocultar cada bloco deste condomínio separadamente" class="mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition">
                         📂 Expandir Blocos (${qtdBlocosNoGrupo})
                     </button>
                 ` : '';
@@ -1156,12 +1903,12 @@ async function atualizarDashboardGestor() {
     try { renderizarPainelPrincipalExecutores(finalizadas); } catch (e) { console.warn("Aviso Painel Executores:", e); }
     try { renderizarPainelMallingEProjetoF(finalizadas); } catch (e) { console.warn("Aviso Painel OnGoing/ProjF:", e); }
     try { renderizarGraficos(finalizadas, filtrados); } catch (e) { console.warn("Aviso Gráficos Gerais:", e); }
-    try { renderizarRankingTecnicos(finalizadas); } catch (e) { console.warn("Aviso Ranking Técnicos:", e); }
     try { renderizarOfensoresMalogro(finalizadas); } catch (e) { console.warn("Aviso Ofensores Malogro:", e); }
     try { renderizarTabelaConsolidada(finalizadas); } catch (e) { console.warn("Aviso Tabela Consolidada:", e); }
-    try { renderizarRankingsSeparados(finalizadas); } catch (e) { console.warn("Aviso Rankings Separados:", e); }
     try { renderizarTabelaUsuariosPermissao(); } catch (e) { console.warn("Aviso Tabela Usuários:", e); }
 }
+
+// ================= SUPER TABELA UNIFICADA DE EXECUTORES (PRODUÇÃO + HORÁRIOS + PAUSAS + TMA) =================
 
 function renderizarPainelPrincipalExecutores(dados) {
     const tbody = document.getElementById('tabela-principal-executores-corpo');
@@ -1185,6 +1932,10 @@ function renderizarPainelPrincipalExecutores(dados) {
             prodDiaria: 0,
             consolidadoConcluidas: 0,
             totalGeral: 0,
+            minutosPausa: 0,
+            entradas: [],
+            saidas: [],
+            duracoes: [],
             diasAtivosSet: new Set()
         };
     });
@@ -1199,6 +1950,10 @@ function renderizarPainelPrincipalExecutores(dados) {
                 prodDiaria: 0,
                 consolidadoConcluidas: 0,
                 totalGeral: 0,
+                minutosPausa: 0,
+                entradas: [],
+                saidas: [],
+                duracoes: [],
                 diasAtivosSet: new Set()
             };
         }
@@ -1212,13 +1967,28 @@ function renderizarPainelPrincipalExecutores(dados) {
                 ex.prodDiaria++;
             }
         }
+
+        const pausaMin = Number(d.tempoPausadoMinutos) || 0;
+        ex.minutosPausa += pausaMin;
+
+        const minIn = converterHorarioParaMinutos(d.hEntrada);
+        const minOut = converterHorarioParaMinutos(d.hSaida);
+        if (minIn !== null) ex.entradas.push(minIn);
+        if (minOut !== null) ex.saidas.push(minOut);
+        if (minIn !== null && minOut !== null && minOut >= minIn) {
+            const durLiquida = Math.max(0, (minOut - minIn) - pausaMin);
+            if (durLiquida > 0 && durLiquida <= 840) ex.duracoes.push(durLiquida);
+        }
     });
 
     const listaTodos = Object.values(mapaExec).map(ex => {
         const dias = ex.diasAtivosSet.size;
         const media = dias > 0 ? (ex.consolidadoConcluidas / dias) : 0;
         const efic = ex.totalGeral > 0 ? ((ex.consolidadoConcluidas / ex.totalGeral) * 100) : 0;
-        return { ...ex, diasAtivos: dias, mediaDiaria: media, eficacia: efic };
+        const mediaIn = ex.entradas.length > 0 ? formatarMinutosParaHHMM(ex.entradas.reduce((a, b) => a + b, 0) / ex.entradas.length) : "--:--";
+        const mediaOut = ex.saidas.length > 0 ? formatarMinutosParaHHMM(ex.saidas.reduce((a, b) => a + b, 0) / ex.saidas.length) : "--:--";
+        const tma = ex.duracoes.length > 0 ? formatarDuracaoTexto(ex.duracoes.reduce((a, b) => a + b, 0) / ex.duracoes.length) : "--h --m";
+        return { ...ex, diasAtivos: dias, mediaDiaria: media, eficacia: efic, mediaIn, mediaOut, tma };
     });
 
     const atualizarCardGrupo = (setorAlvo, prefixoId) => {
@@ -1257,6 +2027,7 @@ function renderizarPainelPrincipalExecutores(dados) {
     listaExibicao.forEach((ex, idx) => {
         const tr = document.createElement('tr');
         tr.className = "hover:bg-blue-50/60 border-b cursor-pointer transition";
+        tr.title = `Clique para explodir todas as atividades realizadas por ${ex.nome}`;
         tr.onclick = () => dispararExplosaoGrafico('equipe', ex.nome);
 
         let corEfic = "bg-slate-100 text-slate-600";
@@ -1275,6 +2046,9 @@ function renderizarPainelPrincipalExecutores(dados) {
             <td class="p-2.5 text-center font-semibold text-slate-600">${ex.totalGeral}</td>
             <td class="p-2.5 text-center font-mono text-slate-600">${ex.diasAtivos} d</td>
             <td class="p-2.5 text-center font-black text-indigo-950 bg-indigo-50/80 text-sm">${ex.mediaDiaria.toFixed(2)} / dia</td>
+            <td class="p-2.5 text-center font-mono text-[11px] text-slate-600">${ex.mediaIn} às ${ex.mediaOut}</td>
+            <td class="p-2.5 text-center font-bold text-orange-700 bg-orange-50/30">${ex.minutosPausa > 0 ? `${ex.minutosPausa}m` : '0m'}</td>
+            <td class="p-2.5 text-center font-bold text-emerald-800 bg-emerald-50/30">${ex.tma}</td>
             <td class="p-2.5 text-right"><span class="px-2 py-0.5 rounded font-bold text-[10px] ${corEfic}">${ex.eficacia.toFixed(1)}%</span></td>
         `;
         tbody.appendChild(tr);
@@ -1566,102 +2340,7 @@ function renderizarOfensoresMalogro(dados) {
     }
 }
 
-function renderizarRankingTecnicos(dados) {
-    const tbody = document.getElementById('tabela-ranking-tecnicos-corpo');
-    const badgeContador = document.getElementById('contador-tecnicos-ativos');
-    if (!tbody) return;
-    tbody.innerHTML = "";
-
-    const mapaTecnicos = {};
-
-    dados.forEach(d => {
-        const nome = d.equipe || "NÃO IDENTIFICADO";
-        if (!mapaTecnicos[nome]) {
-            mapaTecnicos[nome] = {
-                equipe: nome,
-                total: 0,
-                concluidas: 0,
-                pendentes: 0,
-                malogradas: 0,
-                minutosPausa: 0,
-                entradas: [],
-                saidas: [],
-                duracoes: []
-            };
-        }
-
-        const t = mapaTecnicos[nome];
-        t.total++;
-        if (d.desfecho === 'CONCLUIDA') t.concluidas++;
-        else if (d.desfecho === 'PENDENTE') t.pendentes++;
-        else if (d.desfecho === 'MALOGRADA') t.malogradas++;
-
-        const pausaMin = Number(d.tempoPausadoMinutos) || 0;
-        t.minutosPausa += pausaMin;
-
-        const minIn = converterHorarioParaMinutos(d.hEntrada);
-        const minOut = converterHorarioParaMinutos(d.hSaida);
-
-        if (minIn !== null) t.entradas.push(minIn);
-        if (minOut !== null) t.saidas.push(minOut);
-        if (minIn !== null && minOut !== null && minOut >= minIn) {
-            const durLiquida = Math.max(0, (minOut - minIn) - pausaMin);
-            if (durLiquida > 0 && durLiquida <= 840) t.duracoes.push(durLiquida);
-        }
-    });
-
-    const listaOrdenada = Object.values(mapaTecnicos).sort((a, b) => {
-        if (b.concluidas !== a.concluidas) return b.concluidas - a.concluidas;
-        return b.total - a.total;
-    });
-
-    if (badgeContador) {
-        badgeContador.innerText = `${listaOrdenada.length} técnico(s) acionado(s)`;
-    }
-
-    if (listaOrdenada.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhuma atividade registrada para compor o ranking de técnicos no período.</td></tr>`;
-        return;
-    }
-
-    listaOrdenada.forEach((t, index) => {
-        const mediaIn = t.entradas.length > 0 ? formatarMinutosParaHHMM(t.entradas.reduce((a, b) => a + b, 0) / t.entradas.length) : "--:--";
-        const mediaOut = t.saidas.length > 0 ? formatarMinutosParaHHMM(t.saidas.reduce((a, b) => a + b, 0) / t.saidas.length) : "--:--";
-        const tma = t.duracoes.length > 0 ? formatarDuracaoTexto(t.duracoes.reduce((a, b) => a + b, 0) / t.duracoes.length) : "--h --m";
-        const eficacia = t.total > 0 ? ((t.concluidas / t.total) * 100).toFixed(1) : "0.0";
-
-        let corEficacia = "bg-emerald-100 text-emerald-800";
-        if (eficacia < 50) corEficacia = "bg-red-100 text-red-800";
-        else if (eficacia < 80) corEficacia = "bg-amber-100 text-amber-800";
-
-        let medalha = `${index + 1}º`;
-        if (index === 0) medalha = "🥇 1º";
-        else if (index === 1) medalha = "🥈 2º";
-        else if (index === 2) medalha = "🥉 3º";
-
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-blue-50/60 border-b cursor-pointer transition";
-        tr.title = `Clique para ver todas as atividades de ${t.equipe}`;
-        tr.onclick = () => dispararExplosaoGrafico('equipe', t.equipe);
-
-        tr.innerHTML = `
-            <td class="p-3 text-center font-bold text-slate-700">${medalha}</td>
-            <td class="p-3 font-bold text-blue-900 underline decoration-dotted">${t.equipe}</td>
-            <td class="p-3 text-center font-bold text-slate-800">${t.total}</td>
-            <td class="p-3 text-center font-bold text-emerald-700 bg-emerald-50/40">${t.concluidas}</td>
-            <td class="p-3 text-center font-semibold text-amber-600">${t.pendentes}</td>
-            <td class="p-3 text-center font-semibold text-red-600">${t.malogradas}</td>
-            <td class="p-3 text-center font-mono text-slate-600">${mediaIn}</td>
-            <td class="p-3 text-center font-mono text-slate-600">${mediaOut}</td>
-            <td class="p-3 text-center font-bold text-orange-700 bg-orange-50/40">${t.minutosPausa > 0 ? `${t.minutosPausa} min` : '0 min'}</td>
-            <td class="p-3 text-center font-bold text-indigo-900 bg-indigo-50/40">${tma}</td>
-            <td class="p-3 text-right"><span class="px-2 py-0.5 rounded font-bold text-[10px] ${corEficacia}">${eficacia}%</span></td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-// ================= PONTO 02: SUPER MODAL DE EDIÇÃO COMPLETA (ATIVIDADES, PENDÊNCIAS, MALOGROS, IMPREVISTOS E FOTOS) =================
+// ================= SUPER MODAL DE EDIÇÃO COMPLETA =================
 
 function lerCheckboxesAtuaisModalEdicao() {
     const checks = document.querySelectorAll('input[name="chk-opcao-modal-edicao"]:checked');
@@ -1696,7 +2375,6 @@ function renderizarOpcoesCheckboxesModalEdicao(desfechoAlvo, selecionadas = []) 
         if (lblTitulo) lblTitulo.innerText = "🟢 3. Itens Verificados / Opções Vinculadas ao Registro";
     }
 
-    // Garante que qualquer opção já gravada no registro (mesmo customizada) apareça na lista
     (selecionadas || []).forEach(op => {
         const limpo = String(op).trim().toUpperCase();
         if (limpo && !opcoesBase.includes(limpo)) {
@@ -1770,7 +2448,7 @@ function renderizarFotosModalEdicao() {
     container.innerHTML = fotosEdicaoTemporarias.map((fSrc, idx) => `
         <div class="relative border border-slate-300 rounded-lg overflow-hidden w-16 h-16 bg-white shadow-sm">
             <img src="${fSrc}" onclick="abrirZoomFoto('${fSrc}', 'Foto_Edit_${idx + 1}.jpg')" class="w-full h-full object-cover cursor-pointer">
-            <button type="button" onclick="removerFotoModalEdicao(${idx})" class="absolute top-0.5 right-0.5 bg-red-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow">✕</button>
+            <button type="button" onclick="removerFotoModalEdicao(${idx})" title="Remover esta foto" class="absolute top-0.5 right-0.5 bg-red-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow">✕</button>
         </div>
     `).join('');
 }
@@ -1814,7 +2492,6 @@ function abrirModalEdicao(id) {
     document.getElementById('edit-reg-id').value = reg.id;
     document.getElementById('edit-reg-data').value = reg.dataRegistro || obterDataLocalISO();
 
-    // Popula select de equipes no modal de edição
     const selEqEdit = document.getElementById('edit-reg-equipe');
     if (selEqEdit) {
         const nomesEquipes = equipesSistema.map(e => e.nome);
@@ -2051,9 +2728,9 @@ function renderizarTabelaUsuariosPermissao() {
     }
 
     listaVisivel.forEach(u => {
-        let acoesHtml = `<button onclick="abrirModalUsuario(${u.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Alterar Senha</button>`;
+        let acoesHtml = `<button onclick="abrirModalUsuario(${u.id})" title="Editar dados ou alterar senha deste utilizador" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Alterar Senha</button>`;
         if (nivelUsuarioLogado === 'Master') {
-            acoesHtml += ` <button onclick="excluirUsuario(${u.id}, '${u.email}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>`;
+            acoesHtml += ` <button onclick="excluirUsuario(${u.id}, '${u.email}')" title="Remover o acesso deste utilizador em todos os dispositivos" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>`;
         }
 
         corpo.innerHTML += `
@@ -2065,43 +2742,6 @@ function renderizarTabelaUsuariosPermissao() {
             </tr>
         `;
     });
-}
-
-function renderizarRankingsSeparados(dados) {
-    let totalGeral = dados.length;
-
-    function preencherTabelaRank(desfechoAlvo, idTabela, idTotal) {
-        const tbody = document.getElementById(idTabela);
-        const spanTotal = document.getElementById(idTotal);
-        if (!tbody || !spanTotal) return;
-        tbody.innerHTML = "";
-
-        let subset = dados.filter(d => d.desfecho === desfechoAlvo);
-        spanTotal.innerText = `${subset.length} total`;
-
-        let contagemProj = {};
-        TODOS_OS_PROJETOS.forEach(p => contagemProj[p] = 0);
-        subset.forEach(d => {
-            if (contagemProj[d.projeto] !== undefined) contagemProj[d.projeto]++;
-        });
-
-        let ordenados = Object.entries(contagemProj).sort((a, b) => b[1] - a[1]);
-
-        ordenados.forEach(([proj, qtd]) => {
-            let perc = totalGeral > 0 ? ((qtd / totalGeral) * 100).toFixed(1) : 0;
-            tbody.innerHTML += `
-                <tr class="border-b hover:bg-slate-50">
-                    <td class="py-1.5 font-medium text-slate-700 truncate max-w-[140px]">${proj}</td>
-                    <td class="py-1.5 text-center font-bold text-blue-900">${qtd}</td>
-                    <td class="py-1.5 text-right text-slate-500">${perc}%</td>
-                </tr>
-            `;
-        });
-    }
-
-    preencherTabelaRank('CONCLUIDA', 'tabela-rank-concluida', 'rank-conc-total');
-    preencherTabelaRank('PENDENTE', 'tabela-rank-pendente', 'rank-pend-total');
-    preencherTabelaRank('MALOGRADA', 'tabela-rank-malograda', 'rank-malo-total');
 }
 
 function renderizarTabelaConsolidada(dados) {
@@ -2194,14 +2834,14 @@ function abrirDetalhesAtividade(item) {
 
     let barraAcoesTopoModal = '';
     if (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') {
-        const btnEditarCompleto = `<button onclick="fecharModalDetalhes(); abrirModalEdicao(${item.id})" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">✏️ Editar Tudo</button>`;
+        const btnEditarCompleto = `<button onclick="fecharModalDetalhes(); abrirModalEdicao(${item.id})" title="Abrir o Super Modal de Edição para alterar qualquer campo, pendência, malogro ou foto" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">✏️ Editar Tudo</button>`;
         if (['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(item.desfecho)) {
             barraAcoesTopoModal = `
                 <div class="bg-purple-50 border border-purple-200 p-3 rounded-lg flex flex-wrap justify-between items-center gap-2">
                     <span class="text-[11px] font-bold text-purple-950">Ações de Gestão para este registro:</span>
                     <div class="flex items-center gap-2">
                         ${btnEditarCompleto}
-                        <button onclick="fecharModalDetalhes(); autorizarReaberturaCampo(${item.id})" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">🔓 Reabrir p/ Técnico</button>
+                        <button onclick="fecharModalDetalhes(); autorizarReaberturaCampo(${item.id})" title="Devolver a atividade para o telemóvel do técnico para que ele mesmo complemente dados ou fotos" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">🔓 Reabrir p/ Técnico</button>
                     </div>
                 </div>
             `;
@@ -2211,7 +2851,7 @@ function abrirDetalhesAtividade(item) {
                     <span class="text-[11px] font-bold text-indigo-950">Ações de Gestão para este registro:</span>
                     <div class="flex items-center gap-2">
                         ${btnEditarCompleto}
-                        <button onclick="fecharModalDetalhes(); abrirModalTransferirAtividade(${item.id})" class="bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">🔀 Transferir Técnico</button>
+                        <button onclick="fecharModalDetalhes(); abrirModalTransferirAtividade(${item.id})" title="Transferir esta atividade para outro técnico da equipa" class="bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">🔀 Transferir Técnico</button>
                     </div>
                 </div>
             `;
@@ -2835,13 +3475,13 @@ function renderizarTabelaEquipes() {
         const pinAtual = obterPinDaEquipe(eq);
         const chaveSetorHtml = `
             <div class="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-300 gap-1">
-                <button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Vistoriador')" class="px-2 py-1 rounded-md text-[10px] font-bold transition ${setoresAtuais.includes('Vistoriador') ? 'bg-purple-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 bg-white'}">
+                <button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Vistoriador')" title="Ativar/Desativar atuação como Vistoriador" class="px-2 py-1 rounded-md text-[10px] font-bold transition ${setoresAtuais.includes('Vistoriador') ? 'bg-purple-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 bg-white'}">
                     🔍 Vistoriador
                 </button>
-                <button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Instalador')" class="px-2 py-1 rounded-md text-[10px] font-bold transition ${setoresAtuais.includes('Instalador') ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 bg-white'}">
+                <button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Instalador')" title="Ativar/Desativar atuação como Instalador" class="px-2 py-1 rounded-md text-[10px] font-bold transition ${setoresAtuais.includes('Instalador') ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 bg-white'}">
                     🛠️ Instalador
                 </button>
-                <button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Ativador')" class="px-2 py-1 rounded-md text-[10px] font-bold transition ${setoresAtuais.includes('Ativador') ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 bg-white'}">
+                <button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Ativador')" title="Ativar/Desativar atuação como Ativador" class="px-2 py-1 rounded-md text-[10px] font-bold transition ${setoresAtuais.includes('Ativador') ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 bg-white'}">
                     ⚡ Ativador
                 </button>
             </div>
@@ -2855,11 +3495,11 @@ function renderizarTabelaEquipes() {
 
         let acoesEq = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador') ? 
             `<button onclick="resetarPinEquipeGestor(${eq.id})" class="bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 font-bold text-[10px] px-2.5 py-1 rounded" title="Redefinir ou alterar o PIN de 4 dígitos deste técnico">🔄 Resetar PIN</button>
-             <button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>` :
+             <button onclick="abrirModalEquipe(${eq.id})" title="Editar nome, grupos ou status da equipe" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>` :
             `<span class="text-slate-400 text-[10px]">Somente Leitura</span>`;
 
         if (nivelUsuarioLogado === 'Master') {
-            acoesEq += ` <button onclick="excluirEquipe(${eq.id}, '${eq.nome}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>`;
+            acoesEq += ` <button onclick="excluirEquipe(${eq.id}, '${eq.nome}')" title="Remover equipe do sistema" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>`;
         }
 
         corpo.innerHTML += `
@@ -2986,7 +3626,8 @@ async function excluirUsuario(id, email) {
     }
 }
 
-function renderizarTabelaAuditoria() {
+async function renderizarTabelaAuditoria() {
+    await carregarAuditoriaDaNuvem();
     const corpo = document.getElementById('tabela-auditoria-corpo');
     if (!corpo) return;
     corpo.innerHTML = "";
@@ -2995,7 +3636,7 @@ function renderizarTabelaAuditoria() {
         return;
     }
     trilhaAuditoria.forEach(log => {
-        const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO") || log.acao.includes("PIN") || log.acao.includes("TRANSFERÊNCIA") || log.acao.includes("EXPEDIENTE") || log.acao.includes("EDIÇÃO")
+        const destaqueReabertura = log.acao.includes("REABERTURA") || log.acao.includes("REABERTA") || log.acao.includes("IMPORTAÇÃO") || log.acao.includes("PIN") || log.acao.includes("TRANSFERÊNCIA") || log.acao.includes("EXPEDIENTE") || log.acao.includes("EDIÇÃO") || log.acao.includes("BACKUP") || log.acao.includes("EXPURGO")
             ? "bg-purple-100 text-purple-900 border border-purple-300"
             : "bg-slate-100 text-slate-800";
 
@@ -3010,16 +3651,19 @@ function renderizarTabelaAuditoria() {
     });
 }
 
-function limparLogsAuditoria() {
+async function limparLogsAuditoria() {
     if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas usuários Master podem limpar os logs."); return; }
-    if (confirm("Deseja limpar o histórico de logs de auditoria?")) {
+    if (confirm("Deseja limpar o histórico de logs de auditoria em todos os dispositivos?")) {
         trilhaAuditoria = [];
         localStorage.removeItem('gpd_trilha_auditoria');
+        await sincronizarAuditoriaNaNuvem();
         renderizarTabelaAuditoria();
     }
 }
 
 function mudarSubAbaGestor(aba) {
+    inicializarMelhoriasVisuaisGestor();
+
     if (nivelUsuarioLogado === 'Visualizador' && !['atividades', 'graficos', 'materiais'].includes(aba)) {
         alert("⚠️ Seu perfil (Visualizador) possui acesso restrito às abas: Atividades, Gráficos & Indicadores e Materiais.");
         return;
@@ -3032,18 +3676,35 @@ function mudarSubAbaGestor(aba) {
         if (el) el.classList.add('hidden');
         if (btn) {
             const ocultoVisualizador = (nivelUsuarioLogado === 'Visualizador' && !['atividades', 'graficos', 'materiais'].includes(s));
-            btn.className = `px-3 py-1.5 text-xs font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1 ${ocultoVisualizador ? 'hidden' : ''}`;
+            btn.className = `px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1 ${ocultoVisualizador ? 'hidden' : ''}`;
         }
     });
     
     const targetView = document.getElementById(`subview-${aba}`);
     const targetBtn = document.getElementById(`subtab-btn-${aba}`);
     if (targetView) targetView.classList.remove('hidden');
-    if (targetBtn) targetBtn.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1";
+    if (targetBtn) targetBtn.className = "px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1";
+
+    // Exibe os dois botões de atalho à direita apenas quando estiver na aba Disponibilidade
+    const divBotoesDisp = document.getElementById('botoes-atalho-exclusivos-disponibilidade');
+    if (divBotoesDisp) {
+        if (aba === 'disponibilidade') divBotoesDisp.classList.remove('hidden');
+        else divBotoesDisp.classList.add('hidden');
+    }
+
+    // Oculta a Central Master de Backup se não for perfil Master
+    const boxBackupMaster = document.getElementById('central-master-backup-nuvem');
+    if (boxBackupMaster) {
+        if (nivelUsuarioLogado === 'Master') boxBackupMaster.classList.remove('hidden');
+        else boxBackupMaster.classList.add('hidden');
+    }
 
     if (aba === 'usuarios') renderizarTabelaUsuariosPermissao();
     if (aba === 'equipes') renderizarTabelaEquipes();
-    if (aba === 'opcoes') renderizarPainelOpcoesSistema();
+    if (aba === 'opcoes') {
+        renderizarPainelOpcoesSistema();
+        atualizarEstimativaPesoNuvem();
+    }
     if (aba === 'auditoria') renderizarTabelaAuditoria();
     if (aba === 'disponibilidade') renderizarPainelDisponibilidade();
     if (aba === 'mapa') {
