@@ -11,7 +11,19 @@ const ID_NUVEM_AUDITORIA = 999999005;
 const LIMITE_TOTAL_SUPABASE_MB = 500;
 const ORDEM_SETORES = ["Vistoriador", "Instalador", "Ativador"];
 
-// ================= ITEM 01: ESTRUTURA DINÂMICA E EDITÁVEL DE GRUPOS E PROJETOS =================
+function lerJsonSeguroLocal(chave, valorPadrao) {
+    try {
+        const bruto = localStorage.getItem(chave);
+        if (!bruto) return valorPadrao;
+        const parsed = JSON.parse(bruto);
+        return parsed !== null && parsed !== undefined ? parsed : valorPadrao;
+    } catch (e) {
+        localStorage.removeItem(chave);
+        return valorPadrao;
+    }
+}
+
+// ================= ESTRUTURA DINÂMICA E EDITÁVEL DE GRUPOS E PROJETOS =================
 
 const CATALOGO_PROJETOS_PADRAO = [
     { nome: "VISTORIA", grupo: "ON GOING", setor: "Vistoriador" },
@@ -23,109 +35,37 @@ const CATALOGO_PROJETOS_PADRAO = [
     { nome: "ATIVAÇÃO NAP LOTADA", grupo: "ON GOING", setor: "Ativador" }
 ];
 
-let GRUPOS_PROJETO_SISTEMA = JSON.parse(localStorage.getItem('gpd_grupos_projeto')) || [
-    "ON GOING",
-    "PROJETO F"
+let GRUPOS_PROJETO_SISTEMA = lerJsonSeguroLocal('gpd_grupos_projeto', ["ON GOING", "PROJETO F"]);
+let CATALOGO_PROJETOS_SISTEMA = lerJsonSeguroLocal('gpd_catalogo_projetos', JSON.parse(JSON.stringify(CATALOGO_PROJETOS_PADRAO)));
+
+let PROJETOS_POR_SETOR = {
+    "Vistoriador": ["VISTORIA"],
+    "Instalador": ["CONSTRUÇÃO F", "CONSTRUÇÃO ON GOING", "CONSTRUÇÃO NAP LOTADA"],
+    "Ativador": ["ATIVAÇÃO F", "ATIVAÇÃO ON GOING", "ATIVAÇÃO NAP LOTADA"]
+};
+
+let TODOS_OS_PROJETOS = [
+    "VISTORIA",
+    "CONSTRUÇÃO F",
+    "CONSTRUÇÃO ON GOING",
+    "CONSTRUÇÃO NAP LOTADA",
+    "ATIVAÇÃO F",
+    "ATIVAÇÃO ON GOING",
+    "ATIVAÇÃO NAP LOTADA"
 ];
 
-let CATALOGO_PROJETOS_SISTEMA = JSON.parse(localStorage.getItem('gpd_catalogo_projetos')) || CATALOGO_PROJETOS_PADRAO;
+let PROJETOS_GRUPO_MALLING = [
+    "VISTORIA",
+    "CONSTRUÇÃO ON GOING",
+    "CONSTRUÇÃO NAP LOTADA",
+    "ATIVAÇÃO ON GOING",
+    "ATIVAÇÃO NAP LOTADA"
+];
 
-let PROJETOS_POR_SETOR = { "Vistoriador": [], "Instalador": [], "Ativador": [] };
-let TODOS_OS_PROJETOS = [];
-let PROJETOS_GRUPO_MALLING = [];
-let PROJETOS_GRUPO_PROJETO_F = [];
-
-function reconstruirMapasDeProjetosDinamicos() {
-    if (!Array.isArray(GRUPOS_PROJETO_SISTEMA) || GRUPOS_PROJETO_SISTEMA.length === 0) {
-        GRUPOS_PROJETO_SISTEMA = ["ON GOING", "PROJETO F"];
-    }
-    if (!Array.isArray(CATALOGO_PROJETOS_SISTEMA) || CATALOGO_PROJETOS_SISTEMA.length === 0) {
-        CATALOGO_PROJETOS_SISTEMA = JSON.parse(JSON.stringify(CATALOGO_PROJETOS_PADRAO));
-    }
-
-    PROJETOS_POR_SETOR = { "Vistoriador": [], "Instalador": [], "Ativador": [] };
-    TODOS_OS_PROJETOS = [];
-    PROJETOS_GRUPO_MALLING = [];
-    PROJETOS_GRUPO_PROJETO_F = [];
-
-    CATALOGO_PROJETOS_SISTEMA.forEach(item => {
-        const nomeLimpo = String(item.nome || "").trim().toUpperCase();
-        if (!nomeLimpo) return;
-        const grupoLimpo = String(item.grupo || GRUPOS_PROJETO_SISTEMA[0] || "ON GOING").trim().toUpperCase();
-        const setorLimpo = ORDEM_SETORES.includes(item.setor) ? item.setor : "Instalador";
-
-        item.nome = nomeLimpo;
-        item.grupo = grupoLimpo;
-        item.setor = setorLimpo;
-
-        if (!GRUPOS_PROJETO_SISTEMA.includes(grupoLimpo)) {
-            GRUPOS_PROJETO_SISTEMA.push(grupoLimpo);
-        }
-
-        if (!TODOS_OS_PROJETOS.includes(nomeLimpo)) {
-            TODOS_OS_PROJETOS.push(nomeLimpo);
-        }
-        if (!PROJETOS_POR_SETOR[setorLimpo].includes(nomeLimpo)) {
-            PROJETOS_POR_SETOR[setorLimpo].push(nomeLimpo);
-        }
-
-        if (grupoLimpo === "ON GOING") {
-            PROJETOS_GRUPO_MALLING.push(nomeLimpo);
-        } else {
-            PROJETOS_GRUPO_PROJETO_F.push(nomeLimpo);
-        }
-    });
-
-    localStorage.setItem('gpd_grupos_projeto', JSON.stringify(GRUPOS_PROJETO_SISTEMA));
-    localStorage.setItem('gpd_catalogo_projetos', JSON.stringify(CATALOGO_PROJETOS_SISTEMA));
-    popularSelectProjetosGlobal();
-}
-
-function popularSelectProjetosGlobal() {
-    // 1. Atualiza o filtro de Projetos no cabeçalho azul do Gestor
-    const selFiltroProj = document.getElementById('gestor-filtro-projeto');
-    if (selFiltroProj) {
-        const valAtual = selFiltroProj.value;
-        let html = `<option value="">🏗️ Todos os Projetos</option>`;
-        GRUPOS_PROJETO_SISTEMA.forEach(grp => {
-            const projsDoGrupo = CATALOGO_PROJETOS_SISTEMA.filter(p => p.grupo === grp);
-            if (projsDoGrupo.length > 0) {
-                html += `<optgroup label="Grupo ${grp}">` +
-                    projsDoGrupo.map(p => `<option value="${p.nome}">${p.nome} (${p.setor})</option>`).join('') +
-                    `</optgroup>`;
-            }
-        });
-        selFiltroProj.innerHTML = html;
-        if (valAtual && TODOS_OS_PROJETOS.includes(valAtual)) {
-            selFiltroProj.value = valAtual;
-        }
-    }
-
-    // 2. Atualiza o select de Projetos dentro do Super Modal de Edição
-    const selEditProj = document.getElementById('edit-reg-projeto');
-    if (selEditProj) {
-        const valEdit = selEditProj.value;
-        let htmlEdit = "";
-        GRUPOS_PROJETO_SISTEMA.forEach(grp => {
-            const projsDoGrupo = CATALOGO_PROJETOS_SISTEMA.filter(p => p.grupo === grp);
-            if (projsDoGrupo.length > 0) {
-                htmlEdit += `<optgroup label="Grupo ${grp}">` +
-                    projsDoGrupo.map(p => `<option value="${p.nome}">${p.nome} (${p.setor})</option>`).join('') +
-                    `</optgroup>`;
-            }
-        });
-        htmlEdit += `<option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>`;
-        selEditProj.innerHTML = htmlEdit;
-        if (valEdit) selEditProj.value = valEdit;
-    }
-
-    // 3. Atualiza o select de Projetos do Modo Campo caso haja equipe selecionada
-    const selEqCampo = document.getElementById('sel-equipe');
-    const selProjCampo = document.getElementById('sel-projeto');
-    if (selEqCampo && selEqCampo.value && typeof atualizarProjetosPermitidosCampo === "function") {
-        atualizarProjetosPermitidosCampo(selEqCampo.value, selProjCampo ? selProjCampo.value : null);
-    }
-}
+let PROJETOS_GRUPO_PROJETO_F = [
+    "CONSTRUÇÃO F",
+    "ATIVAÇÃO F"
+];
 
 const OPCOES_CONCLUIDA_PADRAO = [
     "REDE INTERNA CONCLUÍDA",
@@ -135,7 +75,112 @@ const OPCOES_CONCLUIDA_PADRAO = [
     "LIBERADO PARA COMERCIAL"
 ];
 
-// Detecta se o acesso está sendo feito por um smartphone
+function reconstruirMapasDeProjetosDinamicos(atualizarSelectsNaTela = true) {
+    try {
+        if (!Array.isArray(GRUPOS_PROJETO_SISTEMA) || GRUPOS_PROJETO_SISTEMA.length === 0) {
+            GRUPOS_PROJETO_SISTEMA = ["ON GOING", "PROJETO F"];
+        }
+        if (!Array.isArray(CATALOGO_PROJETOS_SISTEMA) || CATALOGO_PROJETOS_SISTEMA.length === 0) {
+            CATALOGO_PROJETOS_SISTEMA = JSON.parse(JSON.stringify(CATALOGO_PROJETOS_PADRAO));
+        }
+
+        const novosPorSetor = { "Vistoriador": [], "Instalador": [], "Ativador": [] };
+        const novosTodos = [];
+        const novosMalling = [];
+        const novosProjF = [];
+
+        CATALOGO_PROJETOS_SISTEMA.forEach(item => {
+            if (!item || typeof item !== 'object') return;
+            const nomeLimpo = String(item.nome || "").trim().toUpperCase();
+            if (!nomeLimpo) return;
+            const grupoLimpo = String(item.grupo || GRUPOS_PROJETO_SISTEMA[0] || "ON GOING").trim().toUpperCase();
+            const setorLimpo = ORDEM_SETORES.includes(item.setor) ? item.setor : "Instalador";
+
+            item.nome = nomeLimpo;
+            item.grupo = grupoLimpo;
+            item.setor = setorLimpo;
+
+            if (!GRUPOS_PROJETO_SISTEMA.includes(grupoLimpo)) {
+                GRUPOS_PROJETO_SISTEMA.push(grupoLimpo);
+            }
+            if (!novosTodos.includes(nomeLimpo)) {
+                novosTodos.push(nomeLimpo);
+            }
+            if (!novosPorSetor[setorLimpo].includes(nomeLimpo)) {
+                novosPorSetor[setorLimpo].push(nomeLimpo);
+            }
+            if (grupoLimpo === "ON GOING") {
+                novosMalling.push(nomeLimpo);
+            } else {
+                novosProjF.push(nomeLimpo);
+            }
+        });
+
+        if (novosTodos.length > 0) {
+            PROJETOS_POR_SETOR = novosPorSetor;
+            TODOS_OS_PROJETOS = novosTodos;
+            PROJETOS_GRUPO_MALLING = novosMalling;
+            PROJETOS_GRUPO_PROJETO_F = novosProjF;
+        }
+
+        localStorage.setItem('gpd_grupos_projeto', JSON.stringify(GRUPOS_PROJETO_SISTEMA));
+        localStorage.setItem('gpd_catalogo_projetos', JSON.stringify(CATALOGO_PROJETOS_SISTEMA));
+
+        if (atualizarSelectsNaTela) {
+            popularSelectProjetosGlobal();
+        }
+    } catch (e) {
+        console.warn("Aviso ao reconstruir catálogo de projetos:", e);
+    }
+}
+
+function popularSelectProjetosGlobal() {
+    try {
+        const selFiltroProj = document.getElementById('gestor-filtro-projeto');
+        if (selFiltroProj) {
+            const valAtual = selFiltroProj.value;
+            let html = `<option value="">🏗️ Todos os Projetos</option>`;
+            GRUPOS_PROJETO_SISTEMA.forEach(grp => {
+                const projsDoGrupo = CATALOGO_PROJETOS_SISTEMA.filter(p => p && p.grupo === grp);
+                if (projsDoGrupo.length > 0) {
+                    html += `<optgroup label="Grupo ${grp}">` +
+                        projsDoGrupo.map(p => `<option value="${p.nome}">${p.nome} (${p.setor})</option>`).join('') +
+                        `</optgroup>`;
+                }
+            });
+            selFiltroProj.innerHTML = html;
+            if (valAtual && TODOS_OS_PROJETOS.includes(valAtual)) {
+                selFiltroProj.value = valAtual;
+            }
+        }
+
+        const selEditProj = document.getElementById('edit-reg-projeto');
+        if (selEditProj) {
+            const valEdit = selEditProj.value;
+            let htmlEdit = "";
+            GRUPOS_PROJETO_SISTEMA.forEach(grp => {
+                const projsDoGrupo = CATALOGO_PROJETOS_SISTEMA.filter(p => p && p.grupo === grp);
+                if (projsDoGrupo.length > 0) {
+                    htmlEdit += `<optgroup label="Grupo ${grp}">` +
+                        projsDoGrupo.map(p => `<option value="${p.nome}">${p.nome} (${p.setor})</option>`).join('') +
+                        `</optgroup>`;
+                }
+            });
+            htmlEdit += `<option value="IMPREVISTO / ATRASO">IMPREVISTO / ATRASO</option>`;
+            selEditProj.innerHTML = htmlEdit;
+            if (valEdit) selEditProj.value = valEdit;
+        }
+
+        const selEqCampo = document.getElementById('sel-equipe');
+        const selProjCampo = document.getElementById('sel-projeto');
+        if (selEqCampo && selEqCampo.value && typeof atualizarProjetosPermitidosCampo === "function") {
+            atualizarProjetosPermitidosCampo(selEqCampo.value, selProjCampo ? selProjCampo.value : null);
+        }
+    } catch (e) {
+        console.warn("Aviso ao popular selects de projetos:", e);
+    }
+}
+
 function ehDispositivoMovel() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || "") || (window.innerWidth <= 768);
 }
@@ -166,12 +211,13 @@ function obterProjetosPermitidosParaSetores(setorCampo) {
     listaSetores.forEach(s => {
         (PROJETOS_POR_SETOR[s] || []).forEach(p => projetosUnicos.add(p));
     });
-    return Array.from(projetosUnicos);
+    const resultado = Array.from(projetosUnicos);
+    return resultado.length > 0 ? resultado : TODOS_OS_PROJETOS;
 }
 
 function obterSetorDoProjeto(projeto) {
     const p = normalizarNomeProjeto(projeto);
-    const encontrado = CATALOGO_PROJETOS_SISTEMA.find(item => item.nome === p);
+    const encontrado = (CATALOGO_PROJETOS_SISTEMA || []).find(item => item && item.nome === p);
     if (encontrado && ORDEM_SETORES.includes(encontrado.setor)) return encontrado.setor;
     if ((PROJETOS_POR_SETOR["Vistoriador"] || []).includes(p)) return "Vistoriador";
     if ((PROJETOS_POR_SETOR["Ativador"] || []).includes(p)) return "Ativador";
@@ -191,11 +237,11 @@ function normalizarNomeProjeto(projBruto) {
 
 function obterMacroGrupoProjeto(projeto) {
     const p = normalizarNomeProjeto(projeto);
-    const encontrado = CATALOGO_PROJETOS_SISTEMA.find(item => item.nome === p);
+    const encontrado = (CATALOGO_PROJETOS_SISTEMA || []).find(item => item && item.nome === p);
     if (encontrado && encontrado.grupo) return encontrado.grupo;
     if (PROJETOS_GRUPO_PROJETO_F.includes(p)) return "PROJETO F";
     if (PROJETOS_GRUPO_MALLING.includes(p)) return "ON GOING";
-    return GRUPOS_PROJETO_SISTEMA[0] || "OUTROS";
+    return (GRUPOS_PROJETO_SISTEMA && GRUPOS_PROJETO_SISTEMA[0]) || "OUTROS";
 }
 
 function obterBadgeSetorHtml(setorCampo) {
@@ -211,16 +257,16 @@ function obterBadgeSetorHtml(setorCampo) {
     }).join('') + `</div>`;
 }
 
-let OPCOES_PENDENCIA_PADRAO = JSON.parse(localStorage.getItem('gpd_opcoes_pendencia')) || [
+let OPCOES_PENDENCIA_PADRAO = lerJsonSeguroLocal('gpd_opcoes_pendencia', [
     "REDE CORRETIVA",
     "ACESSO PARCIAL",
     "AGUARDANDO SÍNDICO / CLIENTE",
     "OBSTRUÇÃO INTERNA / PRUMADA",
     "FALTA DE TEMPO HÁBIL",
     "OUTROS"
-];
+]);
 
-let OPCOES_MALOGRO_PADRAO = JSON.parse(localStorage.getItem('gpd_opcoes_malogro')) || [
+let OPCOES_MALOGRO_PADRAO = lerJsonSeguroLocal('gpd_opcoes_malogro', [
     "REDE CORRETIVA",
     "FROTA",
     "MATERIAL",
@@ -231,19 +277,16 @@ let OPCOES_MALOGRO_PADRAO = JSON.parse(localStorage.getItem('gpd_opcoes_malogro'
     "REDE EXTERNA",
     "INFRAESTRUTURA",
     "ÁREA DE RISCO"
-];
+]);
 
-let OPCOES_IMPREVISTO_PADRAO = JSON.parse(localStorage.getItem('gpd_opcoes_imprevisto')) || [
+let OPCOES_IMPREVISTO_PADRAO = lerJsonSeguroLocal('gpd_opcoes_imprevisto', [
     "CARRO COM DEFEITO",
     "FALTA DE MATERIAL",
     "FALTA DE EQUIPAMENTO",
     "SEM ATIVIDADE PROGRAMADA",
     "SEM TEMPO HÁBIL",
     "AGUARDANDO LIBERAÇÃO / BASE"
-];
-
-// Inicializa os mapas dinâmicos de projetos logo na carga do script
-reconstruirMapasDeProjetosDinamicos();
+]);
 
 const listaEquipesInicial = [
     "ANDREO FAGUNDES",
@@ -271,13 +314,23 @@ const listaEquipesInicial = [
     "WILSON JOSÉ DE SOUSA JUNIOR"
 ];
 
-let equipesSistema = JSON.parse(localStorage.getItem('gpd_equipes_cadastradas')) || listaEquipesInicial.map((nome, index) => ({
+let equipesSistema = lerJsonSeguroLocal('gpd_equipes_cadastradas', listaEquipesInicial.map((nome, index) => ({
     id: index + 1,
     nome: nome,
     setor: "Instalador",
     status: "Ativo",
     pin: "1234"
-}));
+})));
+
+if (!Array.isArray(equipesSistema) || equipesSistema.length === 0) {
+    equipesSistema = listaEquipesInicial.map((nome, index) => ({
+        id: index + 1,
+        nome: nome,
+        setor: "Instalador",
+        status: "Ativo",
+        pin: "1234"
+    }));
+}
 
 equipesSistema = equipesSistema.map(eq => ({
     ...eq,
@@ -285,7 +338,7 @@ equipesSistema = equipesSistema.map(eq => ({
     pin: (eq.pin && String(eq.pin).trim().length >= 4) ? String(eq.pin).trim() : "1234"
 }));
 
-let telemetriaEquipes = JSON.parse(localStorage.getItem('gpd_telemetria_equipes')) || {};
+let telemetriaEquipes = lerJsonSeguroLocal('gpd_telemetria_equipes', {});
 
 let dadosAtendimento = { 
     idEmAndamento: null, 
@@ -303,10 +356,10 @@ let dadosAtendimento = {
 };
 
 let registrosSalvos = [];
-let usuariosSistema = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [
+let usuariosSistema = lerJsonSeguroLocal('gpd_usuarios_cadastrados', [
     { id: 1, nome: "Leonardo Simões de Almeida", email: "lsimoes@procisa.com.br", senha: "Leo290301@", nivel: "Master", status: "Ativo" }
-];
-let trilhaAuditoria = JSON.parse(localStorage.getItem('gpd_trilha_auditoria')) || [];
+]);
+let trilhaAuditoria = lerJsonSeguroLocal('gpd_trilha_auditoria', []);
 let usuarioLogado = sessionStorage.getItem('gpd_user_logado') || null;
 let nivelUsuarioLogado = "Visualizador";
 let equipeAutenticadaSessao = sessionStorage.getItem('gpd_equipe_autenticada_pin') || "";
@@ -463,7 +516,7 @@ async function sincronizarEquipesNaNuvem() {
 
 async function sincronizarOpcoesNaNuvem() {
     try {
-        reconstruirMapasDeProjetosDinamicos();
+        reconstruirMapasDeProjetosDinamicos(true);
         localStorage.setItem('gpd_opcoes_pendencia', JSON.stringify(OPCOES_PENDENCIA_PADRAO));
         localStorage.setItem('gpd_opcoes_malogro', JSON.stringify(OPCOES_MALOGRO_PADRAO));
         localStorage.setItem('gpd_opcoes_imprevisto', JSON.stringify(OPCOES_IMPREVISTO_PADRAO));
@@ -570,7 +623,7 @@ function popularSelectImprevistos() {
     `).join('');
 }
 
-// ================= ITEM 04: MEDIDOR DE CAPACIDADE LIVRE E OCUPADA DA NUVEM (500 MB) =================
+// ================= MEDIDOR DE CAPACIDADE LIVRE E OCUPADA DA NUVEM (500 MB) =================
 
 function calcularEstatisticasArmazenamentoNuvem() {
     try {
@@ -647,20 +700,19 @@ function renderizarPainelCapacidadeNuvem() {
     }
 }
 
-// ================= ITEM 01: FUNÇÕES DE INCLUSÃO, EDIÇÃO E EXCLUSÃO DE GRUPOS E PROJETOS =================
+// ================= FUNÇÕES DE INCLUSÃO, EDIÇÃO E EXCLUSÃO DE GRUPOS E PROJETOS =================
 
 function renderizarPainelOpcoesSistema() {
-    reconstruirMapasDeProjetosDinamicos();
+    reconstruirMapasDeProjetosDinamicos(true);
     renderizarPainelCapacidadeNuvem();
 
     const podeEditar = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador');
 
-    // 1. Renderiza Lista de Grupos de Projeto
     const contGrupos = document.getElementById('lista-gestao-grupos-projeto');
     if (contGrupos) {
         contGrupos.innerHTML = "";
         GRUPOS_PROJETO_SISTEMA.forEach((grp, idx) => {
-            const qtdProjs = CATALOGO_PROJETOS_SISTEMA.filter(p => p.grupo === grp).length;
+            const qtdProjs = CATALOGO_PROJETOS_SISTEMA.filter(p => p && p.grupo === grp).length;
             const botoes = podeEditar
                 ? `<div class="flex gap-1">
                      <button onclick="editarGrupoProjetoSistema(${idx})" title="Renomear este Grupo de Projetos" class="text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px]">✏️ Editar</button>
@@ -680,7 +732,6 @@ function renderizarPainelOpcoesSistema() {
         });
     }
 
-    // 2. Renderiza Lista de Tipos de Projetos / Serviços
     const contProjetos = document.getElementById('lista-gestao-projetos-sistema');
     if (contProjetos) {
         contProjetos.innerHTML = "";
@@ -706,7 +757,6 @@ function renderizarPainelOpcoesSistema() {
         });
     }
 
-    // 3. Renderiza Listas de Pendência, Malogro e Imprevisto
     const desenharLista = (arrayOpcoes, tipo, idContainer) => {
         const container = document.getElementById(idContainer);
         if (!container) return;
@@ -761,7 +811,7 @@ async function editarGrupoProjetoSistema(idx) {
 
     GRUPOS_PROJETO_SISTEMA[idx] = novo;
     CATALOGO_PROJETOS_SISTEMA.forEach(p => {
-        if (p.grupo === atual) p.grupo = novo;
+        if (p && p.grupo === atual) p.grupo = novo;
     });
 
     registrarLogAuditoria("EDIÇÃO DE GRUPO DE PROJETO", `Grupo '${atual}' renomeado para '${novo}'.`);
@@ -778,7 +828,7 @@ async function excluirGrupoProjetoSistema(idx) {
     }
 
     const alvo = GRUPOS_PROJETO_SISTEMA[idx];
-    const vinculados = CATALOGO_PROJETOS_SISTEMA.filter(p => p.grupo === alvo);
+    const vinculados = CATALOGO_PROJETOS_SISTEMA.filter(p => p && p.grupo === alvo);
 
     if (vinculados.length > 0) {
         const outroGrupo = GRUPOS_PROJETO_SISTEMA.find((_, i) => i !== idx) || "ON GOING";
@@ -786,7 +836,7 @@ async function excluirGrupoProjetoSistema(idx) {
             return;
         }
         CATALOGO_PROJETOS_SISTEMA.forEach(p => {
-            if (p.grupo === alvo) p.grupo = outroGrupo;
+            if (p && p.grupo === alvo) p.grupo = outroGrupo;
         });
     } else {
         if (!confirm(`Deseja realmente excluir o grupo "${alvo}"?`)) return;
@@ -805,7 +855,7 @@ async function adicionarNovoProjetoSistema() {
     const nome = prompt("🏗️ NOVO TIPO DE PROJETO / SERVIÇO (Passo 1 de 3)\n\nDigite o nome do novo projeto (Ex: MANUTENÇÃO MDU, VISTORIA F):")?.trim().toUpperCase();
     if (!nome) return;
 
-    if (CATALOGO_PROJETOS_SISTEMA.some(p => p.nome === nome)) {
+    if (CATALOGO_PROJETOS_SISTEMA.some(p => p && p.nome === nome)) {
         alert("⚠️ Já existe um projeto com este nome.");
         return;
     }
@@ -985,16 +1035,17 @@ function obterDataLocalISO(dateObj = new Date()) {
     return new Date(dateObj.getTime() - (dateObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 }
 
-// ================= INICIALIZAÇÃO INSTANTÂNEA E OTIMIZADA PARA MOBILE =================
+// ================= INICIALIZAÇÃO BLINDADA E INSTANTÂNEA =================
 
 window.onload = async function() { 
     const isMobile = ehDispositivoMovel();
 
-    reconstruirMapasDeProjetosDinamicos();
-    popularSelectImprevistos();
-    popularSelectEquipes();
-    verificarPermissoesSessao();
-    restaurarRascunhoCampo();
+    try { reconstruirMapasDeProjetosDinamicos(false); } catch (e) { console.warn(e); }
+    try { popularSelectImprevistos(); } catch (e) { console.warn(e); }
+    try { popularSelectEquipes(); } catch (e) { console.warn(e); }
+    try { popularSelectProjetosGlobal(); } catch (e) { console.warn(e); }
+    try { verificarPermissoesSessao(); } catch (e) { console.warn(e); }
+    try { if (typeof restaurarRascunhoCampo === "function") restaurarRascunhoCampo(); } catch (e) { console.warn(e); }
 
     if (isMobile) {
         const grupoTopo = document.getElementById('grupo-botoes-visao-topo');
@@ -1018,16 +1069,12 @@ window.onload = async function() {
         await carregarRegistrosDaNuvem(true);
     }
 
-    popularSelectEquipes();
-    popularSelectProjetosGlobal();
-    verificarImprevistoAtivoEquipeCampo();
-    verificarPendenciasReabertasEProgramadasCampo(false);
-    if (typeof atualizarBarraExpedienteCampo === "function") {
-        atualizarBarraExpedienteCampo();
-    }
-    if (typeof atualizarAbaMinhasAtividadesCampo === "function") {
-        atualizarAbaMinhasAtividadesCampo(false);
-    }
+    try { popularSelectEquipes(); } catch (e) {}
+    try { popularSelectProjetosGlobal(); } catch (e) {}
+    try { if (typeof verificarImprevistoAtivoEquipeCampo === "function") verificarImprevistoAtivoEquipeCampo(); } catch (e) {}
+    try { if (typeof verificarPendenciasReabertasEProgramadasCampo === "function") verificarPendenciasReabertasEProgramadasCampo(false); } catch (e) {}
+    try { if (typeof atualizarBarraExpedienteCampo === "function") atualizarBarraExpedienteCampo(); } catch (e) {}
+    try { if (typeof atualizarAbaMinhasAtividadesCampo === "function") atualizarAbaMinhasAtividadesCampo(false); } catch (e) {}
 
     if (!isMobile && usuarioLogado && typeof atualizarDashboardGestor === "function") {
         atualizarDashboardGestor();
@@ -1075,11 +1122,9 @@ window.onload = async function() {
         const formAberto = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
         if (viewCampoAtiva && equipeAutenticadaSessao && !formAberto) {
             await carregarRegistrosModoCampoLeve();
-            verificarImprevistoAtivoEquipeCampo();
-            verificarPendenciasReabertasEProgramadasCampo(true);
-            if (typeof atualizarAbaMinhasAtividadesCampo === "function") {
-                atualizarAbaMinhasAtividadesCampo(false);
-            }
+            if (typeof verificarImprevistoAtivoEquipeCampo === "function") verificarImprevistoAtivoEquipeCampo();
+            if (typeof verificarPendenciasReabertasEProgramadasCampo === "function") verificarPendenciasReabertasEProgramadasCampo(true);
+            if (typeof atualizarAbaMinhasAtividadesCampo === "function") atualizarAbaMinhasAtividadesCampo(false);
         }
     }, 35000);
 };
@@ -1159,10 +1204,10 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
         try {
             const nuvemUsers = JSON.parse(rowUsuarios.observacoes);
             if (Array.isArray(nuvemUsers) && nuvemUsers.length > 0) {
-                const locais = JSON.parse(localStorage.getItem('gpd_usuarios_cadastrados')) || [];
+                const locais = lerJsonSeguroLocal('gpd_usuarios_cadastrados', []);
                 let houveAdicaoLocal = false;
                 locais.forEach(uLocal => {
-                    if (uLocal.email && !nuvemUsers.some(uNuvem => uNuvem.email.toLowerCase() === uLocal.email.toLowerCase())) {
+                    if (uLocal && uLocal.email && !nuvemUsers.some(uNuvem => uNuvem.email.toLowerCase() === uLocal.email.toLowerCase())) {
                         nuvemUsers.push(uLocal);
                         houveAdicaoLocal = true;
                     }
@@ -1206,7 +1251,7 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
             if (Array.isArray(nuvemOpc.catalogoProjetos) && nuvemOpc.catalogoProjetos.length > 0) {
                 CATALOGO_PROJETOS_SISTEMA = nuvemOpc.catalogoProjetos;
             }
-            reconstruirMapasDeProjetosDinamicos();
+            reconstruirMapasDeProjetosDinamicos(true);
             popularSelectImprevistos();
         } catch (e) { console.warn("Erro ao ler JSON de opções da nuvem:", e); }
     } else if (permitirUploadInicialConfig) {
@@ -1338,7 +1383,6 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
     renderizarPainelCapacidadeNuvem();
 }
 
-// Carregador Ultra-Leve exclusivo para o Modo Campo no Smartphone
 async function carregarRegistrosModoCampoLeve() {
     try {
         const hojeISO = obterDataLocalISO();
@@ -1490,7 +1534,7 @@ function alternarVisao(visao) {
         
         aplicarRestricoesInterface();
         popularSelectProjetosGlobal();
-        atualizarDashboardGestor();
+        if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
     } else {
         vGestor.classList.add('hidden');
         vCampo.classList.remove('hidden');
@@ -1500,12 +1544,17 @@ function alternarVisao(visao) {
         btnCampo.className = "px-3 py-1.5 text-xs font-medium rounded-lg transition bg-white text-blue-950 shadow-sm font-bold";
         btnGestor.className = "px-3 py-1.5 text-xs font-medium rounded-lg transition text-cyan-200 hover:text-white";
         subtitle.innerText = "Setor Construção MDU • PROCISA RJ";
+        popularSelectEquipes();
         atualizarBarraSegurancaPinCampo();
         if (typeof atualizarBarraExpedienteCampo === "function") {
             atualizarBarraExpedienteCampo();
         }
-        verificarImprevistoAtivoEquipeCampo();
-        verificarPendenciasReabertasEProgramadasCampo(false);
+        if (typeof verificarImprevistoAtivoEquipeCampo === "function") {
+            verificarImprevistoAtivoEquipeCampo();
+        }
+        if (typeof verificarPendenciasReabertasEProgramadasCampo === "function") {
+            verificarPendenciasReabertasEProgramadasCampo(false);
+        }
         if (typeof atualizarAbaMinhasAtividadesCampo === "function") {
             atualizarAbaMinhasAtividadesCampo(false);
         }
@@ -1540,7 +1589,8 @@ function registrarLogAuditoria(acao, detalhes) {
 }
 
 function popularSelectEquipes() {
-    equipesSistema.sort((a, b) => a.nome.localeCompare(b.nome));
+    if (!Array.isArray(equipesSistema)) return;
+    equipesSistema.sort((a, b) => (a.nome || "").localeCompare(b.nome || ""));
     
     const selCampo = document.getElementById('sel-equipe');
     const selFiltro = document.getElementById('gestor-filtro-equipe');
@@ -1550,6 +1600,7 @@ function popularSelectEquipes() {
     if (selFiltro) selFiltro.innerHTML = '<option value="">👥 Todas as Equipes</option>';
 
     equipesSistema.forEach(eq => {
+        if (!eq || !eq.nome) return;
         const strSetores = formatarSetoresString(eq.setor);
 
         if (eq.status === "Ativo" && selCampo) {
@@ -1562,9 +1613,11 @@ function popularSelectEquipes() {
 
     if (selCampo && (valorAtualCampo || equipeAutenticadaSessao)) {
         const eqRestaurar = valorAtualCampo || equipeAutenticadaSessao;
-        selCampo.value = eqRestaurar;
-        if (typeof atualizarProjetosPermitidosCampo === "function") {
-            atualizarProjetosPermitidosCampo(eqRestaurar);
+        if (equipesSistema.some(e => e.nome === eqRestaurar)) {
+            selCampo.value = eqRestaurar;
+            if (typeof atualizarProjetosPermitidosCampo === "function") {
+                atualizarProjetosPermitidosCampo(eqRestaurar);
+            }
         }
         atualizarBarraSegurancaPinCampo();
     }
