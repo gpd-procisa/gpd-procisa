@@ -1,4 +1,4 @@
-// ================= VARIÁVEIS GLOBAIS DO MAPA, GRÁFICOS, EDIÇÃO, FILTROS MÚLTIPLOS E BACKUP =================
+// ================= VARIÁVEIS GLOBAIS DO MAPA, EDIÇÃO, FILTROS MÚLTIPLOS E BACKUP =================
 let mapaRastreioInstancia = null;
 let camadaMarcadoresRastreio = null;
 let coordenadasPinosAtuais = [];
@@ -7,109 +7,8 @@ let opcoesMarcadasEdicaoTemporarias = [];
 let snapshotStatusEdicaoOriginal = null;
 let modoConsultaBackupAtivo = false;
 let cacheRegistrosNuvemOriginal = null;
-let graficoProgramadoRetornoBairroInstancia = null;
 
 let filtrosMultiplosAtivos = { equipes: [], setores: [], macrogrupos: [], projetos: [], desfechos: [] };
-
-// ================= FUNÇÕES AUXILIARES DA PLANILHA ANALÍTICA (SEMANA, BAIRRO, SERVIÇO E STATUS MACRO) =================
-function obterSemanaDoMes(dataISO) {
-    if (!dataISO || typeof dataISO !== 'string' || dataISO.length < 10) return 'Sem 1';
-    const dia = parseInt(dataISO.substring(8, 10), 10);
-    if (isNaN(dia) || dia <= 7) return 'Sem 1';
-    if (dia <= 14) return 'Sem 2';
-    if (dia <= 21) return 'Sem 3';
-    if (dia <= 28) return 'Sem 4';
-    return 'Sem 5';
-}
-
-function extrairBairroDoEndereco(endereco) {
-    if (!endereco || typeof endereco !== 'string') return 'NÃO INFORMADO';
-    let limpo = endereco.toUpperCase().trim();
-    limpo = limpo.replace(/\([^)]*\)/g, '').trim();
-    if (limpo.includes(' - ')) {
-        const partes = limpo.split(' - ').map(p => p.trim()).filter(Boolean);
-        const candidato = partes[partes.length - 1];
-        if (candidato && candidato.length >= 2 && !/^\d+$/.test(candidato) && !candidato.startsWith('BL ') && !candidato.startsWith('APT')) {
-            return candidato;
-        }
-    }
-    const bairrosConhecidosRJ = [
-        'COPACABANA', 'TIJUCA', 'RECREIO DOS BANDEIRANTES', 'RECREIO DO BANDEIRANTES', 'BOTAFOGO',
-        'TAQUARA', 'FREGUESIA', 'PECHINCHA', 'CAMPO GRANDE', 'TODOS OS SANTOS', 'VARGEM GRANDE',
-        'LEME', 'IPANEMA', 'LEBLON', 'FLAMENGO', 'LARANJEIRAS', 'CATETE', 'GLORIA', 'CENTRO',
-        'BARRA DA TIJUCA', 'GRAJAU', 'VILA ISABEL', 'MARACANA', 'MEIER', 'ENGENHO NOVO',
-        'LINS DE VASCONCELOS', 'CACHAMBI', 'DEL CASTILHO', 'INHAUMA', 'MADUREIRA', 'BANGU',
-        'REALENGO', 'JACAREPAGUA', 'ANIL', 'CURICICA', 'TANQUE', 'PRACA SECA', 'VILA VALQUEIRE',
-        'QUINTINO BOCAIUVA', 'SAMPAIO', 'PRACA DA BANDEIRA', 'SAO CRISTOVAO', 'HUMAITA', 'GAVEA',
-        'JARDIM BOTANICO', 'URCA', 'SANTA TERESA', 'RIO COMPRIDO', 'ESTACIO', 'ROCHA', 'RIACHUELO'
-    ];
-    for (const b of bairrosConhecidosRJ) {
-        if (limpo.includes(b)) {
-            return b === 'RECREIO DO BANDEIRANTES' ? 'RECREIO DOS BANDEIRANTES' : b;
-        }
-    }
-    return 'OUTROS / VER ENDEREÇO';
-}
-
-function obterMacroServicoPlanilha(projeto) {
-    const p = (projeto || '').toUpperCase();
-    if (p.includes('VISTORIA')) return 'VISTORIA';
-    if (p.includes('ATIVAÇÃO') || p.includes('ATIVACAO')) return 'ATIVAÇÃO';
-    return 'CONSTRUÇÃO';
-}
-
-function obterCodigoBaseImovel(imovelStr) {
-    let cod = (imovelStr || '').toUpperCase().trim();
-    const idx = cod.lastIndexOf(' - BLOCO');
-    if (idx !== -1) cod = cod.substring(0, idx).trim();
-    return cod;
-}
-
-function enriquecerStatusMacroEBairro(listaRegistros) {
-    const mapaPrimeiraDataImovel = {};
-    const ordenadosCronologico = [...(registrosSalvos || [])].filter(r =>
-        r.projeto !== 'IMPREVISTO / ATRASO' &&
-        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
-        r.projeto !== PROJETO_SOLIC_MATERIAL
-    ).sort((a, b) => {
-        if (a.dataRegistro !== b.dataRegistro) return (a.dataRegistro || '').localeCompare(b.dataRegistro || '');
-        return (a.id || 0) - (b.id || 0);
-    });
-
-    ordenadosCronologico.forEach(r => {
-        const codBase = obterCodigoBaseImovel(r.imovel);
-        if (!codBase) return;
-        if (!mapaPrimeiraDataImovel[codBase]) {
-            mapaPrimeiraDataImovel[codBase] = { data: r.dataRegistro, id: r.id };
-        }
-    });
-
-    return listaRegistros.map(r => {
-        const codBase = obterCodigoBaseImovel(r.imovel);
-        const obsSuperior = ((r.observacoes || '') + ' ' + (r.motivoDesfecho || '')).toUpperCase();
-        let statusMacro = 'PROGRAMADO';
-        if (obsSuperior.includes('RETORNO') || obsSuperior.includes('REINCID')) {
-            statusMacro = 'RETORNO';
-        } else if (codBase && mapaPrimeiraDataImovel[codBase]) {
-            const prim = mapaPrimeiraDataImovel[codBase];
-            if (r.dataRegistro > prim.data) {
-                statusMacro = 'RETORNO';
-            }
-        }
-        const bairroExtraido = extrairBairroDoEndereco(r.endereco);
-        const semanaMes = obterSemanaDoMes(r.dataRegistro);
-        const statusBinarioPlanilha = r.desfecho === 'CONCLUIDA' ? 'EXECUTADO' : 'N EXECUTADO';
-        return {
-            ...r,
-            codigoImovelBase: codBase,
-            statusMacroPlanilha: statusMacro,
-            bairroPlanilha: bairroExtraido,
-            semanaPlanilha: semanaMes,
-            servicoPlanilha: obterMacroServicoPlanilha(r.projeto),
-            statusBinarioPlanilha: statusBinarioPlanilha
-        };
-    });
-}
 
 // ================= SINCRONIZAÇÃO DE AUDITORIA NA NUVEM (EXCLUSIVA DO MODO GESTÃO) =================
 async function sincronizarAuditoriaNaNuvem() {
@@ -141,6 +40,7 @@ async function carregarAuditoriaDaNuvem() {
     } catch (e) { console.warn("Aviso ao ler auditoria da nuvem:", e); }
 }
 
+// ITEM 03: Registra na Auditoria APENAS ações realizadas no Modo Gestão (usuário autenticado)
 registrarLogAuditoria = function(acao, detalhes) {
     if (!usuarioLogado) return;
     let novoLog = {
@@ -168,7 +68,7 @@ function aplicarTooltipsExplicativosGlobais() {
         'subtab-btn-mapa': 'Abrir o mapa interativo em tempo real com a localização GPS de todas as equipes ativas hoje',
         'subtab-btn-combustivel': 'Gerir e tratar solicitações de recarga de combustível extra (Exclusão automática 48h após tratada)',
         'subtab-btn-solicitacao_material': 'Gerir e tratar solicitações de reposição de material de campo (Exclusão automática 48h após tratada)',
-        'subtab-btn-graficos': 'Analisar os gráficos da planilha ON GOING MDU, Matriz Diária, Programado vs. Retorno e Bairros',
+        'subtab-btn-graficos': 'Analisar os gráficos executivos, Super Tabela de Executores, TMA líquido e ofensores de malogro',
         'subtab-btn-imprevistos': 'Consultar e resolver ocorrências de atraso ou problemas operacionais reportados em campo',
         'subtab-btn-materiais': 'Ver o somatório consolidado e o consumo individual de cabos, conectores, fusões e caixas',
         'subtab-btn-financeiro': 'Calcular automaticamente a medição financeira com base nos materiais e vistorias realizadas',
@@ -181,7 +81,7 @@ function aplicarTooltipsExplicativosGlobais() {
     Object.entries(mapaTooltips).forEach(([id, texto]) => { const el = document.getElementById(id); if (el) el.title = texto; });
 }
 
-// ================= INJEÇÃO DE ELEMENTOS AVANÇADOS (FILTRO MÚLTIPLO E CENTRAL DE BACKUP) =================
+// ================= INJEÇÃO DE ELEMENTOS AVANÇADOS (FILTRO MÚLTIPLO, SUPER TABELA, BACKUP E PDF) =================
 function inicializarMelhoriasVisuaisGestor() {
     aplicarTooltipsExplicativosGlobais();
 
@@ -203,6 +103,41 @@ function inicializarMelhoriasVisuaisGestor() {
         if (divBotoesExtras && !divBotoesExtras.id) {
             divBotoesExtras.id = 'botoes-atalho-exclusivos-disponibilidade';
             divBotoesExtras.classList.add('hidden');
+        }
+    }
+
+    const viewGraficos = document.getElementById('subview-graficos');
+    if (viewGraficos && !document.getElementById('btn-imprimir-relatorio-pdf')) {
+        const barraResumoTopo = viewGraficos.firstElementChild?.firstElementChild;
+        if (barraResumoTopo) {
+            const btnPdf = document.createElement('button');
+            btnPdf.type = 'button';
+            btnPdf.id = 'btn-imprimir-relatorio-pdf';
+            btnPdf.onclick = gerarRelatorioVisualImpressaoPDF;
+            btnPdf.title = 'Gerar uma versão limpa para impressão ou salvar em PDF com todos os gráficos e tabelas do período filtrado';
+            btnPdf.className = 'bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1';
+            btnPdf.innerHTML = '🖨️ Gerar Relatório Visual (PDF)';
+            barraResumoTopo.appendChild(btnPdf);
+        }
+
+        const tbodyExec = document.getElementById('tabela-principal-executores-corpo');
+        const theadExec = tbodyExec ? tbodyExec.previousElementSibling : null;
+        if (theadExec) {
+            theadExec.innerHTML = `
+                <tr class="bg-slate-800 text-white uppercase font-bold text-[9px] tracking-wider">
+                    <th class="p-2.5 text-center">#</th>
+                    <th class="p-2.5">Executor / Técnico</th>
+                    <th class="p-2.5">Grupo / Função</th>
+                    <th class="p-2.5 text-center bg-blue-900/40">Prod. Diária</th>
+                    <th class="p-2.5 text-center bg-emerald-900/40">Consolidado</th>
+                    <th class="p-2.5 text-center">Total Geral</th>
+                    <th class="p-2.5 text-center">Dias</th>
+                    <th class="p-2.5 text-center bg-indigo-900 font-black text-cyan-300">Média/Dia</th>
+                    <th class="p-2.5 text-center">Méd. Início / Fim</th>
+                    <th class="p-2.5 text-center text-orange-300">Pausas</th>
+                    <th class="p-2.5 text-center text-emerald-300">TMA Líquido</th>
+                    <th class="p-2.5 text-right">Eficácia</th>
+                </tr>`;
         }
     }
 
@@ -267,7 +202,7 @@ function inicializarMelhoriasVisuaisGestor() {
                     <div>
                         <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Exclusivo Master • Proteção de Dados</span>
                         <h4 class="font-bold text-sm sm:text-base mt-1">💾 Central de Backup Integral (.JSON), Consulta Histórica e Alívio de Nuvem</h4>
-                        <p class="text-[11px] text-slate-300">Faça o download completo com fotos para o seu computador, consulte arquivos antigos sem ocupar o banco ou limpe fotos antigas.</p>
+                        <p class="text-[11px] text-slate-300">Faça o download completo com fotos para o seu computador, consulte arquivos antigos sem ocupar o banco ou limpe fotos antigas para evitar pane nos 500 MB do Supabase.</p>
                     </div>
                     <span id="badge-estimativa-peso-nuvem" class="bg-slate-800 border border-slate-600 text-cyan-300 font-mono text-xs px-3 py-1.5 rounded-xl whitespace-nowrap">Calculando uso...</span>
                 </div>
@@ -275,7 +210,7 @@ function inicializarMelhoriasVisuaisGestor() {
                     <div class="bg-slate-800/90 border border-slate-700 p-3.5 rounded-xl space-y-2.5 flex flex-col justify-between">
                         <div>
                             <h5 class="font-black text-cyan-300 text-xs uppercase">1. Exportar Backup Completo (.JSON)</h5>
-                            <p class="text-[11px] text-slate-300 mt-1">Salva num único ficheiro no seu PC 100% dos registos, fotos, opções, projetos, grupos, equipes e auditoria.</p>
+                            <p class="text-[11px] text-slate-300 mt-1">Salva num único ficheiro no seu PC 100% dos registos, fotos em alta definição, opções, projetos, grupos, equipes e auditoria.</p>
                             <div class="grid grid-cols-2 gap-1.5 mt-2">
                                 <div><label class="text-[9px] text-slate-400 uppercase font-bold block">De (Opcional):</label><input type="date" id="bkp-data-inicio" class="w-full text-[11px] bg-slate-900 border border-slate-600 rounded p-1 text-white"></div>
                                 <div><label class="text-[9px] text-slate-400 uppercase font-bold block">Até (Opcional):</label><input type="date" id="bkp-data-fim" class="w-full text-[11px] bg-slate-900 border border-slate-600 rounded p-1 text-white"></div>
@@ -297,7 +232,7 @@ function inicializarMelhoriasVisuaisGestor() {
                     <div class="bg-slate-800/90 border border-red-900/60 p-3.5 rounded-xl space-y-2.5 flex flex-col justify-between">
                         <div>
                             <h5 class="font-black text-red-400 text-xs uppercase">3. Limpeza Inteligente da Nuvem</h5>
-                            <p class="text-[11px] text-slate-300 mt-1">Após baixar o seu backup, limpe as fotos antigas (mantendo todos os números) ou remova registos antigos.</p>
+                            <p class="text-[11px] text-slate-300 mt-1">Após baixar o seu backup, limpe as fotos antigas (mantendo todos os números e relatórios financeiros) ou remova registos antigos.</p>
                             <div class="mt-2"><label class="text-[9px] text-red-300 uppercase font-bold block">Limpar registos anteriores a:*</label><input type="date" id="expurgo-data-limite" class="w-full text-[11px] bg-slate-900 border border-red-700 rounded p-1 text-white"></div>
                         </div>
                         <div class="grid grid-cols-2 gap-1.5">
@@ -313,7 +248,7 @@ function inicializarMelhoriasVisuaisGestor() {
 
 setTimeout(inicializarMelhoriasVisuaisGestor, 350);
 
-// ================= SOLICITAÇÕES DE COMBUSTÍVEL E MATERIAL (COM AUTO-EXCLUSÃO EM 48H) =================
+// ================= ITEM 01 E 02: RENDERIZAÇÃO E TRATATIVA DE SOLICITAÇÕES DE COMBUSTÍVEL E MATERIAL =================
 function calcularTempoRestante48h(timestampTratado) {
     if (!timestampTratado || isNaN(timestampTratado)) return "Exclusão em 48h";
     const decorrido = Date.now() - Number(timestampTratado);
@@ -413,18 +348,35 @@ function renderizarTabelasSolicitacoesGestor() {
                 const labelsFotos = Array.isArray(item.malogros) && item.malogros.length > 0 ? item.malogros.join(' • ') : 'Painel + Mapa de Bordo';
 
                 const statusHtml = tratada
-                    ? `<div class="space-y-0.5"><span class="bg-emerald-100 text-emerald-900 border border-emerald-300 font-black px-2 py-0.5 rounded text-[10px] inline-block">🟢 TRATADA</span><div class="text-[10px] text-slate-700 font-bold">👤 Por: ${item.tratadoPor || 'Gestor'}</div><div class="text-[10px] text-slate-500 font-mono">🕒 Em: ${item.tratadoDataHora || item.hSaida}</div><div class="text-[9px] text-orange-700 font-bold">⏳ ${calcularTempoRestante48h(item.tratadoTimestamp)}</div></div>`
+                    ? `<div class="space-y-0.5">
+                         <span class="bg-emerald-100 text-emerald-900 border border-emerald-300 font-black px-2 py-0.5 rounded text-[10px] inline-block">🟢 TRATADA</span>
+                         <div class="text-[10px] text-slate-700 font-bold">👤 Por: ${item.tratadoPor || 'Gestor'}</div>
+                         <div class="text-[10px] text-slate-500 font-mono">🕒 Em: ${item.tratadoDataHora || item.hSaida}</div>
+                         <div class="text-[9px] text-orange-700 font-bold">⏳ ${calcularTempoRestante48h(item.tratadoTimestamp)}</div>
+                       </div>`
                     : `<span class="bg-amber-100 text-amber-900 border border-amber-300 font-black px-2.5 py-1 rounded text-[10px] inline-block animate-pulse">🟡 AGUARDANDO TRATATIVA</span>`;
 
                 let botoesHtml = `<span class="text-slate-400 text-[10px]">Leitura</span>`;
                 if (podeTratar) {
-                    botoesHtml = `<div class="flex flex-wrap gap-1">${!tratada ? `<button onclick="marcarSolicitacaoComoTratada(${item.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Marcar Tratada</button>` : ''}<button onclick="abrirFotosSolicitacaoCombustivelModal(${item.id})" class="bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold text-[10px] px-2 py-1 rounded">📷 Ver Fotos (${qtdFotos})</button><button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-[10px] px-2 py-1 rounded">🗑️</button></div>`;
+                    botoesHtml = `
+                        <div class="flex flex-wrap gap-1">
+                            ${!tratada ? `<button onclick="marcarSolicitacaoComoTratada(${item.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Marcar Tratada</button>` : ''}
+                            <button onclick="abrirFotosSolicitacaoCombustivelModal(${item.id})" class="bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold text-[10px] px-2 py-1 rounded">📷 Ver Fotos (${qtdFotos})</button>
+                            <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-[10px] px-2 py-1 rounded">🗑️</button>
+                        </div>`;
                 }
 
                 const tr = document.createElement('tr');
                 tr.className = tratada ? "bg-slate-50/70 border-b hover:bg-slate-100/70 transition cursor-pointer" : "bg-orange-50/30 border-b hover:bg-orange-50/70 transition cursor-pointer";
                 tr.onclick = () => abrirDetalhesAtividade(item);
-                tr.innerHTML = `<td class="p-3"><div class="font-bold text-slate-800">${item.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">Solicitado às ${item.hEntrada}</div></td><td class="p-3 font-bold text-blue-950">${item.equipe}</td><td class="p-3"><span class="bg-orange-100 text-orange-950 border border-orange-300 font-black px-2.5 py-1 rounded text-xs inline-block">${item.imovel}</span></td><td class="p-3 text-slate-700 font-medium">${item.motivoDesfecho || '-'}</td><td class="p-3"><span class="bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold px-2 py-0.5 rounded text-[10px] inline-block">📷 ${qtdFotos} foto(s)</span><div class="text-[9px] text-slate-500 mt-0.5">${labelsFotos}</div></td><td class="p-3">${statusHtml}</td><td class="p-3 whitespace-nowrap" onclick="event.stopPropagation()">${botoesHtml}</td>`;
+                tr.innerHTML = `
+                    <td class="p-3"><div class="font-bold text-slate-800">${item.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">Solicitado às ${item.hEntrada}</div></td>
+                    <td class="p-3 font-bold text-blue-950">${item.equipe}</td>
+                    <td class="p-3"><span class="bg-orange-100 text-orange-950 border border-orange-300 font-black px-2.5 py-1 rounded text-xs inline-block">${item.imovel}</span></td>
+                    <td class="p-3 text-slate-700 font-medium">${item.motivoDesfecho || '-'}</td>
+                    <td class="p-3"><span class="bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold px-2 py-0.5 rounded text-[10px] inline-block">📷 ${qtdFotos} foto(s)</span><div class="text-[9px] text-slate-500 mt-0.5">${labelsFotos}</div></td>
+                    <td class="p-3">${statusHtml}</td>
+                    <td class="p-3 whitespace-nowrap" onclick="event.stopPropagation()">${botoesHtml}</td>`;
                 corpoComb.appendChild(tr);
             });
         }
@@ -442,25 +394,40 @@ function renderizarTabelasSolicitacoesGestor() {
                     : `<span class="font-bold text-slate-700">${item.motivoDesfecho || '-'}</span>`;
 
                 const statusHtml = tratada
-                    ? `<div class="space-y-0.5"><span class="bg-emerald-100 text-emerald-900 border border-emerald-300 font-black px-2 py-0.5 rounded text-[10px] inline-block">🟢 TRATADA</span><div class="text-[10px] text-slate-700 font-bold">👤 Por: ${item.tratadoPor || 'Gestor'}</div><div class="text-[10px] text-slate-500 font-mono">🕒 Em: ${item.tratadoDataHora || item.hSaida}</div><div class="text-[9px] text-indigo-700 font-bold">⏳ ${calcularTempoRestante48h(item.tratadoTimestamp)}</div></div>`
+                    ? `<div class="space-y-0.5">
+                         <span class="bg-emerald-100 text-emerald-900 border border-emerald-300 font-black px-2 py-0.5 rounded text-[10px] inline-block">🟢 TRATADA</span>
+                         <div class="text-[10px] text-slate-700 font-bold">👤 Por: ${item.tratadoPor || 'Gestor'}</div>
+                         <div class="text-[10px] text-slate-500 font-mono">🕒 Em: ${item.tratadoDataHora || item.hSaida}</div>
+                         <div class="text-[9px] text-indigo-700 font-bold">⏳ ${calcularTempoRestante48h(item.tratadoTimestamp)}</div>
+                       </div>`
                     : `<span class="bg-amber-100 text-amber-900 border border-amber-300 font-black px-2.5 py-1 rounded text-[10px] inline-block animate-pulse">🟡 AGUARDANDO TRATATIVA</span>`;
 
                 let botoesHtml = `<span class="text-slate-400 text-[10px]">Leitura</span>`;
                 if (podeTratar) {
-                    botoesHtml = `<div class="flex flex-wrap gap-1">${!tratada ? `<button onclick="marcarSolicitacaoComoTratada(${item.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Marcar Tratada</button>` : ''}<button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-[10px] px-2 py-1 rounded">🗑️ Excluir</button></div>`;
+                    botoesHtml = `
+                        <div class="flex flex-wrap gap-1">
+                            ${!tratada ? `<button onclick="marcarSolicitacaoComoTratada(${item.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Marcar Tratada</button>` : ''}
+                            <button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-[10px] px-2 py-1 rounded">🗑️ Excluir</button>
+                        </div>`;
                 }
 
                 const tr = document.createElement('tr');
                 tr.className = tratada ? "bg-slate-50/70 border-b hover:bg-slate-100/70 transition cursor-pointer" : "bg-indigo-50/30 border-b hover:bg-indigo-50/70 transition cursor-pointer";
                 tr.onclick = () => abrirDetalhesAtividade(item);
-                tr.innerHTML = `<td class="p-3"><div class="font-bold text-slate-800">${item.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">Solicitado às ${item.hEntrada}</div></td><td class="p-3 font-bold text-blue-950">${item.equipe}</td><td class="p-3"><div class="flex flex-wrap gap-1">${tagsItens}</div></td><td class="p-3 text-slate-600">${item.observacoes || item.responsavel || '-'}</td><td class="p-3">${statusHtml}</td><td class="p-3 whitespace-nowrap" onclick="event.stopPropagation()">${botoesHtml}</td>`;
+                tr.innerHTML = `
+                    <td class="p-3"><div class="font-bold text-slate-800">${item.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">Solicitado às ${item.hEntrada}</div></td>
+                    <td class="p-3 font-bold text-blue-950">${item.equipe}</td>
+                    <td class="p-3"><div class="flex flex-wrap gap-1">${tagsItens}</div></td>
+                    <td class="p-3 text-slate-600">${item.observacoes || item.responsavel || '-'}</td>
+                    <td class="p-3">${statusHtml}</td>
+                    <td class="p-3 whitespace-nowrap" onclick="event.stopPropagation()">${botoesHtml}</td>`;
                 corpoMat.appendChild(tr);
             });
         }
     }
 }
 
-// ================= FILTROS DE MARCAÇÃO MÚLTIPLA =================
+// ================= LÓGICA DO MODAL DE FILTROS DE MARCAÇÃO MÚLTIPLA =================
 function abrirModalFiltroMultiplo() {
     inicializarMelhoriasVisuaisGestor();
     const modal = document.getElementById('modal-filtro-multiplo');
@@ -469,13 +436,30 @@ function abrirModalFiltroMultiplo() {
     const desenharChecks = (idContainer, opcoes, arraySelecionados, nomeGrupo) => {
         const el = document.getElementById(idContainer);
         if (!el) return;
-        el.innerHTML = opcoes.map(op => `<label class="flex items-center gap-2 font-semibold text-slate-700 hover:bg-blue-50 p-1 rounded cursor-pointer"><input type="checkbox" name="${nomeGrupo}" value="${op.valor}" ${arraySelecionados.includes(op.valor) ? 'checked' : ''} class="w-4 h-4 accent-blue-900 rounded"><span class="text-[11px]">${op.label}</span></label>`).join('');
+        el.innerHTML = opcoes.map(op => {
+            const checked = arraySelecionados.includes(op.valor) ? 'checked' : '';
+            return `<label class="flex items-center gap-2 font-semibold text-slate-700 hover:bg-blue-50 p-1 rounded cursor-pointer"><input type="checkbox" name="${nomeGrupo}" value="${op.valor}" ${checked} class="w-4 h-4 accent-blue-900 rounded"><span class="text-[11px]">${op.label}</span></label>`;
+        }).join('');
     };
 
-    desenharChecks('multi-lista-setores', [{ valor: 'Vistoriador', label: '🔍 Vistoriador' }, { valor: 'Instalador', label: '🛠️ Instalador' }, { valor: 'Ativador', label: '⚡ Ativador' }], filtrosMultiplosAtivos.setores, 'chk-multi-setor');
+    desenharChecks('multi-lista-setores', [
+        { valor: 'Vistoriador', label: '🔍 Vistoriador' },
+        { valor: 'Instalador', label: '🛠️ Instalador' },
+        { valor: 'Ativador', label: '⚡ Ativador' }
+    ], filtrosMultiplosAtivos.setores, 'chk-multi-setor');
+
     desenharChecks('multi-lista-macrogrupos', GRUPOS_PROJETO_SISTEMA.map(grp => ({ valor: grp, label: `📂 Grupo ${grp}` })), filtrosMultiplosAtivos.macrogrupos, 'chk-multi-macro');
     desenharChecks('multi-lista-projetos', CATALOGO_PROJETOS_SISTEMA.map(p => ({ valor: p.nome, label: `${p.nome} (${p.grupo})` })), filtrosMultiplosAtivos.projetos, 'chk-multi-projeto');
-    desenharChecks('multi-lista-desfechos', [{ valor: 'PROGRAMADA', label: '📋 Programadas' }, { valor: 'EM ANDAMENTO', label: '🔵 Em Andamento' }, { valor: 'PARALISADA', label: '⏸️ Paralisadas' }, { valor: 'REABERTA', label: '🔄 Reabertas' }, { valor: 'CONCLUIDA', label: '🟢 Concluídas' }, { valor: 'PENDENTE', label: '🟡 Pendentes' }, { valor: 'MALOGRADA', label: '🔴 Malogradas' }], filtrosMultiplosAtivos.desfechos, 'chk-multi-desfecho');
+    desenharChecks('multi-lista-desfechos', [
+        { valor: 'PROGRAMADA', label: '📋 Programadas' },
+        { valor: 'EM ANDAMENTO', label: '🔵 Em Andamento' },
+        { valor: 'PARALISADA', label: '⏸️ Paralisadas' },
+        { valor: 'REABERTA', label: '🔄 Reabertas' },
+        { valor: 'CONCLUIDA', label: '🟢 Concluídas' },
+        { valor: 'PENDENTE', label: '🟡 Pendentes' },
+        { valor: 'MALOGRADA', label: '🔴 Malogradas' }
+    ], filtrosMultiplosAtivos.desfechos, 'chk-multi-desfecho');
+
     desenharChecks('multi-lista-equipes', equipesSistema.map(e => ({ valor: e.nome, label: `${e.nome} (${formatarSetoresString(e.setor)})` })), filtrosMultiplosAtivos.equipes, 'chk-multi-equipe');
     modal.classList.remove('hidden');
 }
@@ -543,7 +527,7 @@ function baixarBackupIntegralJSON() {
     if (listaExportar.length === 0) { alert("⚠️ Nenhum registo encontrado no intervalo de datas selecionado para gerar o backup."); return; }
 
     const pacoteBackup = {
-        sistema: "GPD MDU PROCISA RJ", versaoBackup: "5.0", dataExportacao: new Date().toISOString(), exportadoPor: usuarioLogado,
+        sistema: "GPD MDU PROCISA RJ", versaoBackup: "4.0", dataExportacao: new Date().toISOString(), exportadoPor: usuarioLogado,
         periodoFiltro: { inicio: dIni || "INICIO", fim: dFim || "HOJE" },
         configuracoes: {
             equipes: equipesSistema, usuarios: usuariosSistema, gruposProjeto: GRUPOS_PROJETO_SISTEMA,
@@ -563,14 +547,14 @@ function baixarBackupIntegralJSON() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
 
     registrarLogAuditoria("BACKUP INTEGRAL (.JSON)", `Baixado ficheiro de backup com ${listaExportar.length} registos (Período: ${sufixoData}).`);
-    alert(`✅ Backup Integral (.JSON) gerado com sucesso!\n\nForam exportados ${listaExportar.length} registos.`);
+    alert(`✅ Backup Integral (.JSON) gerado com sucesso!\n\nForam exportados ${listaExportar.length} registos com todas as fotos, projetos, grupos e configurações.`);
 }
 
 async function processarArquivoBackupJSON(modo) {
     if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas o perfil Master pode carregar ou restaurar ficheiros de backup."); return; }
     const inp = document.getElementById('inp-upload-backup-json');
     const file = inp?.files && inp.files[0];
-    if (!file) { alert("⚠️ Selecione primeiro um ficheiro .JSON de backup."); return; }
+    if (!file) { alert("⚠️ Selecione primeiro um ficheiro .JSON de backup no seu computador."); return; }
 
     const reader = new FileReader();
     reader.onload = async function(e) {
@@ -642,7 +626,15 @@ function exibirBannerModoConsultaBackup(nomeArquivo, qtd) {
         mainGestor.insertBefore(banner, mainGestor.firstChild);
     }
     banner.classList.remove('hidden');
-    banner.innerHTML = `<div class="flex items-center gap-3"><span class="text-2xl">📂</span><div><h4 class="font-black text-amber-300 text-xs uppercase">Modo Consulta de Backup Histórico Ativo (${nomeArquivo})</h4><p class="text-xs text-indigo-100">Exibindo <b>${qtd} registos</b> carregados localmente do ficheiro.</p></div></div><button type="button" onclick="sairModoConsultaBackup()" class="bg-amber-400 hover:bg-amber-300 text-indigo-950 font-black text-xs px-4 py-2 rounded-xl shadow whitespace-nowrap">🔙 Sair do Modo Consulta e Voltar ao Vivo</button>`;
+    banner.innerHTML = `
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">📂</span>
+            <div>
+                <h4 class="font-black text-amber-300 text-xs uppercase">Modo Consulta de Backup Histórico Ativo (${nomeArquivo})</h4>
+                <p class="text-xs text-indigo-100">Exibindo <b>${qtd} registos</b> carregados localmente do ficheiro.</p>
+            </div>
+        </div>
+        <button type="button" onclick="sairModoConsultaBackup()" class="bg-amber-400 hover:bg-amber-300 text-indigo-950 font-black text-xs px-4 py-2 rounded-xl shadow whitespace-nowrap">🔙 Sair do Modo Consulta e Voltar ao Vivo</button>`;
 }
 
 async function sairModoConsultaBackup() {
@@ -664,7 +656,7 @@ async function executarLimpezaInteligenteNuvem(tipoExpurgo) {
     if (tipoExpurgo === 'apenas_fotos') {
         const comFotos = alvos.filter(r => (Number(r.qtdFotos) || (Array.isArray(r.fotos) ? r.fotos.length : 0)) > 0);
         if (comFotos.length === 0) { alert(`ℹ️ Nenhum registo anterior a ${dataLimite} possui fotos anexadas.`); return; }
-        if (!confirm(`🧹 LIMPAR APENAS FOTOS ANTIGAS (ANTERIORES A ${dataLimite})\n\nForam encontrados ${comFotos.length} registos com fotos. Todos os números continuarão intactos. Confirmar?`)) return;
+        if (!confirm(`🧹 LIMPAR APENAS FOTOS ANTIGAS (ANTERIORES A ${dataLimite})\n\nForam encontrados ${comFotos.length} registos com fotos. Todos os números e relatórios continuarão intactos. Confirmar?`)) return;
 
         for (const r of comFotos) {
             let tagEnd = r.endereco ? `[END: ${r.endereco}] ` : '';
@@ -954,8 +946,8 @@ function fecharModalImportarPlanilha() { document.getElementById('modal-importar
 
 function baixarModeloPlanilhaCSV() {
     const cabecalho = "IMOVEL;ENDERECO;PROJETO;TECNICO;QTD_BLOCOS;ANDARES;HPS;RESPONSAVEL;CONTATO;EMAIL;OBSERVACOES\n";
-    const ex1 = "848465405;Rua Conde de Bonfim 450 - TIJUCA;VISTORIA;ANDREO FAGUNDES;2;10;40;Sr. Carlos (Síndico);21 99888-7766;sindico@bonfim450.com.br;Condomínio com 2 blocos\n";
-    const ex2 = "848473602;Av Nossa Senhora de Copacabana 800 - COPACABANA;CONSTRUÇÃO F;BRUNO SOARES DA SILVA;1;12;60;Dona Maria;21 98777-6655;portaria@copa800.com.br;Procurar zeladora até as 16h\n";
+    const ex1 = "IMO-1001;Rua Conde de Bonfim 450 - Tijuca;VISTORIA;ANDREO FAGUNDES;2;10;40;Sr. Carlos (Síndico);21 99888-7766;sindico@bonfim450.com.br;Condomínio com 2 blocos (Bloco A e B)\n";
+    const ex2 = "IMO-2002;Av Nossa Senhora de Copacabana 800;CONSTRUÇÃO F;BRUNO SOARES DA SILVA;1;12;60;Dona Maria (Zeladora);21 98777-6655;portaria@copa800.com.br;Procurar zeladora até as 16h\n";
     const blob = new Blob(['\ufeff' + cabecalho + ex1 + ex2], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1019,7 +1011,7 @@ async function processarImportacaoPlanilha() {
     alert(`✅ Sucesso! ${novosRegistros.length} atividade(s) foram enviadas instantaneamente!`);
 }
 
-// ================= PAINEL DE DISPONIBILIDADE + ABA DO MAPA =================
+// ================= PAINEL DE DISPONIBILIDADE + ABA INDEPENDENTE DO MAPA =================
 function renderizarPainelDisponibilidade() {
     try {
         const tbody = document.getElementById('tabela-disponibilidade-corpo');
@@ -1136,7 +1128,16 @@ function renderizarPainelDisponibilidade() {
                 listaPinosParaMapa.push({ nome: eq.nome, lat: latFinal, lng: lngFinal, corHex: corPinoHex, iconeEmoji: iconeEmojiPino, statusTexto: statusTextoPuro, turnoTexto: turnoTextoPuro, ocupacaoLimpa: ocupacaoLimpa, sinalTexto: sinalTextoPuro });
             }
 
-            tbody.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="p-3 font-bold text-slate-800">${eq.nome}</td><td class="p-3">${obterBadgeSetorHtml(eq.setor)}</td><td class="p-3">${turnoHtml}</td><td class="p-3">${statusBadge}</td><td class="p-3">${detalheTexto}</td><td class="p-3">${gpsStr}</td><td class="p-3 whitespace-nowrap">${acaoHtml}</td></tr>`;
+            tbody.innerHTML += `
+                <tr class="hover:bg-slate-50 border-b">
+                    <td class="p-3 font-bold text-slate-800">${eq.nome}</td>
+                    <td class="p-3">${obterBadgeSetorHtml(eq.setor)}</td>
+                    <td class="p-3">${turnoHtml}</td>
+                    <td class="p-3">${statusBadge}</td>
+                    <td class="p-3">${detalheTexto}</td>
+                    <td class="p-3">${gpsStr}</td>
+                    <td class="p-3 whitespace-nowrap">${acaoHtml}</td>
+                </tr>`;
         });
 
         const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
@@ -1216,7 +1217,6 @@ async function atualizarDashboardGestor() {
         return mMacro && mProj && mDesf;
     });
 
-    filtrados = enriquecerStatusMacroEBairro(filtrados);
     dadosFiltradosAtuais = filtrados;
     listaImprevistosAtuais = listaImprevistos;
     renderizarPainelDisponibilidade();
@@ -1395,20 +1395,16 @@ async function atualizarDashboardGestor() {
                 const setorStr = eqObj ? eqObj.setor : "Instalador";
                 const macroGrupo = obterMacroGrupoProjeto(grupo.projeto);
                 const badgeGrupoCor = macroGrupo === 'PROJETO F' ? 'bg-indigo-100 text-indigo-900 border border-indigo-300' : 'bg-cyan-50 text-cyan-900 border border-cyan-200';
-                const badgeMacroPlanilha = itemMaster.statusMacroPlanilha === 'RETORNO'
-                    ? `<span class="bg-amber-100 text-amber-900 border border-amber-300 font-bold px-1.5 py-0.5 rounded text-[9px]">🔄 RETORNO</span>`
-                    : `<span class="bg-blue-50 text-blue-800 border border-blue-200 font-bold px-1.5 py-0.5 rounded text-[9px]">📋 PROGRAMADO</span>`;
-
                 const tagsOpcoesHtml = todasOpcoesGrupo.length > 0 ? `<div class="mt-1 flex flex-wrap gap-1">${todasOpcoesGrupo.map(op => `<span class="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">${op}</span>`).join('')}</div>` : '';
                 const badgeFotosHtml = totalFotosGrupo > 0 ? `<span class="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-300 font-bold px-2 py-0.5 rounded-md text-[10px] inline-block">📷 ${totalFotosGrupo} foto(s)</span>` : '';
                 const botaoExpandirBlocos = qtdBlocosNoGrupo > 1 ? `<button type="button" onclick="event.stopPropagation(); alternarVisualizacaoBlocosAgrupados('${idGrupoUnico}', this)" class="mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition">📂 Expandir Blocos (${qtdBlocosNoGrupo})</button>` : '';
 
                 trPrincipal.innerHTML = `
                     <td class="p-3">
-                        <div class="font-black text-slate-800 flex items-center gap-1 flex-wrap">${qtdBlocosNoGrupo > 1 ? `${grupo.codigoBase} <span class="text-blue-700 font-bold text-[11px]">(${qtdBlocosNoGrupo} Blocos)</span>` : itemMaster.imovel} ${badgeMacroPlanilha}</div>
-                        <div class="text-[10px] text-blue-900 font-medium truncate max-w-[220px]">📍 ${grupo.endereco || 'Endereço não informado'} <span class="font-bold text-indigo-800">(${itemMaster.bairroPlanilha})</span></div>
+                        <div class="font-black text-slate-800">${qtdBlocosNoGrupo > 1 ? `${grupo.codigoBase} <span class="text-blue-700 font-bold text-[11px]">(${qtdBlocosNoGrupo} Blocos)</span>` : itemMaster.imovel}</div>
+                        <div class="text-[10px] text-blue-900 font-medium truncate max-w-[200px]">📍 ${grupo.endereco || 'Endereço não informado'}</div>
                         ${infoLiberouLinha}
-                        <div class="text-[10px] text-slate-400">${grupo.dataRegistro} • ${itemMaster.semanaPlanilha}</div>
+                        <div class="text-[10px] text-slate-400">${grupo.dataRegistro}</div>
                         ${botaoExpandirBlocos}
                     </td>
                     <td class="p-3"><div class="font-semibold text-slate-800 mb-0.5">${grupo.equipe}</div>${obterBadgeSetorHtml(setorStr)}</td>
@@ -1448,16 +1444,15 @@ async function atualizarDashboardGestor() {
         });
     }
 
-    try { renderizarPainelPrincipalExecutores(finalizadas); } catch (e) { console.warn("Erro painel executores:", e); }
-    try { renderizarPainelMallingEProjetoF(finalizadas); } catch (e) { console.warn("Erro visões planilha:", e); }
-    try { renderizarPainelProgramadoRetornoEBairro(filtrados); } catch (e) { console.warn("Erro Programado/Retorno:", e); }
-    try { renderizarGraficos(finalizadas, filtrados); } catch (e) { console.warn("Erro graficos:", e); }
-    try { renderizarOfensoresMalogro(finalizadas); } catch (e) { console.warn("Erro ofensores:", e); }
-    try { renderizarTabelaConsolidada(finalizadas); } catch (e) { console.warn("Erro consolidada:", e); }
+    try { renderizarPainelPrincipalExecutores(finalizadas); } catch (e) {}
+    try { renderizarPainelMallingEProjetoF(finalizadas); } catch (e) {}
+    try { renderizarGraficos(finalizadas, filtrados); } catch (e) {}
+    try { renderizarOfensoresMalogro(finalizadas); } catch (e) {}
+    try { renderizarTabelaConsolidada(finalizadas); } catch (e) {}
     try { renderizarTabelaUsuariosPermissao(); } catch (e) {}
 }
 
-// ================= MATRIZ E GRÁFICO PRINCIPAL DA PLANILHA (ABA PAINEL & DIN2) =================
+// ================= SUPER TABELA UNIFICADA DE EXECUTORES =================
 function renderizarPainelPrincipalExecutores(dados) {
     const tbody = document.getElementById('tabela-principal-executores-corpo');
     if (!tbody) return;
@@ -1471,28 +1466,28 @@ function renderizarPainelPrincipalExecutores(dados) {
 
     const mapaExec = {};
     equipesSistema.filter(e => e.status === 'Ativo').forEach(eq => {
-        mapaExec[eq.nome] = { nome: eq.nome, setor: eq.setor, prodDiaria: 0, executados: 0, naoExecutados: 0, totalGeral: 0, somaHps: 0, duracoes: [], diasAtivosSet: new Set() };
+        mapaExec[eq.nome] = { nome: eq.nome, setor: eq.setor, prodDiaria: 0, consolidadoConcluidas: 0, totalGeral: 0, minutosPausa: 0, entradas: [], saidas: [], duracoes: [], diasAtivosSet: new Set() };
     });
 
     dados.forEach(d => {
         const nome = d.equipe || "NÃO IDENTIFICADO";
         if (!mapaExec[nome]) {
             const eqCadastrada = equipesSistema.find(e => e.nome === nome);
-            mapaExec[nome] = { nome, setor: eqCadastrada ? eqCadastrada.setor : "Instalador", prodDiaria: 0, executados: 0, naoExecutados: 0, totalGeral: 0, somaHps: 0, duracoes: [], diasAtivosSet: new Set() };
+            mapaExec[nome] = { nome, setor: eqCadastrada ? eqCadastrada.setor : "Instalador", prodDiaria: 0, consolidadoConcluidas: 0, totalGeral: 0, minutosPausa: 0, entradas: [], saidas: [], duracoes: [], diasAtivosSet: new Set() };
         }
         const ex = mapaExec[nome];
         ex.totalGeral++;
         if (d.dataRegistro) ex.diasAtivosSet.add(d.dataRegistro);
         if (d.desfecho === 'CONCLUIDA') {
-            ex.executados++;
-            ex.somaHps += Number(d.hps) || 0;
+            ex.consolidadoConcluidas++;
             if (d.dataRegistro === dataRefDiaria) ex.prodDiaria++;
-        } else {
-            ex.naoExecutados++;
         }
         const pausaMin = Number(d.tempoPausadoMinutos) || 0;
+        ex.minutosPausa += pausaMin;
         const minIn = converterHorarioParaMinutos(d.hEntrada);
         const minOut = converterHorarioParaMinutos(d.hSaida);
+        if (minIn !== null) ex.entradas.push(minIn);
+        if (minOut !== null) ex.saidas.push(minOut);
         if (minIn !== null && minOut !== null && minOut >= minIn) {
             const durLiquida = Math.max(0, (minOut - minIn) - pausaMin);
             if (durLiquida > 0 && durLiquida <= 840) ex.duracoes.push(durLiquida);
@@ -1501,24 +1496,25 @@ function renderizarPainelPrincipalExecutores(dados) {
 
     const listaTodos = Object.values(mapaExec).map(ex => {
         const dias = ex.diasAtivosSet.size;
-        const produtividade = dias > 0 ? (ex.executados / dias) : 0;
-        const hpPorDia = dias > 0 ? (ex.somaHps / dias) : 0;
-        const conversao = ex.totalGeral > 0 ? ((ex.executados / ex.totalGeral) * 100) : 0;
+        const media = dias > 0 ? (ex.consolidadoConcluidas / dias) : 0;
+        const efic = ex.totalGeral > 0 ? ((ex.consolidadoConcluidas / ex.totalGeral) * 100) : 0;
+        const mediaIn = ex.entradas.length > 0 ? formatarMinutosParaHHMM(ex.entradas.reduce((a, b) => a + b, 0) / ex.entradas.length) : "--:--";
+        const mediaOut = ex.saidas.length > 0 ? formatarMinutosParaHHMM(ex.saidas.reduce((a, b) => a + b, 0) / ex.saidas.length) : "--:--";
         const tma = ex.duracoes.length > 0 ? formatarDuracaoTexto(ex.duracoes.reduce((a, b) => a + b, 0) / ex.duracoes.length) : "--h --m";
-        return { ...ex, diasTrab: dias, produtividade, hpPorDia, conversao, tma };
+        return { ...ex, diasAtivos: dias, mediaDiaria: media, eficacia: efic, mediaIn, mediaOut, tma };
     });
 
     const atualizarCardGrupo = (setorAlvo, prefixoId) => {
         const doSetor = listaTodos.filter(i => tecnicoPertenceAoSetor(i.setor, setorAlvo));
         const comProducao = doSetor.filter(i => i.totalGeral > 0);
         const somaDiaria = doSetor.reduce((acc, i) => acc + i.prodDiaria, 0);
-        const somaExec = doSetor.reduce((acc, i) => acc + i.executados, 0);
-        const mediaGrupo = comProducao.length > 0 ? (comProducao.reduce((acc, i) => acc + i.produtividade, 0) / comProducao.length) : 0;
+        const somaCons = doSetor.reduce((acc, i) => acc + i.consolidadoConcluidas, 0);
+        const mediaGrupo = comProducao.length > 0 ? (comProducao.reduce((acc, i) => acc + i.mediaDiaria, 0) / comProducao.length) : 0;
         const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-        setEl(`card-${prefixoId}-qtd-tec`, `${doSetor.length} eq. (${comProducao.length} c/ prod.)`);
+        setEl(`card-${prefixoId}-qtd-tec`, `${doSetor.length} cadastrados (${comProducao.length} c/ prod.)`);
         setEl(`card-${prefixoId}-diaria`, somaDiaria);
-        setEl(`card-${prefixoId}-consolidado`, somaExec);
-        setEl(`card-${prefixoId}-media`, mediaGrupo.toFixed(2));
+        setEl(`card-${prefixoId}-consolidado`, somaCons);
+        setEl(`card-${prefixoId}-media`, mediaGrupo.toFixed(1));
     };
 
     atualizarCardGrupo('Vistoriador', 'vist');
@@ -1527,39 +1523,24 @@ function renderizarPainelPrincipalExecutores(dados) {
 
     const filtroSetor = document.getElementById('filtro-setor-grafico-principal')?.value || 'TODOS';
     let listaExibicao = listaTodos.filter(ex => tecnicoPertenceAoSetor(ex.setor, filtroSetor)).sort((a, b) => {
-        if (b.executados !== a.executados) return b.executados - a.executados;
+        if (b.consolidadoConcluidas !== a.consolidadoConcluidas) return b.consolidadoConcluidas - a.consolidadoConcluidas;
         if (b.totalGeral !== a.totalGeral) return b.totalGeral - a.totalGeral;
         return a.nome.localeCompare(b.nome);
     });
 
-    let somaTotalExec = 0, somaTotalNExec = 0, somaTotalGeral = 0, somaTotalHps = 0;
-
     listaExibicao.forEach((ex, idx) => {
-        somaTotalExec += ex.executados;
-        somaTotalNExec += ex.naoExecutados;
-        somaTotalGeral += ex.totalGeral;
-        somaTotalHps += ex.somaHps;
-
         const tr = document.createElement('tr');
         tr.className = "hover:bg-blue-50/60 border-b cursor-pointer transition";
         tr.onclick = () => dispararExplosaoGrafico('equipe', ex.nome);
-        let corConv = "bg-slate-100 text-slate-600";
-        if (ex.totalGeral > 0) corConv = ex.conversao >= 70 ? "bg-emerald-100 text-emerald-800" : (ex.conversao >= 30 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800");
+        let corEfic = "bg-slate-100 text-slate-600";
+        if (ex.totalGeral > 0) corEfic = ex.eficacia >= 80 ? "bg-emerald-100 text-emerald-800" : (ex.eficacia >= 50 ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800");
 
-        tr.innerHTML = `<td class="p-2.5 text-center font-bold text-slate-500">${idx + 1}º</td><td class="p-2.5 font-bold text-blue-950 underline decoration-dotted">${ex.nome}</td><td class="p-2.5">${obterBadgeSetorHtml(ex.setor)}</td><td class="p-2.5 text-center font-black text-emerald-700 bg-emerald-50/60 text-sm">${ex.executados}</td><td class="p-2.5 text-center font-bold text-amber-800 bg-amber-50/50">${ex.naoExecutados}</td><td class="p-2.5 text-center font-black text-slate-800">${ex.totalGeral}</td><td class="p-2.5 text-center font-mono text-slate-600">${ex.diasTrab}</td><td class="p-2.5 text-center font-black text-indigo-950 bg-indigo-50/80 text-sm">${ex.produtividade.toFixed(2)}</td><td class="p-2.5 text-center font-black text-cyan-900 bg-cyan-50/60">${ex.somaHps}</td><td class="p-2.5 text-center font-semibold text-slate-600">${ex.hpPorDia.toFixed(1)}</td><td class="p-2.5 text-center font-bold text-emerald-800">${ex.tma}</td><td class="p-2.5 text-right"><span class="px-2 py-0.5 rounded font-bold text-[10px] ${corConv}">${ex.conversao.toFixed(1)}%</span></td>`;
+        tr.innerHTML = `<td class="p-2.5 text-center font-bold text-slate-500">${idx + 1}º</td><td class="p-2.5 font-bold text-blue-950 underline decoration-dotted">${ex.nome}</td><td class="p-2.5">${obterBadgeSetorHtml(ex.setor)}</td><td class="p-2.5 text-center font-black text-blue-700 bg-blue-50/50 text-sm">${ex.prodDiaria}</td><td class="p-2.5 text-center font-black text-emerald-700 bg-emerald-50/50 text-sm">${ex.consolidadoConcluidas}</td><td class="p-2.5 text-center font-semibold text-slate-600">${ex.totalGeral}</td><td class="p-2.5 text-center font-mono text-slate-600">${ex.diasAtivos} d</td><td class="p-2.5 text-center font-black text-indigo-950 bg-indigo-50/80 text-sm">${ex.mediaDiaria.toFixed(2)} / dia</td><td class="p-2.5 text-center font-mono text-[11px] text-slate-600">${ex.mediaIn} às ${ex.mediaOut}</td><td class="p-2.5 text-center font-bold text-orange-700 bg-orange-50/30">${ex.minutosPausa > 0 ? `${ex.minutosPausa}m` : '0m'}</td><td class="p-2.5 text-center font-bold text-emerald-800 bg-emerald-50/30">${ex.tma}</td><td class="p-2.5 text-right"><span class="px-2 py-0.5 rounded font-bold text-[10px] ${corEfic}">${ex.eficacia.toFixed(1)}%</span></td>`;
         tbody.appendChild(tr);
     });
 
-    if (listaExibicao.length > 0) {
-        const convTotal = somaTotalGeral > 0 ? ((somaTotalExec / somaTotalGeral) * 100).toFixed(1) : "0.0";
-        const trTotal = document.createElement('tr');
-        trTotal.className = "bg-slate-800 text-white font-black text-xs";
-        trTotal.innerHTML = `<td colspan="3" class="p-2.5 text-right uppercase">Total Geral Consolidado:</td><td class="p-2.5 text-center text-emerald-300">${somaTotalExec}</td><td class="p-2.5 text-center text-amber-300">${somaTotalNExec}</td><td class="p-2.5 text-center">${somaTotalGeral}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center text-cyan-300">-</td><td class="p-2.5 text-center text-cyan-300">${somaTotalHps}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-right">${convTotal}%</td>`;
-        tbody.appendChild(trTotal);
-    }
-
     let listaGrafico = listaExibicao.filter(e => e.totalGeral > 0);
-    if (listaGrafico.length === 0) listaGrafico = listaExibicao.slice(0, 12);
+    if (listaGrafico.length === 0) listaGrafico = listaExibicao.slice(0, 10);
 
     const ctxExec = document.getElementById('graficoPrincipalExecutores')?.getContext('2d');
     if (ctxExec) {
@@ -1567,11 +1548,11 @@ function renderizarPainelPrincipalExecutores(dados) {
         graficoPrincipalExecutoresInstancia = new Chart(ctxExec, {
             type: 'bar',
             data: {
-                labels: listaGrafico.map(e => `${e.nome.split(' ')[0]} ${e.nome.split(' ')[1] ? e.nome.split(' ')[1].charAt(0) + '.' : ''}`),
+                labels: listaGrafico.map(e => `${e.nome.split(' ')[0]}`),
                 datasets: [
-                    { label: '🟢 EXECUTADO (Concluídas)', data: listaGrafico.map(e => e.executados), backgroundColor: '#059669', borderRadius: 5 },
-                    { label: '🟠 N EXECUTADO (Pend. / Malogradas)', data: listaGrafico.map(e => e.naoExecutados), backgroundColor: '#f59e0b', borderRadius: 5 },
-                    { label: '⚡ Produtividade (Média/Dia)', data: listaGrafico.map(e => Number(e.produtividade.toFixed(2))), backgroundColor: '#4f46e5', borderRadius: 5 }
+                    { label: 'Consolidado (Concluídas)', data: listaGrafico.map(e => e.consolidadoConcluidas), backgroundColor: '#059669', borderRadius: 5 },
+                    { label: `Produção Diária (${dataRefDiaria})`, data: listaGrafico.map(e => e.prodDiaria), backgroundColor: '#2563eb', borderRadius: 5 },
+                    { label: 'Média Diária do Executor', data: listaGrafico.map(e => Number(e.mediaDiaria.toFixed(2))), backgroundColor: '#7c3aed', borderRadius: 5 }
                 ]
             },
             options: {
@@ -1582,86 +1563,68 @@ function renderizarPainelPrincipalExecutores(dados) {
     }
 }
 
-// ================= GRÁFICOS DINÂMICOS DA PLANILHA (SERVIÇO, SEMANAL, DIÁRIO E MATRIZ DIÁRIA) =================
 function renderizarPainelMallingEProjetoF(dados) {
-    // 1. Gráfico Geral por Serviço (VISTORIA, CONSTRUÇÃO, ATIVAÇÃO) - Espelho chart1.xml da planilha
-    const macroServicos = ['VISTORIA', 'CONSTRUÇÃO', 'ATIVAÇÃO'];
-    const badgeTotalServ = document.getElementById('badge-total-malling');
-    if (badgeTotalServ) badgeTotalServ.innerText = `${dados.length} acionamentos`;
+    const projsOnGoing = PROJETOS_GRUPO_MALLING.length > 0 ? PROJETOS_GRUPO_MALLING : ["VISTORIA"];
+    const dadosOnGoing = dados.filter(d => projsOnGoing.includes(d.projeto));
+    const badgeOnGoing = document.getElementById('badge-total-malling');
+    if (badgeOnGoing) badgeOnGoing.innerText = `${dadosOnGoing.length} total`;
 
-    const ctxServ = document.getElementById('graficoGrupoMalling')?.getContext('2d');
-    if (ctxServ) {
+    const ctxOnGoing = document.getElementById('graficoGrupoMalling')?.getContext('2d');
+    if (ctxOnGoing) {
         if (graficoGrupoMallingInstancia) graficoGrupoMallingInstancia.destroy();
-        graficoGrupoMallingInstancia = new Chart(ctxServ, {
+        graficoGrupoMallingInstancia = new Chart(ctxOnGoing, {
             type: 'bar',
             data: {
-                labels: macroServicos,
+                labels: projsOnGoing,
                 datasets: [
-                    { label: '🟢 EXECUTADO', data: macroServicos.map(s => dados.filter(d => obterMacroServicoPlanilha(d.projeto) === s && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#059669', borderRadius: 6 },
-                    { label: '🟠 N EXECUTADO (Pend./Malo.)', data: macroServicos.map(s => dados.filter(d => obterMacroServicoPlanilha(d.projeto) === s && d.desfecho !== 'CONCLUIDA').length), backgroundColor: '#f59e0b', borderRadius: 6 }
+                    { label: 'Concluídas', data: projsOnGoing.map(p => dadosOnGoing.filter(d => d.projeto === p && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#0284c7', borderRadius: 5 },
+                    { label: 'Pendentes / Malogradas', data: projsOnGoing.map(p => dadosOnGoing.filter(d => d.projeto === p && d.desfecho !== 'CONCLUIDA').length), backgroundColor: '#f59e0b', borderRadius: 5 }
                 ]
             },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: { x: { stacked: false }, y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-                onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('macro_servico', macroServicos[el[0].index]); }
-            }
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } }, onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('projeto', projsOnGoing[el[0].index]); } }
         });
     }
 
-    // 2. Gráfico Semanal (Sem 1, Sem 2, Sem 3, Sem 4, Sem 5) - Espelho chart3.xml da planilha
-    const semanas = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5'];
-    const totalExecPeriodo = dados.filter(d => d.desfecho === 'CONCLUIDA').length;
-    const badgeSem = document.getElementById('badge-total-projetof');
-    if (badgeSem) badgeSem.innerText = `${totalExecPeriodo} executados`;
+    const projsProjF = PROJETOS_GRUPO_PROJETO_F.length > 0 ? PROJETOS_GRUPO_PROJETO_F : ["CONSTRUÇÃO F"];
+    const dadosProjF = dados.filter(d => projsProjF.includes(d.projeto));
+    const badgeProjF = document.getElementById('badge-total-projetof');
+    if (badgeProjF) badgeProjF.innerText = `${dadosProjF.length} total`;
 
-    const ctxSem = document.getElementById('graficoGrupoProjetoF')?.getContext('2d');
-    if (ctxSem) {
+    const ctxProjF = document.getElementById('graficoGrupoProjetoF')?.getContext('2d');
+    if (ctxProjF) {
         if (graficoGrupoProjetoFInstancia) graficoGrupoProjetoFInstancia.destroy();
-        graficoGrupoProjetoFInstancia = new Chart(ctxSem, {
+        graficoGrupoProjetoFInstancia = new Chart(ctxProjF, {
             type: 'bar',
             data: {
-                labels: semanas,
+                labels: projsProjF,
                 datasets: [
-                    { label: '🟢 EXECUTADO na Semana', data: semanas.map(sem => dados.filter(d => obterSemanaDoMes(d.dataRegistro) === sem && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#4f46e5', borderRadius: 6 },
-                    { label: '🟠 N EXECUTADO na Semana', data: semanas.map(sem => dados.filter(d => obterSemanaDoMes(d.dataRegistro) === sem && d.desfecho !== 'CONCLUIDA').length), backgroundColor: '#94a3b8', borderRadius: 6 }
+                    { label: 'Concluídas', data: projsProjF.map(p => dadosProjF.filter(d => d.projeto === p && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#4f46e5', borderRadius: 6 },
+                    { label: 'Pendentes / Malogradas', data: projsProjF.map(p => dadosProjF.filter(d => d.projeto === p && d.desfecho !== 'CONCLUIDA').length), backgroundColor: '#ec4899', borderRadius: 6 }
                 ]
             },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-                onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('semana', semanas[el[0].index]); }
-            }
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } }, onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('projeto', projsProjF[el[0].index]); } }
         });
     }
 
-    // 3. Gráfico Diário de Produção - Espelho chart2.xml da planilha
     const datasOrdenadas = [...new Set(dados.map(d => d.dataRegistro).filter(Boolean))].sort();
-    const ctxDiario = document.getElementById('graficoEvolucaoGrupos')?.getContext('2d');
-    if (ctxDiario) {
+    const coresGrupos = ['#0284c7', '#4f46e5', '#059669', '#d97706', '#dc2626', '#7c3aed'];
+    const datasetsEvolucao = GRUPOS_PROJETO_SISTEMA.map((grp, i) => ({
+        label: `📂 Grupo ${grp}`,
+        data: datasOrdenadas.length > 0 ? datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && obterMacroGrupoProjeto(d.projeto) === grp).length) : [0],
+        borderColor: coresGrupos[i % coresGrupos.length], backgroundColor: 'rgba(37, 99, 235, 0.10)', fill: true, tension: 0.3
+    }));
+
+    const ctxEvo = document.getElementById('graficoEvolucaoGrupos')?.getContext('2d');
+    if (ctxEvo) {
         if (graficoEvolucaoGruposInstancia) graficoEvolucaoGruposInstancia.destroy();
-        graficoEvolucaoGruposInstancia = new Chart(ctxDiario, {
-            type: 'bar',
-            data: {
-                labels: datasOrdenadas.length > 0 ? datasOrdenadas.map(dt => dt.split('-').reverse().slice(0, 2).join('/')) : ['Sem datas'],
-                datasets: [
-                    { label: '🟢 EXECUTADO no Dia', data: datasOrdenadas.length > 0 ? datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && d.desfecho === 'CONCLUIDA').length) : [0], backgroundColor: '#0284c7', borderRadius: 5 },
-                    { label: '🟠 N EXECUTADO no Dia', data: datasOrdenadas.length > 0 ? datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && d.desfecho !== 'CONCLUIDA').length) : [0], backgroundColor: '#cbd5e1', borderRadius: 5 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-                onClick: (e, el) => { if (el.length > 0 && datasOrdenadas[el[0].index]) dispararExplosaoGrafico('data', datasOrdenadas[el[0].index]); }
-            }
+        graficoEvolucaoGruposInstancia = new Chart(ctxEvo, {
+            type: 'line',
+            data: { labels: datasOrdenadas.length > 0 ? datasOrdenadas : ['Sem datas'], datasets: datasetsEvolucao },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
         });
     }
 
-    // 4. Matriz Diária de Execução: Equipes × Datas (Espelho da aba "Diario" da planilha)
-    renderizarMatrizDiariaPlanilha(dados, datasOrdenadas);
-
-    // 5. Matriz de Cruzamento: Executores × Projetos
-    const theadCruz = document.getElementById('thead-cruzamento-executores');
+    const theadCruz = document.getElementById('thead-cruzamento-executores') || document.getElementById('tabela-cruzamento-executores-corpo')?.previousElementSibling;
     const tbodyCruz = document.getElementById('tabela-cruzamento-executores-corpo');
     if (!tbodyCruz) return;
     tbodyCruz.innerHTML = "";
@@ -1722,237 +1685,6 @@ function renderizarPainelMallingEProjetoF(dados) {
     });
 }
 
-function renderizarMatrizDiariaPlanilha(dados, datasOrdenadas) {
-    const thead = document.getElementById('thead-matriz-diaria-equipes');
-    const tbody = document.getElementById('tabela-matriz-diaria-equipes-corpo');
-    if (!thead || !tbody) return;
-
-    tbody.innerHTML = "";
-    const datasExibir = datasOrdenadas.length > 0 ? datasOrdenadas : [obterDataLocalISO()];
-
-    let htmlHead = `<tr class="bg-emerald-950 text-white uppercase font-bold text-[9px] tracking-wider"><th class="p-2.5 text-center bg-emerald-900 text-cyan-300">Executados</th><th class="p-2.5">Equipes / Técnico</th>`;
-    datasExibir.forEach(dt => {
-        const curto = dt.split('-').reverse().slice(0, 2).join('/');
-        htmlHead += `<th class="p-2 text-center font-mono">${curto}</th>`;
-    });
-    htmlHead += `</tr>`;
-    thead.innerHTML = htmlHead;
-
-    const mapaDiario = {};
-    dados.forEach(d => {
-        const eq = d.equipe || "NÃO IDENTIFICADO";
-        if (!mapaDiario[eq]) mapaDiario[eq] = { nome: eq, totalExec: 0, porData: {} };
-        if (d.desfecho === 'CONCLUIDA') {
-            mapaDiario[eq].totalExec++;
-            mapaDiario[eq].porData[d.dataRegistro] = (mapaDiario[eq].porData[d.dataRegistro] || 0) + 1;
-        } else {
-            if (!mapaDiario[eq].porData[d.dataRegistro]) mapaDiario[eq].porData[d.dataRegistro] = 0;
-        }
-    });
-
-    const listaLinhas = Object.values(mapaDiario).sort((a, b) => b.totalExec - a.totalExec);
-    if (listaLinhas.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${datasExibir.length + 2}" class="p-4 text-center text-slate-400">Nenhum dado diário para exibir no período.</td></tr>`;
-        return;
-    }
-
-    const somaColunaData = {};
-    datasExibir.forEach(dt => somaColunaData[dt] = 0);
-    let somaGeralExec = 0;
-
-    listaLinhas.forEach(item => {
-        somaGeralExec += item.totalExec;
-        let colsDias = "";
-        datasExibir.forEach(dt => {
-            const v = item.porData[dt] || 0;
-            somaColunaData[dt] += v;
-            colsDias += `<td class="p-2 text-center ${v > 0 ? 'font-black text-emerald-800 bg-emerald-50/60' : 'text-slate-300'}">${v > 0 ? v : '-'}</td>`;
-        });
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50 border-b cursor-pointer";
-        tr.onclick = () => dispararExplosaoGrafico('equipe', item.nome);
-        tr.innerHTML = `<td class="p-2 text-center font-black bg-emerald-100 text-emerald-950">${item.totalExec}</td><td class="p-2 font-bold text-slate-800 whitespace-nowrap">${item.nome}</td>${colsDias}`;
-        tbody.appendChild(tr);
-    });
-
-    let colsRodape = "";
-    datasExibir.forEach(dt => {
-        colsRodape += `<td class="p-2 text-center font-black text-emerald-300">${somaColunaData[dt]}</td>`;
-    });
-    const trTotal = document.createElement('tr');
-    trTotal.className = "bg-slate-800 text-white font-black text-[11px]";
-    trTotal.innerHTML = `<td class="p-2 text-center text-cyan-300">${somaGeralExec}</td><td class="p-2 uppercase">Total Executado por Dia</td>${colsRodape}`;
-    tbody.appendChild(trTotal);
-}
-
-// ================= SEÇÃO E PLANILHA SEPARADA: PROGRAMADO vs. RETORNO (STATUS MACRO) & BAIRRO =================
-function renderizarPainelProgramadoRetornoEBairro(dadosEnriquecidos) {
-    const tbody = document.getElementById('tabela-programado-retorno-bairro-corpo');
-    if (!tbody) return;
-    tbody.innerHTML = "";
-
-    const baseValida = dadosEnriquecidos.filter(d => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(d.desfecho));
-    const totalValidos = baseValida.length;
-    const qtdProg = baseValida.filter(d => d.statusMacroPlanilha === 'PROGRAMADO').length;
-    const qtdRet  = baseValida.filter(d => d.statusMacroPlanilha === 'RETORNO').length;
-
-    const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-    setEl('kpi-macro-programado', qtdProg);
-    setEl('kpi-macro-programado-perc', totalValidos > 0 ? `${((qtdProg / totalValidos) * 100).toFixed(1)}% do total` : '0% do total');
-    setEl('kpi-macro-retorno', qtdRet);
-    setEl('kpi-macro-retorno-perc', totalValidos > 0 ? `${((qtdRet / totalValidos) * 100).toFixed(1)}% do total` : '0% do total');
-
-    const mapaBairros = {};
-    baseValida.forEach(d => {
-        const b = d.bairroPlanilha || 'OUTROS / VER ENDEREÇO';
-        if (!mapaBairros[b]) {
-            mapaBairros[b] = { bairro: b, programado: 0, retorno: 0, executado: 0, naoExecutado: 0, total: 0, hps: 0 };
-        }
-        mapaBairros[b].total++;
-        if (d.statusMacroPlanilha === 'RETORNO') mapaBairros[b].retorno++;
-        else mapaBairros[b].programado++;
-
-        if (d.desfecho === 'CONCLUIDA') {
-            mapaBairros[b].executado++;
-            mapaBairros[b].hps += Number(d.hps) || 0;
-        } else {
-            mapaBairros[b].naoExecutado++;
-        }
-    });
-
-    const listaBairros = Object.values(mapaBairros).sort((a, b) => b.total - a.total);
-    setEl('kpi-macro-qtd-bairros', listaBairros.length);
-    if (listaBairros.length > 0) {
-        setEl('kpi-macro-top-bairro', listaBairros[0].bairro);
-        setEl('kpi-macro-top-bairro-qtd', `${listaBairros[0].total} acionamentos (${listaBairros[0].executado} exec.)`);
-    } else {
-        setEl('kpi-macro-top-bairro', '-');
-        setEl('kpi-macro-top-bairro-qtd', '0 acionamentos');
-    }
-
-    if (listaBairros.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Nenhum registro finalizado no período.</td></tr>`;
-    } else {
-        listaBairros.forEach(item => {
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-amber-50/50 border-b cursor-pointer transition";
-            tr.onclick = () => dispararExplosaoGrafico('bairro', item.bairro);
-            tr.innerHTML = `<td class="p-2 font-bold text-slate-800 underline decoration-dotted">${item.bairro}</td><td class="p-2 text-center font-bold text-blue-800 bg-blue-50/50">${item.programado}</td><td class="p-2 text-center font-bold text-amber-800 bg-amber-50/50">${item.retorno}</td><td class="p-2 text-center font-black text-emerald-700 bg-emerald-50/50">${item.executado}</td><td class="p-2 text-center text-slate-500">${item.naoExecutado}</td><td class="p-2 text-center font-black text-slate-900">${item.total}</td><td class="p-2 text-right font-bold text-indigo-900">${item.hps}</td>`;
-            tbody.appendChild(tr);
-        });
-    }
-
-    const topBairrosGraf = listaBairros.slice(0, 12);
-    const ctxBairro = document.getElementById('graficoProgramadoRetornoBairro')?.getContext('2d');
-    if (ctxBairro) {
-        if (graficoProgramadoRetornoBairroInstancia) graficoProgramadoRetornoBairroInstancia.destroy();
-        graficoProgramadoRetornoBairroInstancia = new Chart(ctxBairro, {
-            type: 'bar',
-            data: {
-                labels: topBairrosGraf.length > 0 ? topBairrosGraf.map(b => b.bairro) : ['Sem dados'],
-                datasets: [
-                    { label: '📋 PROGRAMADO (1ª Visita)', data: topBairrosGraf.map(b => b.programado), backgroundColor: '#2563eb', borderRadius: 4 },
-                    { label: '🔄 RETORNO (Reincidência)', data: topBairrosGraf.map(b => b.retorno), backgroundColor: '#d97706', borderRadius: 4 },
-                    { label: '🟢 EXECUTADO', data: topBairrosGraf.map(b => b.executado), backgroundColor: '#059669', borderRadius: 4 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-                onClick: (e, el) => { if (el.length > 0 && topBairrosGraf[el[0].index]) dispararExplosaoGrafico('bairro', topBairrosGraf[el[0].index].bairro); }
-            }
-        });
-    }
-}
-
-function exportarPlanilhaProgramadoRetornoBairro() {
-    const base = enriquecerStatusMacroEBairro(dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
-        r.projeto !== 'IMPREVISTO / ATRASO' &&
-        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
-        r.projeto !== PROJETO_SOLIC_MATERIAL
-    );
-
-    if (base.length === 0) {
-        alert("⚠️ Nenhum registro encontrado no período para exportar a planilha de Programado vs. Retorno e Bairro.");
-        return;
-    }
-
-    const mapaBairros = {};
-    base.forEach(d => {
-        const b = d.bairroPlanilha || 'OUTROS / VER ENDEREÇO';
-        if (!mapaBairros[b]) mapaBairros[b] = { bairro: b, prog: 0, ret: 0, exec: 0, nExec: 0, total: 0, hps: 0 };
-        mapaBairros[b].total++;
-        if (d.statusMacroPlanilha === 'RETORNO') mapaBairros[b].ret++;
-        else mapaBairros[b].prog++;
-        if (d.desfecho === 'CONCLUIDA') {
-            mapaBairros[b].exec++;
-            mapaBairros[b].hps += Number(d.hps) || 0;
-        } else {
-            mapaBairros[b].nExec++;
-        }
-    });
-
-    const resumoBairros = Object.values(mapaBairros).sort((a, b) => b.total - a.total);
-
-    let html = `<table border="1">
-        <thead>
-            <tr style="background-color:#0f172a;color:#ffffff;font-weight:bold;">
-                <th colspan="7">QUADRO 1: RESUMO EXECUTIVO POR BAIRRO (PROGRAMADO vs. RETORNO)</th>
-            </tr>
-            <tr style="background-color:#e2e8f0;font-weight:bold;">
-                <th>BAIRRO</th><th>PROGRAMADO (1ª VISITA)</th><th>RETORNO (REINCIDÊNCIA)</th><th>EXECUTADO</th><th>N EXECUTADO</th><th>TOTAL GERAL</th><th>SOMA DE HPs</th>
-            </tr>
-        </thead>
-        <tbody>`;
-
-    resumoBairros.forEach(b => {
-        html += `<tr><td><b>${b.bairro}</b></td><td>${b.prog}</td><td>${b.ret}</td><td>${b.exec}</td><td>${b.nExec}</td><td><b>${b.total}</b></td><td>${b.hps}</td></tr>`;
-    });
-
-    html += `<tr><td colspan="7"></td></tr>
-        <tr style="background-color:#1e3a8a;color:#ffffff;font-weight:bold;">
-            <th colspan="14">QUADRO 2: BASE ANALÍTICA DETALHADA (PADRÃO PLANILHA ON GOING MDU - STATUS MACRO & BAIRRO)</th>
-        </tr>
-        <tr style="background-color:#dbeafe;font-weight:bold;">
-            <th>SEMANA</th><th>MÊS</th><th>ANO</th><th>DATA</th><th>TÉCNICO</th><th>COD. IMOVEL</th><th>BAIRRO</th><th>SERVIÇO</th><th>PROJETO</th><th>ENDEREÇO</th><th>HP</th><th>STATUS MACRO</th><th>STATUS1 (DETALHE/OFENSOR)</th><th>STATUS</th>
-        </tr>`;
-
-    base.forEach(r => {
-        const dt = r.dataRegistro || '';
-        const ano = dt.substring(0, 4) || '2026';
-        const mes = parseInt(dt.substring(5, 7) || '1', 10);
-        const status1 = (Array.isArray(r.malogros) && r.malogros.length > 0) ? r.malogros.join(' + ') : (r.motivoDesfecho || r.desfecho);
-        html += `<tr>
-            <td>${r.semanaPlanilha}</td>
-            <td>${mes}</td>
-            <td>${ano}</td>
-            <td>${dt}</td>
-            <td>${r.equipe}</td>
-            <td>${r.imovel}</td>
-            <td><b>${r.bairroPlanilha}</b></td>
-            <td>${r.servicoPlanilha}</td>
-            <td>${r.projeto}</td>
-            <td>${r.endereco || ''}</td>
-            <td>${r.hps || 0}</td>
-            <td><b>${r.statusMacroPlanilha}</b></td>
-            <td>${status1}</td>
-            <td><b>${r.statusBinarioPlanilha}</b></td>
-        </tr>`;
-    });
-
-    html += `</tbody></table>`;
-
-    const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `PLANILHA_PROGRAMADO_RETORNO_BAIRRO_${obterDataLocalISO()}.xls`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-
-    registrarLogAuditoria("EXPORTAÇÃO PROGRAMADO/RETORNO & BAIRRO", `Baixada planilha analítica separada de Programado vs. Retorno e Bairros com ${base.length} registros.`);
-}
-
-// ================= OFENSORES DE NÃO EXECUÇÃO (STATUS1 DA PLANILHA) =================
 function renderizarOfensoresMalogro(dados) {
     const tbody = document.getElementById('tabela-ofensores-malogro-corpo');
     const badgeTotal = document.getElementById('badge-total-ocorrencias-malogro');
@@ -1964,7 +1696,7 @@ function renderizarOfensoresMalogro(dados) {
     let totalOcorrenciasMalogro = 0;
 
     dados.forEach(d => {
-        if ((d.desfecho === 'MALOGRADA' || d.desfecho === 'PENDENTE') && Array.isArray(d.malogros)) {
+        if (d.desfecho === 'MALOGRADA' && Array.isArray(d.malogros)) {
             d.malogros.forEach(m => {
                 const chave = m.trim().toUpperCase();
                 contagemOfensores[chave] = (contagemOfensores[chave] || 0) + 1;
@@ -1991,7 +1723,7 @@ function renderizarOfensoresMalogro(dados) {
         const labelsOfensores = ordenados.map(item => item[0]);
         graficoOfensoresMalogroInstancia = new Chart(ctxOfensores, {
             type: 'bar',
-            data: { labels: labelsOfensores, datasets: [{ label: 'Ocorrências de Não Execução', data: ordenados.map(item => item[1]), backgroundColor: '#dc2626', borderRadius: 6 }] },
+            data: { labels: labelsOfensores, datasets: [{ label: 'Ocorrências de Malogro', data: ordenados.map(item => item[1]), backgroundColor: '#dc2626', borderRadius: 6 }] },
             options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }, onClick: (event, elements) => { if (elements.length > 0) dispararExplosaoGrafico('ofensor', labelsOfensores[elements[0].index]); } }
         });
     }
@@ -2287,19 +2019,16 @@ function renderizarTabelaConsolidada(dados) {
     corpo.innerHTML = "";
     let total = dados.length, categorias = {};
     dados.forEach(d => {
-        const statusPlanilha = d.desfecho === 'CONCLUIDA' ? 'EXECUTADO' : `N EXECUTADO (${d.desfecho})`;
-        let chave = `[${obterMacroServicoPlanilha(d.projeto)}] ${d.projeto} — ${statusPlanilha}`;
-        if (!categorias[chave]) categorias[chave] = { qtd: 0, hps: 0 };
-        categorias[chave].qtd++;
-        categorias[chave].hps += Number(d.hps) || 0;
+        let chave = `[${obterMacroGrupoProjeto(d.projeto)}] ${d.projeto} (${d.desfecho})`;
+        categorias[chave] = (categorias[chave] || 0) + 1;
     });
     if (Object.keys(categorias).length === 0) {
-        corpo.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum dado consolidado no período.</td></tr>`;
+        corpo.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-400">Nenhum dado consolidado no período.</td></tr>`;
         return;
     }
-    for (let [cat, info] of Object.entries(categorias)) {
-        let perc = total > 0 ? ((info.qtd / total) * 100).toFixed(1) : 0;
-        corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="p-3 font-semibold text-slate-800">${cat}</td><td class="p-3 text-center font-bold text-blue-900">${info.qtd}</td><td class="p-3 text-center font-bold text-indigo-800">${info.hps}</td><td class="p-3 text-center text-slate-600">${perc}%</td></tr>`;
+    for (let [cat, qtd] of Object.entries(categorias)) {
+        let perc = total > 0 ? ((qtd / total) * 100).toFixed(1) : 0;
+        corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="p-3 font-semibold text-slate-800">${cat}</td><td class="p-3 text-center font-bold text-blue-900">${qtd}</td><td class="p-3 text-center text-slate-600">${perc}%</td></tr>`;
     }
 }
 
@@ -2345,11 +2074,6 @@ async function abrirDetalhesAtividade(item) {
         ${infoTratativaHtml}
         <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
             <div class="col-span-2"><strong>📍 Identificação / Endereço:</strong> <span class="font-bold text-blue-950">${item.endereco || item.imovel || 'Não informado'}</span></div>
-            <div class="col-span-2 flex flex-wrap gap-2">
-                <span class="bg-indigo-100 text-indigo-900 font-bold px-2 py-0.5 rounded text-[10px]">🏘️ Bairro: ${extrairBairroDoEndereco(item.endereco)}</span>
-                <span class="bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded text-[10px]">📌 Status Macro: ${item.statusMacroPlanilha || 'PROGRAMADO'}</span>
-                <span class="bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded text-[10px]">📅 ${obterSemanaDoMes(item.dataRegistro)}</span>
-            </div>
             ${item.liberouAcesso ? `<div class="col-span-2 bg-amber-50 p-2 rounded border border-amber-200"><strong>🔑 Liberou o Acesso:</strong> <span class="font-black text-amber-950">${item.liberouAcesso}</span></div>` : ''}
             <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
             <div><strong>Técnico / Equipe:</strong> ${item.equipe}</div>
@@ -2370,7 +2094,7 @@ async function abrirDetalhesAtividade(item) {
             ${pausaMin > 0 ? `<div class="pt-1 text-orange-700 font-bold"><strong>⏸️ Tempo Paralisado:</strong> ${pausaMin} min</div>` : ''}
             <div class="pt-1 text-emerald-800 font-bold"><strong>⏱️ Tempo Líquido:</strong> ${duracaoStr}</div>
         </div>
-        ${(item.malogros && item.malogros.length > 0) ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Itens / Opções (` + 'STATUS1' + `):</strong> <span class="font-bold text-amber-950">${malogrosStr}</span></div>` : ''}
+        ${(item.malogros && item.malogros.length > 0) ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Itens / Opções:</strong> <span class="font-bold text-amber-950">${malogrosStr}</span></div>` : ''}
         ${item.motivoDesfecho ? `<div class="bg-slate-50 p-3 rounded-lg border border-slate-200"><strong>Detalhamento / Motivo:</strong> ${item.motivoDesfecho}</div>` : ''}
         ${item.observacoes ? `<div class="bg-slate-50 p-3 rounded-lg border border-slate-200"><strong>Observações:</strong> ${item.observacoes}</div>` : ''}
     `;
@@ -2387,13 +2111,9 @@ function dispararExplosaoGrafico(filtroTipo, filtroValor) {
 
     let subset = dadosFiltradosAtuais.filter(item => {
         if (filtroTipo === 'projeto') return item.projeto === filtroValor;
-        if (filtroTipo === 'macro_servico') return obterMacroServicoPlanilha(item.projeto) === filtroValor;
-        if (filtroTipo === 'semana') return obterSemanaDoMes(item.dataRegistro) === filtroValor;
-        if (filtroTipo === 'data') return item.dataRegistro === filtroValor;
-        if (filtroTipo === 'bairro') return (item.bairroPlanilha || extrairBairroDoEndereco(item.endereco)) === filtroValor;
         if (filtroTipo === 'desfecho') return item.desfecho === filtroValor;
         if (filtroTipo === 'equipe') return item.equipe === filtroValor;
-        if (filtroTipo === 'ofensor') return (item.desfecho === 'MALOGRADA' || item.desfecho === 'PENDENTE') && Array.isArray(item.malogros) && item.malogros.map(m => m.trim().toUpperCase()).includes(filtroValor.toUpperCase());
+        if (filtroTipo === 'ofensor') return item.desfecho === 'MALOGRADA' && Array.isArray(item.malogros) && item.malogros.map(m => m.trim().toUpperCase()).includes(filtroValor.toUpperCase());
         return false;
     });
 
@@ -2401,10 +2121,9 @@ function dispararExplosaoGrafico(filtroTipo, filtroValor) {
         corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registro encontrado para esta seleção.</td></tr>`;
     } else {
         subset.forEach(item => {
-            let detalheInfo = item.malogros && item.malogros.length > 0 ? `STATUS1: ${item.malogros.join(' + ')}` : (item.motivoDesfecho || 'Concluído sem pendências');
+            let detalheInfo = item.malogros && item.malogros.length > 0 ? `Opções: ${item.malogros.join(' + ')}` : (item.motivoDesfecho || 'Concluído sem pendências');
             const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
-            const macroBadge = item.statusMacroPlanilha === 'RETORNO' ? '🔄 RETORNO' : '📋 PROGRAMADO';
-            corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); fecharModalGraficoExpandido(); fecharModalTabelaExpandida(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))"><td class="p-2.5 font-mono text-slate-600 font-bold">${item.dataRegistro}<div class="text-[9px] text-indigo-700">${obterSemanaDoMes(item.dataRegistro)}</div></td><td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'} (<b>${item.bairroPlanilha || extrairBairroDoEndereco(item.endereco)}</b>)</div></td><td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td><td class="p-2.5"><b>${item.projeto}</b><div class="text-[9px] font-bold text-amber-800">${macroBadge}</div></td><td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] inline-block ${classeCorDesfecho}">${item.desfecho}</span><div class="text-[9px] text-slate-500 mt-0.5">HPs: <b>${item.hps || 0}</b></div></td><td class="p-2.5 text-slate-500">${detalheInfo}</td></tr>`;
+            corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); fecharModalGraficoExpandido(); fecharModalTabelaExpandida(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))"><td class="p-2.5 font-mono text-slate-600 font-bold">${item.dataRegistro}</td><td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'}</div></td><td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td><td class="p-2.5"><b>${item.projeto}</b> <span class="text-[9px] text-slate-400">(${obterMacroGrupoProjeto(item.projeto)})</span></td><td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] inline-block ${classeCorDesfecho}">${item.desfecho}</span></td><td class="p-2.5 text-slate-500">${detalheInfo}</td></tr>`;
         });
     }
     modal.classList.remove('hidden');
@@ -2412,7 +2131,6 @@ function dispararExplosaoGrafico(filtroTipo, filtroValor) {
 
 function fecharModalExplosao() { document.getElementById('modal-explosao').classList.add('hidden'); }
 
-// ================= GRÁFICOS GERAIS E CURVA DE PICOS POR HORÁRIO (MANTIDA INTACTA) =================
 function renderizarGraficos(dados, todosFiltrados = []) {
     let projetosCount = {};
     TODOS_OS_PROJETOS.forEach(p => projetosCount[p] = 0);
@@ -2503,17 +2221,10 @@ function renderizarGraficos(dados, todosFiltrados = []) {
     const ctxProj = document.getElementById('graficoProjetos')?.getContext('2d');
     if (ctxProj) {
         if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
-        const labelsP = Object.keys(projetosCount);
         graficoProjetosInstancia = new Chart(ctxProj, {
             type: 'bar',
-            data: {
-                labels: labelsP,
-                datasets: [
-                    { label: '🟢 Executado', data: labelsP.map(p => dados.filter(d => d.projeto === p && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#059669', borderRadius: 5 },
-                    { label: '🟠 Não Executado', data: labelsP.map(p => dados.filter(d => d.projeto === p && d.desfecho !== 'CONCLUIDA').length), backgroundColor: '#f59e0b', borderRadius: 5 }
-                ]
-            },
-            options: { responsive: true, maintainAspectRatio: false, onClick: (event, elements) => { if (elements.length > 0) dispararExplosaoGrafico('projeto', labelsP[elements[0].index]); } }
+            data: { labels: Object.keys(projetosCount), datasets: [{ label: 'Volume de Atendimentos', data: Object.values(projetosCount), backgroundColor: ['#7c3aed', '#4f46e5', '#2563eb', '#ea580c', '#059669', '#0d9488', '#d97706', '#0284c7'], borderRadius: 6 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, onClick: (event, elements) => { if (elements.length > 0) dispararExplosaoGrafico('projeto', Object.keys(projetosCount)[elements[0].index]); } }
         });
     }
 
@@ -2522,15 +2233,11 @@ function renderizarGraficos(dados, todosFiltrados = []) {
         if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
         graficoDesfechosInstancia = new Chart(ctxDesf, {
             type: 'doughnut',
-            data: {
-                labels: ['EXECUTADO (Concluída)', 'N EXECUTADO (Pendente)', 'N EXECUTADO (Malograda)'],
-                datasets: [{ data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']], backgroundColor: ['#059669', '#d97706', '#dc2626'] }]
-            },
+            data: { labels: ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'], datasets: [{ data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']], backgroundColor: ['#059669', '#d97706', '#dc2626'] }] },
             options: { responsive: true, maintainAspectRatio: false, onClick: (event, elements) => { if (elements.length > 0) dispararExplosaoGrafico('desfecho', ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'][elements[0].index]); } }
         });
     }
 
-    // GRÁFICO DE HORÁRIOS DE PICO (MANTIDO 100% INALTERADO CONFORME SOLICITADO)
     const ctxHoras = document.getElementById('graficoHorasPico')?.getContext('2d');
     if (ctxHoras) {
         if (graficoHorasPicoInstancia) graficoHorasPicoInstancia.destroy();
@@ -2570,10 +2277,10 @@ function renderizarGraficos(dados, todosFiltrados = []) {
 }
 
 function exportarExcel() {
-    const listaParaExportar = enriquecerStatusMacroEBairro((dadosFiltradosAtuais.length > 0 || listaImprevistosAtuais.length > 0) ? [...dadosFiltradosAtuais, ...listaImprevistosAtuais] : registrosSalvos);
+    const listaParaExportar = (dadosFiltradosAtuais.length > 0 || listaImprevistosAtuais.length > 0) ? [...dadosFiltradosAtuais, ...listaImprevistosAtuais] : registrosSalvos;
     if (listaParaExportar.length === 0) { alert("Nenhum registro para exportar no filtro atual."); return; }
 
-    let colunas = ["ID", "Semana", "Data", "Equipe", "Setor", "Serviço", "Projeto", "Macrogrupo", "Imóvel / Bloco", "Bairro", "Endereço do Atendimento", "Status Macro (Programado/Retorno)", "Liberou o Acesso", "Hora Entrada", "Hora Saída", "Tempo Paralisado (min)", "Duração Líquida", "GPS Entrada", "GPS Saída", "Status Planilha", "Desfecho", "Qtd Fotos", "Serviço Obra", "STATUS1 (Opções Marcadas)", "Motivo Desfecho", "Responsável", "Contato", "E-mail", "Andares", "HPs", "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", "NAP", "DIO", "Cx Sobrepor", "Cx Embutida", "Cx FOSC", "Observações Gerais"];
+    let colunas = ["ID", "Data", "Equipe", "Setor", "Projeto", "Macrogrupo", "Imóvel / Bloco", "Endereço do Atendimento", "Liberou o Acesso", "Hora Entrada", "Hora Saída", "Tempo Paralisado (min)", "Duração Líquida", "GPS Entrada", "GPS Saída", "Desfecho", "Qtd Fotos", "Serviço Obra", "Opções Marcadas", "Motivo Desfecho", "Responsável", "Contato", "E-mail", "Andares", "HPs", "Fusões", "Conectores", "Cabo RL (m)", "Cabo Drop (m)", "NAP", "DIO", "Cx Sobrepor", "Cx Embutida", "Cx FOSC", "Observações Gerais"];
     let linhas = listaParaExportar.map(r => {
         const minIn = converterHorarioParaMinutos(r.hEntrada);
         const minOut = converterHorarioParaMinutos(r.hSaida);
@@ -2581,13 +2288,10 @@ function exportarExcel() {
         const durStr = (minIn !== null && minOut !== null && minOut >= minIn) ? formatarDuracaoTexto(Math.max(0, (minOut - minIn) - pausaMin)) : "-";
         const eqObj = equipesSistema.find(e => e.nome === r.equipe);
         return [
-            r.id || "", r.semanaPlanilha || obterSemanaDoMes(r.dataRegistro), r.dataRegistro || "", r.equipe || "",
-            eqObj ? eqObj.setor : "Instalador", r.servicoPlanilha || obterMacroServicoPlanilha(r.projeto), r.projeto || "",
-            obterMacroGrupoProjeto(r.projeto), r.imovel || "", r.bairroPlanilha || extrairBairroDoEndereco(r.endereco),
-            r.endereco || "", r.statusMacroPlanilha || "PROGRAMADO", r.liberouAcesso || "",
+            r.id || "", r.dataRegistro || "", r.equipe || "", eqObj ? eqObj.setor : "Instalador", r.projeto || "",
+            obterMacroGrupoProjeto(r.projeto), r.imovel || "", r.endereco || "", r.liberouAcesso || "",
             r.hEntrada || "", r.hSaida || "", pausaMin, durStr, r.gpsEntrada || "", r.gpsSaida || "",
-            r.desfecho === 'CONCLUIDA' ? 'EXECUTADO' : 'N EXECUTADO', r.desfecho || "",
-            Number(r.qtdFotos) || (r.fotos ? r.fotos.length : 0), r.servicoObra || "SIM",
+            r.desfecho || "", Number(r.qtdFotos) || (r.fotos ? r.fotos.length : 0), r.servicoObra || "SIM",
             r.malogros ? r.malogros.join(' + ') : "", r.motivoDesfecho || "", r.responsavel || "", r.contato || "",
             r.email || "", r.andares !== "" ? r.andares : 0, r.hps !== "" ? r.hps : 0, r.fusoes !== "" ? r.fusoes : 0,
             r.conectores !== "" ? r.conectores : 0, r.caboRL !== "" ? r.caboRL : 0, r.caboDrop !== "" ? r.caboDrop : 0,
@@ -2863,7 +2567,7 @@ async function limparLogsAuditoria() {
 function mudarSubAbaGestor(aba) {
     inicializarMelhoriasVisuaisGestor();
     if (nivelUsuarioLogado === 'Visualizador' && !['atividades', 'graficos', 'materiais'].includes(aba)) {
-        alert("⚠️ Seu perfil (Visualizador) possui acesso restrito às abas: Atividades, Gráficos & Produtividade e Materiais.");
+        alert("⚠️ Seu perfil (Visualizador) possui acesso restrito às abas: Atividades, Gráficos & Indicadores e Materiais.");
         return;
     }
 
