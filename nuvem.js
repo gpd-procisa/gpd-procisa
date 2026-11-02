@@ -12,7 +12,7 @@ const PROJETO_SOLIC_COMBUSTIVEL = "__SOLIC_COMBUSTIVEL__";
 const PROJETO_SOLIC_MATERIAL    = "__SOLIC_MATERIAL__";
 const PRAZO_EXPURGO_48H_MS      = 48 * 60 * 60 * 1000;
 
-const LIMITE_TOTAL_SUPABASE_MB = 500;
+const LIMITE_TOTAL_SUPABASE_MB = 8000; // 8 GB do Plano Pro
 const ORDEM_SETORES = ["Vistoriador", "Instalador", "Ativador"];
 let cargaInicialGestorConcluida = false;
 
