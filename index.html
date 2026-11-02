@@ -22,7 +22,7 @@
         <!-- ================= BLOCO SUPERIOR FIXO / CONGELADO NA ROLAGEM ================= -->
         <div class="sticky top-0 z-40 shadow-md sm:rounded-t-2xl bg-white">
             
-            <!-- Cabeçalho Azul Compacto (Com Filtros Integrados na Parte Inferior) -->
+            <!-- Cabeçalho Azul Compacto -->
             <header class="bg-blue-900 text-white px-4 py-2.5 sm:px-5 sm:py-3 border-b-4 border-cyan-400 sm:rounded-t-2xl space-y-2">
                 
                 <!-- Linha 1 do Cabeçalho -->
@@ -61,7 +61,7 @@
                     <!-- Sub-linha A: Pesquisa Global e Botões de Ação -->
                     <div class="flex flex-col lg:flex-row justify-between items-center gap-2">
                         <div class="w-full lg:w-80">
-                            <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, endereço, equipe, projeto..." class="w-full text-xs text-slate-800 border border-blue-700 rounded-lg px-3 py-1.5 outline-none bg-white focus:ring-2 focus:ring-cyan-400 transition">
+                            <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, bairro, endereço, equipe..." class="w-full text-xs text-slate-800 border border-blue-700 rounded-lg px-3 py-1.5 outline-none bg-white focus:ring-2 focus:ring-cyan-400 transition">
                         </div>
                         <div class="flex flex-wrap gap-1.5 w-full lg:w-auto justify-end items-center">
                             <span id="lbl-status-autosync" class="text-[10px] bg-blue-950 text-cyan-200 px-2.5 py-1.5 rounded-lg border border-blue-800 font-mono">
@@ -74,7 +74,7 @@
                                 📲 Boletim WhatsApp
                             </button>
                             <button onclick="exportarExcel()" id="btn-baixar-excel-gestor" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
-                                📥 Baixar Relatório (Excel)
+                                📥 Baixar Relatório por Grupos (Excel)
                             </button>
                             <button onclick="recarregarDadosGestor()" id="btn-atualizar-registros-gestor" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 text-[11px] px-3 py-1.5 rounded-lg font-black shadow-sm transition flex items-center gap-1">
                                 🔄 Atualizar Registros
@@ -82,10 +82,8 @@
                         </div>
                     </div>
 
-                    <!-- Sub-linha B Integrada no Cabeçalho Azul em APENAS 1 LINHA (Período + 5 Filtros) -->
+                    <!-- Sub-linha B Integrada no Cabeçalho Azul em APENAS 1 LINHA -->
                     <div class="bg-blue-950/90 border border-blue-800 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
-                        
-                        <!-- Atalhos de Período em 1 linha sem quebra -->
                         <div class="flex items-center gap-1 shrink-0">
                             <span class="text-[10px] font-black text-cyan-300 uppercase whitespace-nowrap mr-0.5">⚡ Período:</span>
                             <button onclick="aplicarAtalhoPeriodo('hoje')" title="Filtrar apenas registros de hoje" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 font-black text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap shadow-sm">📅 Hoje</button>
@@ -95,7 +93,6 @@
                             <button onclick="aplicarAtalhoPeriodo('tudo')" title="Mostrar todo o histórico disponível" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">🔄 Tudo</button>
                         </div>
 
-                        <!-- 5 Filtros alinhados na mesma linha -->
                         <div class="flex items-center gap-1.5 shrink-0">
                             <div class="flex items-center gap-1 bg-white border border-blue-400 rounded-lg px-2 py-0.5">
                                 <span class="text-[10px] font-bold text-slate-500">De:</span>
@@ -117,7 +114,7 @@
                                 <option value="EM ANDAMENTO">🔵 Em Andamento</option>
                                 <option value="PARALISADA">⏸️ Paralisadas</option>
                                 <option value="REABERTA">🔄 Reabertas p/ Edição</option>
-                                <option value="CONCLUIDA">🟢 Concluídas</option>
+                                <option value="CONCLUIDA">🟢 Executado (Concluídas)</option>
                                 <option value="PENDENTE">🟡 Pendentes</option>
                                 <option value="MALOGRADA">🔴 Malogradas</option>
                             </select>
@@ -127,11 +124,10 @@
                 </div>
             </header>
 
-            <!-- Sub-Cabeçalho Fixo do Gestor: Menu de Abas + 2 Botões de Ação no Canto Inferior à Direita -->
+            <!-- Sub-Cabeçalho Fixo do Gestor -->
             <div id="header-gestor-subbarra" class="bg-slate-100 border-b border-slate-300 px-4 py-1.5 hidden">
                 <div class="flex flex-wrap justify-between items-center gap-1.5">
                     
-                    <!-- Abas de Navegação à Esquerda -->
                     <div class="flex flex-wrap gap-1 items-center">
                         <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1">
                             📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
@@ -142,14 +138,14 @@
                         <button onclick="mudarSubAbaGestor('mapa')" id="subtab-btn-mapa" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
                             🗺️ Mapa (<span id="badge-aba-mapa" class="text-emerald-600 font-black">0 no mapa</span>)
                         </button>
-                        <button onclick="mudarSubAbaGestor('combustivel')" id="subtab-btn-combustivel" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1" title="Solicitações de Recarga de Combustível Extra enviadas pelos técnicos (Exclusão automática 48h após tratativa)">
+                        <button onclick="mudarSubAbaGestor('combustivel')" id="subtab-btn-combustivel" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
                             ⛽ Combustível (<span id="badge-aba-combustivel" class="text-orange-600 font-black">0 pend.</span>)
                         </button>
-                        <button onclick="mudarSubAbaGestor('solicitacao_material')" id="subtab-btn-solicitacao_material" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1" title="Solicitações de Reposição de Material enviadas pelos técnicos (Exclusão automática 48h após tratativa)">
+                        <button onclick="mudarSubAbaGestor('solicitacao_material')" id="subtab-btn-solicitacao_material" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
                             🧰 Solic. Material (<span id="badge-aba-solic-material" class="text-indigo-600 font-black">0 pend.</span>)
                         </button>
                         <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            📊 Gráficos & Indicadores
+                            📊 Gráficos & Produtividade
                         </button>
                         <button onclick="mudarSubAbaGestor('imprevistos')" id="subtab-btn-imprevistos" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
                             ⚠️ Imprevistos (<span id="badge-aba-imprevistos">0</span>)
@@ -177,12 +173,11 @@
                         </button>
                     </div>
 
-                    <!-- Botões Posicionados na Mesma Seção das Abas, no Canto Inferior à Direita -->
                     <div class="flex items-center gap-1.5 ml-auto shrink-0">
-                        <button type="button" onclick="mudarSubAbaGestor('mapa')" title="Ir direto para o Mapa de Rastreamento em Tempo Real" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
+                        <button type="button" onclick="mudarSubAbaGestor('mapa')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
                             🗺️ Abrir Mapa em Tempo Real
                         </button>
-                        <button type="button" onclick="recarregarDadosGestor()" title="Sincronizar posições e status das equipes agora" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
+                        <button type="button" onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
                             🔄 Atualizar Status
                         </button>
                     </div>
@@ -219,7 +214,7 @@
             <!-- Sub-Aba: Atividades -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-3.5 bg-slate-50 border-b border-slate-200 font-bold text-slate-800 text-xs sm:text-sm flex flex-wrap justify-between items-center gap-2">
-                    <span>📋 Atividades em Campo, Programadas e Finalizadas (Imóveis multi-bloco agrupados automaticamente)</span>
+                  <span>📋 Atividades em Campo, Programadas e Finalizadas (Imóveis multi-bloco agrupados automaticamente)</span>
                     <span class="text-xs font-bold bg-blue-100 text-blue-900 px-2.5 py-1 rounded-lg" id="contador-resultados">0 registros</span>
                 </div>
                 <div class="overflow-x-auto max-h-[68vh]">
@@ -240,7 +235,7 @@
                 </div>
             </div>
 
-            <!-- NOVA SUB-ABA: SOLICITAÇÕES DE RECARGA DE COMBUSTÍVEL EXTRA -->
+            <!-- SUB-ABA: SOLICITAÇÕES DE RECARGA DE COMBUSTÍVEL EXTRA -->
             <div id="subview-combustivel" class="bg-white rounded-xl shadow-sm border-2 border-orange-200 overflow-hidden hidden">
                 <div class="p-4 bg-orange-50/70 border-b border-orange-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -271,7 +266,7 @@
                 </div>
             </div>
 
-            <!-- NOVA SUB-ABA: SOLICITAÇÕES DE MATERIAL -->
+            <!-- SUB-ABA: SOLICITAÇÕES DE MATERIAL -->
             <div id="subview-solicitacao_material" class="bg-white rounded-xl shadow-sm border-2 border-indigo-200 overflow-hidden hidden">
                 <div class="p-4 bg-indigo-50/70 border-b border-indigo-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -303,8 +298,6 @@
 
             <!-- Sub-Aba: Disponibilidade -->
             <div id="subview-disponibilidade" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden flex flex-col">
-                
-                <!-- Bloco Superior Fixo da Aba Disponibilidade -->
                 <div class="p-3 bg-white border-b border-slate-200 space-y-2.5 shrink-0">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                         <div class="flex flex-wrap items-baseline gap-2">
@@ -313,7 +306,6 @@
                         </div>
                     </div>
 
-                    <!-- 4 Quadros de Status Reduzidos / Compactos -->
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                         <div class="bg-emerald-50/90 border border-emerald-200 px-3 py-2 rounded-xl flex justify-between items-center shadow-sm">
                             <div>
@@ -346,7 +338,6 @@
                     </div>
                 </div>
 
-                <!-- Tabela Rolável com Cabeçalho Congelado e Fonte Reduzida -->
                 <div class="overflow-y-auto overflow-x-auto max-h-[60vh]">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
@@ -365,7 +356,7 @@
                 </div>
             </div>
 
-            <!-- SUB-ABA INDEPENDENTE: MAPA EM TEMPO REAL -->
+            <!-- SUB-ABA: MAPA EM TEMPO REAL -->
             <div id="subview-mapa" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden p-4 space-y-4">
                 <div class="border-b pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -376,16 +367,15 @@
                         <span class="text-[11px] bg-emerald-50 text-emerald-900 border border-emerald-200 px-2.5 py-1.5 rounded-lg font-bold" id="lbl-contador-pinos-mapa">
                             0 técnicos no mapa
                         </span>
-                        <button type="button" onclick="centralizarMapaEquipes()" title="Ajustar o zoom do mapa para enquadrar todos os técnicos ativos" class="bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-bold text-xs px-3 py-1.5 rounded-lg transition">
+                        <button type="button" onclick="centralizarMapaEquipes()" class="bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-bold text-xs px-3 py-1.5 rounded-lg transition">
                             🎯 Centralizar Todos os Pinos
                         </button>
-                        <button type="button" onclick="recarregarDadosGestor()" title="Buscar novas coordenadas GPS na nuvem agora" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm transition">
+                        <button type="button" onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm transition">
                             🔄 Sincronizar Agora
                         </button>
                     </div>
                 </div>
 
-                <!-- Legenda Rápida do Mapa -->
                 <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 text-[11px]">
                     <div class="flex flex-wrap items-center gap-3">
                         <span class="font-bold text-slate-700 uppercase text-[10px]">Legenda dos Pinos:</span>
@@ -398,10 +388,8 @@
                     <span class="text-[10px] text-slate-500">💡 Clique sobre qualquer pino no mapa para ver detalhes da ocupação e abrir no Google Maps</span>
                 </div>
 
-                <!-- Container do Mapa Ampliado em Aba Dedicada -->
                 <div id="mapa-rastreio-equipes" class="w-full h-[540px] rounded-xl border-2 border-slate-300 z-10 shadow-inner"></div>
 
-                <!-- Barra de Atalho Rápido de Técnicos com GPS no Mapa -->
                 <div class="space-y-1.5">
                     <span class="text-[10px] font-black text-slate-500 uppercase block">⚡ Clique em um técnico abaixo para dar zoom imediato na rua onde ele está:</span>
                     <div id="lista-atalhos-tecnicos-mapa" class="flex flex-wrap gap-1.5"></div>
@@ -435,45 +423,79 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Gráficos & Indicadores -->
+            <!-- ================= SUB-ABA: GRÁFICOS & PRODUTIVIDADE SEPARADOS POR GRUPOS (VISTORIA • CONSTRUÇÃO • ATIVAÇÃO) ================= -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-2.5">
+                <!-- 1. Topo Executivo de KPIs e Seletor Mestre de Grupo (VISTORIA / CONSTRUÇÃO / ATIVAÇÃO) -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
                     <div class="flex flex-wrap justify-between items-center gap-2">
-                        <span class="text-xs font-black text-slate-700 uppercase">📌 Resumo Geral de Volumes por Projeto (Período Filtrado)</span>
-                        <span class="text-[11px] text-blue-800 font-medium">💡 Use o botão <b>⛶ Expandir</b> em qualquer gráfico ou tabela para apresentação em tela cheia</span>
+                        <div>
+                            <span class="text-xs font-black text-slate-800 uppercase">📌 Painel Executivo Separado por Grupos: VISTORIA • CONSTRUÇÃO (F e ON GOING) • ATIVAÇÃO (F e ON GOING)</span>
+                            <span class="text-[11px] text-blue-800 font-medium ml-1">• Ref. Diária: <b id="lbl-data-ref-diaria">Hoje</b></span>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button type="button" onclick="exportarExcel()" title="Baixar Relatório Geral separado pelos 3 Grupos (Vistoria, Construção F/ON GOING e Ativação F/ON GOING)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
+                                📥 Planilha Geral por Grupos (.XLS)
+                            </button>
+                            <button type="button" onclick="exportarPlanilhaProgramadoRetornoBairro()" title="Baixar planilha separada por Grupos com PROGRAMADO vs. RETORNO e BAIRRO" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
+                                📥 Planilha: Programado/Retorno & Bairro por Grupos (.XLS)
+                            </button>
+                            <button type="button" id="btn-imprimir-relatorio-pdf" onclick="gerarRelatorioVisualImpressaoPDF()" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
+                                🖨️ Imprimir / PDF
+                            </button>
+                        </div>
                     </div>
+
+                    <!-- Barra de Navegação / Filtro Rápido entre os 3 Grandes Grupos na Aba Gráficos -->
+                    <div class="bg-slate-900 p-2 rounded-xl flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-[11px] font-black text-cyan-300 uppercase px-2">🎯 Filtrar Visão de Gráficos e Tabelas por Grupo:</span>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 flex-1 max-w-3xl">
+                            <button type="button" id="btn-grupo-graf-TODOS" onclick="selecionarGrupoAbaGraficos('TODOS')" class="py-2 px-3 rounded-lg font-black text-xs transition bg-cyan-400 text-slate-950 shadow-sm">
+                                📊 TODOS OS 3 GRUPOS
+                            </button>
+                            <button type="button" id="btn-grupo-graf-VISTORIA" onclick="selecionarGrupoAbaGraficos('VISTORIA')" class="py-2 px-3 rounded-lg font-bold text-xs transition bg-slate-800 text-purple-200 hover:bg-purple-900 border border-purple-500/40">
+                                🔍 GRUPO VISTORIA
+                            </button>
+                            <button type="button" id="btn-grupo-graf-CONSTRUCAO" onclick="selecionarGrupoAbaGraficos('CONSTRUCAO')" class="py-2 px-3 rounded-lg font-bold text-xs transition bg-slate-800 text-blue-200 hover:bg-blue-900 border border-blue-500/40">
+                                🛠️ GRUPO CONSTRUÇÃO (F / ON GOING)
+                            </button>
+                            <button type="button" id="btn-grupo-graf-ATIVACAO" onclick="selecionarGrupoAbaGraficos('ATIVACAO')" class="py-2 px-3 rounded-lg font-bold text-xs transition bg-slate-800 text-emerald-200 hover:bg-emerald-900 border border-emerald-500/40">
+                                ⚡ GRUPO ATIVAÇÃO (F / ON GOING)
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
                         <div class="bg-blue-50 p-3 rounded-xl shadow-sm border border-blue-300 flex flex-col justify-between">
                             <span class="text-[10px] font-bold text-blue-900 uppercase">🔵 Em Andamento</span>
                             <span class="text-xl font-black text-blue-700 mt-1" id="kpi-proj-andamento">0</span>
                         </div>
-                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-purple-800 uppercase">Vistoria</span>
-                            <span class="text-xl font-bold text-slate-800 mt-1" id="kpi-proj-vistoria">0</span>
+                        <div class="bg-purple-50 p-3 rounded-xl shadow-sm border border-purple-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-purple-900 uppercase">🔍 Vistoria (Exec.)</span>
+                            <span class="text-xl font-black text-purple-800 mt-1" id="kpi-proj-vistoria">0</span>
+                        </div>
+                        <div class="bg-indigo-50 p-3 rounded-xl shadow-sm border border-indigo-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-indigo-900 uppercase">🛠️ Construção F</span>
+                            <span class="text-xl font-black text-indigo-700 mt-1" id="kpi-proj-const-f">0</span>
+                        </div>
+                        <div class="bg-blue-50 p-3 rounded-xl shadow-sm border border-blue-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-blue-900 uppercase">🛠️ Const. On Going</span>
+                            <span class="text-xl font-black text-blue-700 mt-1" id="kpi-proj-const-ongoing">0</span>
                         </div>
                         <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-indigo-700 uppercase">Construção F</span>
-                            <span class="text-xl font-bold text-indigo-600 mt-1" id="kpi-proj-const-f">0</span>
-                        </div>
-                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-blue-700 uppercase">Const. On Going</span>
-                            <span class="text-xl font-bold text-blue-600 mt-1" id="kpi-proj-const-ongoing">0</span>
-                        </div>
-                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-orange-700 uppercase">Const. Nap Lot.</span>
+                            <span class="text-[10px] font-bold text-orange-700 uppercase">🛠️ Const. Nap Lot.</span>
                             <span class="text-xl font-bold text-orange-600 mt-1" id="kpi-proj-const-nap">0</span>
                         </div>
-                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-emerald-700 uppercase">Ativação F</span>
-                            <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-ativ-f">0</span>
+                        <div class="bg-emerald-50 p-3 rounded-xl shadow-sm border border-emerald-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-emerald-900 uppercase">⚡ Ativação F</span>
+                            <span class="text-xl font-black text-emerald-700 mt-1" id="kpi-proj-ativ-f">0</span>
+                        </div>
+                        <div class="bg-teal-50 p-3 rounded-xl shadow-sm border border-teal-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-teal-900 uppercase">⚡ Ativ. On Going</span>
+                            <span class="text-xl font-black text-teal-700 mt-1" id="kpi-proj-ativ-ongoing">0</span>
                         </div>
                         <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-teal-700 uppercase">Ativ. On Going</span>
-                            <span class="text-xl font-bold text-teal-600 mt-1" id="kpi-proj-ativ-ongoing">0</span>
-                        </div>
-                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-amber-700 uppercase">Ativ. Nap Lot.</span>
+                            <span class="text-[10px] font-bold text-amber-700 uppercase">⚡ Ativ. Nap Lot.</span>
                             <span class="text-xl font-bold text-amber-600 mt-1" id="kpi-proj-ativ-nap">0</span>
                         </div>
                         <div onclick="mudarSubAbaGestor('imprevistos')" class="bg-amber-50 hover:bg-amber-100 cursor-pointer transition p-3 rounded-xl shadow-sm border border-amber-300 flex flex-col justify-between">
@@ -481,155 +503,268 @@
                             <span class="text-xl font-black text-amber-700 mt-1" id="kpi-proj-imprevistos">0</span>
                         </div>
                     </div>
+
+                    <!-- Cards Resumo dos 3 Grandes Grupos -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                        <div class="bg-purple-50/80 border-2 border-purple-300 p-3.5 rounded-xl space-y-2">
+                            <div class="flex justify-between items-center border-b border-purple-200 pb-1.5">
+                                <span class="font-black text-purple-950 text-xs uppercase">🔍 1. GRUPO VISTORIA (Vistoriadores)</span>
+                                <span class="text-[10px] bg-purple-200 text-purple-900 font-bold px-2 py-0.5 rounded" id="card-vist-qtd-tec">0 eq.</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div class="bg-white p-2 rounded-lg border border-purple-100">
+                                    <span class="text-[9px] text-slate-500 uppercase font-bold block">Prod. Diária</span>
+                                    <span class="text-lg font-black text-purple-800" id="card-vist-diaria">0</span>
+                                </div>
+                                <div class="bg-white p-2 rounded-lg border border-purple-100">
+                                    <span class="text-[9px] text-slate-500 uppercase font-bold block">Total Executado</span>
+                                    <span class="text-lg font-black text-slate-800" id="card-vist-consolidado">0</span>
+                                </div>
+                                <div class="bg-purple-800 text-white p-2 rounded-lg">
+                                    <span class="text-[9px] text-purple-200 uppercase font-bold block">Produtiv./Dia</span>
+                                    <span class="text-lg font-black" id="card-vist-media">0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50/80 border-2 border-blue-300 p-3.5 rounded-xl space-y-2">
+                            <div class="flex justify-between items-center border-b border-blue-200 pb-1.5">
+                                <span class="font-black text-blue-950 text-xs uppercase">🛠️ 2. GRUPO CONSTRUÇÃO (Instaladores)</span>
+                                <span class="text-[10px] bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded" id="card-inst-qtd-tec">0 eq.</span>
+                            </div>
+                            <div class="grid grid-cols-4 gap-1.5 text-center">
+                                <div class="bg-indigo-100/80 p-1.5 rounded-lg border border-indigo-200">
+                                    <span class="text-[8px] text-indigo-900 uppercase font-black block">Exec. F</span>
+                                    <span class="text-base font-black text-indigo-800" id="card-inst-exec-f">0</span>
+                                </div>
+                                <div class="bg-cyan-100/80 p-1.5 rounded-lg border border-cyan-200">
+                                    <span class="text-[8px] text-cyan-950 uppercase font-black block">ON GOING</span>
+                                    <span class="text-base font-black text-cyan-900" id="card-inst-exec-ongoing">0</span>
+                                </div>
+                                <div class="bg-white p-1.5 rounded-lg border border-blue-100">
+                                    <span class="text-[8px] text-slate-500 uppercase font-bold block">Total Exec.</span>
+                                    <span class="text-base font-black text-slate-800" id="card-inst-consolidado">0</span>
+                                    <span class="hidden" id="card-inst-diaria">0</span>
+                                </div>
+                                <div class="bg-blue-900 text-white p-1.5 rounded-lg">
+                                    <span class="text-[8px] text-cyan-200 uppercase font-bold block">Prod./Dia</span>
+                                    <span class="text-base font-black" id="card-inst-media">0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-emerald-50/80 border-2 border-emerald-300 p-3.5 rounded-xl space-y-2">
+                            <div class="flex justify-between items-center border-b border-emerald-200 pb-1.5">
+                                <span class="font-black text-emerald-950 text-xs uppercase">⚡ 3. GRUPO ATIVAÇÃO (Ativadores)</span>
+                                <span class="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded" id="card-ativ-qtd-tec">0 eq.</span>
+                            </div>
+                            <div class="grid grid-cols-4 gap-1.5 text-center">
+                                <div class="bg-indigo-100/80 p-1.5 rounded-lg border border-indigo-200">
+                                    <span class="text-[8px] text-indigo-900 uppercase font-black block">Exec. F</span>
+                                    <span class="text-base font-black text-indigo-800" id="card-ativ-exec-f">0</span>
+                                </div>
+                                <div class="bg-cyan-100/80 p-1.5 rounded-lg border border-cyan-200">
+                                    <span class="text-[8px] text-cyan-950 uppercase font-black block">ON GOING</span>
+                                    <span class="text-base font-black text-cyan-900" id="card-ativ-exec-ongoing">0</span>
+                                </div>
+                                <div class="bg-white p-1.5 rounded-lg border border-emerald-100">
+                                    <span class="text-[8px] text-slate-500 uppercase font-bold block">Total Exec.</span>
+                                    <span class="text-base font-black text-slate-800" id="card-ativ-consolidado">0</span>
+                                    <span class="hidden" id="card-ativ-diaria">0</span>
+                                </div>
+                                <div class="bg-emerald-700 text-white p-1.5 rounded-lg">
+                                    <span class="text-[8px] text-emerald-100 uppercase font-bold block">Prod./Dia</span>
+                                    <span class="text-base font-black" id="card-ativ-media">0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- DESTAQUE PRINCIPAL - PRODUÇÃO POR EXECUTOR -->
-                <div class="bg-white rounded-2xl shadow-md border-2 border-blue-900/20 overflow-hidden">
-                    <div class="bg-blue-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <!-- ================= BLOCO 1 SEPARADO: GRUPO VISTORIA (VISTORIADORES) ================= -->
+                <div id="secao-grupo-vistoria" class="bg-white rounded-2xl shadow-md border-2 border-purple-700/30 overflow-hidden">
+                    <div class="bg-purple-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b-4 border-purple-400">
                         <div>
-                            <span class="bg-cyan-400 text-blue-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Indicador Principal</span>
-                            <h3 class="font-bold text-base mt-1">🏆 Produção Diária, Consolidada e Média por Executor (Vistoriador • Instalador • Ativador)</h3>
-                            <p class="text-xs text-cyan-200">Acompanhamento objetivo de entregas diárias (Data de Referência: <b id="lbl-data-ref-diaria">Hoje</b>) e acumulado no período filtrado</p>
+                            <span class="bg-purple-300 text-purple-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Grupo 1 • Vistoriadores</span>
+                            <h3 class="font-bold text-base mt-1">🔍 GRUPO VISTORIA — Resultados dos Vistoriadores</h3>
+                            <p class="text-xs text-purple-200">Acompanhamento exclusivo de Vistorias Executadas vs. Não Executadas, Dias Trabalhados, Produtividade e HPs</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="exportarExcelGrupoEspecifico('VISTORIA')" class="bg-purple-300 hover:bg-purple-200 text-purple-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-sm transition">
+                                📥 Baixar Planilha VISTORIA (.XLS)
+                            </button>
+                            <button type="button" onclick="expandirGraficoModal('graficoExecutoresVistoria', '🔍 GRUPO VISTORIA — Resultados dos Vistoriadores')" class="bg-purple-950 hover:bg-black text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-purple-600">
+                                ⛶ Expandir Gráfico
+                            </button>
                         </div>
                     </div>
 
-                    <div class="p-5 space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="bg-purple-50/70 border-2 border-purple-200 p-4 rounded-xl space-y-2">
-                                <div class="flex justify-between items-center border-b border-purple-200 pb-2">
-                                    <span class="font-black text-purple-950 text-xs uppercase flex items-center gap-1.5">🔍 Grupo: VISTORIADOR</span>
-                                    <span class="text-[10px] bg-purple-200 text-purple-900 font-bold px-2 py-0.5 rounded" id="card-vist-qtd-tec">0 técnicos</span>
-                                </div>
-                                <div class="grid grid-cols-3 gap-2 text-center pt-1">
-                                    <div class="bg-white p-2 rounded-lg border border-purple-100">
-                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Prod. Diária</span>
-                                        <span class="text-lg font-black text-purple-800" id="card-vist-diaria">0</span>
-                                    </div>
-                                    <div class="bg-white p-2 rounded-lg border border-purple-100">
-                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Consolidado</span>
-                                        <span class="text-lg font-black text-slate-800" id="card-vist-consolidado">0</span>
-                                    </div>
-                                    <div class="bg-purple-800 text-white p-2 rounded-lg">
-                                        <span class="text-[9px] text-purple-200 uppercase font-bold block">Média / Dia</span>
-                                        <span class="text-lg font-black" id="card-vist-media">0.0</span>
-                                    </div>
-                                </div>
-                                <p class="text-[10px] text-purple-800 font-semibold pt-1">Atuação: <b>VISTORIA</b></p>
-                            </div>
-
-                            <div class="bg-blue-50/70 border-2 border-blue-200 p-4 rounded-xl space-y-2">
-                                <div class="flex justify-between items-center border-b border-blue-200 pb-2">
-                                    <span class="font-black text-blue-950 text-xs uppercase flex items-center gap-1.5">🛠️ Grupo: INSTALADOR</span>
-                                    <span class="text-[10px] bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded" id="card-inst-qtd-tec">0 técnicos</span>
-                                </div>
-                                <div class="grid grid-cols-3 gap-2 text-center pt-1">
-                                    <div class="bg-white p-2 rounded-lg border border-blue-100">
-                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Prod. Diária</span>
-                                        <span class="text-lg font-black text-blue-800" id="card-inst-diaria">0</span>
-                                    </div>
-                                    <div class="bg-white p-2 rounded-lg border border-blue-100">
-                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Consolidado</span>
-                                        <span class="text-lg font-black text-slate-800" id="card-inst-consolidado">0</span>
-                                    </div>
-                                    <div class="bg-blue-900 text-white p-2 rounded-lg">
-                                        <span class="text-[9px] text-cyan-200 uppercase font-bold block">Média / Dia</span>
-                                        <span class="text-lg font-black" id="card-inst-media">0.0</span>
-                                    </div>
-                                </div>
-                                <p class="text-[10px] text-blue-900 font-semibold pt-1">Atuação: <b>CONSTRUÇÃO MDU</b></p>
-                            </div>
-
-                            <div class="bg-emerald-50/70 border-2 border-emerald-200 p-4 rounded-xl space-y-2">
-                                <div class="flex justify-between items-center border-b border-emerald-200 pb-2">
-                                    <span class="font-black text-emerald-950 text-xs uppercase flex items-center gap-1.5">⚡ Grupo: ATIVADOR</span>
-                                    <span class="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded" id="card-ativ-qtd-tec">0 técnicos</span>
-                                </div>
-                                <div class="grid grid-cols-3 gap-2 text-center pt-1">
-                                    <div class="bg-white p-2 rounded-lg border border-emerald-100">
-                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Prod. Diária</span>
-                                        <span class="text-lg font-black text-emerald-800" id="card-ativ-diaria">0</span>
-                                    </div>
-                                    <div class="bg-white p-2 rounded-lg border border-emerald-100">
-                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Consolidado</span>
-                                        <span class="text-lg font-black text-slate-800" id="card-ativ-consolidado">0</span>
-                                    </div>
-                                    <div class="bg-emerald-700 text-white p-2 rounded-lg">
-                                        <span class="text-[9px] text-emerald-100 uppercase font-bold block">Média / Dia</span>
-                                        <span class="text-lg font-black" id="card-ativ-media">0.0</span>
-                                    </div>
-                                </div>
-                                <p class="text-[10px] text-emerald-900 font-semibold pt-1">Atuação: <b>ATIVAÇÃO MDU</b></p>
-                            </div>
+                    <div class="p-5 space-y-5">
+                        <div class="bg-purple-50/40 p-4 rounded-xl border border-purple-200">
+                            <div class="relative h-64"><canvas id="graficoExecutoresVistoria"></canvas></div>
                         </div>
 
-                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-                                <div>
-                                    <h4 class="text-xs font-black text-slate-800 uppercase">📊 Gráfico Principal: Produção Consolidada vs. Produção Diária e Média por Executor</h4>
-                                    <p class="text-[11px] text-slate-500">Comparativo direto entre todos os Vistoriadores, Instaladores e Ativadores acionados</p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <select id="filtro-setor-grafico-principal" onchange="atualizarDashboardGestor()" class="text-xs border border-slate-300 rounded-lg p-1.5 bg-white font-bold text-blue-950 outline-none">
-                                        <option value="TODOS">Mostrar Todos os Setores</option>
-                                        <option value="Vistoriador">🔍 Apenas Vistoriadores</option>
-                                        <option value="Instalador">🛠️ Apenas Instaladores</option>
-                                        <option value="Ativador">⚡ Apenas Ativadores</option>
-                                    </select>
-                                    <button type="button" onclick="expandirGraficoModal('graficoPrincipalExecutores', '🏆 Produção Consolidada, Diária e Média por Executor')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
-                                        ⛶ Expandir
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="relative h-80"><canvas id="graficoPrincipalExecutores"></canvas></div>
-                        </div>
-
-                        <div class="overflow-x-auto border border-slate-200 rounded-xl">
-                            <div class="flex justify-end items-center px-3 py-1.5 bg-slate-100 border-b border-slate-200">
-                                <button type="button" onclick="expandirTabelaModal('tabela-principal-executores-corpo', '🏆 Super Tabela Principal: Produção, Horários, Pausas e TMA por Executor')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition flex items-center gap-1">
+                        <div class="overflow-x-auto border border-purple-200 rounded-xl">
+                            <div class="flex justify-between items-center px-3 py-2 bg-purple-100/70 border-b border-purple-200">
+                                <span class="text-[11px] font-black text-purple-950 uppercase">📋 Tabela do Grupo VISTORIA (Resultados dos Vistoriadores)</span>
+                                <button type="button" onclick="expandirTabelaModal('tabela-executores-vistoria-corpo', '🔍 Tabela do Grupo VISTORIA (Vistoriadores)')" class="bg-purple-800 hover:bg-purple-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg">
                                     ⛶ Expandir Tabela
                                 </button>
                             </div>
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
-                                    <tr class="bg-slate-800 text-white uppercase font-bold text-[10px] tracking-wider">
-                                        <th class="p-3 text-center">#</th>
-                                        <th class="p-3">Executor / Técnico</th>
-                                        <th class="p-3">Grupo / Função</th>
-                                        <th class="p-3 text-center bg-blue-900/40">Prod. Diária</th>
-                                        <th class="p-3 text-center bg-emerald-900/40">Consolidado</th>
-                                        <th class="p-3 text-center">Total Geral</th>
-                                        <th class="p-3 text-center">Dias</th>
-                                        <th class="p-3 text-center bg-indigo-900 font-black text-cyan-300">Média / Dia</th>
-                                        <th class="p-3 text-right">Eficácia (%)</th>
+                                    <tr class="bg-purple-950 text-white uppercase font-bold text-[9px] tracking-wider">
+                                        <th class="p-2.5 text-center">#</th>
+                                        <th class="p-2.5">Vistoriador / Equipe</th>
+                                        <th class="p-2.5 text-center bg-emerald-800">Executados</th>
+                                        <th class="p-2.5 text-center bg-amber-800">N Executado</th>
+                                        <th class="p-2.5 text-center">Total Geral</th>
+                                        <th class="p-2.5 text-center">Dias Trab</th>
+                                        <th class="p-2.5 text-center bg-purple-800 text-purple-200 font-black">Produtividade</th>
+                                        <th class="p-2.5 text-center bg-cyan-900 text-cyan-200">QNT. HP</th>
+                                        <th class="p-2.5 text-center">HP / DIA</th>
+                                        <th class="p-2.5 text-center">TMA Líquido</th>
+                                        <th class="p-2.5 text-right">% Conversão</th>
                                     </tr>
                                 </thead>
-                                <tbody id="tabela-principal-executores-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                                <tbody id="tabela-executores-vistoria-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
                             </table>
                         </div>
                     </div>
                 </div>
 
-                <!-- EVOLUÇÃO DOS PROJETOS E CRUZAMENTO DE EXECUTORES -->
+                <!-- ================= BLOCO 2 SEPARADO: GRUPO CONSTRUÇÃO (INSTALADORES — SEPARANDO F E ON GOING) ================= -->
+                <div id="secao-grupo-construcao" class="bg-white rounded-2xl shadow-md border-2 border-blue-900/30 overflow-hidden">
+                    <div class="bg-blue-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b-4 border-cyan-400">
+                        <div>
+                            <span class="bg-cyan-400 text-blue-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Grupo 2 • Instaladores (F vs. ON GOING)</span>
+                            <h3 class="font-bold text-base mt-1">🛠️ GRUPO CONSTRUÇÃO — Resultados dos Instaladores (Separando PROJETO F e ON GOING)</h3>
+                            <p class="text-xs text-cyan-200">Apresenta tudo o que foi construído pelos instaladores, separando em colunas e barras o que é <b>Construção F</b> e o que é <b>Construção ON GOING</b></p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="exportarExcelGrupoEspecifico('CONSTRUCAO')" class="bg-cyan-400 hover:bg-cyan-300 text-blue-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-sm transition">
+                                📥 Baixar Planilha CONSTRUÇÃO (.XLS)
+                            </button>
+                            <button type="button" onclick="expandirGraficoModal('graficoExecutoresConstrucao', '🛠️ GRUPO CONSTRUÇÃO — Instaladores (F vs. ON GOING)')" class="bg-blue-950 hover:bg-black text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-blue-600">
+                                ⛶ Expandir Gráfico
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-5 space-y-5">
+                        <div class="bg-blue-50/40 p-4 rounded-xl border border-blue-200">
+                            <div class="relative h-72"><canvas id="graficoExecutoresConstrucao"></canvas></div>
+                        </div>
+
+                        <div class="overflow-x-auto border border-blue-200 rounded-xl">
+                            <div class="flex justify-between items-center px-3 py-2 bg-blue-100/70 border-b border-blue-200">
+                                <span class="text-[11px] font-black text-blue-950 uppercase">📋 Tabela do Grupo CONSTRUÇÃO — Instaladores (Separando F e ON GOING)</span>
+                                <button type="button" onclick="expandirTabelaModal('tabela-executores-construcao-corpo', '🛠️ Tabela do Grupo CONSTRUÇÃO — Instaladores (F vs. ON GOING)')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg">
+                                    ⛶ Expandir Tabela
+                                </button>
+                            </div>
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-900 text-white uppercase font-bold text-[9px] tracking-wider">
+                                        <th class="p-2.5 text-center">#</th>
+                                        <th class="p-2.5">Instalador / Equipe</th>
+                                        <th class="p-2.5 text-center bg-indigo-800 text-indigo-100" title="Construção Projeto F Concluída">Exec. F</th>
+                                        <th class="p-2.5 text-center bg-cyan-800 text-cyan-100" title="Construção ON GOING / Nap Lotada Concluída">Exec. ON GOING</th>
+                                        <th class="p-2.5 text-center bg-emerald-800 text-white font-black" title="Soma Total Construída pelo Instalador">Total Exec.</th>
+                                        <th class="p-2.5 text-center bg-amber-800/80" title="Não Executado PROJETO F">N Exec. F</th>
+                                        <th class="p-2.5 text-center bg-amber-700/80" title="Não Executado ON GOING">N Exec. ON GOING</th>
+                                        <th class="p-2.5 text-center bg-amber-900 text-amber-200">Total N Exec.</th>
+                                        <th class="p-2.5 text-center">Total Geral</th>
+                                        <th class="p-2.5 text-center">Dias Trab</th>
+                                        <th class="p-2.5 text-center bg-blue-800 text-cyan-300 font-black">Produtividade</th>
+                                        <th class="p-2.5 text-center bg-cyan-950 text-cyan-200">HP (F / ON GOING / Total)</th>
+                                        <th class="p-2.5 text-center">HP / DIA</th>
+                                        <th class="p-2.5 text-right">% Conv.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabela-executores-construcao-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= BLOCO 3 SEPARADO: GRUPO ATIVAÇÃO (ATIVADORES — SEPARANDO F E ON GOING) ================= -->
+                <div id="secao-grupo-ativacao" class="bg-white rounded-2xl shadow-md border-2 border-emerald-800/30 overflow-hidden">
+                    <div class="bg-emerald-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b-4 border-emerald-400">
+                        <div>
+                            <span class="bg-emerald-300 text-emerald-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Grupo 3 • Ativadores (F vs. ON GOING)</span>
+                            <h3 class="font-bold text-base mt-1">⚡ GRUPO ATIVAÇÃO — Resultados dos Ativadores (Separando PROJETO F e ON GOING)</h3>
+                            <p class="text-xs text-emerald-200">Apresenta tudo o que foi ativado pelos ativadores, separando em colunas e barras o que é <b>Ativação F</b> e o que é <b>Ativação ON GOING</b></p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="exportarExcelGrupoEspecifico('ATIVACAO')" class="bg-emerald-300 hover:bg-emerald-200 text-emerald-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-sm transition">
+                                📥 Baixar Planilha ATIVAÇÃO (.XLS)
+                            </button>
+                            <button type="button" onclick="expandirGraficoModal('graficoExecutoresAtivacao', '⚡ GRUPO ATIVAÇÃO — Ativadores (F vs. ON GOING)')" class="bg-emerald-950 hover:bg-black text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-emerald-600">
+                                ⛶ Expandir Gráfico
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-5 space-y-5">
+                        <div class="bg-emerald-50/40 p-4 rounded-xl border border-emerald-200">
+                            <div class="relative h-72"><canvas id="graficoExecutoresAtivacao"></canvas></div>
+                        </div>
+
+                        <div class="overflow-x-auto border border-emerald-200 rounded-xl">
+                            <div class="flex justify-between items-center px-3 py-2 bg-emerald-100/70 border-b border-emerald-200">
+                                <span class="text-[11px] font-black text-emerald-950 uppercase">📋 Tabela do Grupo ATIVAÇÃO — Ativadores (Separando F e ON GOING)</span>
+                                <button type="button" onclick="expandirTabelaModal('tabela-executores-ativacao-corpo', '⚡ Tabela do Grupo ATIVAÇÃO — Ativadores (F vs. ON GOING)')" class="bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg">
+                                    ⛶ Expandir Tabela
+                                </button>
+                            </div>
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-emerald-950 text-white uppercase font-bold text-[9px] tracking-wider">
+                                        <th class="p-2.5 text-center">#</th>
+                                        <th class="p-2.5">Ativador / Equipe</th>
+                                        <th class="p-2.5 text-center bg-indigo-800 text-indigo-100" title="Ativação Projeto F Concluída">Exec. F</th>
+                                        <th class="p-2.5 text-center bg-cyan-800 text-cyan-100" title="Ativação ON GOING / Nap Lotada Concluída">Exec. ON GOING</th>
+                                        <th class="p-2.5 text-center bg-emerald-700 text-white font-black" title="Soma Total Ativada pelo Técnico">Total Exec.</th>
+                                        <th class="p-2.5 text-center bg-amber-800/80" title="Não Executado PROJETO F">N Exec. F</th>
+                                        <th class="p-2.5 text-center bg-amber-700/80" title="Não Executado ON GOING">N Exec. ON GOING</th>
+                                        <th class="p-2.5 text-center bg-amber-900 text-amber-200">Total N Exec.</th>
+                                        <th class="p-2.5 text-center">Total Geral</th>
+                                        <th class="p-2.5 text-center">Dias Trab</th>
+                                        <th class="p-2.5 text-center bg-teal-800 text-cyan-300 font-black">Produtividade</th>
+                                        <th class="p-2.5 text-center bg-cyan-950 text-cyan-200">HP (F / ON GOING / Total)</th>
+                                        <th class="p-2.5 text-center">HP / DIA</th>
+                                        <th class="p-2.5 text-right">% Conv.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabela-executores-ativacao-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. OS GRÁFICOS DINÂMICOS DA PLANILHA SEPARADOS POR GRUPO (VISTORIA / CONSTRUÇÃO F & ON GOING / ATIVAÇÃO F & ON GOING) -->
                 <div class="bg-white rounded-2xl shadow-md border-2 border-indigo-900/20 overflow-hidden">
                     <div class="bg-indigo-950 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
-                            <span class="bg-amber-400 text-indigo-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Análise por Grupos de Projeto</span>
-                            <h3 class="font-bold text-base mt-1">📈 Evolução e Cruzamento por Grupos de Projeto</h3>
-                            <p class="text-xs text-indigo-200">Acompanhamento comparativo entre os grupos e tipos de projetos cadastrados no sistema</p>
+                            <span class="bg-amber-400 text-indigo-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Comparativo dos 3 Grupos (Aba Painel / Din2 / Diario)</span>
+                            <h3 class="font-bold text-base mt-1">📈 Comparativo VISTORIA • CONSTRUÇÃO (F vs. ON GOING) • ATIVAÇÃO (F vs. ON GOING), Semanal e Diário</h3>
+                            <p class="text-xs text-indigo-200">Gráficos e Matrizes subdivididos exatamente pelos 3 Grupos Operacionais</p>
                         </div>
                     </div>
 
                     <div class="p-5 space-y-6">
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Gráfico 1: Comparativo por Grupo e Subgrupo (VISTORIA | CONSTRUÇÃO F | CONSTRUÇÃO ON GOING | ATIVAÇÃO F | ATIVAÇÃO ON GOING) -->
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
                                 <div class="flex justify-between items-start mb-2 gap-2">
                                     <div>
-                                        <h4 class="text-xs font-black text-blue-950 uppercase">🏢 Grupo ON GOING (Volume e Desfecho por Projeto)</h4>
-                                        <p class="text-[10px] text-slate-500">Projetos vinculados ao grupo ON GOING</p>
+                                        <h4 class="text-xs font-black text-blue-950 uppercase">🏗️ 1. Geral por Grupo: Vistoria • Construção (F / ON GOING) • Ativação (F / ON GOING)</h4>
+                                        <p class="text-[10px] text-slate-500">Comparativo Executado vs. Não Executado em cada frente</p>
                                     </div>
                                     <div class="flex items-center gap-1.5">
                                         <span id="badge-total-malling" class="bg-blue-100 text-blue-900 font-black text-xs px-2.5 py-1 rounded-lg whitespace-nowrap">0 total</span>
-                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoMalling', '🏢 Grupo ON GOING - Volume e Desfecho por Projeto')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
+                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoMalling', '🏗️ Geral por Grupo (Vistoria, Construção F/ON GOING e Ativação F/ON GOING)')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
                                             ⛶ Expandir
                                         </button>
                                     </div>
@@ -637,15 +772,16 @@
                                 <div class="relative h-72"><canvas id="graficoGrupoMalling"></canvas></div>
                             </div>
 
+                            <!-- Gráfico 2: Evolução Semanal Separada por Grupo (Sem 1 a Sem 5) -->
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
                                 <div class="flex justify-between items-start mb-2 gap-2">
                                     <div>
-                                        <h4 class="text-xs font-black text-indigo-950 uppercase">🚀 Grupo PROJETO F / Demais Grupos (Volume e Desfecho)</h4>
-                                        <p class="text-[10px] text-slate-500">Projetos vinculados ao grupo PROJETO F e novos grupos</p>
+                                        <h4 class="text-xs font-black text-indigo-950 uppercase">📅 2. Evolução Semanal por Grupo (Sem 1 • Sem 2 • Sem 3 • Sem 4 • Sem 5)</h4>
+                                        <p class="text-[10px] text-slate-500">Executados por Semana separados em Vistoria, Construção e Ativação</p>
                                     </div>
                                     <div class="flex items-center gap-1.5">
-                                        <span id="badge-total-projetof" class="bg-indigo-100 text-indigo-900 font-black text-xs px-2.5 py-1 rounded-lg whitespace-nowrap">0 total</span>
-                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoProjetoF', '🚀 Grupo PROJETO F - Volume e Desfecho por Projeto')" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
+                                        <span id="badge-total-projetof" class="bg-indigo-100 text-indigo-900 font-black text-xs px-2.5 py-1 rounded-lg whitespace-nowrap">0 exec.</span>
+                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoProjetoF', '📅 Produção Semanal por Grupo (Sem 1 a Sem 5)')" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
                                             ⛶ Expandir
                                         </button>
                                     </div>
@@ -654,38 +790,53 @@
                             </div>
                         </div>
 
+                        <!-- Gráfico 3: Evolução Diária Separada por Grupo -->
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                             <div class="flex justify-between items-start mb-3 gap-2">
                                 <div>
-                                    <h4 class="text-xs font-black text-slate-800 uppercase mb-0.5">📅 Curva de Evolução Diária por Grupos</h4>
-                                    <p class="text-[11px] text-slate-500">Acompanhamento dia a dia do ritmo de entregas de cada grupo de projeto</p>
+                                    <h4 class="text-xs font-black text-slate-800 uppercase mb-0.5">📆 3. Produção Diária Separada por Grupo (Vistoria • Construção • Ativação)</h4>
+                                    <p class="text-[11px] text-slate-500">Evolução dia a dia das entregas concluídas em cada grupo</p>
                                 </div>
-                                <button type="button" onclick="expandirGraficoModal('graficoEvolucaoGrupos', '📅 Curva de Evolução Diária por Grupos')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                <button type="button" onclick="expandirGraficoModal('graficoEvolucaoGrupos', '📆 Produção Diária por Grupo')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
                                     ⛶ Expandir
                                 </button>
                             </div>
                             <div class="relative h-64"><canvas id="graficoEvolucaoGrupos"></canvas></div>
                         </div>
 
+                        <!-- MATRIZ DIÁRIA SEPARADA PELOS 3 GRUPOS (Aba Diario da Planilha) -->
                         <div class="space-y-2">
                             <div class="flex justify-between items-center">
                                 <div>
-                                    <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento: Executores × Projetos</h4>
-                                    <p class="text-[11px] text-slate-500">Visão cruzada de quantas atividades cada executor realizou em cada projeto</p>
+                                    <h4 class="text-xs font-black text-emerald-950 uppercase">🗓️ Matriz Diária de Execução Separada por Grupo: Vistoria • Construção • Ativação (Aba `Diario`)</h4>
+                                    <p class="text-[11px] text-slate-500">Agrupa os técnicos dentro de Vistoria, Construção e Ativação mostrando a produção em cada data do mês</p>
                                 </div>
-                                <button type="button" onclick="expandirTabelaModal('tabela-cruzamento-executores-corpo', '🔀 Matriz de Cruzamento: Executores × Projetos')" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
+                                <button type="button" onclick="expandirTabelaModal('tabela-matriz-diaria-equipes-corpo', '🗓️ Matriz Diária de Execução por Grupo')" class="bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
+                                    ⛶ Expandir Matriz Diária
+                                </button>
+                            </div>
+                            <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-[500px]">
+                                <table class="w-full text-left border-collapse text-[11px]">
+                                    <thead id="thead-matriz-diaria-equipes" class="sticky top-0 z-10 shadow-sm"></thead>
+                                    <tbody id="tabela-matriz-diaria-equipes-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Matriz de Cruzamento Separada por Grupo: Executores × Projetos (F vs ON GOING) -->
+                        <div class="space-y-2 pt-2 border-t border-slate-200">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento por Grupo: Executores × Tipos de Projeto (F vs. ON GOING)</h4>
+                                    <p class="text-[11px] text-slate-500">Separada nos 3 grupos operacionais com subtotais de cada frente</p>
+                                </div>
+                                <button type="button" onclick="expandirTabelaModal('tabela-cruzamento-executores-corpo', '🔀 Matriz de Cruzamento por Grupo')" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
                                     ⛶ Expandir Tabela
                                 </button>
                             </div>
                             <div class="overflow-x-auto border border-slate-200 rounded-xl">
                                 <table class="w-full text-left border-collapse text-[11px]">
-                                    <thead id="thead-cruzamento-executores">
-                                        <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] border-b">
-                                            <th class="p-2.5">Executor / Técnico</th>
-                                            <th class="p-2.5">Função</th>
-                                            <th class="p-2.5 text-center bg-slate-800 text-white font-black">Total Geral</th>
-                                        </tr>
-                                    </thead>
+                                    <thead id="thead-cruzamento-executores"></thead>
                                     <tbody id="tabela-cruzamento-executores-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
                                 </table>
                             </div>
@@ -693,7 +844,86 @@
                     </div>
                 </div>
 
-                <!-- Cards de Horários, TMA Líquido e Tempo Paralisado -->
+                <!-- 5. SEÇÃO E PLANILHA SEPARADA POR GRUPOS: PROGRAMADO vs. RETORNO (STATUS MACRO) & BAIRRO -->
+                <div class="bg-white rounded-2xl shadow-md border-2 border-amber-500/40 overflow-hidden">
+                    <div class="bg-slate-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b-4 border-amber-400">
+                        <div>
+                            <span class="bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Planilha Separada por Grupos • Status Macro & Bairro</span>
+                            <h3 class="font-bold text-base mt-1">📍 Classificação PROGRAMADO vs. RETORNO & BAIRRO (Separado em Vistoria, Construção F/ON GOING e Ativação F/ON GOING)</h3>
+                            <p class="text-xs text-slate-300">Cruza 1ª visita (PROGRAMADO) e reincidência (RETORNO) por Bairro e exporta planilha com quadros exclusivos para cada grupo</p>
+                        </div>
+                        <button type="button" onclick="exportarPlanilhaProgramadoRetornoBairro()" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5 shrink-0">
+                            📥 Baixar Planilha por Grupos: Programado/Retorno & Bairro (.XLS)
+                        </button>
+                    </div>
+
+                    <div class="p-5 space-y-5">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div class="bg-blue-50 border border-blue-200 p-3.5 rounded-xl">
+                                <span class="text-[10px] font-black text-blue-900 uppercase block">📋 Total PROGRAMADO (1ª Visita)</span>
+                                <span class="text-2xl font-black text-blue-700" id="kpi-macro-programado">0</span>
+                                <span class="text-[10px] text-blue-600 block mt-0.5" id="kpi-macro-programado-perc">0% do total</span>
+                            </div>
+                            <div class="bg-amber-50 border border-amber-200 p-3.5 rounded-xl">
+                                <span class="text-[10px] font-black text-amber-900 uppercase block">🔄 Total RETORNO (Reincidência)</span>
+                                <span class="text-2xl font-black text-amber-700" id="kpi-macro-retorno">0</span>
+                                <span class="text-[10px] text-amber-700 block mt-0.5" id="kpi-macro-retorno-perc">0% do total</span>
+                            </div>
+                            <div class="bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl">
+                                <span class="text-[10px] font-black text-emerald-900 uppercase block">🏘️ Bairros Atendidos</span>
+                                <span class="text-2xl font-black text-emerald-700" id="kpi-macro-qtd-bairros">0</span>
+                                <span class="text-[10px] text-emerald-700 block mt-0.5">Com registro no período</span>
+                            </div>
+                            <div class="bg-indigo-50 border border-indigo-200 p-3.5 rounded-xl">
+                                <span class="text-[10px] font-black text-indigo-900 uppercase block">🏆 Bairro Maior Demanda</span>
+                                <span class="text-sm font-black text-indigo-900 truncate block mt-1" id="kpi-macro-top-bairro">-</span>
+                                <span class="text-[10px] text-indigo-700 block mt-0.5" id="kpi-macro-top-bairro-qtd">0 acionamentos</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
+                                <div class="flex justify-between items-center mb-2">
+                                    <div>
+                                        <h4 class="text-xs font-black text-slate-800 uppercase">📊 Top Bairros: PROGRAMADO vs. RETORNO</h4>
+                                        <p class="text-[10px] text-slate-500">Distribuição geográfica por Status Macro e execução</p>
+                                    </div>
+                                    <button type="button" onclick="expandirGraficoModal('graficoProgramadoRetornoBairro', '📍 Top Bairros: PROGRAMADO vs. RETORNO')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm">
+                                        ⛶ Expandir
+                                    </button>
+                                </div>
+                                <div class="relative h-72"><canvas id="graficoProgramadoRetornoBairro"></canvas></div>
+                            </div>
+
+                            <div class="border border-slate-200 rounded-xl overflow-hidden flex flex-col">
+                                <div class="bg-slate-100 p-3 border-b border-slate-200 flex justify-between items-center">
+                                    <span class="font-black text-slate-800 text-xs uppercase">📋 Tabela por Grupo e Bairro: Programado vs. Retorno</span>
+                                    <button type="button" onclick="expandirTabelaModal('tabela-programado-retorno-bairro-corpo', '📍 Tabela por Grupo e Bairro (Programado vs. Retorno)')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg">
+                                        ⛶ Expandir Tabela
+                                    </button>
+                                </div>
+                                <div class="overflow-y-auto max-h-72 flex-1">
+                                    <table class="w-full text-left border-collapse text-xs">
+                                        <thead class="sticky top-0 bg-slate-800 text-white text-[9px] uppercase">
+                                            <tr>
+                                                <th class="p-2">Bairro / Grupo</th>
+                                                <th class="p-2 text-center bg-blue-900">Programado</th>
+                                                <th class="p-2 text-center bg-amber-700">Retorno</th>
+                                                <th class="p-2 text-center bg-emerald-800">Exec. (F / ON GOING)</th>
+                                                <th class="p-2 text-center">N Exec.</th>
+                                                <th class="p-2 text-center">Total</th>
+                                                <th class="p-2 text-right">HPs</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tabela-programado-retorno-bairro-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. Cards de Horários, TMA Líquido e Tempo Paralisado -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-600 flex flex-col justify-between">
                         <div class="flex justify-between items-start">
@@ -741,35 +971,7 @@
                     </div>
                 </div>
 
-                <!-- Gráficos 5 e 6: Projetos e Desfechos -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <div class="flex justify-between items-start mb-4 gap-2">
-                            <div>
-                                <h3 class="text-sm font-bold text-slate-800 uppercase">📊 Volume Geral por Projeto (Clique para Explodir)</h3>
-                                <p class="text-xs text-slate-500">Comparativo entre todos os projetos ativos</p>
-                            </div>
-                            <button type="button" onclick="expandirGraficoModal('graficoProjetos', '📊 Volume Geral por Projeto')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
-                                ⛶ Expandir
-                            </button>
-                        </div>
-                        <div class="relative h-80"><canvas id="graficoProjetos"></canvas></div>
-                    </div>
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                        <div class="flex justify-between items-start mb-4 gap-2">
-                            <div>
-                                <h3 class="text-sm font-bold text-slate-800 uppercase">🎯 Eficácia e Desfechos (Clique para Explodir)</h3>
-                                <p class="text-xs text-slate-500">Proporção detalhada entre Concluídas, Pendentes e Malogradas</p>
-                            </div>
-                            <button type="button" onclick="expandirGraficoModal('graficoDesfechos', '🎯 Eficácia e Desfechos Operacionais')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
-                                ⛶ Expandir
-                            </button>
-                        </div>
-                        <div class="relative h-80"><canvas id="graficoDesfechos"></canvas></div>
-                    </div>
-                </div>
-
-                <!-- Gráficos 7 e 8: Horas de Pico e TMA por Projeto -->
+                <!-- 7. GRÁFICO DE HORÁRIOS DE PICO (MANTIDO INTACTO) + CONVERSÃO EXECUTADO vs NÃO EXECUTADO -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div class="flex justify-between items-start mb-4 gap-2">
@@ -783,6 +985,36 @@
                         </div>
                         <div class="relative h-72"><canvas id="graficoHorasPico"></canvas></div>
                     </div>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <div class="flex justify-between items-start mb-4 gap-2">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800 uppercase">🎯 Taxa de Conversão: EXECUTADO vs. NÃO EXECUTADO</h3>
+                                <p class="text-xs text-slate-500">Proporção entre obras Executadas (Concluídas) e Não Executadas (Pendentes / Malogradas)</p>
+                            </div>
+                            <button type="button" onclick="expandirGraficoModal('graficoDesfechos', '🎯 Taxa de Conversão: EXECUTADO vs. NÃO EXECUTADO')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                ⛶ Expandir
+                            </button>
+                        </div>
+                        <div class="relative h-72"><canvas id="graficoDesfechos"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- 8. Volume por Sub-Projeto & TMA por Projeto -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                        <div class="flex justify-between items-start mb-4 gap-2">
+                            <div>
+                                <h3 class="text-sm font-bold text-slate-800 uppercase">📊 Detalhamento por Tipo de Projeto (F vs. ON GOING)</h3>
+                                <p class="text-xs text-slate-500">Comparativo entre todos os projetos ativos no catálogo</p>
+                            </div>
+                            <button type="button" onclick="expandirGraficoModal('graficoProjetos', '📊 Detalhamento por Tipo de Projeto')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                ⛶ Expandir
+                            </button>
+                        </div>
+                        <div class="relative h-72"><canvas id="graficoProjetos"></canvas></div>
+                    </div>
+
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div class="flex justify-between items-start mb-4 gap-2">
                             <div>
@@ -797,20 +1029,20 @@
                     </div>
                 </div>
 
-                <!-- Gráfico 9 e Tabela: Ofensores de Malogro -->
+                <!-- 9. Ofensores de Não Execução / Malogro (STATUS1 da Planilha) -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-red-200 flex flex-col justify-between">
                         <div>
                             <div class="flex justify-between items-center gap-2">
-                                <h3 class="text-sm font-bold text-red-900 uppercase">🚨 Gráfico de Ofensores de Malogro (Clique para Explodir)</h3>
+                                <h3 class="text-sm font-bold text-red-900 uppercase">🚨 Ofensores de Não Execução (`STATUS1` Planilha)</h3>
                                 <div class="flex items-center gap-1.5">
                                     <span id="badge-total-ocorrencias-malogro" class="bg-red-100 text-red-800 text-[10px] font-bold px-2.5 py-1 rounded whitespace-nowrap">0 ocorrências</span>
-                                    <button type="button" onclick="expandirGraficoModal('graficoOfensoresMalogro', '🚨 Incidência Acumulada de Ofensores de Malogro')" class="bg-red-700 hover:bg-red-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
+                                    <button type="button" onclick="expandirGraficoModal('graficoOfensoresMalogro', '🚨 Ofensores de Não Execução (Pendências e Malogros)')" class="bg-red-700 hover:bg-red-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
                                         ⛶ Expandir
                                     </button>
                                 </div>
                             </div>
-                            <p class="text-xs text-slate-500 mb-4">Incidência acumulada por tipo de impedimento relatado nas atividades em campo</p>
+                            <p class="text-xs text-slate-500 mb-4">Incidência acumulada por motivo de não execução</p>
                         </div>
                         <div class="relative h-72"><canvas id="graficoOfensoresMalogro"></canvas></div>
                     </div>
@@ -818,10 +1050,10 @@
                     <div class="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden flex flex-col">
                         <div class="bg-red-50 p-4 border-b border-red-200 flex justify-between items-center gap-2">
                             <div>
-                                <h3 class="font-bold text-red-900 text-sm">🛑 Ranking Detalhado dos Ofensores de Malogro</h3>
-                                <p class="text-[11px] text-red-700">Clique sobre qualquer ofensor para listar os imóveis afetados</p>
+                                <h3 class="font-bold text-red-900 text-sm">🛑 Ranking de Motivos de Não Execução Separado por Grupo (`STATUS1`)</h3>
+                                <p class="text-[11px] text-red-700">Clique sobre qualquer motivo para listar os imóveis afetados</p>
                             </div>
-                            <button type="button" onclick="expandirTabelaModal('tabela-ofensores-malogro-corpo', '🛑 Ranking Detalhado dos Ofensores de Malogro')" class="bg-red-700 hover:bg-red-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
+                            <button type="button" onclick="expandirTabelaModal('tabela-ofensores-malogro-corpo', '🛑 Ranking de Motivos de Não Execução')" class="bg-red-700 hover:bg-red-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
                                 ⛶ Expandir Tabela
                             </button>
                         </div>
@@ -830,8 +1062,9 @@
                                 <thead>
                                     <tr class="text-[10px] text-slate-500 uppercase border-b">
                                         <th class="pb-2">#</th>
-                                        <th class="pb-2">Ofensor / Impedimento</th>
-                                        <th class="pb-2 text-center">Ocorrências</th>
+                                        <th class="pb-2">Motivo / Ofensor (`STATUS1`)</th>
+                                        <th class="pb-2 text-center">Vist. / Const. / Ativ.</th>
+                                        <th class="pb-2 text-center">Total</th>
                                         <th class="pb-2 text-right">Impacto (%)</th>
                                     </tr>
                                 </thead>
@@ -841,10 +1074,11 @@
                     </div>
                 </div>
 
+                <!-- 10. Tabela Consolidada Geral Separada pelos 3 Grupos -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
-                        <span>📋 Tabela Consolidada de Números Reais (Para a Diretoria)</span>
-                        <button type="button" onclick="expandirTabelaModal('tabela-consolidada-corpo', '📋 Tabela Consolidada de Números Reais (Para a Diretoria)')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition">
+                        <span>📋 Resumo Executivo Consolidado Separado por Grupo (VISTORIA • CONSTRUÇÃO F/ON GOING • ATIVAÇÃO F/ON GOING)</span>
+                        <button type="button" onclick="expandirTabelaModal('tabela-consolidada-corpo', '📋 Resumo Executivo Consolidado por Grupo')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition">
                             ⛶ Expandir Tabela
                         </button>
                     </div>
@@ -852,9 +1086,10 @@
                         <table class="w-full text-left border-collapse text-xs">
                             <thead>
                                 <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
-                                    <th class="p-3">Categoria / Indicador</th>
-                                    <th class="p-3 text-center">Quantidade Absoluta</th>
-                                    <th class="p-3 text-center">Percentual (%)</th>
+                                    <th class="p-3">Grupo / Categoria (F vs. ON GOING) & Status</th>
+                                    <th class="p-3 text-center">Qtd. Imóveis / Blocos</th>
+                                    <th class="p-3 text-center">Soma de HPs</th>
+                                    <th class="p-3 text-center">Participação no Grupo (%)</th>
                                 </tr>
                             </thead>
                             <tbody id="tabela-consolidada-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -866,7 +1101,7 @@
             <!-- Sub-Aba: Materiais -->
             <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
                 <div class="flex justify-between items-center border-b pb-3">
-                    <h3 class="font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais & Caixas Utilizados em Obras</h3>
+                    <h3 class="font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais & Caixas Utilizados (Separado por Grupo: Vistoria, Construção e Ativação)</h3>
                     <span class="text-xs font-normal text-slate-500" id="contador-materiais">0 registros</span>
                 </div>
 
@@ -914,7 +1149,7 @@
                         <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
                             <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b">
                                 <th class="p-2.5">Imóvel / Data</th>
-                                <th class="p-2.5">Técnico / Projeto</th>
+                                <th class="p-2.5">Técnico / Projeto (F vs. ON GOING)</th>
                                 <th class="p-2.5">Cabo RL (m)</th>
                                 <th class="p-2.5">Conectores</th>
                                 <th class="p-2.5">Cabo Drop (m)</th>
@@ -935,7 +1170,7 @@
             <div id="subview-financeiro" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
                 <div class="flex flex-col sm:flex-row justify-between items-center border-b pb-3 gap-3">
                     <div>
-                        <h3 class="font-bold text-slate-800 text-base">💰 Medição Financeira de Produção</h3>
+                        <h3 class="font-bold text-slate-800 text-base">💰 Medição Financeira de Produção (Separada por Grupo)</h3>
                         <p class="text-xs text-slate-500">Cálculo financeiro baseado na tabela de preços unitários vigente</p>
                     </div>
                     <div class="flex items-center gap-3">
@@ -970,7 +1205,7 @@
             <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
-                        <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos, Setor de Atuação e PIN</h3>
+                        <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos Separada por Grupo (Vistoria, Construção e Ativação)</h3>
                         <p class="text-[11px] text-slate-500">Defina se o técnico atua como <b>Vistoriador</b>, <b>Instalador</b> e/ou <b>Ativador</b> e gerencie o PIN de acesso ao Modo Campo</p>
                     </div>
                     <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-nova-equipe">+ Nova Equipe</button>
@@ -991,7 +1226,7 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Opções (COM GESTÃO DE COMBUSTÍVEL E CATÁLOGO DE SOLICITAÇÃO DE MATERIAL) -->
+            <!-- Sub-Aba: Opções -->
             <div id="subview-opcoes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-5 hidden">
                 <div class="border-b pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
@@ -1000,10 +1235,8 @@
                     </div>
                 </div>
 
-                <!-- Painel de Capacidade Livre / Ocupada do Banco na Nuvem (500 MB) -->
                 <div id="painel-capacidade-opcoes" class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 space-y-2.5"></div>
 
-                <!-- Gestão Editável de Grupos de Projeto e Tipos de Projetos / Serviços -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div class="border-2 border-indigo-200 rounded-xl overflow-hidden flex flex-col">
                         <div class="bg-indigo-50 p-3 border-b border-indigo-200 flex justify-between items-center">
@@ -1011,7 +1244,7 @@
                                 <span class="font-black text-indigo-950 text-xs block">📂 Grupos de Projetos</span>
                                 <span class="text-[10px] text-indigo-700">Ex: ON GOING, PROJETO F...</span>
                             </div>
-                            <button onclick="adicionarNovoGrupoProjetoSistema()" title="Criar um novo Grupo de Projetos no sistema" class="bg-indigo-700 hover:bg-indigo-800 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm">+ Novo Grupo</button>
+                            <button onclick="adicionarNovoGrupoProjetoSistema()" class="bg-indigo-700 hover:bg-indigo-800 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm">+ Novo Grupo</button>
                         </div>
                         <div id="lista-gestao-grupos-projeto" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-80 overflow-y-auto"></div>
                     </div>
@@ -1022,13 +1255,12 @@
                                 <span class="font-black text-cyan-950 text-xs block">🏗️ Tipos de Projetos / Serviços Habilitados</span>
                                 <span class="text-[10px] text-cyan-800">Defina o nome do projeto, a qual Grupo pertence e qual função executa em campo</span>
                             </div>
-                            <button onclick="adicionarNovoProjetoSistema()" title="Cadastrar um novo Tipo de Projeto/Serviço e definir seu Grupo e Setor" class="bg-cyan-700 hover:bg-cyan-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm">+ Novo Projeto / Serviço</button>
+                            <button onclick="adicionarNovoProjetoSistema()" class="bg-cyan-700 hover:bg-cyan-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm">+ Novo Projeto / Serviço</button>
                         </div>
                         <div id="lista-gestao-projetos-sistema" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-80 overflow-y-auto"></div>
                     </div>
                 </div>
 
-                <!-- NOVO BLOCO: GESTÃO DE OPÇÕES DE SOLICITAÇÃO DE COMBUSTÍVEL E CATÁLOGO DE SOLICITAÇÃO DE MATERIAL -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                     <div class="border-2 border-orange-200 rounded-xl overflow-hidden flex flex-col">
                         <div class="bg-orange-50 p-3 border-b border-orange-200 flex justify-between items-center">
@@ -1036,7 +1268,7 @@
                                 <span class="font-black text-orange-950 text-xs block">⛽ Opções / Motivos de Solicitação de Combustível</span>
                                 <span class="text-[10px] text-orange-800">Sugestões de motivo exibidas ao técnico na recarga</span>
                             </div>
-                            <button onclick="adicionarNovaOpcaoSistema('combustivel')" title="Adicionar nova opção de motivo para solicitação de combustível" class="bg-orange-600 hover:bg-orange-700 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm">+ Nova Opção</button>
+                            <button onclick="adicionarNovaOpcaoSistema('combustivel')" class="bg-orange-600 hover:bg-orange-700 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm">+ Nova Opção</button>
                         </div>
                         <div id="lista-gestao-combustivel" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-72 overflow-y-auto"></div>
                     </div>
@@ -1047,18 +1279,17 @@
                                 <span class="font-black text-indigo-950 text-xs block">🧰 Catálogo de Materiais para Solicitação em Campo</span>
                                 <span class="text-[10px] text-indigo-800">Itens que o técnico pode quantificar e pedir pelo celular</span>
                             </div>
-                            <button onclick="adicionarNovaOpcaoSistema('material_solic')" title="Incluir novo item de material para os técnicos solicitarem no Modo Campo" class="bg-indigo-700 hover:bg-indigo-800 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm">+ Novo Material</button>
+                            <button onclick="adicionarNovaOpcaoSistema('material_solic')" class="bg-indigo-700 hover:bg-indigo-800 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm">+ Novo Material</button>
                         </div>
                         <div id="lista-gestao-material-solic" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-72 overflow-y-auto"></div>
                     </div>
                 </div>
 
-                <!-- Listas de Pendência, Malogro e Imprevisto -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                     <div class="border border-amber-200 rounded-xl overflow-hidden flex flex-col">
                         <div class="bg-amber-50 p-3 border-b border-amber-200 flex justify-between items-center">
                             <span class="font-bold text-amber-950 text-xs">🟡 Opções de Pendência</span>
-                            <button onclick="adicionarNovaOpcaoSistema('pendencia')" title="Adicionar nova opção de Pendência" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Nova</button>
+                            <button onclick="adicionarNovaOpcaoSistema('pendencia')" class="bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Nova</button>
                         </div>
                         <div id="lista-gestao-pendencia" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-80 overflow-y-auto"></div>
                     </div>
@@ -1066,7 +1297,7 @@
                     <div class="border border-red-200 rounded-xl overflow-hidden flex flex-col">
                         <div class="bg-red-50 p-3 border-b border-red-200 flex justify-between items-center">
                             <span class="font-bold text-red-950 text-xs">🔴 Ofensores de Malogro</span>
-                            <button onclick="adicionarNovaOpcaoSistema('malogro')" title="Adicionar novo ofensor de Malogro" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Novo</button>
+                            <button onclick="adicionarNovaOpcaoSistema('malogro')" class="bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Novo</button>
                         </div>
                         <div id="lista-gestao-malogro" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-80 overflow-y-auto"></div>
                     </div>
@@ -1074,7 +1305,7 @@
                     <div class="border border-blue-200 rounded-xl overflow-hidden flex flex-col">
                         <div class="bg-blue-50 p-3 border-b border-blue-200 flex justify-between items-center">
                             <span class="font-bold text-blue-950 text-xs">⚠️ Motivos de Imprevisto</span>
-                            <button onclick="adicionarNovaOpcaoSistema('imprevisto')" title="Adicionar novo motivo de Imprevisto" class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Novo</button>
+                            <button onclick="adicionarNovaOpcaoSistema('imprevisto')" class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-sm">+ Novo</button>
                         </div>
                         <div id="lista-gestao-imprevisto" class="p-3 space-y-1.5 divide-y divide-slate-100 text-xs flex-1 max-h-80 overflow-y-auto"></div>
                     </div>
@@ -1131,17 +1362,16 @@
                 </div>
             </div>
 
-            <!-- Sub-Aba: Auditoria (EXCLUSIVA PARA AÇÕES REALIZADAS NO MODO GESTÃO) -->
+            <!-- Sub-Aba: Auditoria -->
             <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
                         <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria Exclusiva da Gestão e Monitor de Armazenamento</h3>
                         <p class="text-[11px] text-slate-500">Registra exclusivamente as ações administrativas realizadas por usuários autenticados no Modo Gestão</p>
                     </div>
-                    <button onclick="limparLogsAuditoria()" title="Limpar o histórico de logs de auditoria" class="bg-red-50 text-red-600 hover:bg-red-100 text-xs px-3 py-1.5 rounded-lg font-medium" id="btn-limpar-logs">Limpar Logs</button>
+                    <button onclick="limparLogsAuditoria()" class="bg-red-50 text-red-600 hover:bg-red-100 text-xs px-3 py-1.5 rounded-lg font-medium" id="btn-limpar-logs">Limpar Logs</button>
                 </div>
 
-                <!-- Painel de Capacidade Livre / Ocupada na Aba Auditoria -->
                 <div id="painel-capacidade-auditoria" class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 space-y-2.5"></div>
 
                 <div class="overflow-x-auto">
@@ -1175,25 +1405,22 @@
                     <span class="text-[11px] bg-blue-50 text-blue-900 px-2.5 py-1 rounded-lg font-bold" id="current-user-team">Selecione Equipe</span>
                 </div>
 
-                <!-- ITEM 01 e 04: BOTÕES DE SOLICITAÇÃO DE COMBUSTÍVEL E MATERIAL (ACIONÁVEIS A QUALQUER MOMENTO COM OU SEM ROTA) -->
                 <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
                     <div class="flex justify-between items-center">
                         <span class="text-[10px] font-black text-slate-600 uppercase">⚡ Solicitações Rápidas à Gestão (24h):</span>
                         <span class="text-[9px] text-slate-400">Exclusão auto. 48h após tratada</span>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <button type="button" onclick="abrirModalSolicitacaoCombustivelCampo()" title="Solicitar recarga de combustível extra a qualquer momento (com ou sem início de rota)" class="bg-orange-600 hover:bg-orange-700 text-white font-black py-2.5 px-2 rounded-xl text-[11px] transition shadow-sm flex items-center justify-center gap-1">
+                        <button type="button" onclick="abrirModalSolicitacaoCombustivelCampo()" class="bg-orange-600 hover:bg-orange-700 text-white font-black py-2.5 px-2 rounded-xl text-[11px] transition shadow-sm flex items-center justify-center gap-1">
                             ⛽ Solicitar Combustível
                         </button>
-                        <button type="button" onclick="abrirModalSolicitacaoMaterialCampo()" title="Solicitar reposição de materiais a qualquer momento (com ou sem início de rota)" class="bg-indigo-700 hover:bg-indigo-800 text-white font-black py-2.5 px-2 rounded-xl text-[11px] transition shadow-sm flex items-center justify-center gap-1">
+                        <button type="button" onclick="abrirModalSolicitacaoMaterialCampo()" class="bg-indigo-700 hover:bg-indigo-800 text-white font-black py-2.5 px-2 rounded-xl text-[11px] transition shadow-sm flex items-center justify-center gap-1">
                             🧰 Solicitar Material
                         </button>
                     </div>
-                    <!-- Resumo de solicitações recentes do técnico (Mostra se foi tratada e por quem) -->
                     <div id="box-status-solicitacoes-campo" class="space-y-1 pt-1 hidden"></div>
                 </div>
 
-                <!-- Navegação de Sub-Abas do Técnico no Modo Campo -->
                 <div class="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
                     <button type="button" id="btn-aba-campo-lancamento" onclick="mudarSubAbaCampo('lancamento')" class="py-2 px-3 rounded-lg font-bold text-xs transition bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5">
                         🚀 Atendimento
@@ -1203,10 +1430,8 @@
                     </button>
                 </div>
 
-                <!-- SUB-ABA 1 DO CAMPO: LANÇAMENTO / EXECUÇÃO -->
                 <div id="subview-campo-lancamento" class="space-y-4">
 
-                    <!-- Alerta de Atividades Reabertas pelo Gestor -->
                     <div id="box-reabertas-campo" class="bg-purple-50 border-2 border-purple-400 p-3.5 rounded-xl space-y-2 hidden shadow-sm">
                         <div class="flex items-start gap-2">
                             <span class="text-lg">🔄</span>
@@ -1218,7 +1443,6 @@
                         <div id="lista-reabertas-campo" class="space-y-1.5 pt-1"></div>
                     </div>
 
-                    <!-- Caixa de Atividades Programadas via Planilha -->
                     <div id="box-programadas-campo" class="bg-cyan-50 border-2 border-cyan-400 p-3.5 rounded-xl space-y-2 hidden shadow-sm">
                         <div class="flex items-start gap-2">
                             <span class="text-lg">📋</span>
@@ -1263,7 +1487,6 @@
                             <div id="barra-seguranca-pin-campo" class="mt-1.5 flex items-center justify-between bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] hidden"></div>
                         </div>
 
-                        <!-- BARRA DE CONTROLE DE EXPEDIENTE E MONITORAMENTO DE ROTA GPS -->
                         <div id="box-controle-expediente-campo" class="p-3 rounded-xl border-2 border-slate-200 bg-slate-50 space-y-2 hidden">
                             <div class="flex justify-between items-center">
                                 <span class="text-[11px] font-black text-slate-800 uppercase flex items-center gap-1.5">
@@ -1295,7 +1518,7 @@
 
                         <div>
                             <label class="block text-xs font-semibold text-slate-600 mb-1">Cód. Imóvel</label>
-                            <input type="text" id="inp-imovel" oninput="salvarRascunhoCampo()" placeholder="Ex: IMO-98421" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none">
+                            <input type="text" id="inp-imovel" oninput="salvarRascunhoCampo()" placeholder="Ex: 848465405" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none">
                         </div>
 
                         <div class="pt-2 flex flex-col gap-2.5">
@@ -1325,7 +1548,6 @@
                                 </button>
                             </div>
 
-                            <!-- Botões de Paralisação e Retomada da Atividade -->
                             <div class="pt-2 border-t border-blue-200/80 flex flex-col gap-2">
                                 <button type="button" id="btn-paralisar-atividade" onclick="paralisarAtividadeAtualCampo()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-lg text-xs transition shadow-sm flex items-center justify-center gap-1.5">
                                     ⏸️ Paralisar Atividade Temporariamente
@@ -1348,8 +1570,8 @@
                             
                             <div class="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
                                 <div>
-                                    <label class="block text-[11px] font-bold text-slate-800">📍 Endereço do Atendimento <span class="text-red-600">* (Obrigatório)</span></label>
-                                    <input type="text" id="form-endereco" placeholder="Rua, Número, Bairro..." class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-blue-500">
+                                    <label class="block text-[11px] font-bold text-slate-800">📍 Endereço e Bairro do Atendimento <span class="text-red-600">* (Obrigatório)</span></label>
+                                    <input type="text" id="form-endereco" placeholder="Ex: Rua Conde de Bonfim 450 - TIJUCA" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
                                 <div class="bg-amber-50/70 p-2 rounded-lg border border-amber-300">
                                     <label class="block text-[11px] font-black text-amber-950">🔑 Liberou o Acesso <span class="text-red-600">* (Obrigatório)</span></label>
@@ -1382,7 +1604,6 @@
                     </div>
                 </div>
 
-                <!-- SUB-ABA 2 DO CAMPO: MINHAS ATIVIDADES NO PAINEL DE GESTÃO -->
                 <div id="subview-campo-painel" class="space-y-3 hidden">
                     <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl flex justify-between items-center">
                         <div>
@@ -1396,7 +1617,6 @@
                     <div id="lista-minhas-atividades-campo" class="space-y-2.5 max-h-[65vh] overflow-y-auto pr-1"></div>
                 </div>
 
-                <!-- Rodapé discreto para gestores que acessam pelo smartphone -->
                 <div id="rodape-acesso-gestor-mobile" class="pt-2 border-t border-slate-100 text-center hidden">
                     <button type="button" onclick="tentarAcessarGestor()" class="text-[10px] text-slate-400 hover:text-blue-800 underline">
                         🔒 Acesso Restrito: Abrir Painel Gestor no Celular
@@ -1410,7 +1630,7 @@
 
     <!-- ================= MODAIS DO SISTEMA ================= -->
 
-    <!-- ITEM 02: MODAL DE SOLICITAÇÃO DE RECARGA DE COMBUSTÍVEL EXTRA -->
+    <!-- MODAL DE SOLICITAÇÃO DE RECARGA DE COMBUSTÍVEL EXTRA -->
     <div id="modal-solic-combustivel" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[76]">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
             <div class="bg-orange-600 text-white p-4 flex justify-between items-center">
@@ -1425,7 +1645,6 @@
                     👷 <b>Técnico:</b> <span id="lbl-tec-solic-comb" class="font-black">-</span>
                 </div>
 
-                <!-- Campos Obrigatórios: Placa e KM Atual -->
                 <div class="grid grid-cols-2 gap-2.5">
                     <div>
                         <label class="block font-black text-slate-800 mb-1">🚗 Placa do Veículo <span class="text-red-600">* (Obrig.)</span></label>
@@ -1437,7 +1656,6 @@
                     </div>
                 </div>
 
-                <!-- Campo Não Obrigatório: Motivo -->
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">💬 Motivo da Solicitação (Opcional):</label>
                     <select id="sel-comb-motivo-sugerido" onchange="aoSelecionarMotivoSugeridoCombustivel(this.value)" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50 mb-1.5 text-[11px] font-semibold text-slate-700">
@@ -1446,11 +1664,9 @@
                     <input type="text" id="inp-comb-motivo" placeholder="Descreva o motivo se desejar (não obrigatório)..." class="w-full border border-slate-300 rounded-lg p-2 outline-none">
                 </div>
 
-                <!-- Espaços Pré-Definidos para Fotos (2 Obrigatórias + 1 Não Obrigatória) -->
                 <div class="space-y-2.5 pt-2 border-t border-slate-200">
                     <h4 class="font-black text-slate-800 uppercase text-[11px]">📷 Fotos Comprobatórias</h4>
 
-                    <!-- Foto 1 Obrigatória: Painel do Carro -->
                     <div class="bg-red-50/60 p-2.5 rounded-xl border border-red-200 flex items-center justify-between gap-2">
                         <div>
                             <span class="font-black text-red-950 text-[11px] block">1. Foto: Painel do Carro <span class="text-red-600">* (Obrigatória)</span></span>
@@ -1465,7 +1681,6 @@
                         </div>
                     </div>
 
-                    <!-- Foto 2 Obrigatória: Mapa de Bordo -->
                     <div class="bg-red-50/60 p-2.5 rounded-xl border border-red-200 flex items-center justify-between gap-2">
                         <div>
                             <span class="font-black text-red-950 text-[11px] block">2. Foto: Mapa de Bordo <span class="text-red-600">* (Obrigatória)</span></span>
@@ -1480,7 +1695,6 @@
                         </div>
                     </div>
 
-                    <!-- Foto 3 Opcional: Cartão de Combustível -->
                     <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
                         <div>
                             <span class="font-bold text-slate-800 text-[11px] block">3. Foto: Cartão de Combustível <span class="text-slate-400">(Opcional)</span></span>
@@ -1505,7 +1719,7 @@
         </div>
     </div>
 
-    <!-- ITEM 02: MODAL DE SOLICITAÇÃO DE MATERIAL EM CAMPO -->
+    <!-- MODAL DE SOLICITAÇÃO DE MATERIAL EM CAMPO -->
     <div id="modal-solic-material" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[76]">
         <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
             <div class="bg-indigo-800 text-white p-4 flex justify-between items-center">
@@ -1521,7 +1735,6 @@
                     <span class="text-[10px] text-indigo-700">Informe a qtd. ao lado de cada item</span>
                 </div>
 
-                <!-- Lista Dinâmica de Materiais para Quantificar -->
                 <div id="lista-itens-solic-material-campo" class="space-y-1.5 max-h-64 overflow-y-auto pr-1 divide-y divide-slate-100 border border-slate-200 rounded-xl p-2.5 bg-slate-50"></div>
 
                 <div>
@@ -1648,7 +1861,7 @@
 
                 <div>
                     <label class="block font-bold text-slate-700 mb-1">Opção 2: Ou cole aqui as linhas copiadas direto do Excel (1 imóvel por linha):</label>
-                    <textarea id="txt-linhas-planilha" rows="6" class="w-full font-mono text-[11px] border border-slate-300 rounded-xl p-2.5 outline-none" placeholder="IMO-1001;Rua Conde de Bonfim 450 - Tijuca;VISTORIA;ANDREO FAGUNDES;2;10;40;Sr. Carlos;21 99888-7766;sindico@cond.com;Condomínio com 2 blocos&#10;IMO-2002;Av Atlântica 500 - Copacabana;CONSTRUÇÃO F;BRUNO SOARES DA SILVA;3;12;60;Dona Maria;21 98777-6655;adm@copa.com;3 Blocos independentes"></textarea>
+                    <textarea id="txt-linhas-planilha" rows="6" class="w-full font-mono text-[11px] border border-slate-300 rounded-xl p-2.5 outline-none" placeholder="848465405;Rua Conde de Bonfim 450 - TIJUCA;VISTORIA;ANDREO FAGUNDES;2;10;40;Sr. Carlos;21 99888-7766;sindico@cond.com;Condomínio com 2 blocos"></textarea>
                 </div>
             </div>
             <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
@@ -1725,9 +1938,9 @@
                                 <option value="EM ANDAMENTO">EM ANDAMENTO</option>
                                 <option value="PARALISADA">PARALISADA</option>
                                 <option value="REABERTA">REABERTA (Liberada p/ Técnico)</option>
-                                <option value="CONCLUIDA">CONCLUIDA</option>
-                                <option value="PENDENTE">PENDENTE</option>
-                                <option value="MALOGRADA">MALOGRADA</option>
+                                <option value="CONCLUIDA">CONCLUIDA (Executado)</option>
+                                <option value="PENDENTE">PENDENTE (Não Executado)</option>
+                                <option value="MALOGRADA">MALOGRADA (Não Executado)</option>
                                 <option value="IMPREVISTO">IMPREVISTO (Ativo)</option>
                                 <option value="IMPREVISTO RESOLVIDO">IMPREVISTO RESOLVIDO</option>
                             </select>
@@ -1740,7 +1953,7 @@
                             <input type="text" id="edit-reg-imovel" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none font-bold">
                         </div>
                         <div class="sm:col-span-2">
-                            <label class="block font-bold mb-1">📍 Endereço do Atendimento</label>
+                            <label class="block font-bold mb-1">📍 Endereço e Bairro (Ex: Rua X, 100 - COPACABANA)</label>
                             <input type="text" id="edit-reg-endereco" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none">
                         </div>
                     </div>
@@ -1883,11 +2096,11 @@
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
-                                <th class="p-2.5">Data</th>
-                                <th class="p-2.5">Imóvel / Endereço</th>
+                                <th class="p-2.5">Data / Semana</th>
+                                <th class="p-2.5">Imóvel / Bairro & Endereço</th>
                                 <th class="p-2.5">Técnico / Equipe</th>
-                                <th class="p-2.5">Projeto / Grupo</th>
-                                <th class="p-2.5">Desfecho</th>
+                                <th class="p-2.5">Grupo / Subgrupo (F vs ON GOING)</th>
+                                <th class="p-2.5">Desfecho / HPs</th>
                                 <th class="p-2.5">Detalhes / Ofensores</th>
                             </tr>
                         </thead>
