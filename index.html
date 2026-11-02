@@ -74,7 +74,7 @@
                                 📲 Boletim WhatsApp
                             </button>
                             <button onclick="exportarExcel()" id="btn-baixar-excel-gestor" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
-                                📥 Baixar Relatório (Excel)
+                                📥 Baixar Relatório por Grupos (Excel)
                             </button>
                             <button onclick="recarregarDadosGestor()" id="btn-atualizar-registros-gestor" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 text-[11px] px-3 py-1.5 rounded-lg font-black shadow-sm transition flex items-center gap-1">
                                 🔄 Atualizar Registros
@@ -214,7 +214,7 @@
             <!-- Sub-Aba: Atividades -->
             <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="p-3.5 bg-slate-50 border-b border-slate-200 font-bold text-slate-800 text-xs sm:text-sm flex flex-wrap justify-between items-center gap-2">
-                    <span>📋 Atividades em Campo, Programadas e Finalizadas (Imóveis multi-bloco agrupados automaticamente)</span>
+                    <span>📋 Atividades Separadas por Grupo: VISTORIA • CONSTRUÇÃO (F e ON GOING) • ATIVAÇÃO (F e ON GOING)</span>
                     <span class="text-xs font-bold bg-blue-100 text-blue-900 px-2.5 py-1 rounded-lg" id="contador-resultados">0 registros</span>
                 </div>
                 <div class="overflow-x-auto max-h-[68vh]">
@@ -423,22 +423,44 @@
                 </div>
             </div>
 
-            <!-- ================= SUB-ABA REESTRUTURADA: GRÁFICOS & PRODUTIVIDADE (MODELO PLANILHA ON GOING MDU) ================= -->
+            <!-- ================= SUB-ABA: GRÁFICOS & PRODUTIVIDADE SEPARADOS POR GRUPOS (VISTORIA • CONSTRUÇÃO • ATIVAÇÃO) ================= -->
             <div id="subview-graficos" class="space-y-6 hidden">
                 
-                <!-- 1. Topo Executivo de KPIs de Volumes e Conversão -->
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-2.5">
+                <!-- 1. Topo Executivo de KPIs e Seletor Mestre de Grupo (VISTORIA / CONSTRUÇÃO / ATIVAÇÃO) -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
                     <div class="flex flex-wrap justify-between items-center gap-2">
                         <div>
-                            <span class="text-xs font-black text-slate-800 uppercase">📌 Painel Executivo de Produtividade MDU (Padrão Planilha Analítica)</span>
-                            <span class="text-[11px] text-blue-800 font-medium ml-2">• Clique em qualquer barra, fatia ou linha para explodir os imóveis</span>
+                            <span class="text-xs font-black text-slate-800 uppercase">📌 Painel Executivo Separado por Grupos: VISTORIA • CONSTRUÇÃO (F e ON GOING) • ATIVAÇÃO (F e ON GOING)</span>
+                            <span class="text-[11px] text-blue-800 font-medium ml-1">• Ref. Diária: <b id="lbl-data-ref-diaria">Hoje</b></span>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <button type="button" onclick="exportarPlanilhaProgramadoRetornoBairro()" title="Baixar uma planilha Excel separada contendo a classificação PROGRAMADO vs. RETORNO (Status Macro) e o cruzamento por BAIRRO" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
-                                📥 Baixar Planilha: Programado vs. Retorno & Bairro (.XLS)
+                            <button type="button" onclick="exportarExcel()" title="Baixar Relatório Geral separado pelos 3 Grupos (Vistoria, Construção F/ON GOING e Ativação F/ON GOING)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
+                                📥 Planilha Geral por Grupos (.XLS)
+                            </button>
+                            <button type="button" onclick="exportarPlanilhaProgramadoRetornoBairro()" title="Baixar planilha separada por Grupos com PROGRAMADO vs. RETORNO e BAIRRO" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
+                                📥 Planilha: Programado/Retorno & Bairro por Grupos (.XLS)
                             </button>
                             <button type="button" id="btn-imprimir-relatorio-pdf" onclick="gerarRelatorioVisualImpressaoPDF()" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
-                                🖨️ Gerar Relatório Visual (PDF)
+                                🖨️ Imprimir / PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Barra de Navegação / Filtro Rápido entre os 3 Grandes Grupos na Aba Gráficos -->
+                    <div class="bg-slate-900 p-2 rounded-xl flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-[11px] font-black text-cyan-300 uppercase px-2">🎯 Filtrar Visão de Gráficos e Tabelas por Grupo:</span>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 flex-1 max-w-3xl">
+                            <button type="button" id="btn-grupo-graf-TODOS" onclick="selecionarGrupoAbaGraficos('TODOS')" class="py-2 px-3 rounded-lg font-black text-xs transition bg-cyan-400 text-slate-950 shadow-sm">
+                                📊 TODOS OS 3 GRUPOS
+                            </button>
+                            <button type="button" id="btn-grupo-graf-VISTORIA" onclick="selecionarGrupoAbaGraficos('VISTORIA')" class="py-2 px-3 rounded-lg font-bold text-xs transition bg-slate-800 text-purple-200 hover:bg-purple-900 border border-purple-500/40">
+                                🔍 GRUPO VISTORIA
+                            </button>
+                            <button type="button" id="btn-grupo-graf-CONSTRUCAO" onclick="selecionarGrupoAbaGraficos('CONSTRUCAO')" class="py-2 px-3 rounded-lg font-bold text-xs transition bg-slate-800 text-blue-200 hover:bg-blue-900 border border-blue-500/40">
+                                🛠️ GRUPO CONSTRUÇÃO (F / ON GOING)
+                            </button>
+                            <button type="button" id="btn-grupo-graf-ATIVACAO" onclick="selecionarGrupoAbaGraficos('ATIVACAO')" class="py-2 px-3 rounded-lg font-bold text-xs transition bg-slate-800 text-emerald-200 hover:bg-emerald-900 border border-emerald-500/40">
+                                ⚡ GRUPO ATIVAÇÃO (F / ON GOING)
                             </button>
                         </div>
                     </div>
@@ -448,32 +470,32 @@
                             <span class="text-[10px] font-bold text-blue-900 uppercase">🔵 Em Andamento</span>
                             <span class="text-xl font-black text-blue-700 mt-1" id="kpi-proj-andamento">0</span>
                         </div>
-                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-purple-800 uppercase">Vistoria (Exec.)</span>
-                            <span class="text-xl font-bold text-slate-800 mt-1" id="kpi-proj-vistoria">0</span>
+                        <div class="bg-purple-50 p-3 rounded-xl shadow-sm border border-purple-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-purple-900 uppercase">🔍 Vistoria (Exec.)</span>
+                            <span class="text-xl font-black text-purple-800 mt-1" id="kpi-proj-vistoria">0</span>
+                        </div>
+                        <div class="bg-indigo-50 p-3 rounded-xl shadow-sm border border-indigo-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-indigo-900 uppercase">🛠️ Construção F</span>
+                            <span class="text-xl font-black text-indigo-700 mt-1" id="kpi-proj-const-f">0</span>
+                        </div>
+                        <div class="bg-blue-50 p-3 rounded-xl shadow-sm border border-blue-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-blue-900 uppercase">🛠️ Const. On Going</span>
+                            <span class="text-xl font-black text-blue-700 mt-1" id="kpi-proj-const-ongoing">0</span>
                         </div>
                         <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-indigo-700 uppercase">Construção F</span>
-                            <span class="text-xl font-bold text-indigo-600 mt-1" id="kpi-proj-const-f">0</span>
-                        </div>
-                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-blue-700 uppercase">Const. On Going</span>
-                            <span class="text-xl font-bold text-blue-600 mt-1" id="kpi-proj-const-ongoing">0</span>
-                        </div>
-                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-orange-700 uppercase">Const. Nap Lot.</span>
+                            <span class="text-[10px] font-bold text-orange-700 uppercase">🛠️ Const. Nap Lot.</span>
                             <span class="text-xl font-bold text-orange-600 mt-1" id="kpi-proj-const-nap">0</span>
                         </div>
-                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-emerald-700 uppercase">Ativação F</span>
-                            <span class="text-xl font-bold text-emerald-600 mt-1" id="kpi-proj-ativ-f">0</span>
+                        <div class="bg-emerald-50 p-3 rounded-xl shadow-sm border border-emerald-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-emerald-900 uppercase">⚡ Ativação F</span>
+                            <span class="text-xl font-black text-emerald-700 mt-1" id="kpi-proj-ativ-f">0</span>
+                        </div>
+                        <div class="bg-teal-50 p-3 rounded-xl shadow-sm border border-teal-200 flex flex-col justify-between">
+                            <span class="text-[10px] font-bold text-teal-900 uppercase">⚡ Ativ. On Going</span>
+                            <span class="text-xl font-black text-teal-700 mt-1" id="kpi-proj-ativ-ongoing">0</span>
                         </div>
                         <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-teal-700 uppercase">Ativ. On Going</span>
-                            <span class="text-xl font-bold text-teal-600 mt-1" id="kpi-proj-ativ-ongoing">0</span>
-                        </div>
-                        <div class="bg-slate-50 p-3 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                            <span class="text-[10px] font-bold text-amber-700 uppercase">Ativ. Nap Lot.</span>
+                            <span class="text-[10px] font-bold text-amber-700 uppercase">⚡ Ativ. Nap Lot.</span>
                             <span class="text-xl font-bold text-amber-600 mt-1" id="kpi-proj-ativ-nap">0</span>
                         </div>
                         <div onclick="mudarSubAbaGestor('imprevistos')" class="bg-amber-50 hover:bg-amber-100 cursor-pointer transition p-3 rounded-xl shadow-sm border border-amber-300 flex flex-col justify-between">
@@ -481,159 +503,268 @@
                             <span class="text-xl font-black text-amber-700 mt-1" id="kpi-proj-imprevistos">0</span>
                         </div>
                     </div>
+
+                    <!-- Cards Resumo dos 3 Grandes Grupos -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                        <div class="bg-purple-50/80 border-2 border-purple-300 p-3.5 rounded-xl space-y-2">
+                            <div class="flex justify-between items-center border-b border-purple-200 pb-1.5">
+                                <span class="font-black text-purple-950 text-xs uppercase">🔍 1. GRUPO VISTORIA (Vistoriadores)</span>
+                                <span class="text-[10px] bg-purple-200 text-purple-900 font-bold px-2 py-0.5 rounded" id="card-vist-qtd-tec">0 eq.</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div class="bg-white p-2 rounded-lg border border-purple-100">
+                                    <span class="text-[9px] text-slate-500 uppercase font-bold block">Prod. Diária</span>
+                                    <span class="text-lg font-black text-purple-800" id="card-vist-diaria">0</span>
+                                </div>
+                                <div class="bg-white p-2 rounded-lg border border-purple-100">
+                                    <span class="text-[9px] text-slate-500 uppercase font-bold block">Total Executado</span>
+                                    <span class="text-lg font-black text-slate-800" id="card-vist-consolidado">0</span>
+                                </div>
+                                <div class="bg-purple-800 text-white p-2 rounded-lg">
+                                    <span class="text-[9px] text-purple-200 uppercase font-bold block">Produtiv./Dia</span>
+                                    <span class="text-lg font-black" id="card-vist-media">0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-blue-50/80 border-2 border-blue-300 p-3.5 rounded-xl space-y-2">
+                            <div class="flex justify-between items-center border-b border-blue-200 pb-1.5">
+                                <span class="font-black text-blue-950 text-xs uppercase">🛠️ 2. GRUPO CONSTRUÇÃO (Instaladores)</span>
+                                <span class="text-[10px] bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded" id="card-inst-qtd-tec">0 eq.</span>
+                            </div>
+                            <div class="grid grid-cols-4 gap-1.5 text-center">
+                                <div class="bg-indigo-100/80 p-1.5 rounded-lg border border-indigo-200">
+                                    <span class="text-[8px] text-indigo-900 uppercase font-black block">Exec. F</span>
+                                    <span class="text-base font-black text-indigo-800" id="card-inst-exec-f">0</span>
+                                </div>
+                                <div class="bg-cyan-100/80 p-1.5 rounded-lg border border-cyan-200">
+                                    <span class="text-[8px] text-cyan-950 uppercase font-black block">ON GOING</span>
+                                    <span class="text-base font-black text-cyan-900" id="card-inst-exec-ongoing">0</span>
+                                </div>
+                                <div class="bg-white p-1.5 rounded-lg border border-blue-100">
+                                    <span class="text-[8px] text-slate-500 uppercase font-bold block">Total Exec.</span>
+                                    <span class="text-base font-black text-slate-800" id="card-inst-consolidado">0</span>
+                                    <span class="hidden" id="card-inst-diaria">0</span>
+                                </div>
+                                <div class="bg-blue-900 text-white p-1.5 rounded-lg">
+                                    <span class="text-[8px] text-cyan-200 uppercase font-bold block">Prod./Dia</span>
+                                    <span class="text-base font-black" id="card-inst-media">0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-emerald-50/80 border-2 border-emerald-300 p-3.5 rounded-xl space-y-2">
+                            <div class="flex justify-between items-center border-b border-emerald-200 pb-1.5">
+                                <span class="font-black text-emerald-950 text-xs uppercase">⚡ 3. GRUPO ATIVAÇÃO (Ativadores)</span>
+                                <span class="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded" id="card-ativ-qtd-tec">0 eq.</span>
+                            </div>
+                            <div class="grid grid-cols-4 gap-1.5 text-center">
+                                <div class="bg-indigo-100/80 p-1.5 rounded-lg border border-indigo-200">
+                                    <span class="text-[8px] text-indigo-900 uppercase font-black block">Exec. F</span>
+                                    <span class="text-base font-black text-indigo-800" id="card-ativ-exec-f">0</span>
+                                </div>
+                                <div class="bg-cyan-100/80 p-1.5 rounded-lg border border-cyan-200">
+                                    <span class="text-[8px] text-cyan-950 uppercase font-black block">ON GOING</span>
+                                    <span class="text-base font-black text-cyan-900" id="card-ativ-exec-ongoing">0</span>
+                                </div>
+                                <div class="bg-white p-1.5 rounded-lg border border-emerald-100">
+                                    <span class="text-[8px] text-slate-500 uppercase font-bold block">Total Exec.</span>
+                                    <span class="text-base font-black text-slate-800" id="card-ativ-consolidado">0</span>
+                                    <span class="hidden" id="card-ativ-diaria">0</span>
+                                </div>
+                                <div class="bg-emerald-700 text-white p-1.5 rounded-lg">
+                                    <span class="text-[8px] text-emerald-100 uppercase font-bold block">Prod./Dia</span>
+                                    <span class="text-base font-black" id="card-ativ-media">0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- 2. PAINEL E GRÁFICO PRINCIPAL DA PLANILHA (ABA PAINEL / DIN2): EXECUTADO vs. NÃO EXECUTADO, DIAS TRABALHADOS, PRODUTIVIDADE E HPs -->
-                <div class="bg-white rounded-2xl shadow-md border-2 border-blue-900/20 overflow-hidden">
-                    <div class="bg-blue-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <!-- ================= BLOCO 1 SEPARADO: GRUPO VISTORIA (VISTORIADORES) ================= -->
+                <div id="secao-grupo-vistoria" class="bg-white rounded-2xl shadow-md border-2 border-purple-700/30 overflow-hidden">
+                    <div class="bg-purple-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b-4 border-purple-400">
                         <div>
-                            <span class="bg-cyan-400 text-blue-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Visão Central da Planilha (Aba Painel & Din2)</span>
-                            <h3 class="font-bold text-base mt-1">🏆 Produtividade por Equipe: Executado vs. Não Executado, Dias Trabalhados e HPs</h3>
-                            <p class="text-xs text-cyan-200">Reflete exatamente as colunas da planilha: Executados, Não Executados, Total Geral, Dias Trab., Produtividade (Média/Dia), QNT. HP e HP/Dia (Data Ref. Diária: <b id="lbl-data-ref-diaria">Hoje</b>)</p>
+                            <span class="bg-purple-300 text-purple-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Grupo 1 • Vistoriadores</span>
+                            <h3 class="font-bold text-base mt-1">🔍 GRUPO VISTORIA — Resultados dos Vistoriadores</h3>
+                            <p class="text-xs text-purple-200">Acompanhamento exclusivo de Vistorias Executadas vs. Não Executadas, Dias Trabalhados, Produtividade e HPs</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="exportarExcelGrupoEspecifico('VISTORIA')" class="bg-purple-300 hover:bg-purple-200 text-purple-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-sm transition">
+                                📥 Baixar Planilha VISTORIA (.XLS)
+                            </button>
+                            <button type="button" onclick="expandirGraficoModal('graficoExecutoresVistoria', '🔍 GRUPO VISTORIA — Resultados dos Vistoriadores')" class="bg-purple-950 hover:bg-black text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-purple-600">
+                                ⛶ Expandir Gráfico
+                            </button>
                         </div>
                     </div>
 
-                    <div class="p-5 space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="bg-purple-50/70 border-2 border-purple-200 p-4 rounded-xl space-y-2">
-                                <div class="flex justify-between items-center border-b border-purple-200 pb-2">
-                                    <span class="font-black text-purple-950 text-xs uppercase flex items-center gap-1.5">🔍 Frente: VISTORIA</span>
-                                    <span class="text-[10px] bg-purple-200 text-purple-900 font-bold px-2 py-0.5 rounded" id="card-vist-qtd-tec">0 técnicos</span>
-                                </div>
-                                <div class="grid grid-cols-3 gap-2 text-center pt-1">
-                                    <div class="bg-white p-2 rounded-lg border border-purple-100">
-                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Prod. Diária</span>
-                                        <span class="text-lg font-black text-purple-800" id="card-vist-diaria">0</span>
-                                    </div>
-                                    <div class="bg-white p-2 rounded-lg border border-purple-100">
-                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Executados</span>
-                                        <span class="text-lg font-black text-slate-800" id="card-vist-consolidado">0</span>
-                                    </div>
-                                    <div class="bg-purple-800 text-white p-2 rounded-lg">
-                                        <span class="text-[9px] text-purple-200 uppercase font-bold block">Produtiv./Dia</span>
-                                        <span class="text-lg font-black" id="card-vist-media">0.0</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="bg-blue-50/70 border-2 border-blue-200 p-4 rounded-xl space-y-2">
-                                <div class="flex justify-between items-center border-b border-blue-200 pb-2">
-                                    <span class="font-black text-blue-950 text-xs uppercase flex items-center gap-1.5">🛠️ Frente: CONSTRUÇÃO</span>
-                                    <span class="text-[10px] bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded" id="card-inst-qtd-tec">0 técnicos</span>
-                                </div>
-                                <div class="grid grid-cols-3 gap-2 text-center pt-1">
-                                    <div class="bg-white p-2 rounded-lg border border-blue-100">
-                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Prod. Diária</span>
-                                        <span class="text-lg font-black text-blue-800" id="card-inst-diaria">0</span>
-                                    </div>
-                                    <div class="bg-white p-2 rounded-lg border border-blue-100">
-                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Executados</span>
-                                        <span class="text-lg font-black text-slate-800" id="card-inst-consolidado">0</span>
-                                    </div>
-                                    <div class="bg-blue-900 text-white p-2 rounded-lg">
-                                        <span class="text-[9px] text-cyan-200 uppercase font-bold block">Produtiv./Dia</span>
-                                        <span class="text-lg font-black" id="card-inst-media">0.0</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="bg-emerald-50/70 border-2 border-emerald-200 p-4 rounded-xl space-y-2">
-                                <div class="flex justify-between items-center border-b border-emerald-200 pb-2">
-                                    <span class="font-black text-emerald-950 text-xs uppercase flex items-center gap-1.5">⚡ Frente: ATIVAÇÃO</span>
-                                    <span class="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded" id="card-ativ-qtd-tec">0 técnicos</span>
-                                </div>
-                                <div class="grid grid-cols-3 gap-2 text-center pt-1">
-                                    <div class="bg-white p-2 rounded-lg border border-emerald-100">
-                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Prod. Diária</span>
-                                        <span class="text-lg font-black text-emerald-800" id="card-ativ-diaria">0</span>
-                                    </div>
-                                    <div class="bg-white p-2 rounded-lg border border-emerald-100">
-                                        <span class="text-[9px] text-slate-500 uppercase font-bold block">Executados</span>
-                                        <span class="text-lg font-black text-slate-800" id="card-ativ-consolidado">0</span>
-                                    </div>
-                                    <div class="bg-emerald-700 text-white p-2 rounded-lg">
-                                        <span class="text-[9px] text-emerald-100 uppercase font-bold block">Produtiv./Dia</span>
-                                        <span class="text-lg font-black" id="card-ativ-media">0.0</span>
-                                    </div>
-                                </div>
-                            </div>
+                    <div class="p-5 space-y-5">
+                        <div class="bg-purple-50/40 p-4 rounded-xl border border-purple-200">
+                            <div class="relative h-64"><canvas id="graficoExecutoresVistoria"></canvas></div>
                         </div>
 
-                        <!-- Gráfico 5 da Planilha (Din2!Tabela dinâmica1): Executado vs. Não Executado por Técnico -->
-                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-                                <div>
-                                    <h4 class="text-xs font-black text-slate-800 uppercase">📊 Gráfico de Equipes (Padrão Planilha `Din2`): Executado vs. Não Executado e Produtividade</h4>
-                                    <p class="text-[11px] text-slate-500">Comparativo direto por técnico acionado no período filtrado</p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <select id="filtro-setor-grafico-principal" onchange="atualizarDashboardGestor()" class="text-xs border border-slate-300 rounded-lg p-1.5 bg-white font-bold text-blue-950 outline-none">
-                                        <option value="TODOS">Mostrar Todas as Funções</option>
-                                        <option value="Vistoriador">🔍 Apenas Vistoria</option>
-                                        <option value="Instalador">🛠️ Apenas Construção</option>
-                                        <option value="Ativador">⚡ Apenas Ativação</option>
-                                    </select>
-                                    <button type="button" onclick="expandirGraficoModal('graficoPrincipalExecutores', '🏆 Ranking de Equipes: Executado vs. Não Executado')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
-                                        ⛶ Expandir
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="relative h-80"><canvas id="graficoPrincipalExecutores"></canvas></div>
-                        </div>
-
-                        <!-- Tabela Idêntica ao Painel + Din2 da Planilha -->
-                        <div class="overflow-x-auto border border-slate-200 rounded-xl">
-                            <div class="flex justify-between items-center px-3 py-1.5 bg-slate-100 border-b border-slate-200">
-                                <span class="text-[11px] font-black text-slate-700 uppercase">📋 Matriz Consolidada de Produtividade e HPs por Equipe (Espelho Abas `Painel` e `Din2`)</span>
-                                <button type="button" onclick="expandirTabelaModal('tabela-principal-executores-corpo', '🏆 Matriz Consolidada de Produtividade e HPs por Equipe')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition flex items-center gap-1">
+                        <div class="overflow-x-auto border border-purple-200 rounded-xl">
+                            <div class="flex justify-between items-center px-3 py-2 bg-purple-100/70 border-b border-purple-200">
+                                <span class="text-[11px] font-black text-purple-950 uppercase">📋 Tabela do Grupo VISTORIA (Resultados dos Vistoriadores)</span>
+                                <button type="button" onclick="expandirTabelaModal('tabela-executores-vistoria-corpo', '🔍 Tabela do Grupo VISTORIA (Vistoriadores)')" class="bg-purple-800 hover:bg-purple-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg">
                                     ⛶ Expandir Tabela
                                 </button>
                             </div>
                             <table class="w-full text-left border-collapse text-xs">
                                 <thead>
-                                    <tr class="bg-slate-800 text-white uppercase font-bold text-[9px] tracking-wider">
+                                    <tr class="bg-purple-950 text-white uppercase font-bold text-[9px] tracking-wider">
                                         <th class="p-2.5 text-center">#</th>
-                                        <th class="p-2.5">Equipes / Técnico</th>
-                                        <th class="p-2.5">Serviço / Função</th>
-                                        <th class="p-2.5 text-center bg-emerald-900/50">Executados</th>
-                                        <th class="p-2.5 text-center bg-amber-900/50">N Executado</th>
+                                        <th class="p-2.5">Vistoriador / Equipe</th>
+                                        <th class="p-2.5 text-center bg-emerald-800">Executados</th>
+                                        <th class="p-2.5 text-center bg-amber-800">N Executado</th>
                                         <th class="p-2.5 text-center">Total Geral</th>
                                         <th class="p-2.5 text-center">Dias Trab</th>
-                                        <th class="p-2.5 text-center bg-indigo-900 font-black text-cyan-300">Produtividade</th>
-                                        <th class="p-2.5 text-center bg-cyan-900/50 text-cyan-200">QNT. HP</th>
+                                        <th class="p-2.5 text-center bg-purple-800 text-purple-200 font-black">Produtividade</th>
+                                        <th class="p-2.5 text-center bg-cyan-900 text-cyan-200">QNT. HP</th>
                                         <th class="p-2.5 text-center">HP / DIA</th>
-                                        <th class="p-2.5 text-center text-emerald-300">TMA Líquido</th>
+                                        <th class="p-2.5 text-center">TMA Líquido</th>
                                         <th class="p-2.5 text-right">% Conversão</th>
                                     </tr>
                                 </thead>
-                                <tbody id="tabela-principal-executores-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                                <tbody id="tabela-executores-vistoria-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
                             </table>
                         </div>
                     </div>
                 </div>
 
-                <!-- 3. OS 3 GRÁFICOS DO PAINEL DA PLANILHA: GERAL POR SERVIÇO (chart1), SEMANAL (chart3) E DIÁRIO (chart2) -->
+                <!-- ================= BLOCO 2 SEPARADO: GRUPO CONSTRUÇÃO (INSTALADORES — SEPARANDO F E ON GOING) ================= -->
+                <div id="secao-grupo-construcao" class="bg-white rounded-2xl shadow-md border-2 border-blue-900/30 overflow-hidden">
+                    <div class="bg-blue-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b-4 border-cyan-400">
+                        <div>
+                            <span class="bg-cyan-400 text-blue-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Grupo 2 • Instaladores (F vs. ON GOING)</span>
+                            <h3 class="font-bold text-base mt-1">🛠️ GRUPO CONSTRUÇÃO — Resultados dos Instaladores (Separando PROJETO F e ON GOING)</h3>
+                            <p class="text-xs text-cyan-200">Apresenta tudo o que foi construído pelos instaladores, separando em colunas e barras o que é <b>Construção F</b> e o que é <b>Construção ON GOING</b></p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="exportarExcelGrupoEspecifico('CONSTRUCAO')" class="bg-cyan-400 hover:bg-cyan-300 text-blue-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-sm transition">
+                                📥 Baixar Planilha CONSTRUÇÃO (.XLS)
+                            </button>
+                            <button type="button" onclick="expandirGraficoModal('graficoExecutoresConstrucao', '🛠️ GRUPO CONSTRUÇÃO — Instaladores (F vs. ON GOING)')" class="bg-blue-950 hover:bg-black text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-blue-600">
+                                ⛶ Expandir Gráfico
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-5 space-y-5">
+                        <div class="bg-blue-50/40 p-4 rounded-xl border border-blue-200">
+                            <div class="relative h-72"><canvas id="graficoExecutoresConstrucao"></canvas></div>
+                        </div>
+
+                        <div class="overflow-x-auto border border-blue-200 rounded-xl">
+                            <div class="flex justify-between items-center px-3 py-2 bg-blue-100/70 border-b border-blue-200">
+                                <span class="text-[11px] font-black text-blue-950 uppercase">📋 Tabela do Grupo CONSTRUÇÃO — Instaladores (Separando F e ON GOING)</span>
+                                <button type="button" onclick="expandirTabelaModal('tabela-executores-construcao-corpo', '🛠️ Tabela do Grupo CONSTRUÇÃO — Instaladores (F vs. ON GOING)')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg">
+                                    ⛶ Expandir Tabela
+                                </button>
+                            </div>
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-900 text-white uppercase font-bold text-[9px] tracking-wider">
+                                        <th class="p-2.5 text-center">#</th>
+                                        <th class="p-2.5">Instalador / Equipe</th>
+                                        <th class="p-2.5 text-center bg-indigo-800 text-indigo-100" title="Construção Projeto F Concluída">Exec. F</th>
+                                        <th class="p-2.5 text-center bg-cyan-800 text-cyan-100" title="Construção ON GOING / Nap Lotada Concluída">Exec. ON GOING</th>
+                                        <th class="p-2.5 text-center bg-emerald-800 text-white font-black" title="Soma Total Construída pelo Instalador">Total Exec.</th>
+                                        <th class="p-2.5 text-center bg-amber-800/80" title="Não Executado PROJETO F">N Exec. F</th>
+                                        <th class="p-2.5 text-center bg-amber-700/80" title="Não Executado ON GOING">N Exec. ON GOING</th>
+                                        <th class="p-2.5 text-center bg-amber-900 text-amber-200">Total N Exec.</th>
+                                        <th class="p-2.5 text-center">Total Geral</th>
+                                        <th class="p-2.5 text-center">Dias Trab</th>
+                                        <th class="p-2.5 text-center bg-blue-800 text-cyan-300 font-black">Produtividade</th>
+                                        <th class="p-2.5 text-center bg-cyan-950 text-cyan-200">HP (F / ON GOING / Total)</th>
+                                        <th class="p-2.5 text-center">HP / DIA</th>
+                                        <th class="p-2.5 text-right">% Conv.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabela-executores-construcao-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ================= BLOCO 3 SEPARADO: GRUPO ATIVAÇÃO (ATIVADORES — SEPARANDO F E ON GOING) ================= -->
+                <div id="secao-grupo-ativacao" class="bg-white rounded-2xl shadow-md border-2 border-emerald-800/30 overflow-hidden">
+                    <div class="bg-emerald-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b-4 border-emerald-400">
+                        <div>
+                            <span class="bg-emerald-300 text-emerald-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Grupo 3 • Ativadores (F vs. ON GOING)</span>
+                            <h3 class="font-bold text-base mt-1">⚡ GRUPO ATIVAÇÃO — Resultados dos Ativadores (Separando PROJETO F e ON GOING)</h3>
+                            <p class="text-xs text-emerald-200">Apresenta tudo o que foi ativado pelos ativadores, separando em colunas e barras o que é <b>Ativação F</b> e o que é <b>Ativação ON GOING</b></p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="exportarExcelGrupoEspecifico('ATIVACAO')" class="bg-emerald-300 hover:bg-emerald-200 text-emerald-950 font-black text-xs px-3 py-1.5 rounded-xl shadow-sm transition">
+                                📥 Baixar Planilha ATIVAÇÃO (.XLS)
+                            </button>
+                            <button type="button" onclick="expandirGraficoModal('graficoExecutoresAtivacao', '⚡ GRUPO ATIVAÇÃO — Ativadores (F vs. ON GOING)')" class="bg-emerald-950 hover:bg-black text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-emerald-600">
+                                ⛶ Expandir Gráfico
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-5 space-y-5">
+                        <div class="bg-emerald-50/40 p-4 rounded-xl border border-emerald-200">
+                            <div class="relative h-72"><canvas id="graficoExecutoresAtivacao"></canvas></div>
+                        </div>
+
+                        <div class="overflow-x-auto border border-emerald-200 rounded-xl">
+                            <div class="flex justify-between items-center px-3 py-2 bg-emerald-100/70 border-b border-emerald-200">
+                                <span class="text-[11px] font-black text-emerald-950 uppercase">📋 Tabela do Grupo ATIVAÇÃO — Ativadores (Separando F e ON GOING)</span>
+                                <button type="button" onclick="expandirTabelaModal('tabela-executores-ativacao-corpo', '⚡ Tabela do Grupo ATIVAÇÃO — Ativadores (F vs. ON GOING)')" class="bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg">
+                                    ⛶ Expandir Tabela
+                                </button>
+                            </div>
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-emerald-950 text-white uppercase font-bold text-[9px] tracking-wider">
+                                        <th class="p-2.5 text-center">#</th>
+                                        <th class="p-2.5">Ativador / Equipe</th>
+                                        <th class="p-2.5 text-center bg-indigo-800 text-indigo-100" title="Ativação Projeto F Concluída">Exec. F</th>
+                                        <th class="p-2.5 text-center bg-cyan-800 text-cyan-100" title="Ativação ON GOING / Nap Lotada Concluída">Exec. ON GOING</th>
+                                        <th class="p-2.5 text-center bg-emerald-700 text-white font-black" title="Soma Total Ativada pelo Técnico">Total Exec.</th>
+                                        <th class="p-2.5 text-center bg-amber-800/80" title="Não Executado PROJETO F">N Exec. F</th>
+                                        <th class="p-2.5 text-center bg-amber-700/80" title="Não Executado ON GOING">N Exec. ON GOING</th>
+                                        <th class="p-2.5 text-center bg-amber-900 text-amber-200">Total N Exec.</th>
+                                        <th class="p-2.5 text-center">Total Geral</th>
+                                        <th class="p-2.5 text-center">Dias Trab</th>
+                                        <th class="p-2.5 text-center bg-teal-800 text-cyan-300 font-black">Produtividade</th>
+                                        <th class="p-2.5 text-center bg-cyan-950 text-cyan-200">HP (F / ON GOING / Total)</th>
+                                        <th class="p-2.5 text-center">HP / DIA</th>
+                                        <th class="p-2.5 text-right">% Conv.</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabela-executores-ativacao-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. OS GRÁFICOS DINÂMICOS DA PLANILHA SEPARADOS POR GRUPO (VISTORIA / CONSTRUÇÃO F & ON GOING / ATIVAÇÃO F & ON GOING) -->
                 <div class="bg-white rounded-2xl shadow-md border-2 border-indigo-900/20 overflow-hidden">
                     <div class="bg-indigo-950 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                         <div>
-                            <span class="bg-amber-400 text-indigo-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Gráficos Dinâmicos da Planilha (Aba Painel / Din2)</span>
-                            <h3 class="font-bold text-base mt-1">📈 Visões Geral por Serviço, Evolução Semanal (Sem 1 a Sem 5) e Produção Diária</h3>
-                            <p class="text-xs text-indigo-200">Substituição direta dos gráficos manuais da planilha com atualização automática em tempo real</p>
+                            <span class="bg-amber-400 text-indigo-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Comparativo dos 3 Grupos (Aba Painel / Din2 / Diario)</span>
+                            <h3 class="font-bold text-base mt-1">📈 Comparativo VISTORIA • CONSTRUÇÃO (F vs. ON GOING) • ATIVAÇÃO (F vs. ON GOING), Semanal e Diário</h3>
+                            <p class="text-xs text-indigo-200">Gráficos e Matrizes subdivididos exatamente pelos 3 Grupos Operacionais</p>
                         </div>
                     </div>
 
                     <div class="p-5 space-y-6">
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <!-- Chart 1 da Planilha: Geral por Serviço (VISTORIA / CONSTRUÇÃO / ATIVAÇÃO) -->
+                            <!-- Gráfico 1: Comparativo por Grupo e Subgrupo (VISTORIA | CONSTRUÇÃO F | CONSTRUÇÃO ON GOING | ATIVAÇÃO F | ATIVAÇÃO ON GOING) -->
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
                                 <div class="flex justify-between items-start mb-2 gap-2">
                                     <div>
-                                        <h4 class="text-xs font-black text-blue-950 uppercase">🏗️ 1. Gráfico Geral por Serviço (Vistoria • Construção • Ativação)</h4>
-                                        <p class="text-[10px] text-slate-500">Comparativo Executado vs. Não Executado por macro-serviço</p>
+                                        <h4 class="text-xs font-black text-blue-950 uppercase">🏗️ 1. Geral por Grupo: Vistoria • Construção (F / ON GOING) • Ativação (F / ON GOING)</h4>
+                                        <p class="text-[10px] text-slate-500">Comparativo Executado vs. Não Executado em cada frente</p>
                                     </div>
                                     <div class="flex items-center gap-1.5">
                                         <span id="badge-total-malling" class="bg-blue-100 text-blue-900 font-black text-xs px-2.5 py-1 rounded-lg whitespace-nowrap">0 total</span>
-                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoMalling', '🏗️ Geral por Serviço (Vistoria, Construção e Ativação)')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
+                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoMalling', '🏗️ Geral por Grupo (Vistoria, Construção F/ON GOING e Ativação F/ON GOING)')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
                                             ⛶ Expandir
                                         </button>
                                     </div>
@@ -641,16 +772,16 @@
                                 <div class="relative h-72"><canvas id="graficoGrupoMalling"></canvas></div>
                             </div>
 
-                            <!-- Chart 3 da Planilha: Semanal (Sem 1, Sem 2, Sem 3, Sem 4, Sem 5) -->
+                            <!-- Gráfico 2: Evolução Semanal Separada por Grupo (Sem 1 a Sem 5) -->
                             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col justify-between">
                                 <div class="flex justify-between items-start mb-2 gap-2">
                                     <div>
-                                        <h4 class="text-xs font-black text-indigo-950 uppercase">📅 2. Gráfico Semanal (Sem 1 • Sem 2 • Sem 3 • Sem 4 • Sem 5)</h4>
-                                        <p class="text-[10px] text-slate-500">Volume Executado e Não Executado agrupado automaticamente por semana do mês</p>
+                                        <h4 class="text-xs font-black text-indigo-950 uppercase">📅 2. Evolução Semanal por Grupo (Sem 1 • Sem 2 • Sem 3 • Sem 4 • Sem 5)</h4>
+                                        <p class="text-[10px] text-slate-500">Executados por Semana separados em Vistoria, Construção e Ativação</p>
                                     </div>
                                     <div class="flex items-center gap-1.5">
                                         <span id="badge-total-projetof" class="bg-indigo-100 text-indigo-900 font-black text-xs px-2.5 py-1 rounded-lg whitespace-nowrap">0 exec.</span>
-                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoProjetoF', '📅 Produção Semanal (Sem 1 a Sem 5)')" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
+                                        <button type="button" onclick="expandirGraficoModal('graficoGrupoProjetoF', '📅 Produção Semanal por Grupo (Sem 1 a Sem 5)')" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
                                             ⛶ Expandir
                                         </button>
                                     </div>
@@ -659,32 +790,32 @@
                             </div>
                         </div>
 
-                        <!-- Chart 2 da Planilha: Gráfico Diário de Produção -->
+                        <!-- Gráfico 3: Evolução Diária Separada por Grupo -->
                         <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
                             <div class="flex justify-between items-start mb-3 gap-2">
                                 <div>
-                                    <h4 class="text-xs font-black text-slate-800 uppercase mb-0.5">📆 3. Gráfico Diário de Produção (Dia a Dia do Período)</h4>
-                                    <p class="text-[11px] text-slate-500">Evolução diária de obras Executadas vs. Não Executadas (espelho do gráfico "Diário" da aba Painel)</p>
+                                    <h4 class="text-xs font-black text-slate-800 uppercase mb-0.5">📆 3. Produção Diária Separada por Grupo (Vistoria • Construção • Ativação)</h4>
+                                    <p class="text-[11px] text-slate-500">Evolução dia a dia das entregas concluídas em cada grupo</p>
                                 </div>
-                                <button type="button" onclick="expandirGraficoModal('graficoEvolucaoGrupos', '📆 Gráfico Diário de Produção')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
+                                <button type="button" onclick="expandirGraficoModal('graficoEvolucaoGrupos', '📆 Produção Diária por Grupo')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
                                     ⛶ Expandir
                                 </button>
                             </div>
                             <div class="relative h-64"><canvas id="graficoEvolucaoGrupos"></canvas></div>
                         </div>
 
-                        <!-- NOVA MATRIZ ESPELHO DA ABA "DIARIO" DA PLANILHA (Técnicos nas Linhas × Datas nas Colunas) -->
+                        <!-- MATRIZ DIÁRIA SEPARADA PELOS 3 GRUPOS (Aba Diario da Planilha) -->
                         <div class="space-y-2">
                             <div class="flex justify-between items-center">
                                 <div>
-                                    <h4 class="text-xs font-black text-emerald-950 uppercase">🗓️ Matriz Diária de Execução: Equipes × Datas do Período (Espelho da Aba `Diario` da Planilha)</h4>
-                                    <p class="text-[11px] text-slate-500">Mostra a quantidade de atividades executadas por cada técnico em cada dia e o acumulado total na primeira coluna</p>
+                                    <h4 class="text-xs font-black text-emerald-950 uppercase">🗓️ Matriz Diária de Execução Separada por Grupo: Vistoria • Construção • Ativação (Aba `Diario`)</h4>
+                                    <p class="text-[11px] text-slate-500">Agrupa os técnicos dentro de Vistoria, Construção e Ativação mostrando a produção em cada data do mês</p>
                                 </div>
-                                <button type="button" onclick="expandirTabelaModal('tabela-matriz-diaria-equipes-corpo', '🗓️ Matriz Diária de Execução (Equipes × Datas)')" class="bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
+                                <button type="button" onclick="expandirTabelaModal('tabela-matriz-diaria-equipes-corpo', '🗓️ Matriz Diária de Execução por Grupo')" class="bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
                                     ⛶ Expandir Matriz Diária
                                 </button>
                             </div>
-                            <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-96">
+                            <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-[500px]">
                                 <table class="w-full text-left border-collapse text-[11px]">
                                     <thead id="thead-matriz-diaria-equipes" class="sticky top-0 z-10 shadow-sm"></thead>
                                     <tbody id="tabela-matriz-diaria-equipes-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
@@ -692,14 +823,14 @@
                             </div>
                         </div>
 
-                        <!-- Matriz de Cruzamento: Executores × Projetos -->
+                        <!-- Matriz de Cruzamento Separada por Grupo: Executores × Projetos (F vs ON GOING) -->
                         <div class="space-y-2 pt-2 border-t border-slate-200">
                             <div class="flex justify-between items-center">
                                 <div>
-                                    <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento: Executores × Tipos de Projeto</h4>
-                                    <p class="text-[11px] text-slate-500">Visão cruzada de quantas atividades cada executor realizou em cada projeto</p>
+                                    <h4 class="text-xs font-black text-slate-800 uppercase">🔀 Matriz de Cruzamento por Grupo: Executores × Tipos de Projeto (F vs. ON GOING)</h4>
+                                    <p class="text-[11px] text-slate-500">Separada nos 3 grupos operacionais com subtotais de cada frente</p>
                                 </div>
-                                <button type="button" onclick="expandirTabelaModal('tabela-cruzamento-executores-corpo', '🔀 Matriz de Cruzamento: Executores × Projetos')" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
+                                <button type="button" onclick="expandirTabelaModal('tabela-cruzamento-executores-corpo', '🔀 Matriz de Cruzamento por Grupo')" class="bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1">
                                     ⛶ Expandir Tabela
                                 </button>
                             </div>
@@ -713,21 +844,20 @@
                     </div>
                 </div>
 
-                <!-- 4. NOVA SEÇÃO E PLANILHA SEPARADA: CLASSIFICAÇÃO PROGRAMADO vs. RETORNO (STATUS MACRO) & BAIRRO -->
+                <!-- 5. SEÇÃO E PLANILHA SEPARADA POR GRUPOS: PROGRAMADO vs. RETORNO (STATUS MACRO) & BAIRRO -->
                 <div class="bg-white rounded-2xl shadow-md border-2 border-amber-500/40 overflow-hidden">
                     <div class="bg-slate-900 text-white p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b-4 border-amber-400">
                         <div>
-                            <span class="bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Análise Geográfica & Reincidência (Planilha Separada)</span>
-                            <h3 class="font-bold text-base mt-1">📍 Classificação PROGRAMADO vs. RETORNO (Status Macro) & Produção por BAIRRO</h3>
-                            <p class="text-xs text-slate-300">Identifica automaticamente 1ª visita (PROGRAMADO) vs. reincidência no imóvel (RETORNO) e agrupa os resultados por Bairro</p>
+                            <span class="bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">Planilha Separada por Grupos • Status Macro & Bairro</span>
+                            <h3 class="font-bold text-base mt-1">📍 Classificação PROGRAMADO vs. RETORNO & BAIRRO (Separado em Vistoria, Construção F/ON GOING e Ativação F/ON GOING)</h3>
+                            <p class="text-xs text-slate-300">Cruza 1ª visita (PROGRAMADO) e reincidência (RETORNO) por Bairro e exporta planilha com quadros exclusivos para cada grupo</p>
                         </div>
                         <button type="button" onclick="exportarPlanilhaProgramadoRetornoBairro()" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-4 py-2.5 rounded-xl shadow-md transition flex items-center gap-1.5 shrink-0">
-                            📥 Baixar Planilha Separada: Programado/Retorno & Bairro (.XLS)
+                            📥 Baixar Planilha por Grupos: Programado/Retorno & Bairro (.XLS)
                         </button>
                     </div>
 
                     <div class="p-5 space-y-5">
-                        <!-- 4 Cards Resumo de Status Macro e Bairros -->
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <div class="bg-blue-50 border border-blue-200 p-3.5 rounded-xl">
                                 <span class="text-[10px] font-black text-blue-900 uppercase block">📋 Total PROGRAMADO (1ª Visita)</span>
@@ -767,8 +897,8 @@
 
                             <div class="border border-slate-200 rounded-xl overflow-hidden flex flex-col">
                                 <div class="bg-slate-100 p-3 border-b border-slate-200 flex justify-between items-center">
-                                    <span class="font-black text-slate-800 text-xs uppercase">📋 Tabela por Bairro: Programado, Retorno, Executado e HPs</span>
-                                    <button type="button" onclick="expandirTabelaModal('tabela-programado-retorno-bairro-corpo', '📍 Tabela Consolidada por Bairro (Programado vs. Retorno)')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg">
+                                    <span class="font-black text-slate-800 text-xs uppercase">📋 Tabela por Grupo e Bairro: Programado vs. Retorno</span>
+                                    <button type="button" onclick="expandirTabelaModal('tabela-programado-retorno-bairro-corpo', '📍 Tabela por Grupo e Bairro (Programado vs. Retorno)')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg">
                                         ⛶ Expandir Tabela
                                     </button>
                                 </div>
@@ -776,13 +906,13 @@
                                     <table class="w-full text-left border-collapse text-xs">
                                         <thead class="sticky top-0 bg-slate-800 text-white text-[9px] uppercase">
                                             <tr>
-                                                <th class="p-2">Bairro</th>
+                                                <th class="p-2">Bairro / Grupo</th>
                                                 <th class="p-2 text-center bg-blue-900">Programado</th>
                                                 <th class="p-2 text-center bg-amber-700">Retorno</th>
-                                                <th class="p-2 text-center bg-emerald-800">Executado</th>
+                                                <th class="p-2 text-center bg-emerald-800">Exec. (F / ON GOING)</th>
                                                 <th class="p-2 text-center">N Exec.</th>
                                                 <th class="p-2 text-center">Total</th>
-                                                <th class="p-2 text-right">Soma HPs</th>
+                                                <th class="p-2 text-right">HPs</th>
                                             </tr>
                                         </thead>
                                         <tbody id="tabela-programado-retorno-bairro-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
@@ -793,7 +923,7 @@
                     </div>
                 </div>
 
-                <!-- 5. Cards de Horários, TMA Líquido e Tempo Paralisado -->
+                <!-- 6. Cards de Horários, TMA Líquido e Tempo Paralisado -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-600 flex flex-col justify-between">
                         <div class="flex justify-between items-start">
@@ -841,7 +971,7 @@
                     </div>
                 </div>
 
-                <!-- 6. GRÁFICO DE HORÁRIOS DE PICO (MANTIDO INTACTO) + STATUS DETALHADO (STATUS1 DA PLANILHA) -->
+                <!-- 7. GRÁFICO DE HORÁRIOS DE PICO (MANTIDO INTACTO) + CONVERSÃO EXECUTADO vs NÃO EXECUTADO -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div class="flex justify-between items-start mb-4 gap-2">
@@ -859,7 +989,7 @@
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div class="flex justify-between items-start mb-4 gap-2">
                             <div>
-                                <h3 class="text-sm font-bold text-slate-800 uppercase">🎯 Taxa de Conversão: EXECUTADO vs. NÃO EXECUTADO (Status Planilha)</h3>
+                                <h3 class="text-sm font-bold text-slate-800 uppercase">🎯 Taxa de Conversão: EXECUTADO vs. NÃO EXECUTADO</h3>
                                 <p class="text-xs text-slate-500">Proporção entre obras Executadas (Concluídas) e Não Executadas (Pendentes / Malogradas)</p>
                             </div>
                             <button type="button" onclick="expandirGraficoModal('graficoDesfechos', '🎯 Taxa de Conversão: EXECUTADO vs. NÃO EXECUTADO')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
@@ -870,12 +1000,12 @@
                     </div>
                 </div>
 
-                <!-- 7. Volume por Sub-Projeto & TMA por Projeto -->
+                <!-- 8. Volume por Sub-Projeto & TMA por Projeto -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div class="flex justify-between items-start mb-4 gap-2">
                             <div>
-                                <h3 class="text-sm font-bold text-slate-800 uppercase">📊 Detalhamento por Tipo de Projeto e HPs</h3>
+                                <h3 class="text-sm font-bold text-slate-800 uppercase">📊 Detalhamento por Tipo de Projeto (F vs. ON GOING)</h3>
                                 <p class="text-xs text-slate-500">Comparativo entre todos os projetos ativos no catálogo</p>
                             </div>
                             <button type="button" onclick="expandirGraficoModal('graficoProjetos', '📊 Detalhamento por Tipo de Projeto')" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition whitespace-nowrap">
@@ -899,7 +1029,7 @@
                     </div>
                 </div>
 
-                <!-- 8. Ofensores de Não Execução / Malogro (STATUS1 da Planilha) -->
+                <!-- 9. Ofensores de Não Execução / Malogro (STATUS1 da Planilha) -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-red-200 flex flex-col justify-between">
                         <div>
@@ -912,7 +1042,7 @@
                                     </button>
                                 </div>
                             </div>
-                            <p class="text-xs text-slate-500 mb-4">Incidência acumulada por motivo de não execução (Não Autorizado, Rede Corretiva, Sem Contato, Acesso...)</p>
+                            <p class="text-xs text-slate-500 mb-4">Incidência acumulada por motivo de não execução</p>
                         </div>
                         <div class="relative h-72"><canvas id="graficoOfensoresMalogro"></canvas></div>
                     </div>
@@ -920,7 +1050,7 @@
                     <div class="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden flex flex-col">
                         <div class="bg-red-50 p-4 border-b border-red-200 flex justify-between items-center gap-2">
                             <div>
-                                <h3 class="font-bold text-red-900 text-sm">🛑 Ranking de Motivos de Não Execução (`STATUS1`)</h3>
+                                <h3 class="font-bold text-red-900 text-sm">🛑 Ranking de Motivos de Não Execução Separado por Grupo (`STATUS1`)</h3>
                                 <p class="text-[11px] text-red-700">Clique sobre qualquer motivo para listar os imóveis afetados</p>
                             </div>
                             <button type="button" onclick="expandirTabelaModal('tabela-ofensores-malogro-corpo', '🛑 Ranking de Motivos de Não Execução')" class="bg-red-700 hover:bg-red-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap">
@@ -933,7 +1063,8 @@
                                     <tr class="text-[10px] text-slate-500 uppercase border-b">
                                         <th class="pb-2">#</th>
                                         <th class="pb-2">Motivo / Ofensor (`STATUS1`)</th>
-                                        <th class="pb-2 text-center">Ocorrências</th>
+                                        <th class="pb-2 text-center">Vist. / Const. / Ativ.</th>
+                                        <th class="pb-2 text-center">Total</th>
                                         <th class="pb-2 text-right">Impacto (%)</th>
                                     </tr>
                                 </thead>
@@ -943,11 +1074,11 @@
                     </div>
                 </div>
 
-                <!-- 9. Tabela Consolidada Geral -->
+                <!-- 10. Tabela Consolidada Geral Separada pelos 3 Grupos -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="p-4 border-b border-slate-200 font-bold text-slate-800 text-sm flex justify-between items-center">
-                        <span>📋 Resumo Executivo Consolidado por Serviço, Status e HPs</span>
-                        <button type="button" onclick="expandirTabelaModal('tabela-consolidada-corpo', '📋 Resumo Executivo Consolidado')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition">
+                        <span>📋 Resumo Executivo Consolidado Separado por Grupo (VISTORIA • CONSTRUÇÃO F/ON GOING • ATIVAÇÃO F/ON GOING)</span>
+                        <button type="button" onclick="expandirTabelaModal('tabela-consolidada-corpo', '📋 Resumo Executivo Consolidado por Grupo')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-sm transition">
                             ⛶ Expandir Tabela
                         </button>
                     </div>
@@ -955,10 +1086,10 @@
                         <table class="w-full text-left border-collapse text-xs">
                             <thead>
                                 <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
-                                    <th class="p-3">Categoria / Serviço & Status</th>
+                                    <th class="p-3">Grupo / Categoria (F vs. ON GOING) & Status</th>
                                     <th class="p-3 text-center">Qtd. Imóveis / Blocos</th>
                                     <th class="p-3 text-center">Soma de HPs</th>
-                                    <th class="p-3 text-center">Participação (%)</th>
+                                    <th class="p-3 text-center">Participação no Grupo (%)</th>
                                 </tr>
                             </thead>
                             <tbody id="tabela-consolidada-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -970,7 +1101,7 @@
             <!-- Sub-Aba: Materiais -->
             <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
                 <div class="flex justify-between items-center border-b pb-3">
-                    <h3 class="font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais & Caixas Utilizados em Obras</h3>
+                    <h3 class="font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais & Caixas Utilizados (Separado por Grupo: Vistoria, Construção e Ativação)</h3>
                     <span class="text-xs font-normal text-slate-500" id="contador-materiais">0 registros</span>
                 </div>
 
@@ -1018,7 +1149,7 @@
                         <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
                             <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b">
                                 <th class="p-2.5">Imóvel / Data</th>
-                                <th class="p-2.5">Técnico / Projeto</th>
+                                <th class="p-2.5">Técnico / Projeto (F vs. ON GOING)</th>
                                 <th class="p-2.5">Cabo RL (m)</th>
                                 <th class="p-2.5">Conectores</th>
                                 <th class="p-2.5">Cabo Drop (m)</th>
@@ -1039,7 +1170,7 @@
             <div id="subview-financeiro" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
                 <div class="flex flex-col sm:flex-row justify-between items-center border-b pb-3 gap-3">
                     <div>
-                        <h3 class="font-bold text-slate-800 text-base">💰 Medição Financeira de Produção</h3>
+                        <h3 class="font-bold text-slate-800 text-base">💰 Medição Financeira de Produção (Separada por Grupo)</h3>
                         <p class="text-xs text-slate-500">Cálculo financeiro baseado na tabela de preços unitários vigente</p>
                     </div>
                     <div class="flex items-center gap-3">
@@ -1074,7 +1205,7 @@
             <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
-                        <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos, Setor de Atuação e PIN</h3>
+                        <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos Separada por Grupo (Vistoria, Construção e Ativação)</h3>
                         <p class="text-[11px] text-slate-500">Defina se o técnico atua como <b>Vistoriador</b>, <b>Instalador</b> e/ou <b>Ativador</b> e gerencie o PIN de acesso ao Modo Campo</p>
                     </div>
                     <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-nova-equipe">+ Nova Equipe</button>
@@ -1968,7 +2099,7 @@
                                 <th class="p-2.5">Data / Semana</th>
                                 <th class="p-2.5">Imóvel / Bairro & Endereço</th>
                                 <th class="p-2.5">Técnico / Equipe</th>
-                                <th class="p-2.5">Projeto / Status Macro</th>
+                                <th class="p-2.5">Grupo / Subgrupo (F vs ON GOING)</th>
                                 <th class="p-2.5">Desfecho / HPs</th>
                                 <th class="p-2.5">Detalhes / Ofensores</th>
                             </tr>
