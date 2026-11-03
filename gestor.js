@@ -1158,7 +1158,7 @@ async function atualizarDashboardGestor() {
     setTxt('kpi-proj-ativ-ongoing', finalizadas.filter(i => i.projeto === 'ATIVAÇÃO ON GOING' && i.desfecho === 'CONCLUIDA').length);
     setTxt('kpi-proj-ativ-nap', finalizadas.filter(i => i.projeto === 'ATIVAÇÃO NAP LOTADA' && i.desfecho === 'CONCLUIDA').length);
 
-    setTxt('contador-resultados', `${filtrados.length} registros`);
+    setTxt('contador-resultados', `${filtrados.length} registros (${qtdEmAndamento} ativas/pausa | ${qtdProgramadas} programadas)`);
     setTxt('contador-materiais', finalizadas.length + " registros finalizados");
 
     let concluidasCount = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
@@ -1285,8 +1285,8 @@ async function atualizarDashboardGestor() {
 
                 trPrincipal.innerHTML = `
                     <td class="p-3">
-                        <div class="font-black text-slate-800 flex items-center gap-1 flex-wrap">${qtdBlocosNoGrupo > 1 ? `${grupo.codigoBase} <span class="text-blue-700 font-bold text-[11px]">(${qtdBlocosNoGrupo} Blocos)</span>` : itemMaster.imovel}</div>
-                        <div class="text-[10px] text-blue-900 font-medium truncate max-w-[220px]">📍 ${grupo.endereco || 'Endereço não informado'}</div>
+                        <div class="font-black text-slate-800 flex items-center gap-1 flex-wrap">${qtdBlocosNoGrupo > 1 ? `${grupo.codigoBase} <span class="text-blue-700 font-bold text-[11px]">(${qtdBlocosNoGrupo} Blocos)</span>` : itemMaster.imovel} ${badgeMacroPlanilha}</div>
+                        <div class="text-[10px] text-blue-900 font-medium truncate max-w-[220px]">📍 ${grupo.endereco || 'Endereço não informado'} <span class="font-bold text-indigo-800">(${itemMaster.bairroPlanilha})</span></div>
                         ${infoLiberouLinha}
                         <div class="text-[10px] text-slate-400">${grupo.dataRegistro} • ${itemMaster.semanaPlanilha}</div>
                         ${botaoExpandirBlocos}
@@ -2780,99 +2780,4 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'mes') { const m = new Date(hoje.getFullYear(), hoje.getMonth(), 1); inpInicio.value = obterDataLocalISO(m); inpFim.value = obterDataLocalISO(hoje); }
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
-}
-
-// ================= CORREÇÃO F15: DETALHES, MATERIAIS, GPS E WHATSAPP =================
-function obterCodigoBaseAtividade(imovel) {
-    const texto = String(imovel || '').trim();
-    const pos = texto.toUpperCase().lastIndexOf(' - BLOCO');
-    return pos >= 0 ? texto.substring(0, pos).trim() : texto;
-}
-function obterBlocosRelacionadosAtividade(item) {
-    if (!item) return [];
-    const base = obterCodigoBaseAtividade(item.imovel).toUpperCase();
-    return (registrosSalvos || []).filter(r =>
-        obterCodigoBaseAtividade(r.imovel).toUpperCase() === base &&
-        r.dataRegistro === item.dataRegistro &&
-        r.equipe === item.equipe &&
-        r.projeto === item.projeto
-    ).sort((a,b) => String(a.imovel).localeCompare(String(b.imovel), 'pt-BR', {numeric:true}));
-}
-function escaparHtmlGpd(valor) {
-    return String(valor ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-}
-function coordenadaValidaGpd(valor) {
-    const m = String(valor || '').match(/(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/);
-    if (!m) return null;
-    const lat=Number(m[1]), lng=Number(m[2]);
-    return Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180 ? {lat,lng} : null;
-}
-function linkGpsHtmlGpd(rotulo, valor) {
-    const c=coordenadaValidaGpd(valor);
-    if (!c) return `<div><strong>${rotulo}:</strong> <span class="text-slate-400">Não informado</span></div>`;
-    const coord=`${c.lat},${c.lng}`;
-    return `<div><strong>${rotulo}:</strong> <a class="text-blue-700 underline font-bold" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coord)}">🗺️ Abrir no Google Maps (${escaparHtmlGpd(coord)})</a></div>`;
-}
-function textoMateriaisGpd(i) {
-    const itens=[['Cabo RL',i.caboRL,'m'],['Cabo Drop',i.caboDrop,'m'],['Conectores',i.conectores,''],['Fusões',i.fusoes,''],['NAP',i.nap,''],['DIO',i.dio,''],['Cx. Sobrepor',i.cxSobrepor,''],['Cx. Embutida',i.cxEmbutida,''],['Cx. FOSC',i.cxFosc,'']]
-      .filter(([,v])=>Number(v)>0).map(([n,v,u])=>`${n}: ${Number(v)}${u}`);
-    return itens.length ? itens.join(' | ') : 'Nenhum material informado';
-}
-async function abrirDetalhesAtividade(item) {
-    if (!item) return;
-    itemDetalheAtualModal=item;
-    const modal=document.getElementById('modal-detalhes');
-    const conteudo=document.getElementById('modal-detalhes-conteudo');
-    const blocos=obterBlocosRelacionadosAtividade(item);
-    window._gpdBlocosDetalheAtual=blocos.length ? blocos : [item];
-    document.getElementById('modal-detalhes-titulo').innerText=`Detalhes da Atividade: ${obterCodigoBaseAtividade(item.imovel)}`;
-    const cards=[];
-    for (const b of window._gpdBlocosDetalheAtual) {
-        let fotos=Array.isArray(b.fotos)?b.fotos:[];
-        if (!fotos.length && typeof obterFotosSobDemandaDoRegistro==='function') fotos=await obterFotosSobDemandaDoRegistro(b.id);
-        const codigo=String(b.imovel||'imovel').replace(/[^a-zA-Z0-9_-]/g,'_');
-        const galeria=fotos.length?`<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">${fotos.map((src,idx)=>`<div class="bg-white p-1.5 rounded-lg border"><img src="${src}" onclick="abrirZoomFoto('${src}','${codigo}_${idx+1}.jpg')" class="w-full h-24 object-cover rounded cursor-pointer"><button type="button" onclick="baixarFotoDireto('${src}','${codigo}_${idx+1}.jpg')" class="w-full mt-1 bg-emerald-600 text-white text-[10px] font-bold py-1 rounded">⬇️ Baixar</button></div>`).join('')}</div>`:'<div class="text-[10px] text-slate-400 mt-2">📷 Nenhuma foto anexada.</div>';
-        cards.push(`<section class="bg-white rounded-xl border-2 border-blue-200 p-3 space-y-2 shadow-sm">
-          <div class="flex flex-wrap justify-between gap-2"><h4 class="font-black text-blue-950">🏢 ${escaparHtmlGpd(b.imovel)}</h4><span class="font-bold px-2 py-0.5 rounded text-[10px] ${obterClasseCorDesfecho(b.desfecho)}">${escaparHtmlGpd(b.desfecho)}</span></div>
-          <div class="grid grid-cols-2 gap-2 text-[11px]"><div><strong>Entrada:</strong> ${escaparHtmlGpd(b.hEntrada||'-')}</div><div><strong>Saída:</strong> ${escaparHtmlGpd(b.hSaida||'-')}</div><div><strong>Andares:</strong> ${Number(b.andares)||0}</div><div><strong>HPs:</strong> ${Number(b.hps)||0}</div></div>
-          <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-2"><strong>📦 Materiais utilizados:</strong><div class="mt-1 text-emerald-950">${escaparHtmlGpd(textoMateriaisGpd(b))}</div></div>
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 space-y-1">${linkGpsHtmlGpd('GPS de entrada',b.gpsEntrada)}${linkGpsHtmlGpd('GPS de saída',b.gpsSaida)}</div>
-          ${b.motivoDesfecho?`<div class="bg-amber-50 p-2 rounded border border-amber-200"><strong>Detalhamento:</strong> ${escaparHtmlGpd(b.motivoDesfecho)}</div>`:''}
-          ${b.observacoes?`<div class="bg-slate-50 p-2 rounded border"><strong>Observações:</strong> ${escaparHtmlGpd(b.observacoes)}</div>`:''}
-          ${galeria}
-        </section>`);
-    }
-    conteudo.innerHTML=`<div class="bg-slate-50 p-3 rounded-xl border space-y-1"><div><strong>Endereço:</strong> ${escaparHtmlGpd(item.endereco||'-')}</div><div><strong>Data:</strong> ${escaparHtmlGpd(item.dataRegistro)}</div><div><strong>Técnico:</strong> ${escaparHtmlGpd(item.equipe)}</div><div><strong>Projeto:</strong> ${escaparHtmlGpd(item.projeto)}</div></div><div class="space-y-3"><h4 class="font-black text-slate-800 uppercase text-[11px]">Detalhamento separado por bloco (${window._gpdBlocosDetalheAtual.length})</h4>${cards.join('')}</div>`;
-    modal.classList.remove('hidden');
-}
-function montarTextoWhatsAppAtividadeGpd(lista) {
-    const primeiro=lista[0];
-    const linhas=[`*GPD MDU PROCISA - DETALHE DA ATIVIDADE*`,`Imóvel: ${obterCodigoBaseAtividade(primeiro.imovel)}`,`Data: ${primeiro.dataRegistro}`,`Técnico: ${primeiro.equipe}`,`Projeto: ${primeiro.projeto}`,`Endereço: ${primeiro.endereco||'-'}`,''];
-    lista.forEach((b,idx)=>{
-        linhas.push(`*BLOCO ${idx+1}: ${b.imovel}*`,`Status: ${b.desfecho}`,`Entrada: ${b.hEntrada||'-'} | Saída: ${b.hSaida||'-'}`,`Materiais: ${textoMateriaisGpd(b)}`);
-        const ge=coordenadaValidaGpd(b.gpsEntrada), gs=coordenadaValidaGpd(b.gpsSaida);
-        linhas.push(`GPS Entrada: ${ge?`https://www.google.com/maps/search/?api=1&query=${ge.lat},${ge.lng}`:'Não informado'}`);
-        linhas.push(`GPS Saída: ${gs?`https://www.google.com/maps/search/?api=1&query=${gs.lat},${gs.lng}`:'Não informado'}`);
-        if (b.motivoDesfecho) linhas.push(`Detalhamento: ${b.motivoDesfecho}`);
-        linhas.push('');
-    });
-    return linhas.join('\n').trim();
-}
-async function copiarDetalheModalWhatsApp() {
-    const lista=window._gpdBlocosDetalheAtual?.length?window._gpdBlocosDetalheAtual:(itemDetalheAtualModal?[itemDetalheAtualModal]:[]);
-    if (!lista.length) return;
-    const texto=montarTextoWhatsAppAtividadeGpd(lista);
-    try { await navigator.clipboard.writeText(texto); alert('✅ Detalhes, materiais e links de GPS copiados para o WhatsApp.'); }
-    catch(e){ const ta=document.createElement('textarea'); ta.value=texto; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('✅ Boletim copiado.'); }
-}
-async function copiarBoletimGestorWhatsApp() {
-    const base=(dadosFiltradosAtuais||[]).filter(r=>!['IMPREVISTO','IMPREVISTO RESOLVIDO'].includes(r.desfecho));
-    if (!base.length){ alert('⚠️ Nenhuma atividade no filtro atual.'); return; }
-    const grupos=new Map();
-    base.forEach(r=>{const k=`${r.dataRegistro}|${r.equipe}|${obterCodigoBaseAtividade(r.imovel)}|${r.projeto}`; if(!grupos.has(k)) grupos.set(k,[]); grupos.get(k).push(r);});
-    const partes=['*BOLETIM GPD MDU PROCISA*',`Registros no filtro: ${base.length}`,''];
-    grupos.forEach(lista=>{partes.push(montarTextoWhatsAppAtividadeGpd(lista),'------------------------------');});
-    const texto=partes.join('\n');
-    try { await navigator.clipboard.writeText(texto); alert('✅ Boletim com materiais e links de GPS copiado para o WhatsApp.'); }
-    catch(e){ const ta=document.createElement('textarea'); ta.value=texto; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); alert('✅ Boletim copiado.'); }
 }
