@@ -16,7 +16,7 @@ let grupoAtivoAbaGraficos = 'TODOS';
 
 let filtrosMultiplosAtivos = { equipes: [], setores: [], macrogrupos: [], projetos: [], desfechos: [] };
 
-// ================= CLASSIFICADORES DOS 3 GRUPOS E SUBGRUPOS (F vs. ON GOING) =================
+// ================= CLASSIFICADORES DOS 3 GRUPOS E SUBGRUPOS (EXCLUSIVOS PARA ABA GRÁFICOS E PLANILHAS) =================
 function obterSemanaDoMes(dataISO) {
     if (!dataISO || typeof dataISO !== 'string' || dataISO.length < 10) return 'Sem 1';
     const dia = parseInt(dataISO.substring(8, 10), 10);
@@ -140,7 +140,7 @@ function selecionarGrupoAbaGraficos(grupo) {
     atualizarDashboardGestor();
 }
 
-// ================= SINCRONIZAÇÃO DE AUDITORIA NA NUVEM =================
+// ================= SINCRONIZAÇÃO DE AUDITORIA NA NUVEM (EXCLUSIVA DO MODO GESTÃO) =================
 async function sincronizarAuditoriaNaNuvem() {
     try {
         if (trilhaAuditoria.length > 250) trilhaAuditoria = trilhaAuditoria.slice(0, 250);
@@ -186,7 +186,7 @@ function aplicarTooltipsExplicativosGlobais() {
         'btn-modo-gestor': 'Acessar o Painel Gerencial completo com indicadores, mapas e controle operacional',
         'btn-sair-gestor': 'Encerrar a sessão atual do gestor e bloquear o acesso administrativo',
         'btn-importar-planilha': 'Importar planilha CSV ou colar linhas do Excel para distribuir atividades programadas',
-        'btn-boletim-whats-gestor': 'Copiar resumo executivo formatado para colar no WhatsApp',
+        'btn-boletim-whats-gestor': 'Copiar resumo executivo formatado com blocos organizados para colar no WhatsApp',
         'btn-baixar-excel-gestor': 'Baixar planilha Excel (.xls) separada nos 3 Grupos: Vistoria, Construção (F e ON GOING) e Ativação (F e ON GOING)',
         'btn-atualizar-registros-gestor': 'Buscar imediatamente na nuvem todas as novas atividades, fotos e posições de GPS'
     };
@@ -1049,7 +1049,7 @@ function renderizarPainelDisponibilidade() {
     } catch (e) {}
 }
 
-// ================= ATUALIZAÇÃO CENTRAL DO DASHBOARD (LISTAGEM CONTÍNUA EM ATIVIDADES E GRUPOS NA ABA GRÁFICOS) =================
+// ================= ATUALIZAÇÃO CENTRAL DO DASHBOARD (ABA ATIVIDADES LIMPA E ABA GRÁFICOS SEPARADA EM GRUPOS) =================
 async function atualizarDashboardGestor() {
     inicializarMelhoriasVisuaisGestor();
     if (!cargaInicialGestorConcluida && (!registrosSalvos || registrosSalvos.length === 0) && !modoConsultaBackupAtivo) {
@@ -1140,10 +1140,13 @@ async function atualizarDashboardGestor() {
                 let acoesImp = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador')
                     ? `${estaAberto ? `<button onclick="resolverImprevistoPorId(${imp.id}, true)" class="bg-emerald-600 text-white font-bold text-[10px] px-2.5 py-1 rounded mr-1">✅ Resolver</button>` : ''}<button onclick="abrirModalEdicao(${imp.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded mr-1">✏️ Editar</button><button onclick="excluirRegistro(${imp.id}, 'IMPREVISTO')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>`
                     : `<span class="text-slate-400 text-[10px]">Leitura</span>`;
+                const linkGpsImp = (imp.gpsEntrada && imp.gpsEntrada.includes(','))
+                    ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(imp.gpsEntrada)}" target="_blank" onclick="event.stopPropagation()" class="text-blue-600 underline font-bold">🗺️ ${imp.gpsEntrada}</a>`
+                    : (imp.gpsEntrada || "-");
                 const trImp = document.createElement('tr');
                 trImp.className = "hover:bg-amber-50/50 border-b cursor-pointer";
                 trImp.onclick = () => abrirDetalhesAtividade(imp);
-                trImp.innerHTML = `<td class="p-3"><div class="font-bold text-slate-800">${imp.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">${imp.hEntrada} às ${imp.hSaida}</div></td><td class="p-3 font-bold text-blue-900">${imp.equipe}</td><td class="p-3"><span class="bg-amber-100 text-amber-900 font-bold px-2.5 py-1 rounded text-[10px]">${motivoPrincipal}</span></td><td class="p-3">${badgeSituacao}</td><td class="p-3 text-slate-600">${imp.observacoes || imp.motivoDesfecho || "-"}</td><td class="p-3 font-mono text-[10px]">${imp.gpsEntrada || "-"}</td><td class="p-3 whitespace-nowrap" onclick="event.stopPropagation()">${acoesImp}</td>`;
+                trImp.innerHTML = `<td class="p-3"><div class="font-bold text-slate-800">${imp.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">${imp.hEntrada} às ${imp.hSaida}</div></td><td class="p-3 font-bold text-blue-900">${imp.equipe}</td><td class="p-3"><span class="bg-amber-100 text-amber-900 font-bold px-2.5 py-1 rounded text-[10px]">${motivoPrincipal}</span></td><td class="p-3">${badgeSituacao}</td><td class="p-3 text-slate-600">${imp.observacoes || imp.motivoDesfecho || "-"}</td><td class="p-3 font-mono text-[10px]">${linkGpsImp}</td><td class="p-3 whitespace-nowrap" onclick="event.stopPropagation()">${acoesImp}</td>`;
                 corpoImp.appendChild(trImp);
             });
         }
@@ -1199,7 +1202,7 @@ async function atualizarDashboardGestor() {
     totaisFinanceirosAtuais = { vistorias: sumVistorias, caboRL: sumCaboRL, conectores: sumConectores, fusoes: sumFusoes, caboDrop: sumCaboDrop, nap: sumNap, dio: sumDio, cxSobrepor: sumSobrepor, cxEmbutida: sumEmbutida, cxFosc: sumFosc };
     renderizarTabelaFinanceiro(totaisFinanceirosAtuais);
 
-    // Renderiza a aba Atividades e Materiais em listagem contínua (SEM separação por grupos)
+    // ITEM 02: Renderiza a aba Atividades e Materiais LIMPA (sem tags de Retorno/Programado e sem Bairro)
     if (filtrados.length === 0) {
         if (corpoAtiv) corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este filtro/período.</td></tr>`;
         if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado.</td></tr>`;
@@ -1275,20 +1278,16 @@ async function atualizarDashboardGestor() {
                 const setorStr = eqObj ? eqObj.setor : "Instalador";
                 const macroGrupo = obterMacroGrupoProjeto(grupo.projeto);
                 const badgeGrupoCor = macroGrupo === 'PROJETO F' ? 'bg-indigo-100 text-indigo-900 border border-indigo-300' : 'bg-cyan-50 text-cyan-900 border border-cyan-200';
-                const badgeMacroPlanilha = itemMaster.statusMacroPlanilha === 'RETORNO'
-                    ? `<span class="bg-amber-100 text-amber-900 border border-amber-300 font-bold px-1.5 py-0.5 rounded text-[9px]">🔄 RETORNO</span>`
-                    : `<span class="bg-blue-50 text-blue-800 border border-blue-200 font-bold px-1.5 py-0.5 rounded text-[9px]">📋 PROGRAMADO</span>`;
-
                 const tagsOpcoesHtml = todasOpcoesGrupo.length > 0 ? `<div class="mt-1 flex flex-wrap gap-1">${todasOpcoesGrupo.map(op => `<span class="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">${op}</span>`).join('')}</div>` : '';
                 const badgeFotosHtml = totalFotosGrupo > 0 ? `<span class="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-300 font-bold px-2 py-0.5 rounded-md text-[10px] inline-block">📷 ${totalFotosGrupo} foto(s)</span>` : '';
                 const botaoExpandirBlocos = qtdBlocosNoGrupo > 1 ? `<button type="button" onclick="event.stopPropagation(); alternarVisualizacaoBlocosAgrupados('${idGrupoUnico}', this)" class="mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition">📂 Expandir Blocos (${qtdBlocosNoGrupo})</button>` : '';
 
                 trPrincipal.innerHTML = `
                     <td class="p-3">
-                        <div class="font-black text-slate-800 flex items-center gap-1 flex-wrap">${qtdBlocosNoGrupo > 1 ? `${grupo.codigoBase} <span class="text-blue-700 font-bold text-[11px]">(${qtdBlocosNoGrupo} Blocos)</span>` : itemMaster.imovel} ${badgeMacroPlanilha}</div>
-                        <div class="text-[10px] text-blue-900 font-medium truncate max-w-[220px]">📍 ${grupo.endereco || 'Endereço não informado'} <span class="font-bold text-indigo-800">(${itemMaster.bairroPlanilha})</span></div>
+                        <div class="font-black text-slate-800">${qtdBlocosNoGrupo > 1 ? `${grupo.codigoBase} <span class="text-blue-700 font-bold text-[11px]">(${qtdBlocosNoGrupo} Blocos)</span>` : itemMaster.imovel}</div>
+                        <div class="text-[10px] text-blue-900 font-medium truncate max-w-[200px]">📍 ${grupo.endereco || 'Endereço não informado'}</div>
                         ${infoLiberouLinha}
-                        <div class="text-[10px] text-slate-400">${grupo.dataRegistro} • ${itemMaster.semanaPlanilha}</div>
+                        <div class="text-[10px] text-slate-400">${grupo.dataRegistro}</div>
                         ${botaoExpandirBlocos}
                     </td>
                     <td class="p-3"><div class="font-semibold text-slate-800 mb-0.5">${grupo.equipe}</div>${obterBadgeSetorHtml(setorStr)}</td>
@@ -1321,14 +1320,13 @@ async function atualizarDashboardGestor() {
                 if (!['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(item.desfecho) && corpoMat) {
                     const trMat = document.createElement('tr');
                     trMat.className = "hover:bg-slate-50 border-b transition";
-                    trMat.innerHTML = `<td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td><td class="p-2.5">${item.equipe}<div class="text-[9px] font-bold text-blue-900">${item.projeto} (${item.subgrupoFOuOnGoing})</div></td><td class="p-2.5 font-semibold">${item.caboRL} m</td><td class="p-2.5 font-semibold">${item.conectores}</td><td class="p-2.5 font-semibold">${item.caboDrop} m</td><td class="p-2.5 font-bold text-blue-900">${item.nap}</td><td class="p-2.5 font-bold text-indigo-700">${item.dio}</td><td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td><td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td><td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td><td class="p-2.5 font-semibold">${item.fusoes}</td>`;
+                    trMat.innerHTML = `<td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td><td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td><td class="p-2.5 font-semibold">${item.caboRL} m</td><td class="p-2.5 font-semibold">${item.conectores}</td><td class="p-2.5 font-semibold">${item.caboDrop} m</td><td class="p-2.5 font-bold text-blue-900">${item.nap}</td><td class="p-2.5 font-bold text-indigo-700">${item.dio}</td><td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td><td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td><td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td><td class="p-2.5 font-semibold">${item.fusoes}</td>`;
                     corpoMat.appendChild(trMat);
                 }
             });
         });
     }
 
-    // Filtra para os gráficos inferiores se o gestor selecionou um Grupo específico na barra da aba Gráficos
     const finalizadasParaGraficosGerais = grupoAtivoAbaGraficos === 'TODOS'
         ? finalizadas
         : finalizadas.filter(d => {
@@ -1355,7 +1353,6 @@ async function atualizarDashboardGestor() {
     try { renderizarTabelaConsolidada(finalizadasParaGraficosGerais); } catch (e) { console.warn("Erro consolidada:", e); }
     try { renderizarTabelaUsuariosPermissao(); } catch (e) {}
 }
-
 // ================= OS 3 BLOCOS INDEPENDENTES NA ABA GRÁFICOS: VISTORIA | CONSTRUÇÃO (F vs ON GOING) | ATIVAÇÃO (F vs ON GOING) =================
 function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
     const hojeISO = obterDataLocalISO();
@@ -1364,7 +1361,6 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
     const lblDataRef = document.getElementById('lbl-data-ref-diaria');
     if (lblDataRef) lblDataRef.innerText = dataRefDiaria === hojeISO ? `Hoje (${hojeISO})` : dataRefDiaria;
 
-    // --- 1. BLOCO GRUPO VISTORIA (Vistoriadores) ---
     const dadosVistoria = dadosFinalizados.filter(d => d.servicoPlanilha === 'VISTORIA');
     const mapaVist = {};
     equipesSistema.filter(e => e.status === 'Ativo' && tecnicoPertenceAoSetor(e.setor, 'Vistoriador')).forEach(eq => {
@@ -1443,7 +1439,6 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
         });
     }
 
-    // --- 2. FUNÇÃO GERADORA PARA CONSTRUÇÃO (INSTALADORES) E ATIVAÇÃO (ATIVADORES) SEPARANDO "F" E "ON GOING" ---
     const processarGrupoComSubdivisaoFOuOnGoing = (macroServico, setorPadrao, idTbody, idCanvas, prefixoCard, corBarraF, corBarraOG) => {
         const dadosGrupo = dadosFinalizados.filter(d => d.servicoPlanilha === macroServico);
         const mapa = {};
@@ -2224,6 +2219,21 @@ async function salvarEdicaoRegistro() {
     let id = Number(document.getElementById('edit-reg-id').value);
     let regOriginal = registrosSalvos.find(r => r.id === id);
 
+    const btnSalvar = document.getElementById('btn-salvar-modal-edicao');
+    if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.innerText = "🛡️ Verificando conflitos e salvando..."; }
+
+    try {
+        const { data: versaoNuvem } = await supabaseClient.from('registros_producao').select('desfecho, h_saida, equipe').eq('id', id).maybeSingle();
+        if (versaoNuvem && snapshotStatusEdicaoOriginal && snapshotStatusEdicaoOriginal.id === id && (versaoNuvem.desfecho !== snapshotStatusEdicaoOriginal.desfecho || versaoNuvem.h_saida !== snapshotStatusEdicaoOriginal.hSaida)) {
+            if (!confirm(`🛡️ TRAVA ANTI-CONFLITO!\n\nEste registro foi atualizado na nuvem enquanto a janela estava aberta (${versaoNuvem.desfecho}). Deseja sobrescrever mesmo assim?`)) {
+                if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerText = "💾 Salvar Todas as Alterações"; }
+                fecharModalEdicao();
+                await recarregarDadosGestor(false);
+                return;
+            }
+        }
+    } catch (e) {}
+
     let data_registro = document.getElementById('edit-reg-data').value || obterDataLocalISO();
     let equipe = document.getElementById('edit-reg-equipe').value || '';
     let imovel = document.getElementById('edit-reg-imovel').value.trim();
@@ -2264,6 +2274,7 @@ async function salvarEdicaoRegistro() {
         cabo_rl, conectores, cabo_drop, nap, dio, fusoes, cx_sobrepor, cx_embutida, cx_fosc
     }).eq('id', id);
 
+    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerText = "💾 Salvar Todas as Alterações"; }
     if (error) { alert("Erro: " + error.message); return; }
     if (regOriginal) {
         Object.assign(regOriginal, {
@@ -2286,6 +2297,7 @@ async function excluirRegistro(id, imovelCod) {
         const { error } = await supabaseClient.from('registros_producao').delete().eq('id', id);
         if (!error) {
             if (typeof cacheFotosSobDemanda !== 'undefined') cacheFotosSobDemanda.delete(id);
+            if (typeof reciclarContagemBytesFotos === 'function') reciclarContagemBytesFotos();
             registrosSalvos = registrosSalvos.filter(r => r.id !== id);
             atualizarDashboardGestor();
             registrarLogAuditoria("EXCLUSÃO DE REGISTRO", `Registro ${imovelCod} (ID: ${id}) excluído.`);
@@ -2329,46 +2341,340 @@ function renderizarTabelaUsuariosPermissao() {
     });
 }
 
+// ================= ITEM 01, 02 e 03: MODAL DE DETALHES COMPLETO (MATERIAIS POR BLOCO, LINKS GPS MAPS E WHATSAPP MULTI-BLOCO) =================
 async function abrirDetalhesAtividade(item) {
     if (!item) return;
-    itemDetalheAtualModal = item;
     const modal = document.getElementById('modal-detalhes');
     const conteudo = document.getElementById('modal-detalhes-conteudo');
-    document.getElementById('modal-detalhes-titulo').innerText = `Detalhes do Registro: ${item.imovel}`;
 
-    let fotosItem = Array.isArray(item.fotos) ? item.fotos : [];
-    if (fotosItem.length === 0 && typeof obterFotosSobDemandaDoRegistro === 'function') {
-        fotosItem = await obterFotosSobDemandaDoRegistro(item.id);
-    }
-    const codigoLimpo = (item.imovel || 'imovel').replace(/[^a-zA-Z0-9_-]/g, '_');
-    let galeriaFotosHtml = `<div class="bg-slate-50 p-2.5 rounded-lg border text-slate-400 text-[11px]">📷 Nenhuma foto anexada.</div>`;
-    if (fotosItem && fotosItem.length > 0) {
-        const cardsFotos = fotosItem.map((fSrc, idx) => `<div class="bg-white p-2 rounded-xl border border-indigo-200 shadow-sm flex flex-col items-center gap-1.5"><img src="${fSrc}" onclick="abrirZoomFoto('${fSrc}', '${codigoLimpo}_${idx + 1}.jpg')" class="w-full h-28 object-cover rounded-lg cursor-pointer"><div class="flex gap-1 w-full"><button type="button" onclick="abrirZoomFoto('${fSrc}', '${codigoLimpo}_${idx + 1}.jpg')" class="flex-1 bg-indigo-50 text-indigo-900 font-bold text-[10px] py-1 rounded">🔍 Ampliar</button><button type="button" onclick="baixarFotoDireto('${fSrc}', '${codigoLimpo}_${idx + 1}.jpg')" class="flex-1 bg-emerald-600 text-white font-bold text-[10px] py-1 rounded">⬇️ Baixar</button></div></div>`).join('');
-        galeriaFotosHtml = `<div class="bg-indigo-50/70 p-3 rounded-lg border border-indigo-200 space-y-2"><h4 class="font-bold text-indigo-950 text-xs uppercase">📷 Fotos Anexadas (${fotosItem.length})</h4><div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">${cardsFotos}</div></div>`;
+    const codBase = obterCodigoBaseImovel(item.imovel);
+    const ehObraNormal = item.projeto !== 'IMPREVISTO / ATRASO' &&
+                         item.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+                         item.projeto !== PROJETO_SOLIC_MATERIAL;
+
+    let blocosIrmaos = [item];
+    if (ehObraNormal && codBase) {
+        const encontrados = (registrosSalvos || []).filter(r =>
+            r.dataRegistro === item.dataRegistro &&
+            r.equipe === item.equipe &&
+            r.projeto === item.projeto &&
+            obterCodigoBaseImovel(r.imovel) === codBase
+        ).sort((a, b) => (a.imovel || '').localeCompare(b.imovel || ''));
+        if (encontrados.length > 0) blocosIrmaos = encontrados;
     }
 
+    const temMultiplosBlocos = blocosIrmaos.length > 1;
+    document.getElementById('modal-detalhes-titulo').innerText = temMultiplosBlocos
+        ? `Detalhes do Imóvel: ${codBase} (${blocosIrmaos.length} Blocos)`
+        : `Detalhes do Registro: ${item.imovel}`;
+
+    let todasFotosAcumuladas = [];
+    const blocosDetalhadosParaWhats = [];
+
+    for (let idx = 0; idx < blocosIrmaos.length; idx++) {
+        const b = blocosIrmaos[idx];
+        let fBloco = Array.isArray(b.fotos) ? [...b.fotos] : [];
+        if (fBloco.length === 0 && typeof obterFotosSobDemandaDoRegistro === 'function' && Number(b.qtdFotos) > 0) {
+            fBloco = await obterFotosSobDemandaDoRegistro(b.id);
+        }
+        b._fotosCarregadas = fBloco;
+        todasFotosAcumuladas.push(...fBloco);
+
+        let identNome = b.imovel || `BLOCO ${idx + 1}`;
+        const posTraco = identNome.toUpperCase().lastIndexOf(' - ');
+        if (posTraco !== -1) identNome = identNome.substring(posTraco + 3).trim();
+
+        blocosDetalhadosParaWhats.push({
+            identificacao: identNome,
+            andares: Number(b.andares) || 0,
+            hps: Number(b.hps) || 0,
+            desfecho: b.desfecho,
+            fusoes: Number(b.fusoes) || 0,
+            conectores: Number(b.conectores) || 0,
+            caboRL: Number(b.caboRL) || 0,
+            caboDrop: Number(b.caboDrop) || 0,
+            nap: Number(b.nap) || 0,
+            dio: Number(b.dio) || 0,
+            cxSobrepor: Number(b.cxSobrepor) || 0,
+            cxEmbutida: Number(b.cxEmbutida) || 0,
+            cxFosc: Number(b.cxFosc) || 0,
+            opcoesMarcadas: Array.isArray(b.malogros) ? b.malogros : [],
+            motivoDesfecho: b.motivoDesfecho || '',
+            observacoes: b.observacoes || '',
+            fotos: fBloco
+        });
+    }
+
+    const somaAndares = blocosIrmaos.reduce((acc, b) => acc + (Number(b.andares) || 0), 0);
+    const somaHps = blocosIrmaos.reduce((acc, b) => acc + (Number(b.hps) || 0), 0);
+    const somaRL = blocosIrmaos.reduce((acc, b) => acc + (Number(b.caboRL) || 0), 0);
+    const somaDrop = blocosIrmaos.reduce((acc, b) => acc + (Number(b.caboDrop) || 0), 0);
+    const somaConect = blocosIrmaos.reduce((acc, b) => acc + (Number(b.conectores) || 0), 0);
+    const somaFusoes = blocosIrmaos.reduce((acc, b) => acc + (Number(b.fusoes) || 0), 0);
+    const somaNap = blocosIrmaos.reduce((acc, b) => acc + (Number(b.nap) || 0), 0);
+    const somaDio = blocosIrmaos.reduce((acc, b) => acc + (Number(b.dio) || 0), 0);
+    const somaSobrepor = blocosIrmaos.reduce((acc, b) => acc + (Number(b.cxSobrepor) || 0), 0);
+    const somaEmbutida = blocosIrmaos.reduce((acc, b) => acc + (Number(b.cxEmbutida) || 0), 0);
+    const somaFosc = blocosIrmaos.reduce((acc, b) => acc + (Number(b.cxFosc) || 0), 0);
+    const pausaMin = blocosIrmaos.reduce((acc, b) => acc + (Number(b.tempoPausadoMinutos) || 0), 0);
+
+    itemDetalheAtualModal = {
+        ...item,
+        imovel: temMultiplosBlocos ? `${codBase} (${blocosIrmaos.length} Blocos)` : item.imovel,
+        andares: somaAndares,
+        hps: somaHps,
+        tempoPausadoMinutos: pausaMin,
+        caboRL: somaRL,
+        caboDrop: somaDrop,
+        conectores: somaConect,
+        fusoes: somaFusoes,
+        nap: somaNap,
+        dio: somaDio,
+        cxSobrepor: somaSobrepor,
+        cxEmbutida: somaEmbutida,
+        cxFosc: somaFosc,
+        fotos: todasFotosAcumuladas,
+        blocosDetalhados: temMultiplosBlocos ? blocosDetalhadosParaWhats : []
+    };
+
+    const linkGpsEntrada = (item.gpsEntrada && item.gpsEntrada.includes(','))
+        ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsEntrada)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsEntrada} (Abrir no Maps)</a>`
+        : (item.gpsEntrada || '-');
+
+    const linkGpsSaida = (item.gpsSaida && item.gpsSaida.includes(','))
+        ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsSaida)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsSaida} (Abrir no Maps)</a>`
+        : (item.gpsSaida || '-');
+
+    const minIn = converterHorarioParaMinutos(item.hEntrada);
+    const minOut = converterHorarioParaMinutos(item.hSaida);
+    const duracaoStr = (minIn !== null && minOut !== null && minOut >= minIn)
+        ? formatarDuracaoTexto(Math.max(0, (minOut - minIn) - pausaMin))
+        : "-";
+
+    const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
+
+    let infoTratativaHtml = '';
+    if (item.tratadoPor) {
+        infoTratativaHtml = `
+            <div class="bg-emerald-50 border border-emerald-300 p-3 rounded-lg text-xs text-emerald-950 space-y-1">
+                <div><strong>✅ Tratado Por:</strong> ${item.tratadoPor}</div>
+                <div><strong>🕒 Data/Hora da Tratativa:</strong> ${item.tratadoDataHora || item.hSaida}</div>
+                <div class="text-[10px] text-orange-800 font-bold">⏳ ${calcularTempoRestante48h(item.tratadoTimestamp)}</div>
+            </div>`;
+    }
+
+    let secaoMateriaisEBlocosHtml = '';
+    if (ehObraNormal) {
+        if (temMultiplosBlocos) {
+            const cardsCadaBloco = blocosDetalhadosParaWhats.map(b => {
+                const corB = obterClasseCorDesfecho(b.desfecho);
+                const opcoesB = (b.opcoesMarcadas && b.opcoesMarcadas.length > 0) ? b.opcoesMarcadas.join(' + ') : 'Nenhuma';
+                return `
+                    <div class="bg-white p-3 rounded-xl border-2 border-blue-200 shadow-sm space-y-2">
+                        <div class="flex justify-between items-center border-b border-slate-200 pb-1.5">
+                            <span class="font-black text-blue-950 text-xs uppercase">🏢 ${b.identificacao}</span>
+                            <span class="font-bold px-2 py-0.5 rounded text-[10px] ${corB}">${b.desfecho}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-2 rounded border border-slate-200">
+                            <div><strong>Andares:</strong> <b class="text-blue-900">${b.andares}</b></div>
+                            <div><strong>HPs:</strong> <b class="text-blue-900">${b.hps}</b></div>
+                        </div>
+                        <div class="bg-emerald-50/70 p-2.5 rounded-lg border border-emerald-200">
+                            <div class="font-black text-emerald-950 text-[10px] uppercase mb-1.5">📦 Materiais e Caixas (${b.identificacao})</div>
+                            <div class="grid grid-cols-3 gap-1.5 text-[11px]">
+                                <div>Cabo RL: <b>${b.caboRL} m</b></div>
+                                <div>Cabo Drop: <b>${b.caboDrop} m</b></div>
+                                <div>Conectores: <b>${b.conectores}</b></div>
+                                <div>Fusões: <b>${b.fusoes}</b></div>
+                                <div>NAP: <b>${b.nap}</b></div>
+                                <div>DIO: <b>${b.dio}</b></div>
+                                <div>Cx. Sobrepor: <b>${b.cxSobrepor}</b></div>
+                                <div>Cx. Embutida: <b>${b.cxEmbutida}</b></div>
+                                <div>Cx. FOSC: <b>${b.cxFosc}</b></div>
+                            </div>
+                        </div>
+                        ${b.opcoesMarcadas.length > 0 ? `<div class="text-[11px] bg-amber-50 p-2 rounded border border-amber-200"><strong>Opções Marcadas:</strong> <b class="text-amber-950">${opcoesB}</b></div>` : ''}
+                        ${b.motivoDesfecho ? `<div class="text-[11px] bg-slate-50 p-2 rounded border"><strong>Detalhe/Motivo:</strong> ${b.motivoDesfecho}</div>` : ''}
+                        ${b.observacoes ? `<div class="text-[11px] bg-slate-50 p-2 rounded border"><strong>Observações:</strong> ${b.observacoes}</div>` : ''}
+                    </div>`;
+            }).join('');
+
+            secaoMateriaisEBlocosHtml = `
+                <div class="bg-blue-50/50 p-3.5 rounded-xl border-2 border-blue-200 space-y-3">
+                    <h4 class="font-black text-blue-950 text-xs uppercase">🏢 Detalhamento Separado por Bloco (${blocosIrmaos.length} Blocos)</h4>
+                    <div class="grid grid-cols-1 gap-3">${cardsCadaBloco}</div>
+                    <div class="bg-slate-900 text-white p-3 rounded-xl space-y-1.5">
+                        <div class="font-black text-cyan-300 text-[11px] uppercase border-b border-slate-700 pb-1">📊 Soma Total Consolidada dos ${blocosIrmaos.length} Blocos</div>
+                        <div class="grid grid-cols-3 sm:grid-cols-5 gap-2 text-[11px] pt-1">
+                            <div>Andares: <b>${somaAndares}</b></div>
+                            <div>HPs: <b>${somaHps}</b></div>
+                            <div>Cabo RL: <b>${somaRL} m</b></div>
+                            <div>Cabo Drop: <b>${somaDrop} m</b></div>
+                            <div>Conectores: <b>${somaConect}</b></div>
+                            <div>Fusões: <b>${somaFusoes}</b></div>
+                            <div>NAP: <b>${somaNap}</b></div>
+                            <div>DIO: <b>${somaDio}</b></div>
+                            <div>Sobrepor: <b>${somaSobrepor}</b></div>
+                            <div>Embutida: <b>${somaEmbutida}</b></div>
+                            <div>Cx. FOSC: <b>${somaFosc}</b></div>
+                        </div>
+                    </div>
+                </div>`;
+        } else {
+            secaoMateriaisEBlocosHtml = `
+                <div class="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200 space-y-2">
+                    <h4 class="font-black text-emerald-950 text-xs uppercase">📦 Materiais e Caixas Utilizados</h4>
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Cabo RL:</strong> <b class="text-blue-950">${somaRL} m</b></div>
+                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Cabo Drop:</strong> <b class="text-blue-950">${somaDrop} m</b></div>
+                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Conectores:</strong> <b class="text-blue-950">${somaConect}</b></div>
+                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Fusões:</strong> <b class="text-blue-950">${somaFusoes}</b></div>
+                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>NAP:</strong> <b class="text-blue-950">${somaNap}</b></div>
+                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>DIO:</strong> <b class="text-blue-950">${somaDio}</b></div>
+                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Cx. Sobrepor:</strong> <b class="text-blue-950">${somaSobrepor}</b></div>
+                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Cx. Embutida:</strong> <b class="text-blue-950">${somaEmbutida}</b></div>
+                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Cx. FOSC:</strong> <b class="text-blue-950">${somaFosc}</b></div>
+                    </div>
+                </div>`;
+        }
+    }
+
+    const codigoLimpo = (codBase || 'imovel').replace(/[^a-zA-Z0-9_-]/g, '_');
+    let galeriaFotosHtml = `<div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-slate-400 text-[11px]">📷 Nenhuma foto anexada neste registro.</div>`;
+    if (todasFotosAcumuladas.length > 0) {
+        const cardsFotos = todasFotosAcumuladas.map((fSrc, idx) => {
+            const nomeArq = `${codigoLimpo}_foto_${idx + 1}.jpg`;
+            const legendaSlot = (item.projeto === PROJETO_SOLIC_COMBUSTIVEL && Array.isArray(item.malogros) && item.malogros[idx])
+                ? `<div class="text-[9px] font-black text-orange-900 uppercase">${item.malogros[idx]}</div>`
+                : '';
+            return `<div class="bg-white p-2 rounded-xl border border-indigo-200 shadow-sm flex flex-col items-center gap-1.5">${legendaSlot}<img src="${fSrc}" onclick="abrirZoomFoto('${fSrc}', '${nomeArq}')" class="w-full h-28 object-cover rounded-lg cursor-pointer hover:opacity-90 transition border"><div class="flex gap-1 w-full"><button type="button" onclick="abrirZoomFoto('${fSrc}', '${nomeArq}')" class="flex-1 bg-indigo-50 text-indigo-900 font-bold text-[10px] py-1 rounded">🔍 Ampliar</button><button type="button" onclick="baixarFotoDireto('${fSrc}', '${nomeArq}')" class="flex-1 bg-emerald-600 text-white font-bold text-[10px] py-1 rounded">⬇️ Baixar</button></div></div>`;
+        }).join('');
+        galeriaFotosHtml = `<div class="bg-indigo-50/70 p-3 rounded-lg border border-indigo-200 space-y-2"><h4 class="font-bold text-indigo-950 text-xs uppercase">📷 Fotos Anexadas (${todasFotosAcumuladas.length})</h4><div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">${cardsFotos}</div></div>`;
+    }
+
+    const malogrosStr = (item.malogros && item.malogros.length > 0) ? item.malogros.join(' + ') : '';
+
+    // ITEM 02: Sem tags de Bairro ou Programado/Retorno nos detalhes da atividade
     conteudo.innerHTML = `
-        <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
-            <div class="col-span-2"><strong>📍 Endereço:</strong> <span class="font-bold text-blue-950">${item.endereco || item.imovel || '-'}</span></div>
-            <div class="col-span-2 flex flex-wrap gap-2">
-                <span class="bg-blue-900 text-white font-bold px-2 py-0.5 rounded text-[10px]">📂 Grupo: ${obterMacroServicoPlanilha(item.projeto)} (${obterSubgrupoFOuOnGoing(item.projeto)})</span>
-                <span class="bg-indigo-100 text-indigo-900 font-bold px-2 py-0.5 rounded text-[10px]">🏘️ Bairro: ${extrairBairroDoEndereco(item.endereco)}</span>
-                <span class="bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded text-[10px]">📌 ${item.statusMacroPlanilha || 'PROGRAMADO'}</span>
-            </div>
-            <div><strong>Data:</strong> ${item.dataRegistro}</div>
-            <div><strong>Técnico:</strong> ${item.equipe}</div>
-            <div><strong>Projeto:</strong> ${item.projeto}</div>
-            <div><strong>Desfecho:</strong> <span class="font-bold px-2 py-0.5 rounded text-[10px] ${obterClasseCorDesfecho(item.desfecho)}">${item.desfecho}</span></div>
-            <div><strong>Andares:</strong> ${item.andares || 0}</div>
-            <div><strong>HPs:</strong> ${item.hps || 0}</div>
+        ${infoTratativaHtml}
+        <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <div class="col-span-2"><strong>📍 Endereço do Atendimento:</strong> <span class="font-bold text-blue-950">${item.endereco || item.imovel || 'Não informado'}</span></div>
+            ${item.liberouAcesso ? `<div class="col-span-2 bg-amber-50 p-2 rounded border border-amber-200"><strong>🔑 Liberou o Acesso:</strong> <span class="font-black text-amber-950">${item.liberouAcesso}</span></div>` : ''}
+            <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
+            <div><strong>Técnico / Equipe:</strong> <b class="text-blue-900">${item.equipe}</b></div>
+            <div><strong>Projeto / Atividade:</strong> <b>${item.projeto}</b></div>
+            <div><strong>Status / Desfecho:</strong> <span class="font-bold px-2 py-0.5 rounded text-[10px] ${classeCorDesfecho}">${item.desfecho}</span></div>
+            <div><strong>Total de Andares:</strong> <b>${somaAndares}</b></div>
+            <div><strong>Total de HPs:</strong> <b>${somaHps}</b></div>
+            <div><strong>Responsável Local:</strong> ${item.responsavel || '-'}</div>
+            <div><strong>Contato / Tel:</strong> ${item.contato || '-'}</div>
+            ${item.email ? `<div class="col-span-2"><strong>E-mail:</strong> ${item.email}</div>` : ''}
         </div>
+
+        <div class="bg-blue-50 p-3.5 rounded-xl border border-blue-200 space-y-1.5">
+            <h4 class="font-black text-blue-950 text-xs uppercase">🕒 Horários de Entrada / Saída e Links GPS</h4>
+            <div><strong>🟢 Horário Entrada:</strong> <b>${item.hEntrada || '-'}</b></div>
+            <div><strong>📍 GPS Entrada:</strong> ${linkGpsEntrada}</div>
+            <div class="pt-1"><strong>🔴 Horário Saída:</strong> <b>${item.hSaida || '-'}</b></div>
+            <div><strong>📍 GPS Saída:</strong> ${linkGpsSaida}</div>
+            ${pausaMin > 0 ? `<div class="pt-1 text-orange-700 font-bold"><strong>⏸️ Tempo Paralisado:</strong> ${pausaMin} min</div>` : ''}
+            <div class="pt-1 text-emerald-800 font-bold"><strong>⏱️ Duração Líquida:</strong> ${duracaoStr}</div>
+        </div>
+
+        ${secaoMateriaisEBlocosHtml}
         ${galeriaFotosHtml}
-        ${item.motivoDesfecho ? `<div class="bg-slate-50 p-3 rounded-lg border"><strong>Detalhamento:</strong> ${item.motivoDesfecho}</div>` : ''}
-        ${item.observacoes ? `<div class="bg-slate-50 p-3 rounded-lg border"><strong>Observações:</strong> ${item.observacoes}</div>` : ''}`;
+
+        ${(!temMultiplosBlocos && malogrosStr) ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Opções Marcadas:</strong> <span class="font-bold text-amber-950">${malogrosStr}</span></div>` : ''}
+        ${(!temMultiplosBlocos && item.motivoDesfecho) ? `<div class="bg-slate-50 p-3 rounded-lg border border-slate-200"><strong>Detalhamento / Motivo:</strong> ${item.motivoDesfecho}</div>` : ''}
+        ${(!temMultiplosBlocos && item.observacoes) ? `<div class="bg-slate-50 p-3 rounded-lg border border-slate-200"><strong>Observações Gerais:</strong> ${item.observacoes}</div>` : ''}
+    `;
     modal.classList.remove('hidden');
 }
 
 function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
+
+// ITEM 03: Boletim Executivo WhatsApp com agrupamento limpo de blocos
+copiarBoletimGestorWhatsApp = function() {
+    const lista = dadosFiltradosAtuais.length > 0
+        ? dadosFiltradosAtuais
+        : registrosSalvos.filter(r => r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL);
+
+    if (lista.length === 0 && listaImprevistosAtuais.length === 0) {
+        alert("⚠️ Nenhum registro encontrado no filtro atual para gerar o Boletim.");
+        return;
+    }
+
+    const dIni = document.getElementById('gestor-filtro-data-inicio')?.value;
+    const dFim = document.getElementById('gestor-filtro-data-fim')?.value;
+    const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Todo o Histórico';
+
+    const andamento = lista.filter(i => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(i.desfecho)).length;
+    const finalizadas = lista.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
+    const concluidas = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
+    const pendentes = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
+    const malogradas = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
+
+    let sumRL = 0, sumDrop = 0, sumConect = 0, sumNap = 0, sumDio = 0, sumFusoes = 0, sumSobre = 0, sumEmb = 0, sumFosc = 0;
+    finalizadas.forEach(i => {
+        sumRL += Number(i.caboRL) || 0;
+        sumDrop += Number(i.caboDrop) || 0;
+        sumConect += Number(i.conectores) || 0;
+        sumNap += Number(i.nap) || 0;
+        sumDio += Number(i.dio) || 0;
+        sumFusoes += Number(i.fusoes) || 0;
+        sumSobre += Number(i.cxSobrepor) || 0;
+        sumEmb += Number(i.cxEmbutida) || 0;
+        sumFosc += Number(i.cxFosc) || 0;
+    });
+
+    const gruposImoveis = {};
+    finalizadas.slice(0, 40).forEach(r => {
+        const codBase = obterCodigoBaseImovel(r.imovel);
+        const chave = `${r.dataRegistro}_${r.equipe}_${codBase}_${r.projeto}`;
+        if (!gruposImoveis[chave]) {
+            gruposImoveis[chave] = { codBase, equipe: r.equipe, projeto: r.projeto, endereco: r.endereco, liberouAcesso: r.liberouAcesso, blocos: [] };
+        }
+        gruposImoveis[chave].blocos.push(r);
+    });
+
+    const linhasImoveisFormatadas = Object.values(gruposImoveis).slice(0, 15).map(g => {
+        if (g.blocos.length === 1) {
+            const u = g.blocos[0];
+            return `• *${u.imovel}* (${u.projeto}) - ${u.equipe}: *${u.desfecho}* | Andares: ${u.andares || 0} | HPs: ${u.hps || 0}${u.endereco ? `\n  📍 End: ${u.endereco}` : ''}${u.liberouAcesso ? ` | 🔑 Liberou: ${u.liberouAcesso}` : ''}`;
+        } else {
+            const subBlocos = g.blocos.map(b => {
+                let nomeB = b.imovel || 'Bloco';
+                const idx = nomeB.toUpperCase().lastIndexOf(' - ');
+                if (idx !== -1) nomeB = nomeB.substring(idx + 3).trim();
+                return `   ↳ *${nomeB}*: *${b.desfecho}* (And: ${b.andares || 0} | HPs: ${b.hps || 0} | RL: ${b.caboRL || 0}m | Drop: ${b.caboDrop || 0}m | Conect: ${b.conectores || 0} | Fus: ${b.fusoes || 0} | NAP: ${b.nap || 0} | DIO: ${b.dio || 0})`;
+            }).join('\n');
+            return `• *${g.codBase} (${g.blocos.length} Blocos)* (${g.projeto}) - ${g.equipe}${g.endereco ? `\n  📍 End: ${g.endereco}` : ''}${g.liberouAcesso ? ` | 🔑 Liberou: ${g.liberouAcesso}` : ''}\n${subBlocos}`;
+        }
+    }).join('\n');
+
+    const texto = [
+        `📊 *BOLETIM GPD - CONSTRUÇÃO MDU PROCISA RJ*`,
+        `📅 *Período:* ${periodoStr}`,
+        `──────────────────────`,
+        `🔵 *Ativas / Em Execução Agora:* ${andamento}`,
+        `📈 *Total Finalizadas:* ${finalizadas.length}`,
+        `🟢 *Concluídas:* ${concluidas}`,
+        `🟡 *Pendentes:* ${pendentes}`,
+        `🔴 *Malogradas:* ${malogradas}`,
+        `⚠️ *Imprevistos Reportados:* ${listaImprevistosAtuais.length}`,
+        `──────────────────────`,
+        `📦 *CONSUMO DE MATERIAIS & CAIXAS:*`,
+        `• Cabo RL: *${sumRL} m* | Cabo Drop: *${sumDrop} m*`,
+        `• Conectores: *${sumConect}* | Fusões: *${sumFusoes}*`,
+        `• NAP: *${sumNap}* | DIO: *${sumDio}*`,
+        `• Cx Sobrepor: *${sumSobre}* | Cx Embutida: *${sumEmb}* | Cx FOSC: *${sumFosc}*`,
+        `──────────────────────`,
+        `🏢 *ÚLTIMAS ATIVIDADES:*`,
+        linhasImoveisFormatadas || 'Nenhuma atividade finalizada no filtro.'
+    ].join('\n');
+
+    copiarParaAreaTransferencia(texto, "✅ Boletim Executivo (com blocos organizados) copiado para o WhatsApp!");
+};
 
 function dispararExplosaoGrafico(filtroTipo, filtroValor) {
     const modal = document.getElementById('modal-explosao');
@@ -2530,7 +2836,7 @@ function exportarExcelFinanceiro() {
     if (!totaisFinanceirosAtuais) return;
     let itensMedicao = [
         { chave: "VISTORIA", qtd: totaisFinanceirosAtuais.vistorias }, { chave: "CABO RL", qtd: totaisFinanceirosAtuais.caboRL },
-        { chave: "CONECTORES", qtd: totaisFinanceirosAtuais.conectores }, { chave: "FUSÕES", qtd: totaisFinanceirosAtuais.fusoes },
+        { chave: "CONECTORES", qtd: totaisFinanceirosAtuais.conectores }, { chave: "FUSÕES", qtd: totais.fusoes },
         { chave: "CABO DROP", qtd: totaisFinanceirosAtuais.caboDrop }, { chave: "NAP", qtd: totaisFinanceirosAtuais.nap },
         { chave: "DIO", qtd: totaisFinanceirosAtuais.dio }, { chave: "CX SOBREPOR", qtd: totaisFinanceirosAtuais.cxSobrepor },
         { chave: "CX EMBUTIDA", qtd: totaisFinanceirosAtuais.cxEmbutida }
@@ -2752,6 +3058,18 @@ function mudarSubAbaGestor(aba) {
     document.getElementById(`subview-${aba}`)?.classList.remove('hidden');
     const targetBtn = document.getElementById(`subtab-btn-${aba}`);
     if (targetBtn) targetBtn.className = "px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1";
+
+    const divBotoesDisp = document.getElementById('botoes-atalho-exclusivos-disponibilidade');
+    if (divBotoesDisp) {
+        if (aba === 'disponibilidade') divBotoesDisp.classList.remove('hidden');
+        else divBotoesDisp.classList.add('hidden');
+    }
+
+    const boxBackupMaster = document.getElementById('central-master-backup-nuvem');
+    if (boxBackupMaster) {
+        if (nivelUsuarioLogado === 'Master') boxBackupMaster.classList.remove('hidden');
+        else boxBackupMaster.classList.add('hidden');
+    }
 
     if (aba === 'usuarios') renderizarTabelaUsuariosPermissao();
     if (aba === 'equipes') renderizarTabelaEquipes();
