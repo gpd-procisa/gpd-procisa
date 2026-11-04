@@ -2877,3 +2877,466 @@ async function salvarRegistro() {
         alert(`📡 SINAL 4G INDISPONÍVEL NO LOCAL!\n\nSeu atendimento (${imovelBase}) e todas as fotos foram GUARDADOS COM SEGURANÇA na Fila Offline do aparelho.\n\nVocê já pode copiar o resumo para o WhatsApp e seguir para o próximo prédio. Assim que o sinal voltar, basta clicar em "Sincronizar Fila Offline"!`);
     }
 }
+// ================= MÓDULO DE APOIO CONJUNTO & TURBO GPS ANTI-TRAVAMENTO (CAMPO.JS) =================
+let idWatchGpsContinuoCampo = null;
+let wakeLockGpsCampo = null;
+let ultimoDisparoGpsCampoTs = 0;
+
+function extrairListaApoiosDoMembros(strMembros, nomeTitular) {
+    if (!strMembros || typeof strMembros !== 'string') return [];
+    const limpo = strMembros.trim();
+    if (!limpo || limpo === '__CONFIG_SISTEMA__' || limpo.toUpperCase() === (nomeTitular || '').toUpperCase().trim()) return [];
+    if (limpo.startsWith('APOIO:')) {
+        return limpo.replace(/^APOIO:/i, '').split(',').map(s => s.trim().toUpperCase()).filter(s => s && s !== (nomeTitular || '').toUpperCase().trim());
+    }
+    return limpo.split(',').map(s => s.trim().toUpperCase()).filter(s => s && s !== (nomeTitular || '').toUpperCase().trim());
+}
+
+function formatarStringMembrosApoio(nomeTitular, arrayApoios) {
+    const unicos = [...new Set((arrayApoios || []).map(a => String(a || '').trim().toUpperCase()).filter(a => a && a !== (nomeTitular || '').toUpperCase().trim()))];
+    return unicos.length > 0 ? `APOIO:${unicos.join(', ')}` : (nomeTitular || '');
+}
+
+// Captura GPS sem aceitar cache antigo do celular (maximumAge: 0)
+function capturarCoordenadaGpsFrescaCampo(timeoutMs = 8000) {
+    return new Promise((resolve) => {
+        if (!navigator.geolocation) { resolve(null); return; }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            () => {
+                navigator.geolocation.getCurrentPosition(
+                    (pos2) => resolve({ lat: pos2.coords.latitude, lng: pos2.coords.longitude }),
+                    () => resolve(null),
+                    { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
+                );
+            },
+            { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 }
+        );
+    });
+}
+
+// Dispara sinal imediato de GPS para a nuvem sempre que o técnico usa ou desbloqueia o celular
+async function forcarPulsoGpsTempoRealCampo(origem = 'auto') {
+    try {
+        const selEq = document.getElementById('sel-equipe');
+        const nomeTec = selEq ? selEq.value.trim().toUpperCase() : '';
+        if (!nomeTec) return;
+
+        // Evita disparos duplicados em menos de 12 segundos, exceto em ações manuais
+        const agora = Date.now();
+        if (origem === 'auto' && (agora - ultimoDisparoGpsCampoTs) < 12000) return;
+
+        const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+        const telAtual = (typeof telemetriaEquipes !== 'undefined' && telemetriaEquipes && telemetriaEquipes[nomeTec]) ? telemetriaEquipes[nomeTec] : null;
+
+        // Só rastreia se o técnico iniciou expediente hoje ou tem obra em andamento hoje
+        const temObraAtivaHoje = (typeof registrosSalvos !== 'undefined' && Array.isArray(registrosSalvos)) && registrosSalvos.some(r =>
+            r.dataRegistro === hojeISO &&
+            ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(r.desfecho) &&
+            (r.equipe === nomeTec || extrairListaApoiosDoMembros(r.membros, r.equipe).includes(nomeTec))
+        );
+
+        const turnoAtivoHoje = telAtual && telAtual.data === hojeISO && telAtual.statusTurno === 'DISPONIVEL';
+        if (!turnoAtivoHoje && !temObraAtivaHoje && origem === 'auto') return;
+
+        const coord = await capturarCoordenadaGpsFrescaCampo(7000);
+        if (!coord || isNaN(coord.lat) || isNaN(coord.lng)) return;
+
+        ultimoDisparoGpsCampoTs = Date.now();
+        const horaCurta = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        if (typeof telemetriaEquipes !== 'undefined') {
+            const anterior = telemetriaEquipes[nomeTec] || {};
+            telemetriaEquipes[nomeTec] = {
+                ...anterior,
+                data: hojeISO,
+                statusTurno: anterior.statusTurno === 'ENCERRADO' ? 'DISPONIVEL' : (anterior.statusTurno || 'DISPONIVEL'),
+                horaInicio: anterior.horaInicio || horaCurta,
+                lat: coord.lat,
+                lng: coord.lng,
+                horaUltimoSinal: horaCurta,
+                timestampUltimoSinal: Date.now()
+            };
+            if (typeof sincronizarTelemetriaNaNuvem === 'function') {
+                await sincronizarTelemetriaNaNuvem();
+            } else if (typeof supabaseClient !== 'undefined' && typeof ID_NUVEM_TELEMETRIA !== 'undefined') {
+                await supabaseClient.from('registros_producao').upsert([{
+                    id: ID_NUVEM_TELEMETRIA, data_registro: "2000-01-01", equipe: "__CONFIG_SISTEMA__",
+                    membros: "__CONFIG_SISTEMA__", projeto: "__CONFIG_TELEMETRIA__", imovel: "__CONFIG_TELEMETRIA__",
+                    h_entrada: "00:00", h_saida: "00:00", gps_entrada: "", gps_saida: "", desfecho: "CONFIG",
+                    motivo_desfecho: "", malogros: [], agendamento: null, observacoes: JSON.stringify(telemetriaEquipes)
+                }], { onConflict: 'id' });
+            }
+        }
+    } catch (e) { console.warn("Aviso no pulso GPS:", e); }
+}
+
+function iniciarMonitoramentoGpsAntiCongelamento() {
+    // 1. Sempre que o técnico desbloquear o celular ou voltar para o navegador, atualiza o GPS imediatamente
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') forcarPulsoGpsTempoRealCampo('retorno_tela');
+    });
+    window.addEventListener('focus', () => forcarPulsoGpsTempoRealCampo('foco'));
+    window.addEventListener('pageshow', () => forcarPulsoGpsTempoRealCampo('pageshow'));
+    window.addEventListener('online', () => forcarPulsoGpsTempoRealCampo('reconexao'));
+
+    // 2. Pulso periódico a cada 40 segundos com a tela aberta
+    setInterval(() => {
+        if (document.visibilityState === 'visible') forcarPulsoGpsTempoRealCampo('auto');
+    }, 40000);
+
+    // 3. Tenta manter WakeLock ativo durante expediente em campo
+    if ('wakeLock' in navigator) {
+        document.addEventListener('click', async () => {
+            try {
+                const viewCampo = document.getElementById('view-campo');
+                if (viewCampo && !viewCampo.classList.contains('hidden') && !wakeLockGpsCampo) {
+                    wakeLockGpsCampo = await navigator.wakeLock.request('screen');
+                    wakeLockGpsCampo.addEventListener('release', () => { wakeLockGpsCampo = null; });
+                }
+            } catch (e) {}
+        }, { passive: true });
+    }
+}
+
+// Injeta os controles de Atuação Conjunta / Apoio Operacional na tela do Modo Campo
+function inicializarInterfaceApoioConjuntoCampo() {
+    const inpImovel = document.getElementById('inp-imovel');
+    if (inpImovel && !document.getElementById('box-campo-apoio-conjunto')) {
+        const divApoio = document.createElement('div');
+        divApoio.id = 'box-campo-apoio-conjunto';
+        divApoio.className = 'bg-purple-50/80 border-2 border-purple-300 rounded-xl p-2.5 space-y-2 mt-2';
+        divApoio.innerHTML = `
+            <div class="flex justify-between items-center">
+                <label class="block text-[11px] font-black text-purple-950 uppercase">🤝 Atuação Conjunta / Técnico em Apoio</label>
+                <span class="text-[9px] bg-purple-200 text-purple-900 font-bold px-1.5 py-0.5 rounded">Opcional</span>
+            </div>
+            <select id="sel-equipe-apoio-campo" onchange="popularOpcoesParceiroApoioCampo(true)" class="w-full text-xs border border-purple-300 rounded-lg p-2 bg-white outline-none font-bold text-purple-950">
+                <option value="">Sem apoio (Atuação individual)</option>
+            </select>
+            <button type="button" onclick="abrirModalEntrarEmApoioObraAtivaCampo()" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-black py-2 px-2.5 rounded-lg text-[11px] transition shadow-sm flex items-center justify-center gap-1.5">
+                🤝 Prestar Apoio em Obra Já em Andamento
+            </button>
+        `;
+        inpImovel.parentNode.appendChild(divApoio);
+    }
+
+    // Também adiciona barra de vínculo de apoio dentro de uma atividade já aberta em tela
+    const blocoPosAbertura = document.getElementById('bloco-pos-abertura');
+    if (blocoPosAbertura && !document.getElementById('barra-apoio-obra-aberta-campo')) {
+        const divAberta = document.createElement('div');
+        divAberta.id = 'barra-apoio-obra-aberta-campo';
+        divAberta.className = 'bg-purple-50 border border-purple-300 p-2.5 rounded-xl text-xs space-y-1.5';
+        divAberta.innerHTML = `
+            <div class="flex justify-between items-center">
+                <span class="font-black text-purple-950 text-[11px] uppercase">🤝 Equipe trabalhando em Conjunto nesta Obra:</span>
+                <span id="lbl-parceiro-apoio-atual-campo" class="text-[10px] font-bold bg-purple-200 text-purple-950 px-2 py-0.5 rounded">Individual</span>
+            </div>
+            <div class="flex gap-1.5">
+                <select id="sel-adicionar-apoio-em-andamento" class="flex-1 text-xs border border-purple-300 rounded-lg p-1.5 bg-white font-bold text-purple-950 outline-none">
+                    <option value="">+ Vincular técnico de apoio nesta obra...</option>
+                </select>
+                <button type="button" onclick="vincularColegaApoioNaObraAbertaCampo()" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
+                    ✅ Vincular
+                </button>
+            </div>
+        `;
+        blocoPosAbertura.insertBefore(divAberta, blocoPosAbertura.firstChild);
+    }
+
+    // Cria o Modal para o técnico livre entrar em apoio numa atividade em andamento de outro colega
+    if (!document.getElementById('modal-entrar-apoio-campo')) {
+        const modal = document.createElement('div');
+        modal.id = 'modal-entrar-apoio-campo';
+        modal.className = 'fixed inset-0 bg-black/65 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[82]';
+        modal.innerHTML = `
+            <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-purple-300 flex flex-col max-h-[90vh]">
+                <div class="bg-purple-900 text-white p-4 flex justify-between items-center border-b-4 border-purple-400">
+                    <div>
+                        <span class="bg-purple-300 text-purple-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Atuação Conjunta em Campo</span>
+                        <h3 class="font-bold text-sm mt-0.5">🤝 Entrar em Apoio numa Obra em Andamento</h3>
+                    </div>
+                    <button type="button" onclick="fecharModalEntrarEmApoioObraAtivaCampo()" class="text-white font-bold text-lg">✕</button>
+                </div>
+                <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
+                    <div class="bg-purple-50 p-2.5 rounded-xl border border-purple-200 text-[11px] text-purple-950">
+                        👷 <b>Técnico que vai Apoiar:</b> <span id="lbl-meu-nome-apoio-modal" class="font-black">-</span>
+                    </div>
+                    <p class="text-[11px] text-slate-600">
+                        Selecione abaixo qual atividade em andamento você está apoiando agora. O sistema registrará seu <b>Horário e GPS de chegada em apoio</b> e vinculará seu nome junto ao técnico titular:
+                    </p>
+                    <div id="lista-obras-ativas-para-apoio-campo" class="space-y-2 max-h-64 overflow-y-auto"></div>
+                </div>
+                <div class="bg-slate-100 p-3 border-t flex justify-end">
+                    <button type="button" onclick="fecharModalEntrarEmApoioObraAtivaCampo()" class="bg-slate-400 text-white text-xs px-4 py-2 rounded-xl font-bold">Fechar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    popularOpcoesParceiroApoioCampo();
+}
+
+function popularOpcoesParceiroApoioCampo(apenasSincronizar = false) {
+    const selTitular = document.getElementById('sel-equipe');
+    const titular = selTitular ? selTitular.value.trim().toUpperCase() : '';
+    const selApoio1 = document.getElementById('sel-equipe-apoio-campo');
+    const selApoio2 = document.getElementById('sel-adicionar-apoio-em-andamento');
+
+    if (apenasSincronizar && selApoio1 && selApoio2) {
+        selApoio2.value = selApoio1.value;
+        return;
+    }
+
+    const equipesAtivas = (typeof equipesSistema !== 'undefined' && Array.isArray(equipesSistema))
+        ? equipesSistema.filter(e => e.status === 'Ativo' && e.nome !== titular)
+        : [];
+
+    const opcoesHtml = `<option value="">Sem apoio (Atuação individual)</option>` +
+        equipesAtivas.map(eq => `<option value="${eq.nome}">🤝 Em conjunto com: ${eq.nome}</option>`).join('');
+
+    if (selApoio1) {
+        const valAnt = selApoio1.value;
+        selApoio1.innerHTML = opcoesHtml;
+        if (valAnt && valAnt !== titular) selApoio1.value = valAnt;
+    }
+    if (selApoio2) {
+        const valAnt2 = selApoio2.value;
+        selApoio2.innerHTML = `<option value="">+ Selecione o técnico em apoio...</option>` +
+            equipesAtivas.map(eq => `<option value="${eq.nome}">🤝 ${eq.nome}</option>`).join('');
+        if (valAnt2 && valAnt2 !== titular) selApoio2.value = valAnt2;
+    }
+}
+
+async function abrirModalEntrarEmApoioObraAtivaCampo() {
+    const selEq = document.getElementById('sel-equipe');
+    const meuNome = selEq ? selEq.value.trim().toUpperCase() : '';
+    if (!meuNome) {
+        alert("⚠️ Selecione primeiro o seu nome em 'Equipe / Técnico' antes de prestar apoio.");
+        return;
+    }
+
+    document.getElementById('lbl-meu-nome-apoio-modal').innerText = meuNome;
+    const container = document.getElementById('lista-obras-ativas-para-apoio-campo');
+    container.innerHTML = `<div class="p-4 text-center text-purple-900 font-bold animate-pulse">☁️ Buscando obras em andamento hoje...</div>`;
+    document.getElementById('modal-entrar-apoio-campo').classList.remove('hidden');
+
+    try {
+        const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+        const { data, error } = await supabaseClient
+            .from('registros_producao')
+            .select('id, data_registro, equipe, membros, projeto, imovel, h_entrada, desfecho, observacoes')
+            .eq('data_registro', hojeISO)
+            .in('desfecho', ['EM ANDAMENTO', 'PARALISADA', 'REABERTA']);
+
+        if (error) throw error;
+
+        const obrasDosColegas = (data || []).filter(r =>
+            r.equipe !== '__CONFIG_SISTEMA__' &&
+            r.equipe !== meuNome &&
+            r.projeto !== 'IMPREVISTO / ATRASO'
+        );
+
+        if (obrasDosColegas.length === 0) {
+            container.innerHTML = `<div class="p-4 bg-slate-50 rounded-xl border text-center text-slate-500">Nenhuma atividade de outro técnico está com status "EM ANDAMENTO" hoje neste momento.</div>`;
+            return;
+        }
+
+        container.innerHTML = obrasDosColegas.map(ob => {
+            const apoiosJaVinculados = extrairListaApoiosDoMembros(ob.membros, ob.equipe);
+            const jaEstouNela = apoiosJaVinculados.includes(meuNome);
+            return `
+                <div class="p-3 rounded-xl border-2 ${jaEstouNela ? 'border-emerald-400 bg-emerald-50/60' : 'border-purple-200 bg-white'} shadow-sm space-y-1.5">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="font-black text-blue-950 text-xs">🏢 Imóvel: ${ob.imovel}</span>
+                            <span class="block text-[10px] font-bold text-purple-900">👷 Titular: ${ob.equipe}</span>
+                        </div>
+                        <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[9px]">${ob.projeto}</span>
+                    </div>
+                    <div class="text-[10px] text-slate-500">🟢 Iniciada às: <b>${ob.h_entrada}</b> ${apoiosJaVinculados.length > 0 ? `• 🤝 Apoio atual: <b>${apoiosJaVinculados.join(', ')}</b>` : ''}</div>
+                    ${jaEstouNela
+                        ? `<div class="text-[10px] font-black text-emerald-800 pt-1">✅ Você já está vinculado em apoio nesta atividade!</div>`
+                        : `<button type="button" onclick="confirmarEntradaApoioObraCampo(${ob.id})" class="w-full mt-1 bg-purple-700 hover:bg-purple-800 text-white font-black py-2 rounded-lg text-[11px] shadow-sm transition">🤝 Confirmar Meu Apoio nesta Obra</button>`
+                    }
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        container.innerHTML = `<div class="p-3 bg-red-50 text-red-700 rounded-xl">Erro ao buscar obras: ${e.message}</div>`;
+    }
+}
+
+function fecharModalEntrarEmApoioObraAtivaCampo() {
+    document.getElementById('modal-entrar-apoio-campo')?.classList.add('hidden');
+}
+
+async function confirmarEntradaApoioObraCampo(idObraAlvo) {
+    const selEq = document.getElementById('sel-equipe');
+    const meuNome = selEq ? selEq.value.trim().toUpperCase() : '';
+    if (!meuNome) return;
+
+    const coord = await capturarCoordenadaGpsFrescaCampo(7000);
+    const gpsStr = coord ? `${coord.lat.toFixed(6)}, ${coord.lng.toFixed(6)}` : 'GPS Apoio';
+    const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    const { data: regBanco, error: errBusca } = await supabaseClient
+        .from('registros_producao')
+        .select('*')
+        .eq('id', idObraAlvo)
+        .maybeSingle();
+
+    if (errBusca || !regBanco) {
+        alert("❌ Não foi possível localizar a atividade na nuvem.");
+        return;
+    }
+
+    const listaApoios = extrairListaApoiosDoMembros(regBanco.membros, regBanco.equipe);
+    if (!listaApoios.includes(meuNome)) listaApoios.push(meuNome);
+    const novoMembros = formatarStringMembrosApoio(regBanco.equipe, listaApoios);
+
+    const notaApoio = `[APOIO_CONJUNTO: ${meuNome} entrou em apoio às ${horaAgora} (GPS: ${gpsStr})]`;
+    const obsAtual = regBanco.observacoes || '';
+    const novaObs = obsAtual.includes(notaApoio) ? obsAtual : `${notaApoio} ${obsAtual}`.trim();
+
+    const { error: errUpd } = await supabaseClient
+        .from('registros_producao')
+        .update({ membros: novoMembros, observacoes: novaObs })
+        .eq('id', idObraAlvo);
+
+    if (errUpd) {
+        alert("❌ Erro ao vincular apoio: " + errUpd.message);
+        return;
+    }
+
+    // Atualiza também a telemetria do técnico de apoio com a coordenada fresca
+    await forcarPulsoGpsTempoRealCampo('apoio_confirmado');
+
+    if (typeof carregarRegistrosDaNuvem === 'function') await carregarRegistrosDaNuvem(true);
+    fecharModalEntrarEmApoioObraAtivaCampo();
+    alert(`🤝 ATUAÇÃO CONJUNTA REGISTRADA!\n\nVocê (${meuNome}) foi vinculado em apoio à atividade do imóvel ${regBanco.imovel} junto com ${regBanco.equipe} às ${horaAgora}!`);
+}
+
+async function vincularColegaApoioNaObraAbertaCampo() {
+    const selColega = document.getElementById('sel-adicionar-apoio-em-andamento');
+    const nomeColega = selColega ? selColega.value.trim().toUpperCase() : '';
+    if (!nomeColega) {
+        alert("⚠️ Selecione o nome do técnico que está apoiando nesta obra.");
+        return;
+    }
+
+    const selTitular = document.getElementById('sel-equipe');
+    const titular = selTitular ? selTitular.value.trim().toUpperCase() : '';
+    const lblImovel = document.getElementById('lbl-imovel-aberto')?.innerText?.trim() || '';
+    const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+
+    // Sincroniza o select principal de apoio
+    const selApoio1 = document.getElementById('sel-equipe-apoio-campo');
+    if (selApoio1) selApoio1.value = nomeColega;
+
+    const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
+    if (lblBadge) lblBadge.innerText = `🤝 Com: ${nomeColega}`;
+
+    // Atualiza todos os registros abertos desse imóvel hoje no banco
+    try {
+        const { data: abertos } = await supabaseClient
+            .from('registros_producao')
+            .select('id, equipe, membros, imovel, observacoes')
+            .eq('data_registro', hojeISO)
+            .eq('equipe', titular)
+            .in('desfecho', ['EM ANDAMENTO', 'PARALISADA', 'REABERTA']);
+
+        const alvos = (abertos || []).filter(r => !lblImovel || r.imovel.includes(lblImovel));
+        const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        for (const reg of alvos) {
+            const listaAp = extrairListaApoiosDoMembros(reg.membros, reg.equipe);
+            if (!listaAp.includes(nomeColega)) listaAp.push(nomeColega);
+            const novoMemb = formatarStringMembrosApoio(reg.equipe, listaAp);
+            await supabaseClient.from('registros_producao').update({
+                membros: novoMemb
+            }).eq('id', reg.id);
+        }
+        alert(`🤝 Técnico ${nomeColega} vinculado em conjunto nesta atividade!`);
+    } catch (e) {
+        console.warn("Aviso ao salvar apoio em andamento:", e);
+    }
+}
+
+// Intercepta fazerCheckIn e salvarRegistro para gravar automaticamente o técnico de apoio na coluna "membros"
+function instalarInterceptadoresApoioCampo() {
+    if (typeof window.aoSelecionarEquipeCampo === 'function' && !window._apoioHookEquipe) {
+        const origEq = window.aoSelecionarEquipeCampo;
+        window.aoSelecionarEquipeCampo = async function(...args) {
+            const res = await origEq.apply(this, args);
+            popularOpcoesParceiroApoioCampo();
+            forcarPulsoGpsTempoRealCampo('troca_equipe');
+            return res;
+        };
+        window._apoioHookEquipe = true;
+    }
+
+    if (typeof window.fazerCheckIn === 'function' && !window._apoioHookCheckIn) {
+        const origCheckIn = window.fazerCheckIn;
+        window.fazerCheckIn = async function(...args) {
+            const parceiroEscolhido = document.getElementById('sel-equipe-apoio-campo')?.value?.trim().toUpperCase() || '';
+            const res = await origCheckIn.apply(this, args);
+            await forcarPulsoGpsTempoRealCampo('checkin_obra');
+
+            if (parceiroEscolhido) {
+                const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
+                if (lblBadge) lblBadge.innerText = `🤝 Com: ${parceiroEscolhido}`;
+                const selTitular = document.getElementById('sel-equipe')?.value?.trim().toUpperCase() || '';
+                const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+                const novoMembros = formatarStringMembrosApoio(selTitular, [parceiroEscolhido]);
+                await supabaseClient
+                    .from('registros_producao')
+                    .update({ membros: novoMembros })
+                    .eq('data_registro', hojeISO)
+                    .eq('equipe', selTitular)
+                    .eq('desfecho', 'EM ANDAMENTO');
+            }
+            return res;
+        };
+        window._apoioHookCheckIn = true;
+    }
+
+    if (typeof window.salvarRegistro === 'function' && !window._apoioHookSalvar) {
+        const origSalvar = window.salvarRegistro;
+        window.salvarRegistro = async function(...args) {
+            const parceiro1 = document.getElementById('sel-equipe-apoio-campo')?.value?.trim().toUpperCase() || '';
+            const parceiro2 = document.getElementById('sel-adicionar-apoio-em-andamento')?.value?.trim().toUpperCase() || '';
+            const parceiroFinal = parceiro2 || parceiro1;
+            const titular = document.getElementById('sel-equipe')?.value?.trim().toUpperCase() || '';
+            const imovelAberto = document.getElementById('lbl-imovel-aberto')?.innerText?.trim() || document.getElementById('inp-imovel')?.value?.trim() || '';
+
+            const res = await origSalvar.apply(this, args);
+            await forcarPulsoGpsTempoRealCampo('checkout_obra');
+
+            if (parceiroFinal && titular) {
+                const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+                const novoMembros = formatarStringMembrosApoio(titular, [parceiroFinal]);
+                const { data: recemSalvos } = await supabaseClient
+                    .from('registros_producao')
+                    .select('id, imovel, membros')
+                    .eq('data_registro', hojeISO)
+                    .eq('equipe', titular);
+
+                for (const r of (recemSalvos || [])) {
+                    if (!imovelAberto || (r.imovel && r.imovel.includes(imovelAberto))) {
+                        await supabaseClient.from('registros_producao').update({ membros: novoMembros }).eq('id', r.id);
+                    }
+                }
+            }
+            return res;
+        };
+        window._apoioHookSalvar = true;
+    }
+}
+
+setTimeout(() => {
+    inicializarInterfaceApoioConjuntoCampo();
+    instalarInterceptadoresApoioCampo();
+    iniciarMonitoramentoGpsAntiCongelamento();
+}, 450);
