@@ -2877,9 +2877,7 @@ async function salvarRegistro() {
         alert(`📡 SINAL 4G INDISPONÍVEL NO LOCAL!\n\nSeu atendimento (${imovelBase}) e todas as fotos foram GUARDADOS COM SEGURANÇA na Fila Offline do aparelho.\n\nVocê já pode copiar o resumo para o WhatsApp e seguir para o próximo prédio. Assim que o sinal voltar, basta clicar em "Sincronizar Fila Offline"!`);
     }
 }
-// ================= MÓDULO DE APOIO CONJUNTO & TURBO GPS ANTI-TRAVAMENTO (CAMPO.JS) =================
-let idWatchGpsContinuoCampo = null;
-let wakeLockGpsCampo = null;
+// ================= MÓDULO DE APOIO CONJUNTO & TURBO GPS ANTI-TRAVAMENTO (CAMPO.JS UNIFICADO) =================
 let ultimoDisparoGpsCampoTs = 0;
 
 function extrairListaApoiosDoMembros(strMembros, nomeTitular) {
@@ -2897,7 +2895,7 @@ function formatarStringMembrosApoio(nomeTitular, arrayApoios) {
     return unicos.length > 0 ? `APOIO:${unicos.join(', ')}` : (nomeTitular || '');
 }
 
-// Captura GPS sem aceitar cache antigo do celular (maximumAge: 0)
+// Captura GPS fresca sem aceitar cache antigo do celular (maximumAge: 0)
 function capturarCoordenadaGpsFrescaCampo(timeoutMs = 8000) {
     return new Promise((resolve) => {
         if (!navigator.geolocation) { resolve(null); return; }
@@ -2915,21 +2913,19 @@ function capturarCoordenadaGpsFrescaCampo(timeoutMs = 8000) {
     });
 }
 
-// Dispara sinal imediato de GPS para a nuvem sempre que o técnico usa ou desbloqueia o celular
+// Dispara sinal imediato de GPS usando a função nativa registrarPontoTelemetriaEquipe
 async function forcarPulsoGpsTempoRealCampo(origem = 'auto') {
     try {
         const selEq = document.getElementById('sel-equipe');
-        const nomeTec = selEq ? selEq.value.trim().toUpperCase() : '';
+        const nomeTec = (selEq?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
         if (!nomeTec) return;
 
-        // Evita disparos duplicados em menos de 12 segundos, exceto em ações manuais
         const agora = Date.now();
-        if (origem === 'auto' && (agora - ultimoDisparoGpsCampoTs) < 12000) return;
+        if (origem === 'auto' && (agora - ultimoDisparoGpsCampoTs) < 15000) return;
 
         const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
         const telAtual = (typeof telemetriaEquipes !== 'undefined' && telemetriaEquipes && telemetriaEquipes[nomeTec]) ? telemetriaEquipes[nomeTec] : null;
 
-        // Só rastreia se o técnico iniciou expediente hoje ou tem obra em andamento hoje
         const temObraAtivaHoje = (typeof registrosSalvos !== 'undefined' && Array.isArray(registrosSalvos)) && registrosSalvos.some(r =>
             r.dataRegistro === hojeISO &&
             ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(r.desfecho) &&
@@ -2943,60 +2939,29 @@ async function forcarPulsoGpsTempoRealCampo(origem = 'auto') {
         if (!coord || isNaN(coord.lat) || isNaN(coord.lng)) return;
 
         ultimoDisparoGpsCampoTs = Date.now();
-        const horaCurta = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        ultimaCoordRastreioCache = { lat: Number(coord.lat.toFixed(6)), lng: Number(coord.lng.toFixed(6)) };
 
-        if (typeof telemetriaEquipes !== 'undefined') {
-            const anterior = telemetriaEquipes[nomeTec] || {};
-            telemetriaEquipes[nomeTec] = {
-                ...anterior,
-                data: hojeISO,
-                statusTurno: anterior.statusTurno === 'ENCERRADO' ? 'DISPONIVEL' : (anterior.statusTurno || 'DISPONIVEL'),
-                horaInicio: anterior.horaInicio || horaCurta,
-                lat: coord.lat,
-                lng: coord.lng,
-                horaUltimoSinal: horaCurta,
-                timestampUltimoSinal: Date.now()
-            };
-            if (typeof sincronizarTelemetriaNaNuvem === 'function') {
-                await sincronizarTelemetriaNaNuvem();
-            } else if (typeof supabaseClient !== 'undefined' && typeof ID_NUVEM_TELEMETRIA !== 'undefined') {
-                await supabaseClient.from('registros_producao').upsert([{
-                    id: ID_NUVEM_TELEMETRIA, data_registro: "2000-01-01", equipe: "__CONFIG_SISTEMA__",
-                    membros: "__CONFIG_SISTEMA__", projeto: "__CONFIG_TELEMETRIA__", imovel: "__CONFIG_TELEMETRIA__",
-                    h_entrada: "00:00", h_saida: "00:00", gps_entrada: "", gps_saida: "", desfecho: "CONFIG",
-                    motivo_desfecho: "", malogros: [], agendamento: null, observacoes: JSON.stringify(telemetriaEquipes)
-                }], { onConflict: 'id' });
-            }
+        // Usa a função nativa do próprio campo.js que já sincroniza na nuvem com os 2 parâmetros corretos!
+        if (typeof registrarPontoTelemetriaEquipe === 'function') {
+            await registrarPontoTelemetriaEquipe(nomeTec, coord.lat, coord.lng, 'DISPONIVEL');
         }
     } catch (e) { console.warn("Aviso no pulso GPS:", e); }
 }
 
 function iniciarMonitoramentoGpsAntiCongelamento() {
-    // 1. Sempre que o técnico desbloquear o celular ou voltar para o navegador, atualiza o GPS imediatamente
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') forcarPulsoGpsTempoRealCampo('retorno_tela');
+        if (document.visibilityState === 'visible') {
+            ativarWakeLockTela();
+            forcarPulsoGpsTempoRealCampo('retorno_tela');
+        }
     });
     window.addEventListener('focus', () => forcarPulsoGpsTempoRealCampo('foco'));
     window.addEventListener('pageshow', () => forcarPulsoGpsTempoRealCampo('pageshow'));
     window.addEventListener('online', () => forcarPulsoGpsTempoRealCampo('reconexao'));
 
-    // 2. Pulso periódico a cada 40 segundos com a tela aberta
     setInterval(() => {
         if (document.visibilityState === 'visible') forcarPulsoGpsTempoRealCampo('auto');
     }, 40000);
-
-    // 3. Tenta manter WakeLock ativo durante expediente em campo
-    if ('wakeLock' in navigator) {
-        document.addEventListener('click', async () => {
-            try {
-                const viewCampo = document.getElementById('view-campo');
-                if (viewCampo && !viewCampo.classList.contains('hidden') && !wakeLockGpsCampo) {
-                    wakeLockGpsCampo = await navigator.wakeLock.request('screen');
-                    wakeLockGpsCampo.addEventListener('release', () => { wakeLockGpsCampo = null; });
-                }
-            } catch (e) {}
-        }, { passive: true });
-    }
 }
 
 // Injeta os controles de Atuação Conjunta / Apoio Operacional na tela do Modo Campo
@@ -3021,7 +2986,6 @@ function inicializarInterfaceApoioConjuntoCampo() {
         inpImovel.parentNode.appendChild(divApoio);
     }
 
-    // Também adiciona barra de vínculo de apoio dentro de uma atividade já aberta em tela
     const blocoPosAbertura = document.getElementById('bloco-pos-abertura');
     if (blocoPosAbertura && !document.getElementById('barra-apoio-obra-aberta-campo')) {
         const divAberta = document.createElement('div');
@@ -3044,7 +3008,6 @@ function inicializarInterfaceApoioConjuntoCampo() {
         blocoPosAbertura.insertBefore(divAberta, blocoPosAbertura.firstChild);
     }
 
-    // Cria o Modal para o técnico livre entrar em apoio numa atividade em andamento de outro colega
     if (!document.getElementById('modal-entrar-apoio-campo')) {
         const modal = document.createElement('div');
         modal.id = 'modal-entrar-apoio-campo';
@@ -3080,7 +3043,7 @@ function inicializarInterfaceApoioConjuntoCampo() {
 
 function popularOpcoesParceiroApoioCampo(apenasSincronizar = false) {
     const selTitular = document.getElementById('sel-equipe');
-    const titular = selTitular ? selTitular.value.trim().toUpperCase() : '';
+    const titular = (selTitular?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
     const selApoio1 = document.getElementById('sel-equipe-apoio-campo');
     const selApoio2 = document.getElementById('sel-adicionar-apoio-em-andamento');
 
@@ -3110,12 +3073,8 @@ function popularOpcoesParceiroApoioCampo(apenasSincronizar = false) {
 }
 
 async function abrirModalEntrarEmApoioObraAtivaCampo() {
-    const selEq = document.getElementById('sel-equipe');
-    const meuNome = selEq ? selEq.value.trim().toUpperCase() : '';
-    if (!meuNome) {
-        alert("⚠️ Selecione primeiro o seu nome em 'Equipe / Técnico' antes de prestar apoio.");
-        return;
-    }
+    const meuNome = validarTecnicoSelecionadoParaSolicitacao();
+    if (!meuNome) return;
 
     document.getElementById('lbl-meu-nome-apoio-modal').innerText = meuNome;
     const container = document.getElementById('lista-obras-ativas-para-apoio-campo');
@@ -3173,8 +3132,7 @@ function fecharModalEntrarEmApoioObraAtivaCampo() {
 }
 
 async function confirmarEntradaApoioObraCampo(idObraAlvo) {
-    const selEq = document.getElementById('sel-equipe');
-    const meuNome = selEq ? selEq.value.trim().toUpperCase() : '';
+    const meuNome = validarTecnicoSelecionadoParaSolicitacao();
     if (!meuNome) return;
 
     const coord = await capturarCoordenadaGpsFrescaCampo(7000);
@@ -3210,11 +3168,13 @@ async function confirmarEntradaApoioObraCampo(idObraAlvo) {
         return;
     }
 
-    // Atualiza também a telemetria do técnico de apoio com a coordenada fresca
-    await forcarPulsoGpsTempoRealCampo('apoio_confirmado');
+    if (coord && typeof registrarPontoTelemetriaEquipe === 'function') {
+        await registrarPontoTelemetriaEquipe(meuNome, coord.lat, coord.lng, 'DISPONIVEL');
+    }
 
-    if (typeof carregarRegistrosDaNuvem === 'function') await carregarRegistrosDaNuvem(true);
+    if (typeof carregarRegistrosModoCampoLeve === 'function') await carregarRegistrosModoCampoLeve();
     fecharModalEntrarEmApoioObraAtivaCampo();
+    atualizarAbaMinhasAtividadesCampo(false);
     alert(`🤝 ATUAÇÃO CONJUNTA REGISTRADA!\n\nVocê (${meuNome}) foi vinculado em apoio à atividade do imóvel ${regBanco.imovel} junto com ${regBanco.equipe} às ${horaAgora}!`);
 }
 
@@ -3226,37 +3186,27 @@ async function vincularColegaApoioNaObraAbertaCampo() {
         return;
     }
 
-    const selTitular = document.getElementById('sel-equipe');
-    const titular = selTitular ? selTitular.value.trim().toUpperCase() : '';
-    const lblImovel = document.getElementById('lbl-imovel-aberto')?.innerText?.trim() || '';
-    const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
-
-    // Sincroniza o select principal de apoio
+    const titular = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
     const selApoio1 = document.getElementById('sel-equipe-apoio-campo');
     if (selApoio1) selApoio1.value = nomeColega;
 
     const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
     if (lblBadge) lblBadge.innerText = `🤝 Com: ${nomeColega}`;
 
-    // Atualiza todos os registros abertos desse imóvel hoje no banco
     try {
-        const { data: abertos } = await supabaseClient
-            .from('registros_producao')
-            .select('id, equipe, membros, imovel, observacoes')
-            .eq('data_registro', hojeISO)
-            .eq('equipe', titular)
-            .in('desfecho', ['EM ANDAMENTO', 'PARALISADA', 'REABERTA']);
+        if (dadosAtendimento.idEmAndamento) {
+            const { data: regAtual } = await supabaseClient
+                .from('registros_producao')
+                .select('id, equipe, membros')
+                .eq('id', dadosAtendimento.idEmAndamento)
+                .maybeSingle();
 
-        const alvos = (abertos || []).filter(r => !lblImovel || r.imovel.includes(lblImovel));
-        const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-        for (const reg of alvos) {
-            const listaAp = extrairListaApoiosDoMembros(reg.membros, reg.equipe);
-            if (!listaAp.includes(nomeColega)) listaAp.push(nomeColega);
-            const novoMemb = formatarStringMembrosApoio(reg.equipe, listaAp);
-            await supabaseClient.from('registros_producao').update({
-                membros: novoMemb
-            }).eq('id', reg.id);
+            if (regAtual) {
+                const listaAp = extrairListaApoiosDoMembros(regAtual.membros, regAtual.equipe);
+                if (!listaAp.includes(nomeColega)) listaAp.push(nomeColega);
+                const novoMemb = formatarStringMembrosApoio(regAtual.equipe, listaAp);
+                await supabaseClient.from('registros_producao').update({ membros: novoMemb }).eq('id', regAtual.id);
+            }
         }
         alert(`🤝 Técnico ${nomeColega} vinculado em conjunto nesta atividade!`);
     } catch (e) {
@@ -3264,12 +3214,12 @@ async function vincularColegaApoioNaObraAbertaCampo() {
     }
 }
 
-// Intercepta fazerCheckIn e salvarRegistro para gravar automaticamente o técnico de apoio na coluna "membros"
+// Intercepta as funções do campo.js para incluir Apoio Conjunto automaticamente no Check-in, Salvar e WhatsApp
 function instalarInterceptadoresApoioCampo() {
     if (typeof window.aoSelecionarEquipeCampo === 'function' && !window._apoioHookEquipe) {
         const origEq = window.aoSelecionarEquipeCampo;
-        window.aoSelecionarEquipeCampo = async function(...args) {
-            const res = await origEq.apply(this, args);
+        window.aoSelecionarEquipeCampo = function(...args) {
+            const res = origEq.apply(this, args);
             popularOpcoesParceiroApoioCampo();
             forcarPulsoGpsTempoRealCampo('troca_equipe');
             return res;
@@ -3282,20 +3232,17 @@ function instalarInterceptadoresApoioCampo() {
         window.fazerCheckIn = async function(...args) {
             const parceiroEscolhido = document.getElementById('sel-equipe-apoio-campo')?.value?.trim().toUpperCase() || '';
             const res = await origCheckIn.apply(this, args);
-            await forcarPulsoGpsTempoRealCampo('checkin_obra');
 
+            const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
             if (parceiroEscolhido) {
-                const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
                 if (lblBadge) lblBadge.innerText = `🤝 Com: ${parceiroEscolhido}`;
-                const selTitular = document.getElementById('sel-equipe')?.value?.trim().toUpperCase() || '';
-                const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+                const selTitular = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
                 const novoMembros = formatarStringMembrosApoio(selTitular, [parceiroEscolhido]);
-                await supabaseClient
-                    .from('registros_producao')
-                    .update({ membros: novoMembros })
-                    .eq('data_registro', hojeISO)
-                    .eq('equipe', selTitular)
-                    .eq('desfecho', 'EM ANDAMENTO');
+                if (dadosAtendimento.idEmAndamento) {
+                    await supabaseClient.from('registros_producao').update({ membros: novoMembros }).eq('id', dadosAtendimento.idEmAndamento);
+                }
+            } else if (lblBadge) {
+                lblBadge.innerText = 'Individual';
             }
             return res;
         };
@@ -3308,13 +3255,20 @@ function instalarInterceptadoresApoioCampo() {
             const parceiro1 = document.getElementById('sel-equipe-apoio-campo')?.value?.trim().toUpperCase() || '';
             const parceiro2 = document.getElementById('sel-adicionar-apoio-em-andamento')?.value?.trim().toUpperCase() || '';
             const parceiroFinal = parceiro2 || parceiro1;
-            const titular = document.getElementById('sel-equipe')?.value?.trim().toUpperCase() || '';
-            const imovelAberto = document.getElementById('lbl-imovel-aberto')?.innerText?.trim() || document.getElementById('inp-imovel')?.value?.trim() || '';
+            const titular = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
+            const imovelBase = document.getElementById('inp-imovel')?.value?.trim() || '';
 
             const res = await origSalvar.apply(this, args);
-            await forcarPulsoGpsTempoRealCampo('checkout_obra');
 
             if (parceiroFinal && titular) {
+                // Insere a linha de Atuação Conjunta no resumo do WhatsApp do técnico
+                if (typeof ultimoResumoCampoTexto === 'string' && ultimoResumoCampoTexto && !ultimoResumoCampoTexto.includes('Atuação Conjunta')) {
+                    ultimoResumoCampoTexto = ultimoResumoCampoTexto.replace(
+                        `👷 *Equipe:* ${titular}`,
+                        `👷 *Equipe Titular:* ${titular}\n🤝 *Atuação Conjunta / Apoio:* ${parceiroFinal}`
+                    );
+                }
+
                 const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
                 const novoMembros = formatarStringMembrosApoio(titular, [parceiroFinal]);
                 const { data: recemSalvos } = await supabaseClient
@@ -3324,10 +3278,14 @@ function instalarInterceptadoresApoioCampo() {
                     .eq('equipe', titular);
 
                 for (const r of (recemSalvos || [])) {
-                    if (!imovelAberto || (r.imovel && r.imovel.includes(imovelAberto))) {
+                    if (!imovelBase || (r.imovel && r.imovel.toUpperCase().startsWith(imovelBase.toUpperCase()))) {
                         await supabaseClient.from('registros_producao').update({ membros: novoMembros }).eq('id', r.id);
                     }
                 }
+                const selApoio1 = document.getElementById('sel-equipe-apoio-campo');
+                const selApoio2 = document.getElementById('sel-adicionar-apoio-em-andamento');
+                if (selApoio1) selApoio1.value = '';
+                if (selApoio2) selApoio2.value = '';
             }
             return res;
         };
