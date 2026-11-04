@@ -3523,3 +3523,122 @@ setTimeout(() => {
     iniciarMonitoramentoGpsAntiCongelamento();
     verificarSolicitacoesApoioParaTitularCampo();
 }, 450);
+// ================= CORREÇÃO DEFINITIVA: ENCERRAMENTO INSTANTÂNEO DE EXPEDIENTE (1 CLIQUE) =================
+let encerrandoExpedienteEmCurso = false;
+
+encerrarExpedienteRastreioCampo = async function() {
+    if (encerrandoExpedienteEmCurso) return;
+
+    const nomeEq = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "").trim().toUpperCase();
+    if (!nomeEq) return;
+
+    // 1. Verifica na hora (sem rede) se há atendimento aberto na tela
+    const posAberturaVisivel = !document.getElementById('bloco-pos-abertura')?.classList.contains('hidden');
+    if (posAberturaVisivel) {
+        alert("🚫 NÃO É PERMITIDO ENCERRAR O EXPEDIENTE!\n\nVocê possui uma atividade aberta na sua tela neste momento. Finalize e salve o atendimento (ou cancele a abertura) antes de encerrar o turno.");
+        return;
+    }
+
+    // 2. Verifica primeiro na memória local se há pendências (instantâneo)
+    const checarPendenciasLocais = () => (registrosSalvos || []).filter(r =>
+        r.equipe === nomeEq &&
+        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+        r.projeto !== PROJETO_SOLIC_MATERIAL &&
+        ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'IMPREVISTO'].includes(r.desfecho)
+    );
+
+    let pendentes = checarPendenciasLocais();
+    if (pendentes.length > 0) {
+        const resumo = pendentes.map(p => `• ${p.imovel} (${p.desfecho})`).join('\n');
+        alert(`🚫 ENCERRAMENTO DE EXPEDIENTE BLOQUEADO!\n\nVocê ainda possui ${pendentes.length} atividade(s) ou imprevisto(s) em aberto:\n\n${resumo}\n\nFinalize todas antes de encerrar o seu turno.`);
+        return;
+    }
+
+    // 3. ABRE O CONFIRM IMEDIATAMENTE NO PRIMEIRO TOQUE (antes de qualquer await para o celular nunca bloquear!)
+    if (!confirm(`🔴 ENCERRAR EXPEDIENTE DO DIA\n\nConfirmar o encerramento do turno de hoje para ${nomeEq}?\nO compartilhamento de GPS em rota será desligado imediatamente.`)) {
+        return;
+    }
+
+    encerrandoExpedienteEmCurso = true;
+    // Trava qualquer pulso automático de GPS pelos próximos 60 segundos para evitar reabertura acidental
+    if (typeof ultimoDisparoGpsCampoTs !== 'undefined') {
+        ultimoDisparoGpsCampoTs = Date.now() + 60000;
+    }
+
+    // Desliga imediatamente os relógios de GPS do celular
+    if (typeof pararMonitoramentoContinuoGps === 'function') {
+        pararMonitoramentoContinuoGps();
+    }
+
+    const btnEnc = document.getElementById('btn-encerrar-expediente-campo');
+    if (btnEnc) {
+        btnEnc.disabled = true;
+        btnEnc.innerText = "🔴 Encerrando turno...";
+    }
+
+    try {
+        // 4. Faz uma checagem rápida na nuvem (máx 2,5 segundos) apenas por segurança
+        if (typeof carregarRegistrosModoCampoLeve === 'function') {
+            await Promise.race([
+                carregarRegistrosModoCampoLeve(),
+                new Promise(res => setTimeout(res, 2500))
+            ]);
+        }
+
+        pendentes = checarPendenciasLocais();
+        if (pendentes.length > 0) {
+            const resumo = pendentes.map(p => `• ${p.imovel} (${p.desfecho})`).join('\n');
+            alert(`🚫 ENCERRAMENTO BLOQUEADO!\n\nConsta(m) ${pendentes.length} atividade(s) em aberto na nuvem:\n\n${resumo}`);
+            return;
+        }
+
+        // 5. Usa imediatamente a última coordenada conhecida (ou tenta GPS rápido de no máximo 1,5s sem travar)
+        let latFim = ultimaCoordRastreioCache?.lat || telemetriaEquipes[nomeEq]?.lat || null;
+        let lngFim = ultimaCoordRastreioCache?.lng || telemetriaEquipes[nomeEq]?.lng || null;
+
+        if (!latFim && typeof capturarCoordenadaGpsFrescaCampo === 'function') {
+            const coordRapida = await Promise.race([
+                capturarCoordenadaGpsFrescaCampo(1500),
+                new Promise(res => setTimeout(() => res(null), 1500))
+            ]);
+            if (coordRapida) {
+                latFim = coordRapida.lat;
+                lngFim = coordRapida.lng;
+            }
+        }
+
+        // 6. Atualiza a interface visual na mesma hora e grava ENCERRADO na nuvem
+        const hojeISO = obterDataLocalISO();
+        const horaFim = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const anterior = (telemetriaEquipes[nomeEq] && telemetriaEquipes[nomeEq].data === hojeISO) ? telemetriaEquipes[nomeEq] : {};
+
+        const dadosEncerramento = {
+            equipe: nomeEq,
+            data: hojeISO,
+            statusTurno: 'ENCERRADO',
+            horaInicio: anterior.horaInicio || horaFim,
+            horaFim: horaFim,
+            lat: latFim !== null ? Number(Number(latFim).toFixed(6)) : (anterior.lat || null),
+            lng: lngFim !== null ? Number(Number(lngFim).toFixed(6)) : (anterior.lng || null),
+            horaUltimoSinal: horaFim,
+            timestampUltimoSinal: Date.now()
+        };
+
+        telemetriaEquipes[nomeEq] = dadosEncerramento;
+        atualizarBarraExpedienteCampo();
+
+        await sincronizarTelemetriaNaNuvem(nomeEq, dadosEncerramento);
+        atualizarBarraExpedienteCampo();
+
+        alert(`🔴 Expediente encerrado com sucesso às ${horaFim}! Bom descanso.`);
+    } catch (e) {
+        console.warn("Aviso ao encerrar expediente:", e);
+        atualizarBarraExpedienteCampo();
+    } finally {
+        encerrandoExpedienteEmCurso = false;
+        if (btnEnc) {
+            btnEnc.disabled = false;
+            btnEnc.innerText = "🔴 Encerrar Expediente do Dia";
+        }
+    }
+};
