@@ -3500,11 +3500,104 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
-// ================= COMPLEMENTO DEFINITIVO: VALIDAÇÃO DE APOIO + AUTO-EXPIRAÇÃO E LIMPEZA DE TÉCNICOS TRAVADOS NO MAPA =================
+// ================= COMPLEMENTO UNIFICADO E SEGURO: APOIO, MAPA SEM TRAVAMENTO E CARTEIRA DE FISCAIS =================
 
-const TEMPO_MAXIMO_SINAL_MAPA_MINUTOS = 45; // Remove do mapa quem está sem transmitir GPS há mais de 45 min
+var TEMPO_MAXIMO_SINAL_MAPA_MINUTOS = 45;
 
-// Extrai apenas os apoios VALIDADOS pelo titular ou pela gestão
+var CATALOGO_FISCAIS_MDU = [
+    { nome: "FRANCISCO DE SOUZA MOURA", email: "fiscal01@mdu.com.br" },
+    { nome: "JEFFERSON SILVA DE OLIVEIRA", email: "fiscal02@mdu.com.br" },
+    { nome: "MARCELO FRANCISCO SOARES", email: "fiscal03@mdu.com.br" }
+];
+
+var MAPA_PADRAO_EQUIPE_FISCAL = {
+    "BRUNO MARCUS CORREA FERNANDES": "fiscal02@mdu.com.br",
+    "MATHEUS FRANCINI ALMEIDA": "fiscal02@mdu.com.br",
+    "HEVERTON ALESSANDRO RODRIGUES GUSMAO": "fiscal02@mdu.com.br",
+    "MATHEUS MAGNO FERREIRA DA ROCHA": "fiscal02@mdu.com.br",
+    "PAULO RICARDO MATOLLA DE FIGUEIREDO SOARES": "fiscal02@mdu.com.br",
+    "LUCIANO SANTOS FERREIRA": "fiscal02@mdu.com.br",
+    "ANDREO FAGUNDES": "fiscal02@mdu.com.br",
+    "FELIPE BAPTISTA FERREIRA": "fiscal03@mdu.com.br",
+    "WILSON JOSE DE SOUSA JUNIOR": "fiscal03@mdu.com.br",
+    "WEVERTON OTACILIO DA SILVA VERAS": "fiscal03@mdu.com.br",
+    "TIAGO SILVA DE PAULA": "fiscal03@mdu.com.br",
+    "MARCOS VINICIUS SANTOS DA SILVA": "fiscal03@mdu.com.br",
+    "PAULO CESAR FERNANDES JUNIOR": "fiscal03@mdu.com.br",
+    "CESAR SALES ROSA": "fiscal01@mdu.com.br",
+    "MARCOS VINICIUS CARDOSO DE ARAUJO": "fiscal01@mdu.com.br",
+    "BRUNO SOARES DA SILVA": "fiscal01@mdu.com.br",
+    "EWERTON LOPES DA SILVA": "fiscal01@mdu.com.br",
+    "IGOR DA SILVA ALVES JANUARIO": "fiscal01@mdu.com.br",
+    "DIEGO LEMOS RIBEIRO": "fiscal01@mdu.com.br",
+    "ELDER DE OLIVEIRA MARTINS": "fiscal01@mdu.com.br",
+    "MARCIO VIEIRA PINTO": "fiscal01@mdu.com.br",
+    "MAICON LUIZ DE OLIVEIRA COSTA": "fiscal01@mdu.com.br",
+    "LEONARDO LISBOA BANDEIRA": "fiscal01@mdu.com.br"
+};
+
+function normalizarTextoComparacaoFiscal(str) {
+    return String(str || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+}
+
+function obterFiscalObjPorEmailOuNome(valor) {
+    if (!valor) return null;
+    const vNorm = normalizarTextoComparacaoFiscal(valor);
+    return CATALOGO_FISCAIS_MDU.find(f =>
+        f.email.toLowerCase() === String(valor).toLowerCase().trim() ||
+        normalizarTextoComparacaoFiscal(f.nome) === vNorm
+    ) || null;
+}
+
+function obterEmailFiscalDaEquipe(eqObjOuNome) {
+    let eqObj = (typeof eqObjOuNome === 'object' && eqObjOuNome !== null)
+        ? eqObjOuNome
+        : (equipesSistema || []).find(e => normalizarTextoComparacaoFiscal(e.nome) === normalizarTextoComparacaoFiscal(eqObjOuNome));
+
+    if (eqObj && eqObj.fiscalEmail) {
+        return String(eqObj.fiscalEmail).toLowerCase().trim();
+    }
+    const nomeChave = normalizarTextoComparacaoFiscal(eqObj ? eqObj.nome : eqObjOuNome);
+    return MAPA_PADRAO_EQUIPE_FISCAL[nomeChave] || "";
+}
+
+function obterNomeFiscalDaEquipe(eqObjOuNome) {
+    const email = obterEmailFiscalDaEquipe(eqObjOuNome);
+    const fObj = obterFiscalObjPorEmailOuNome(email);
+    return fObj ? fObj.nome : "SEM FISCAL DEFINIDO";
+}
+
+function obterFiscalLogadoRestrito() {
+    const emailLogado = String(usuarioLogado || "").toLowerCase().trim();
+    if (!emailLogado) return null;
+    return CATALOGO_FISCAIS_MDU.find(f => f.email.toLowerCase() === emailLogado) || null;
+}
+
+function obterSetNomesEquipesPermitidasParaUsuarioAtual() {
+    const fiscalRestrito = obterFiscalLogadoRestrito();
+    if (!fiscalRestrito) return null;
+
+    const emailFiscal = fiscalRestrito.email.toLowerCase().trim();
+    const permitidas = new Set();
+
+    (equipesSistema || []).forEach(eq => {
+        if (obterEmailFiscalDaEquipe(eq) === emailFiscal) {
+            permitidas.add(normalizarTextoComparacaoFiscal(eq.nome));
+        }
+    });
+
+    Object.entries(MAPA_PADRAO_EQUIPE_FISCAL).forEach(([nomeTec, emailPadrao]) => {
+        const eqCad = (equipesSistema || []).find(e => normalizarTextoComparacaoFiscal(e.nome) === nomeTec);
+        const emailAtual = (eqCad && eqCad.fiscalEmail) ? eqCad.fiscalEmail.toLowerCase().trim() : emailPadrao;
+        if (emailAtual === emailFiscal) {
+            permitidas.add(nomeTec);
+        }
+    });
+
+    return permitidas;
+}
+
+// Extrai apenas apoios validados
 extrairApoiosDoRegistro = function(reg) {
     if (!reg) return [];
     const titular = (reg.equipe || '').toUpperCase().trim();
@@ -3524,7 +3617,6 @@ extrairApoiosDoRegistro = function(reg) {
     return validados;
 };
 
-// Extrai solicitações de apoio que ainda aguardam validação do técnico titular
 function extrairApoiosPendentesDoRegistro(reg) {
     if (!reg) return [];
     const titular = (reg.equipe || '').toUpperCase().trim();
@@ -3545,73 +3637,64 @@ function extrairApoiosPendentesDoRegistro(reg) {
     return pendentes;
 }
 
-// Calcula quantos minutos se passaram desde o último horário (HH:MM) ou timestamp do técnico hoje
+// Aplica filtro de Fiscal diretamente dentro de enriquecerStatusMacroEBairro (SEM mexer na variável global registrosSalvos!)
+var _origEnriquecerStatusMacroEBairroBase = enriquecerStatusMacroEBairro;
+enriquecerStatusMacroEBairro = function(listaRegistros) {
+    aplicarFiltroSelectEquipesEBannerFiscal();
+    const setPermitidas = obterSetNomesEquipesPermitidasParaUsuarioAtual();
+    let listaAlvo = Array.isArray(listaRegistros) ? listaRegistros : [];
+
+    if (setPermitidas) {
+        listaAlvo = listaAlvo.filter(r => {
+            if (!r) return false;
+            if (setPermitidas.has(normalizarTextoComparacaoFiscal(r.equipe))) return true;
+            const apoios = extrairApoiosDoRegistro(r);
+            return apoios.some(ap => setPermitidas.has(normalizarTextoComparacaoFiscal(ap)));
+        });
+    }
+    return _origEnriquecerStatusMacroEBairroBase(listaAlvo);
+};
+
 function calcularMinutosInatividadeSinalHoje(melhorSinal, tel) {
     const agora = new Date();
     const minAgora = (agora.getHours() * 60) + agora.getMinutes();
-
     let minDiffPorHora = null;
     if (melhorSinal && melhorSinal.minDia !== undefined && melhorSinal.minDia >= 0) {
-        minDiffPorHora = minAgora - melhorSinal.minDia;
-        if (minDiffPorHora < 0) minDiffPorHora = 0;
+        minDiffPorHora = Math.max(0, minAgora - melhorSinal.minDia);
     }
-
     let minDiffPorTs = null;
     const tsRef = Number(tel?.timestampUltimoSinal) || 0;
     if (tsRef > 1700000000000) {
         minDiffPorTs = Math.max(0, Math.round((Date.now() - tsRef) / 60000));
     }
-
-    if (minDiffPorHora !== null && minDiffPorTs !== null) {
-        return Math.min(minDiffPorHora, minDiffPorTs);
-    }
+    if (minDiffPorHora !== null && minDiffPorTs !== null) return Math.min(minDiffPorHora, minDiffPorTs);
     if (minDiffPorHora !== null) return minDiffPorHora;
     if (minDiffPorTs !== null) return minDiffPorTs;
     return 999;
 }
 
-// Permite ao Gestor encerrar manualmente o turno de um técnico que esqueceu o expediente aberto
 async function encerrarTurnoTecnicoPeloGestor(nomeEq) {
     const nivelNorm = String(nivelUsuarioLogado || '').trim().toLowerCase();
-    if (nivelNorm !== 'master' && nivelNorm !== 'operador') {
-        alert("⚠️ Apenas usuários Master ou Operador podem encerrar turnos.");
-        return;
-    }
-    if (!confirm(`🔴 ENCERRAR TURNO NO MAPA\n\nDeseja encerrar o expediente ativo de "${nomeEq}" para removê-lo do mapa em tempo real?`)) return;
+    if (nivelNorm !== 'master' && nivelNorm !== 'operador') return;
+    if (!confirm(`🔴 ENCERRAR TURNO NO MAPA\n\nDeseja encerrar o expediente ativo de "${nomeEq}" para removê-lo do mapa?`)) return;
 
     const hojeISO = obterDataLocalISO();
     const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const anterior = (telemetriaEquipes && telemetriaEquipes[nomeEq]) ? telemetriaEquipes[nomeEq] : {};
-
-    const objEncerrado = {
-        ...anterior,
-        equipe: nomeEq,
-        data: hojeISO,
-        statusTurno: 'ENCERRADO',
-        horaFim: horaAgora,
-        timestampUltimoSinal: Date.now()
-    };
+    const objEncerrado = { ...anterior, equipe: nomeEq, data: hojeISO, statusTurno: 'ENCERRADO', horaFim: horaAgora, timestampUltimoSinal: Date.now() };
 
     telemetriaEquipes[nomeEq] = objEncerrado;
-    if (typeof sincronizarTelemetriaNaNuvem === 'function') {
-        await sincronizarTelemetriaNaNuvem(nomeEq, objEncerrado);
-    }
+    if (typeof sincronizarTelemetriaNaNuvem === 'function') await sincronizarTelemetriaNaNuvem(nomeEq, objEncerrado);
     renderizarPainelDisponibilidade();
 }
 
-// Limpa de uma só vez do Mapa todos os técnicos com sinal travado/antigo ou sem atividade aberta
 async function limparSinaisAntigosDoMapaGestor() {
     const nivelNorm = String(nivelUsuarioLogado || '').trim().toLowerCase();
-    if (nivelNorm !== 'master' && nivelNorm !== 'operador') {
-        alert("⚠️ Apenas usuários Master ou Operador podem resetar sinais do mapa.");
-        return;
-    }
-
-    if (!confirm(`🧹 LIMPAR SINAIS TRAVADOS DO MAPA\n\nDeseja encerrar os turnos antigos/inativos na nuvem e manter no mapa apenas quem está em atendimento ativo agora?`)) return;
+    if (nivelNorm !== 'master' && nivelNorm !== 'operador') return;
+    if (!confirm(`🧹 LIMPAR SINAIS TRAVADOS DO MAPA\n\nDeseja encerrar os turnos antigos/inativos na nuvem?`)) return;
 
     const hojeISO = obterDataLocalISO();
     const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
     const emAtendimentoAgora = new Set(
         (registrosSalvos || [])
             .filter(r => r.dataRegistro === hojeISO && ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'IMPREVISTO'].includes(r.desfecho))
@@ -3624,17 +3707,13 @@ async function limparSinaisAntigosDoMapaGestor() {
             telemetriaEquipes[nomeEq].statusTurno = 'ENCERRADO';
             telemetriaEquipes[nomeEq].horaFim = horaAgora;
             qtdLimpos++;
-            if (typeof sincronizarTelemetriaNaNuvem === 'function') {
-                await sincronizarTelemetriaNaNuvem(nomeEq, telemetriaEquipes[nomeEq]);
-            }
+            if (typeof sincronizarTelemetriaNaNuvem === 'function') await sincronizarTelemetriaNaNuvem(nomeEq, telemetriaEquipes[nomeEq]);
         }
     }
-
     renderizarPainelDisponibilidade();
-    alert(`✅ Mapa atualizado! ${qtdLimpos} turno(s) travado(s)/inativo(s) foram encerrados na nuvem.`);
+    alert(`✅ Mapa atualizado! ${qtdLimpos} turno(s) inativo(s) foram encerrados.`);
 }
 
-// Injeta o botão de "Limpar Sinais Travados" no topo da aba Mapa
 function injetarBotaoLimparMapa() {
     const lblCont = document.getElementById('lbl-contador-pinos-mapa');
     if (lblCont && lblCont.parentNode && !document.getElementById('btn-limpar-sinais-mapa')) {
@@ -3655,7 +3734,12 @@ renderizarPainelDisponibilidade = function() {
         if (!tbody) return;
         tbody.innerHTML = "";
         const hojeISO = obterDataLocalISO();
-        const equipesAtivas = equipesSistema.filter(e => e.status === 'Ativo');
+        const setPermitidas = obterSetNomesEquipesPermitidasParaUsuarioAtual();
+
+        const equipesAtivas = (equipesSistema || []).filter(e =>
+            e.status === 'Ativo' && (!setPermitidas || setPermitidas.has(normalizarTextoComparacaoFiscal(e.nome)))
+        );
+
         let countDisp = 0, countAtend = 0, countIndisp = 0, countOffline = 0;
         const listaPinosParaMapa = [];
 
@@ -3690,8 +3774,6 @@ renderizarPainelDisponibilidade = function() {
             const lngFinal = melhorSinal.lng;
             const horaSinal = melhorSinal.hora;
             const minutosSemSinal = calcularMinutosInatividadeSinalHoje(melhorSinal, tel);
-
-            // Se o técnico iniciou o turno cedo, não tem obra aberta e o sinal de GPS travou há mais de 45 min, considera SINAL EXPIRADO!
             const sinalTravadoExpirado = minutosSemSinal > TEMPO_MAXIMO_SINAL_MAPA_MINUTOS;
 
             let turnoHtml = `<span class="bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">⚪ Não iniciado hoje</span>`;
@@ -3700,7 +3782,7 @@ renderizarPainelDisponibilidade = function() {
                 turnoHtml = `<span class="bg-emerald-50 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold">🟢 Ativo desde ${tel.horaInicio || '--:--'}</span>`;
                 turnoTextoPuro = `Ativo desde ${tel.horaInicio || '--:--'}`;
             } else if (turnoIniciado && sinalTravadoExpirado) {
-                turnoHtml = `<span class="bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold">⏸️ Sem sinal há ${minutosSemSinal} min (Início: ${tel.horaInicio || '--:--'})</span>`;
+                turnoHtml = `<span class="bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold">⏸️ Sem sinal há ${minutosSemSinal} min</span>`;
                 turnoTextoPuro = `Sinal inativo há ${minutosSemSinal} min`;
             } else if (turnoEncerrado) {
                 turnoHtml = `<span class="bg-slate-200 text-slate-800 border border-slate-300 px-2 py-0.5 rounded text-[10px] font-bold">🔴 Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})</span>`;
@@ -3726,7 +3808,6 @@ renderizarPainelDisponibilidade = function() {
                 ocupacaoLimpa = `Pausa no imóvel ${obraParalisada.imovel}`;
             } else if (obraAndamento) {
                 countAtend++; corPinoHex = "#2563eb"; iconeEmojiPino = "🔵"; statusTextoPuro = "EM ATENDIMENTO";
-                // Se a atividade foi iniciada hoje e está dentro da janela ativa (ou teve sinal recente), mostra no mapa
                 deveAparecerNoMapa = (minutosSemSinal <= 120);
                 const apVal = extrairApoiosDoRegistro(obraAndamento);
                 const apPend = extrairApoiosPendentesDoRegistro(obraAndamento);
@@ -3734,19 +3815,19 @@ renderizarPainelDisponibilidade = function() {
                 const txtPend = apPend.length > 0 ? ` • <span class="text-amber-800 font-black animate-pulse">⏳ Validar: ${apPend.join(', ')}</span>` : '';
                 statusBadge = `<span class="bg-blue-600 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🔵 EM ATENDIMENTO</span>`;
                 detalheTexto = `Imóvel: <b>${obraAndamento.imovel}</b> (${obraAndamento.projeto})${txtAp}${txtPend}`;
-                ocupacaoLimpa = `Atendendo ${obraAndamento.imovel}${apVal.length > 0 ? ` (Conjunta c/ ${apVal.join(', ')})` : ''}`;
+                ocupacaoLimpa = `Atendendo ${obraAndamento.imovel}`;
             } else if (apoioValidadoAndamento) {
                 countAtend++; corPinoHex = "#7c3aed"; iconeEmojiPino = "🤝"; statusTextoPuro = "EM APOIO (VALIDADO)";
                 deveAparecerNoMapa = (minutosSemSinal <= 120);
                 statusBadge = `<span class="bg-purple-700 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🤝 EM APOIO (VALIDADO)</span>`;
-                detalheTexto = `Apoiando <b>${apoioValidadoAndamento.equipe}</b> no Imóvel <b>${apoioValidadoAndamento.imovel}</b> (Presença Validada ✅)`;
-                ocupacaoLimpa = `Em apoio validado a ${apoioValidadoAndamento.equipe} (Imóvel ${apoioValidadoAndamento.imovel})`;
+                detalheTexto = `Apoiando <b>${apoioValidadoAndamento.equipe}</b> no Imóvel <b>${apoioValidadoAndamento.imovel}</b>`;
+                ocupacaoLimpa = `Em apoio a ${apoioValidadoAndamento.equipe}`;
             } else if (apoioPendenteAndamento) {
                 countAtend++; corPinoHex = "#d97706"; iconeEmojiPino = "⏳"; statusTextoPuro = "APOIO AGUARDANDO VALIDAÇÃO";
                 deveAparecerNoMapa = (minutosSemSinal <= 120);
                 statusBadge = `<span class="bg-amber-500 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block animate-pulse">⏳ APOIO PENDENTE VALIDAÇÃO</span>`;
                 detalheTexto = `Aguardando <b>${apoioPendenteAndamento.equipe}</b> validar presença no Imóvel <b>${apoioPendenteAndamento.imovel}</b>`;
-                ocupacaoLimpa = `Aguardando ${apoioPendenteAndamento.equipe} validar apoio (${apoioPendenteAndamento.imovel})`;
+                ocupacaoLimpa = `Aguardando validação de apoio`;
             } else if (turnoEncerrado) {
                 countOffline++; corPinoHex = "#475569"; iconeEmojiPino = "🏁"; statusTextoPuro = "EXPEDIENTE ENCERRADO";
                 deveAparecerNoMapa = false;
@@ -3757,16 +3838,16 @@ renderizarPainelDisponibilidade = function() {
                 countDisp++; corPinoHex = "#059669"; iconeEmojiPino = "🟢"; statusTextoPuro = "EM ROTA / DISPONÍVEL";
                 deveAparecerNoMapa = true;
                 statusBadge = `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🟢 DISPONÍVEL</span>`;
-                detalheTexto = `Em deslocamento / Livre (${concluidasHoje} concluída(s)${apoiosConcluidosHoje > 0 ? ` + <b>${apoiosConcluidosHoje} apoio(s)</b>` : ''} hoje)`;
+                detalheTexto = `Em deslocamento (${concluidasHoje} concluída(s)${apoiosConcluidosHoje > 0 ? ` + <b>${apoiosConcluidosHoje} apoio(s)</b>` : ''} hoje)`;
                 ocupacaoLimpa = `Disponível em rota`;
             } else {
-                countOffline++; corPinoHex = "#94a3b8"; iconeEmojiPino = "⚪"; statusTextoPuro = "SINAL INATIVO / FORA DO MAPA";
+                countOffline++; corPinoHex = "#94a3b8"; iconeEmojiPino = "⚪"; statusTextoPuro = "FORA DO MAPA";
                 deveAparecerNoMapa = false;
                 statusBadge = `<span class="bg-slate-100 text-slate-500 border border-slate-200 font-bold px-2.5 py-1 rounded-md text-[10px] inline-block">⚪ FORA DO MAPA</span>`;
                 detalheTexto = sinalTravadoExpirado && horaSinal
-                    ? `<span class="text-amber-800 font-semibold">⏸️ Sinal travado desde ${horaSinal} (Ocultado do mapa por inatividade)</span>`
-                    : `Sem turno ativo no momento (${concluidasHoje} concluída(s) hoje)`;
-                ocupacaoLimpa = "Fora do mapa por inatividade de sinal";
+                    ? `<span class="text-amber-800 font-semibold">⏸️ Sinal travado desde ${horaSinal} (Oculto no mapa)</span>`
+                    : `Sem turno ativo (${concluidasHoje} concluída(s) hoje | ${programadasHoje} na fila)`;
+                ocupacaoLimpa = "Fora do mapa";
             }
 
             let gpsStr = `<span class="text-slate-400 text-[10px]">Sem sinal hoje</span>`;
@@ -3777,14 +3858,14 @@ renderizarPainelDisponibilidade = function() {
                 gpsStr = `<div class="space-y-0.5"><div class="text-[9px] font-bold ${deveAparecerNoMapa ? 'text-emerald-800' : 'text-slate-500'}">🕒 Às ${horaSinal || '--:--'} • ${melhorSinal.origem}</div><a href="https://www.google.com/maps/search/?api=1&query=${latFinal},${lngFinal}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${coordFormatada}</a></div>`;
 
                 if (deveAparecerNoMapa) {
-                    acaoHtml = `<div class="flex items-center gap-1"><button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded">🎯 Mapa</button><button type="button" onclick="encerrarTurnoTecnicoPeloGestor('${eq.nome}')" title="Encerrar turno deste técnico e removê-lo do mapa" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-[10px] px-2 py-1 rounded">🔴 Baixar</button></div>`;
+                    acaoHtml = `<div class="flex items-center gap-1"><button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded">🎯 Mapa</button><button type="button" onclick="encerrarTurnoTecnicoPeloGestor('${eq.nome}')" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-[10px] px-2 py-1 rounded">🔴 Baixar</button></div>`;
                     listaPinosParaMapa.push({
                         nome: eq.nome, lat: latFinal, lng: lngFinal, corHex: corPinoHex,
                         iconeEmoji: iconeEmojiPino, statusTexto: statusTextoPuro, turnoTexto: turnoTextoPuro,
                         ocupacaoLimpa, sinalTexto: sinalTextoPuro, horaCurta: horaSinal
                     });
                 } else {
-                    acaoHtml = `<span class="text-[10px] text-slate-400 font-semibold">Oculto no mapa (Inativo)</span>`;
+                    acaoHtml = `<span class="text-[10px] text-slate-400 font-semibold">Oculto no mapa</span>`;
                 }
             }
 
@@ -3800,148 +3881,19 @@ renderizarPainelDisponibilidade = function() {
         inicializarOuAtualizarMapaRastreio(listaPinosParaMapa);
     } catch (e) { console.warn("Erro disponibilidade:", e); }
 };
-// ================= MÓDULO DE CARTEIRA DE FISCAIS, VISÃO RESTRITA E COBERTURA DE FÉRIAS (CORRIGIDO E SEGURO) =================
-
-const CATALOGO_FISCAIS_MDU = [
-    { nome: "FRANCISCO DE SOUZA MOURA", email: "fiscal01@mdu.com.br" },
-    { nome: "JEFFERSON SILVA DE OLIVEIRA", email: "fiscal02@mdu.com.br" },
-    { nome: "MARCELO FRANCISCO SOARES", email: "fiscal03@mdu.com.br" }
-];
-
-const MAPA_PADRAO_EQUIPE_FISCAL = {
-    // Carteira: JEFFERSON SILVA DE OLIVEIRA (fiscal02@mdu.com.br)
-    "BRUNO MARCUS CORREA FERNANDES": "fiscal02@mdu.com.br",
-    "MATHEUS FRANCINI ALMEIDA": "fiscal02@mdu.com.br",
-    "HEVERTON ALESSANDRO RODRIGUES GUSMAO": "fiscal02@mdu.com.br",
-    "MATHEUS MAGNO FERREIRA DA ROCHA": "fiscal02@mdu.com.br",
-    "PAULO RICARDO MATOLLA DE FIGUEIREDO SOARES": "fiscal02@mdu.com.br",
-    "LUCIANO SANTOS FERREIRA": "fiscal02@mdu.com.br",
-    "ANDREO FAGUNDES": "fiscal02@mdu.com.br",
-
-    // Carteira: MARCELO FRANCISCO SOARES (fiscal03@mdu.com.br)
-    "FELIPE BAPTISTA FERREIRA": "fiscal03@mdu.com.br",
-    "WILSON JOSE DE SOUSA JUNIOR": "fiscal03@mdu.com.br",
-    "WEVERTON OTACILIO DA SILVA VERAS": "fiscal03@mdu.com.br",
-    "TIAGO SILVA DE PAULA": "fiscal03@mdu.com.br",
-    "MARCOS VINICIUS SANTOS DA SILVA": "fiscal03@mdu.com.br",
-    "PAULO CESAR FERNANDES JUNIOR": "fiscal03@mdu.com.br",
-
-    // Carteira: FRANCISCO DE SOUZA MOURA (fiscal01@mdu.com.br)
-    "CESAR SALES ROSA": "fiscal01@mdu.com.br",
-    "MARCOS VINICIUS CARDOSO DE ARAUJO": "fiscal01@mdu.com.br",
-    "BRUNO SOARES DA SILVA": "fiscal01@mdu.com.br",
-    "EWERTON LOPES DA SILVA": "fiscal01@mdu.com.br",
-    "IGOR DA SILVA ALVES JANUARIO": "fiscal01@mdu.com.br",
-    "DIEGO LEMOS RIBEIRO": "fiscal01@mdu.com.br",
-    "ELDER DE OLIVEIRA MARTINS": "fiscal01@mdu.com.br",
-    "MARCIO VIEIRA PINTO": "fiscal01@mdu.com.br",
-    "MAICON LUIZ DE OLIVEIRA COSTA": "fiscal01@mdu.com.br",
-    "LEONARDO LISBOA BANDEIRA": "fiscal01@mdu.com.br"
-};
-
-function normalizarTextoComparacaoFiscal(str) {
-    return String(str || "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toUpperCase()
-        .trim();
-}
-
-function obterFiscalObjPorEmailOuNome(valor) {
-    if (!valor) return null;
-    const vNorm = normalizarTextoComparacaoFiscal(valor);
-    return CATALOGO_FISCAIS_MDU.find(f =>
-        f.email.toLowerCase() === String(valor).toLowerCase().trim() ||
-        normalizarTextoComparacaoFiscal(f.nome) === vNorm
-    ) || null;
-}
-
-function obterEmailFiscalDaEquipe(eqObjOuNome) {
-    let eqObj = (typeof eqObjOuNome === 'object' && eqObjOuNome !== null)
-        ? eqObjOuNome
-        : (equipesSistema || []).find(e => normalizarTextoComparacaoFiscal(e.nome) === normalizarTextoComparacaoFiscal(eqObjOuNome));
-
-    if (eqObj && eqObj.fiscalEmail) {
-        return String(eqObj.fiscalEmail).toLowerCase().trim();
-    }
-    const nomeChave = normalizarTextoComparacaoFiscal(eqObj ? eqObj.nome : eqObjOuNome);
-    return MAPA_PADRAO_EQUIPE_FISCAL[nomeChave] || "";
-}
-
-function obterNomeFiscalDaEquipe(eqObjOuNome) {
-    const email = obterEmailFiscalDaEquipe(eqObjOuNome);
-    const fObj = obterFiscalObjPorEmailOuNome(email);
-    return fObj ? fObj.nome : "SEM FISCAL DEFINIDO";
-}
-
-function obterFiscalLogadoRestrito() {
-    const emailLogado = String(usuarioLogado || "").toLowerCase().trim();
-    if (!emailLogado) return null;
-
-    const fiscalCatalogo = CATALOGO_FISCAIS_MDU.find(f => f.email.toLowerCase() === emailLogado);
-    if (fiscalCatalogo) return fiscalCatalogo;
-
-    const nivelNorm = String(nivelUsuarioLogado || "").toLowerCase().trim();
-    if (nivelNorm === "visualizador") {
-        const temEquipeVinculada = (equipesSistema || []).some(e => obterEmailFiscalDaEquipe(e) === emailLogado);
-        if (temEquipeVinculada) {
-            const uSistema = (usuariosSistema || []).find(u => u.email.toLowerCase() === emailLogado);
-            return { nome: uSistema ? uSistema.nome.toUpperCase() : emailLogado.toUpperCase(), email: emailLogado };
-        }
-    }
-    return null;
-}
-
-function obterSetNomesEquipesPermitidasParaUsuarioAtual() {
-    const fiscalRestrito = obterFiscalLogadoRestrito();
-    if (!fiscalRestrito) return null; // Master e Operador enxergam tudo (null)
-
-    const emailFiscal = fiscalRestrito.email.toLowerCase().trim();
-    const permitidas = new Set();
-
-    (equipesSistema || []).forEach(eq => {
-        if (obterEmailFiscalDaEquipe(eq) === emailFiscal) {
-            permitidas.add(normalizarTextoComparacaoFiscal(eq.nome));
-        }
-    });
-
-    Object.entries(MAPA_PADRAO_EQUIPE_FISCAL).forEach(([nomeTec, emailPadrao]) => {
-        const eqCad = (equipesSistema || []).find(e => normalizarTextoComparacaoFiscal(e.nome) === nomeTec);
-        const emailAtual = (eqCad && eqCad.fiscalEmail) ? eqCad.fiscalEmail.toLowerCase().trim() : emailPadrao;
-        if (emailAtual === emailFiscal) {
-            permitidas.add(nomeTec);
-        }
-    });
-
-    return permitidas;
-}
-
-function registroPertenceAoFiscalAtual(reg, setPermitidas) {
-    if (!setPermitidas) return true;
-    if (!reg) return false;
-    const titularNorm = normalizarTextoComparacaoFiscal(reg.equipe);
-    if (setPermitidas.has(titularNorm)) return true;
-
-    const apoios = typeof extrairApoiosDoRegistro === 'function' ? extrairApoiosDoRegistro(reg) : [];
-    return apoios.some(ap => setPermitidas.has(normalizarTextoComparacaoFiscal(ap)));
-}
-
-// Preenche o vínculo padrão apenas em memória (sem travar rede na abertura)
-function preencherVinculoPadraoFiscaisEmMemoria() {
-    if (!Array.isArray(equipesSistema)) return;
-    equipesSistema.forEach(eq => {
-        if (!eq.fiscalEmail) {
-            const chave = normalizarTextoComparacaoFiscal(eq.nome);
-            if (MAPA_PADRAO_EQUIPE_FISCAL[chave]) {
-                eq.fiscalEmail = MAPA_PADRAO_EQUIPE_FISCAL[chave];
-                eq.fiscal = obterNomeFiscalDaEquipe(eq);
-            }
-        }
-    });
-}
 
 function inicializarInterfaceGestaoFiscais() {
-    preencherVinculoPadraoFiscaisEmMemoria();
+    if (Array.isArray(equipesSistema)) {
+        equipesSistema.forEach(eq => {
+            if (!eq.fiscalEmail) {
+                const chave = normalizarTextoComparacaoFiscal(eq.nome);
+                if (MAPA_PADRAO_EQUIPE_FISCAL[chave]) {
+                    eq.fiscalEmail = MAPA_PADRAO_EQUIPE_FISCAL[chave];
+                    eq.fiscal = obterNomeFiscalDaEquipe(eq);
+                }
+            }
+        });
+    }
 
     const selStatusEq = document.getElementById('sel-status-equipe');
     if (selStatusEq && !document.getElementById('sel-fiscal-equipe')) {
@@ -3955,7 +3907,6 @@ function inicializarInterfaceGestaoFiscais() {
             <select id="sel-fiscal-equipe" class="w-full text-xs border-2 border-blue-300 rounded-lg p-2.5 bg-blue-50/40 font-bold text-blue-950 outline-none">
                 ${opcoesFiscaisHtml}
             </select>
-            <p class="text-[10px] text-slate-500 mt-1">O fiscal selecionado visualizará este técnico no painel dele. Pode ser alterado a qualquer momento em caso de férias.</p>
         `;
         selStatusEq.parentNode.appendChild(divFiscal);
     }
@@ -3965,7 +3916,6 @@ function inicializarInterfaceGestaoFiscais() {
         const divFerias = document.createElement('div');
         divFerias.id = 'painel-cobertura-ferias-fiscais';
         divFerias.className = 'bg-indigo-950 text-white p-4 rounded-2xl shadow-md mb-4 border-2 border-indigo-400/40 space-y-3';
-
         const opcoesFiscais = CATALOGO_FISCAIS_MDU.map(f => `<option value="${f.email}">${f.nome} (${f.email})</option>`).join('');
 
         divFerias.innerHTML = `
@@ -3981,15 +3931,11 @@ function inicializarInterfaceGestaoFiscais() {
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end text-xs">
                 <div>
                     <label class="block text-[10px] font-bold text-indigo-200 uppercase mb-1">1. Fiscal que vai sair (Férias / Afastamento):</label>
-                    <select id="sel-ferias-fiscal-origem" class="w-full bg-slate-900 border border-indigo-600 rounded-xl p-2 text-white font-bold text-xs">
-                        ${opcoesFiscais}
-                    </select>
+                    <select id="sel-ferias-fiscal-origem" class="w-full bg-slate-900 border border-indigo-600 rounded-xl p-2 text-white font-bold text-xs">${opcoesFiscais}</select>
                 </div>
                 <div>
                     <label class="block text-[10px] font-bold text-indigo-200 uppercase mb-1">2. Passar a visão do grupo para o Fiscal:</label>
-                    <select id="sel-ferias-fiscal-destino" class="w-full bg-slate-900 border border-emerald-500 rounded-xl p-2 text-emerald-300 font-bold text-xs">
-                        ${opcoesFiscais}
-                    </select>
+                    <select id="sel-ferias-fiscal-destino" class="w-full bg-slate-900 border border-emerald-500 rounded-xl p-2 text-emerald-300 font-bold text-xs">${opcoesFiscais}</select>
                 </div>
                 <div>
                     <button type="button" onclick="transferirGrupoFiscalFeriasEmLote()" class="w-full bg-amber-400 hover:bg-amber-300 text-indigo-950 font-black py-2 px-4 rounded-xl text-xs transition shadow-md">
@@ -4000,18 +3946,15 @@ function inicializarInterfaceGestaoFiscais() {
             <div id="resumo-contagem-carteiras-fiscais" class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]"></div>
         `;
         viewEquipes.insertBefore(divFerias, viewEquipes.firstChild);
-
         const selDest = document.getElementById('sel-ferias-fiscal-destino');
         if (selDest && CATALOGO_FISCAIS_MDU.length > 1) selDest.value = CATALOGO_FISCAIS_MDU[1].email;
     }
-
     atualizarResumoContagemCarteirasFiscais();
 }
 
 function atualizarResumoContagemCarteirasFiscais() {
     const container = document.getElementById('resumo-contagem-carteiras-fiscais');
     if (!container) return;
-
     container.innerHTML = CATALOGO_FISCAIS_MDU.map(f => {
         const qtd = (equipesSistema || []).filter(e => e.status === 'Ativo' && obterEmailFiscalDaEquipe(e) === f.email).length;
         return `
@@ -4030,129 +3973,113 @@ async function alterarFiscalDiretoNaTabela(idEquipe, novoEmailFiscal) {
     if (String(nivelUsuarioLogado || '').trim().toLowerCase() === 'visualizador') return;
     const eq = (equipesSistema || []).find(e => e.id === idEquipe);
     if (!eq) return;
-
     const fObj = obterFiscalObjPorEmailOuNome(novoEmailFiscal);
     eq.fiscalEmail = fObj ? fObj.email : "";
     eq.fiscal = fObj ? fObj.nome : "";
-
     await sincronizarEquipesNaNuvem();
     renderizarTabelaEquipes();
-    atualizarResumoContagemCarteirasFiscais();
-    registrarLogAuditoria("ALTERAÇÃO DE FISCAL", `Técnico ${eq.nome} vinculado ao fiscal ${eq.fiscal || 'Sem Fiscal'}.`);
 }
 
 async function transferirGrupoFiscalFeriasEmLote() {
     const nivelNorm = String(nivelUsuarioLogado || '').trim().toLowerCase();
-    if (nivelNorm !== 'master' && nivelNorm !== 'operador') {
-        alert("⚠️ Apenas usuários Master ou Operador podem transferir carteiras de fiscais.");
-        return;
-    }
-
+    if (nivelNorm !== 'master' && nivelNorm !== 'operador') return;
     const emailOrigem = document.getElementById('sel-ferias-fiscal-origem')?.value;
     const emailDestino = document.getElementById('sel-ferias-fiscal-destino')?.value;
     if (!emailOrigem || !emailDestino || emailOrigem === emailDestino) {
         alert("⚠️ Selecione um Fiscal de origem e um Fiscal substituto diferentes.");
         return;
     }
-
     const fOrig = obterFiscalObjPorEmailOuNome(emailOrigem);
     const fDest = obterFiscalObjPorEmailOuNome(emailDestino);
     const tecnicosAfetados = (equipesSistema || []).filter(e => obterEmailFiscalDaEquipe(e) === emailOrigem);
-
     if (tecnicosAfetados.length === 0) {
-        alert(`ℹ️ Nenhum técnico está vinculado atualmente a ${fOrig ? fOrig.nome : emailOrigem}.`);
+        alert(`ℹ️ Nenhum técnico está vinculado atualmente a ${fOrig.nome}.`);
         return;
     }
-
-    if (!confirm(`🏖️ COBERTURA DE FÉRIAS / TRANSFERÊNCIA DE GRUPO\n\nDeseja transferir temporariamente os ${tecnicosAfetados.length} técnico(s) do grupo de:\n👉 ${fOrig.nome} (${emailOrigem})\n\nPara a visão do fiscal:\n👉 ${fDest.nome} (${emailDestino})?`)) {
-        return;
-    }
+    if (!confirm(`🏖️ COBERTURA DE FÉRIAS\n\nDeseja transferir os ${tecnicosAfetados.length} técnico(s) de ${fOrig.nome} para ${fDest.nome}?`)) return;
 
     tecnicosAfetados.forEach(eq => {
-        if (!eq.fiscalOriginalEmail) eq.fiscalOriginalEmail = emailOrigem;
         eq.fiscalEmail = fDest.email;
         eq.fiscal = fDest.nome;
     });
-
     await sincronizarEquipesNaNuvem();
     renderizarTabelaEquipes();
-    atualizarResumoContagemCarteirasFiscais();
-    registrarLogAuditoria("TRANSFERÊNCIA DE GRUPO (FÉRIAS)", `${tecnicosAfetados.length} técnicos transferidos de ${fOrig.nome} para ${fDest.nome}.`);
-    alert(`✅ Grupo transferido com sucesso!\n\nAgora ${fDest.nome} (${fDest.email}) visualiza também os ${tecnicosAfetados.length} técnicos de ${fOrig.nome}.`);
+    alert(`✅ Grupo transferido para ${fDest.nome}!`);
 }
 
 async function restaurarCarteiraOriginalPadraoFiscais() {
     const nivelNorm = String(nivelUsuarioLogado || '').trim().toLowerCase();
-    if (nivelNorm !== 'master' && nivelNorm !== 'operador') {
-        alert("⚠️ Apenas usuários Master ou Operador podem restaurar a divisão padrão.");
-        return;
-    }
-
-    if (!confirm("🔄 RESTAURAR DIVISÃO ORIGINAL DE FISCAIS\n\nDeseja retornar todos os técnicos para a distribuição original de cada fiscal (Francisco, Jefferson e Marcelo)?")) {
-        return;
-    }
+    if (nivelNorm !== 'master' && nivelNorm !== 'operador') return;
+    if (!confirm("🔄 Deseja restaurar todos os técnicos para a distribuição original da planilha (Francisco, Jefferson e Marcelo)?")) return;
 
     (equipesSistema || []).forEach(eq => {
         const chave = normalizarTextoComparacaoFiscal(eq.nome);
-        const emailPadrao = MAPA_PADRAO_EQUIPE_FISCAL[chave] || eq.fiscalOriginalEmail || "";
+        const emailPadrao = MAPA_PADRAO_EQUIPE_FISCAL[chave] || "";
         const fObj = obterFiscalObjPorEmailOuNome(emailPadrao);
         eq.fiscalEmail = fObj ? fObj.email : "";
         eq.fiscal = fObj ? fObj.nome : "";
-        delete eq.fiscalOriginalEmail;
     });
-
     await sincronizarEquipesNaNuvem();
     renderizarTabelaEquipes();
-    atualizarResumoContagemCarteirasFiscais();
-    registrarLogAuditoria("RESTAURAÇÃO DE CARTEIRA DE FISCAIS", "Divisão padrão de técnicos por fiscal restaurada conforme planilha oficial.");
-    alert("✅ Divisão original de fiscais restaurada com sucesso!");
+    alert("✅ Divisão original de fiscais restaurada!");
 }
 
-// Sobrescreve abrirModalEquipe e salvarOuAtualizarEquipe sem criar recursão
-if (!window._hookModalEquipeFiscalInstalado) {
-    window._hookModalEquipeFiscalInstalado = true;
-    const _baseAbrirModalEquipe = window.abrirModalEquipe;
-    window.abrirModalEquipe = function(id = null) {
-        inicializarInterfaceGestaoFiscais();
-        if (typeof _baseAbrirModalEquipe === 'function') _baseAbrirModalEquipe(id);
+abrirModalEquipe = function(id = null) {
+    inicializarInterfaceGestaoFiscais();
+    if (String(nivelUsuarioLogado || '').trim().toLowerCase() === 'visualizador') return;
+    document.getElementById('modal-equipe').classList.remove('hidden');
+    const selFiscal = document.getElementById('sel-fiscal-equipe');
 
-        const selFiscal = document.getElementById('sel-fiscal-equipe');
-        if (!selFiscal) return;
-
-        if (id) {
-            const eq = (equipesSistema || []).find(e => e.id === id);
-            selFiscal.value = eq ? obterEmailFiscalDaEquipe(eq) : "";
-        } else {
-            selFiscal.value = CATALOGO_FISCAIS_MDU[0].email;
+    if (id) {
+        let eq = equipesSistema.find(e => e.id === id);
+        if (eq) {
+            document.getElementById('edit-equipe-id').value = eq.id;
+            document.getElementById('inp-nome-equipe').value = eq.nome;
+            document.getElementById('sel-status-equipe').value = eq.status;
+            document.getElementById('inp-setor-equipe').value = formatarSetoresString(eq.setor);
+            if (selFiscal) selFiscal.value = obterEmailFiscalDaEquipe(eq);
         }
-    };
+    } else {
+        document.getElementById('edit-equipe-id').value = "";
+        document.getElementById('inp-nome-equipe').value = "";
+        document.getElementById('sel-status-equipe').value = "Ativo";
+        document.getElementById('inp-setor-equipe').value = "Instalador";
+        if (selFiscal) selFiscal.value = CATALOGO_FISCAIS_MDU[0].email;
+    }
+};
 
-    const _baseSalvarEquipe = window.salvarOuAtualizarEquipe;
-    window.salvarOuAtualizarEquipe = async function() {
-        const editId = document.getElementById('edit-equipe-id')?.value;
-        const nomeDigitado = (document.getElementById('inp-nome-equipe')?.value || "").trim().toUpperCase();
-        const emailFiscalEscolhido = document.getElementById('sel-fiscal-equipe')?.value || "";
-        const fObj = obterFiscalObjPorEmailOuNome(emailFiscalEscolhido);
+salvarOuAtualizarEquipe = async function() {
+    if (String(nivelUsuarioLogado || '').trim().toLowerCase() === 'visualizador') return;
+    const editId = document.getElementById('edit-equipe-id').value;
+    const nome = document.getElementById('inp-nome-equipe').value.trim().toUpperCase();
+    const setor = formatarSetoresString(document.getElementById('inp-setor-equipe').value || "Instalador");
+    const status = document.getElementById('sel-status-equipe').value;
+    const emailFiscal = document.getElementById('sel-fiscal-equipe')?.value || "";
+    const fObj = obterFiscalObjPorEmailOuNome(emailFiscal);
+    if (!nome) return;
 
-        if (typeof _baseSalvarEquipe === 'function') {
-            await _baseSalvarEquipe();
+    if (editId) {
+        let eq = equipesSistema.find(e => e.id == editId);
+        if (eq) {
+            eq.nome = nome; eq.setor = setor; eq.status = status;
+            eq.fiscalEmail = fObj ? fObj.email : "";
+            eq.fiscal = fObj ? fObj.nome : "";
+            if (!eq.pin) eq.pin = "1234";
         }
+    } else {
+        equipesSistema.push({
+            id: Date.now(), nome, setor, status, pin: "1234",
+            fiscalEmail: fObj ? fObj.email : "",
+            fiscal: fObj ? fObj.nome : ""
+        });
+    }
+    await sincronizarEquipesNaNuvem();
+    fecharModalEquipe();
+    popularSelectEquipes();
+    renderizarTabelaEquipes();
+    renderizarPainelDisponibilidade();
+};
 
-        const eqAlvo = editId
-            ? (equipesSistema || []).find(e => e.id == editId)
-            : (equipesSistema || []).find(e => e.nome === nomeDigitado);
-
-        if (eqAlvo) {
-            eqAlvo.fiscalEmail = fObj ? fObj.email : "";
-            eqAlvo.fiscal = fObj ? fObj.nome : "";
-            await sincronizarEquipesNaNuvem();
-            renderizarTabelaEquipes();
-            atualizarResumoContagemCarteirasFiscais();
-        }
-    };
-}
-
-// Sobrescreve renderizarTabelaEquipes com coluna e seletor rápido de Fiscal
 renderizarTabelaEquipes = function() {
     inicializarInterfaceGestaoFiscais();
     const corpo = document.getElementById('tabela-equipes-corpo');
@@ -4212,7 +4139,6 @@ renderizarTabelaEquipes = function() {
 };
 
 function aplicarFiltroSelectEquipesEBannerFiscal() {
-    preencherVinculoPadraoFiscaisEmMemoria();
     const fiscalAtivo = obterFiscalLogadoRestrito();
     const setPermitidas = obterSetNomesEquipesPermitidasParaUsuarioAtual();
 
@@ -4252,88 +4178,4 @@ function aplicarFiltroSelectEquipesEBannerFiscal() {
         </div>
         <span class="text-[10px] text-cyan-300 font-mono">${fiscalAtivo.email}</span>
     `;
-}
-
-// CORREÇÃO PRINCIPAL: Intercepta atualizarDashboardGestor e renderizarPainelDisponibilidade SEM perder os dados baixados da nuvem!
-if (!window._hookDashboardFiscalInstalado) {
-    window._hookDashboardFiscalInstalado = true;
-
-    const _baseAtualizarDashboard = window.atualizarDashboardGestor;
-    window.atualizarDashboardGestor = async function(forcarRecargaMobile = false) {
-        // 1. Garante que os dados da nuvem sejam carregados ANTES de qualquer filtro de fiscal!
-        const registrosReais = (registrosSalvos || []).filter(r => r && r.equipe !== "__CONFIG_SISTEMA__" && r.projeto !== "__CONFIG_AUDITORIA__");
-        if ((forcarRecargaMobile || !cargaInicialGestorConcluida || registrosReais.length === 0) && !modoConsultaBackupAtivo && !sincronizandoRegistrosMobileEmCurso) {
-            sincronizandoRegistrosMobileEmCurso = true;
-            try {
-                if (typeof carregarRegistrosDaNuvem === "function") {
-                    await carregarRegistrosDaNuvem(true);
-                }
-                cargaInicialGestorConcluida = true;
-            } catch (e) {
-                console.warn("Aviso carga inicial:", e);
-            } finally {
-                sincronizandoRegistrosMobileEmCurso = false;
-            }
-        }
-
-        aplicarFiltroSelectEquipesEBannerFiscal();
-        const setPermitidas = obterSetNomesEquipesPermitidasParaUsuarioAtual();
-
-        // Se for Master ou Operador, executa direto sem filtrar nada!
-        if (!setPermitidas) {
-            return await _baseAtualizarDashboard.call(this, false);
-        }
-
-        // Se for um dos 3 Fiscais, filtra apenas durante a renderização usando a base já carregada
-        const snapshotRegistrosCompletos = [...(registrosSalvos || [])];
-        const snapshotEquipesCompletas = [...(equipesSistema || [])];
-
-        try {
-            registrosSalvos = snapshotRegistrosCompletos.filter(r =>
-                r.equipe === "__CONFIG_SISTEMA__" ||
-                r.projeto === "__CONFIG_AUDITORIA__" ||
-                registroPertenceAoFiscalAtual(r, setPermitidas)
-            );
-            equipesSistema = snapshotEquipesCompletas.filter(e => setPermitidas.has(normalizarTextoComparacaoFiscal(e.nome)));
-            return await _baseAtualizarDashboard.call(this, false);
-        } finally {
-            registrosSalvos = snapshotRegistrosCompletos;
-            equipesSistema = snapshotEquipesCompletas;
-        }
-    };
-
-    const _baseRenderizarDisponibilidade = window.renderizarPainelDisponibilidade;
-    window.renderizarPainelDisponibilidade = function() {
-        preencherVinculoPadraoFiscaisEmMemoria();
-        const setPermitidas = obterSetNomesEquipesPermitidasParaUsuarioAtual();
-        if (!setPermitidas) {
-            return _baseRenderizarDisponibilidade.apply(this, arguments);
-        }
-
-        const snapshotRegistrosCompletos = [...(registrosSalvos || [])];
-        const snapshotEquipesCompletas = [...(equipesSistema || [])];
-        try {
-            registrosSalvos = snapshotRegistrosCompletos.filter(r => registroPertenceAoFiscalAtual(r, setPermitidas));
-            equipesSistema = snapshotEquipesCompletas.filter(e => setPermitidas.has(normalizarTextoComparacaoFiscal(e.nome)));
-            return _baseRenderizarDisponibilidade.apply(this, arguments);
-        } finally {
-            registrosSalvos = snapshotRegistrosCompletos;
-            equipesSistema = snapshotEquipesCompletas;
-        }
-    };
-
-    const _baseAbrirFiltroMultiplo = window.abrirModalFiltroMultiplo;
-    window.abrirModalFiltroMultiplo = function() {
-        const setPermitidas = obterSetNomesEquipesPermitidasParaUsuarioAtual();
-        if (!setPermitidas) {
-            return _baseAbrirFiltroMultiplo.apply(this, arguments);
-        }
-        const snapshotEquipesCompletas = [...(equipesSistema || [])];
-        try {
-            equipesSistema = snapshotEquipesCompletas.filter(e => setPermitidas.has(normalizarTextoComparacaoFiscal(e.nome)));
-            return _baseAbrirFiltroMultiplo.apply(this, arguments);
-        } finally {
-            equipesSistema = snapshotEquipesCompletas;
-        }
-    };
 }
