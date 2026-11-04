@@ -2877,25 +2877,59 @@ async function salvarRegistro() {
         alert(`📡 SINAL 4G INDISPONÍVEL NO LOCAL!\n\nSeu atendimento (${imovelBase}) e todas as fotos foram GUARDADOS COM SEGURANÇA na Fila Offline do aparelho.\n\nVocê já pode copiar o resumo para o WhatsApp e seguir para o próximo prédio. Assim que o sinal voltar, basta clicar em "Sincronizar Fila Offline"!`);
     }
 }
-// ================= MÓDULO DE APOIO CONJUNTO & TURBO GPS ANTI-TRAVAMENTO (CAMPO.JS UNIFICADO) =================
+// ================= MÓDULO DE APOIO CONJUNTO COM VALIDAÇÃO DO TITULAR & TURBO GPS (CAMPO.JS) =================
 let ultimoDisparoGpsCampoTs = 0;
 
 function extrairListaApoiosDoMembros(strMembros, nomeTitular) {
     if (!strMembros || typeof strMembros !== 'string') return [];
     const limpo = strMembros.trim();
     if (!limpo || limpo === '__CONFIG_SISTEMA__' || limpo.toUpperCase() === (nomeTitular || '').toUpperCase().trim()) return [];
-    if (limpo.startsWith('APOIO:')) {
-        return limpo.replace(/^APOIO:/i, '').split(',').map(s => s.trim().toUpperCase()).filter(s => s && s !== (nomeTitular || '').toUpperCase().trim());
-    }
-    return limpo.split(',').map(s => s.trim().toUpperCase()).filter(s => s && s !== (nomeTitular || '').toUpperCase().trim());
+    const partes = limpo.split('|').map(p => p.trim());
+    const validados = [];
+    partes.forEach(p => {
+        if (p.toUpperCase().startsWith('APOIO_PENDENTE:')) return;
+        const sub = p.replace(/^APOIO:/i, '').trim();
+        sub.split(',').forEach(n => {
+            const nome = n.trim().toUpperCase();
+            if (nome && nome !== (nomeTitular || '').toUpperCase().trim() && !validados.includes(nome)) {
+                validados.push(nome);
+            }
+        });
+    });
+    return validados;
 }
 
-function formatarStringMembrosApoio(nomeTitular, arrayApoios) {
-    const unicos = [...new Set((arrayApoios || []).map(a => String(a || '').trim().toUpperCase()).filter(a => a && a !== (nomeTitular || '').toUpperCase().trim()))];
-    return unicos.length > 0 ? `APOIO:${unicos.join(', ')}` : (nomeTitular || '');
+function extrairListaApoiosPendentesDoMembros(strMembros, nomeTitular) {
+    if (!strMembros || typeof strMembros !== 'string') return [];
+    const limpo = strMembros.trim();
+    if (!limpo || limpo === '__CONFIG_SISTEMA__') return [];
+    const partes = limpo.split('|').map(p => p.trim());
+    const pendentes = [];
+    partes.forEach(p => {
+        if (p.toUpperCase().startsWith('APOIO_PENDENTE:')) {
+            const sub = p.replace(/^APOIO_PENDENTE:/i, '').trim();
+            sub.split(',').forEach(n => {
+                const nome = n.trim().toUpperCase();
+                if (nome && nome !== (nomeTitular || '').toUpperCase().trim() && !pendentes.includes(nome)) {
+                    pendentes.push(nome);
+                }
+            });
+        }
+    });
+    return pendentes;
 }
 
-// Captura GPS fresca sem aceitar cache antigo do celular (maximumAge: 0)
+function formatarStringMembrosApoio(nomeTitular, arrayValidados, arrayPendentes = []) {
+    const titularLimpo = (nomeTitular || '').toUpperCase().trim();
+    const valUnicos = [...new Set((arrayValidados || []).map(a => String(a || '').trim().toUpperCase()).filter(a => a && a !== titularLimpo))];
+    const pendUnicos = [...new Set((arrayPendentes || []).map(a => String(a || '').trim().toUpperCase()).filter(a => a && a !== titularLimpo && !valUnicos.includes(a)))];
+
+    const blocos = [];
+    if (valUnicos.length > 0) blocos.push(`APOIO:${valUnicos.join(', ')}`);
+    if (pendUnicos.length > 0) blocos.push(`APOIO_PENDENTE:${pendUnicos.join(', ')}`);
+    return blocos.length > 0 ? blocos.join(' | ') : (nomeTitular || '');
+}
+
 function capturarCoordenadaGpsFrescaCampo(timeoutMs = 8000) {
     return new Promise((resolve) => {
         if (!navigator.geolocation) { resolve(null); return; }
@@ -2913,7 +2947,6 @@ function capturarCoordenadaGpsFrescaCampo(timeoutMs = 8000) {
     });
 }
 
-// Dispara sinal imediato de GPS usando a função nativa registrarPontoTelemetriaEquipe
 async function forcarPulsoGpsTempoRealCampo(origem = 'auto') {
     try {
         const selEq = document.getElementById('sel-equipe');
@@ -2925,6 +2958,11 @@ async function forcarPulsoGpsTempoRealCampo(origem = 'auto') {
 
         const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
         const telAtual = (typeof telemetriaEquipes !== 'undefined' && telemetriaEquipes && telemetriaEquipes[nomeTec]) ? telemetriaEquipes[nomeTec] : null;
+
+        // Se o técnico já encerrou o expediente hoje, NÃO reativa sozinho em pulsos automáticos!
+        if (telAtual && telAtual.data === hojeISO && telAtual.statusTurno === 'ENCERRADO' && origem === 'auto') {
+            return;
+        }
 
         const temObraAtivaHoje = (typeof registrosSalvos !== 'undefined' && Array.isArray(registrosSalvos)) && registrosSalvos.some(r =>
             r.dataRegistro === hojeISO &&
@@ -2941,7 +2979,6 @@ async function forcarPulsoGpsTempoRealCampo(origem = 'auto') {
         ultimoDisparoGpsCampoTs = Date.now();
         ultimaCoordRastreioCache = { lat: Number(coord.lat.toFixed(6)), lng: Number(coord.lng.toFixed(6)) };
 
-        // Usa a função nativa do próprio campo.js que já sincroniza na nuvem com os 2 parâmetros corretos!
         if (typeof registrarPontoTelemetriaEquipe === 'function') {
             await registrarPontoTelemetriaEquipe(nomeTec, coord.lat, coord.lng, 'DISPONIVEL');
         }
@@ -2953,18 +2990,162 @@ function iniciarMonitoramentoGpsAntiCongelamento() {
         if (document.visibilityState === 'visible') {
             ativarWakeLockTela();
             forcarPulsoGpsTempoRealCampo('retorno_tela');
+            verificarSolicitacoesApoioParaTitularCampo();
         }
     });
-    window.addEventListener('focus', () => forcarPulsoGpsTempoRealCampo('foco'));
+    window.addEventListener('focus', () => {
+        forcarPulsoGpsTempoRealCampo('foco');
+        verificarSolicitacoesApoioParaTitularCampo();
+    });
     window.addEventListener('pageshow', () => forcarPulsoGpsTempoRealCampo('pageshow'));
     window.addEventListener('online', () => forcarPulsoGpsTempoRealCampo('reconexao'));
 
     setInterval(() => {
-        if (document.visibilityState === 'visible') forcarPulsoGpsTempoRealCampo('auto');
-    }, 40000);
+        if (document.visibilityState === 'visible') {
+            forcarPulsoGpsTempoRealCampo('auto');
+            verificarSolicitacoesApoioParaTitularCampo();
+        }
+    }, 30000);
 }
 
-// Injeta os controles de Atuação Conjunta / Apoio Operacional na tela do Modo Campo
+// ================= ITEM 01: CAIXA DE VALIDAÇÃO DE PRESENÇA DE APOIO PELO TÉCNICO TITULAR =================
+async function verificarSolicitacoesApoioParaTitularCampo() {
+    try {
+        const titular = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
+        let boxValidacao = document.getElementById('box-validacao-apoio-titular-campo');
+
+        const containerLancamento = document.getElementById('subview-campo-lancamento');
+        if (containerLancamento && !boxValidacao) {
+            boxValidacao = document.createElement('div');
+            boxValidacao.id = 'box-validacao-apoio-titular-campo';
+            boxValidacao.className = 'bg-amber-50 border-2 border-amber-500 p-3.5 rounded-xl space-y-2.5 hidden shadow-md';
+            containerLancamento.insertBefore(boxValidacao, containerLancamento.firstChild);
+        }
+        if (!boxValidacao) return;
+
+        if (!titular || equipeAutenticadaSessao !== titular) {
+            boxValidacao.classList.add('hidden');
+            return;
+        }
+
+        const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+        const { data: minhasObrasHoje } = await supabaseClient
+            .from('registros_producao')
+            .select('id, imovel, projeto, equipe, membros, desfecho')
+            .eq('data_registro', hojeISO)
+            .eq('equipe', titular);
+
+        const obrasComPendentes = (minhasObrasHoje || []).filter(r =>
+            extrairListaApoiosPendentesDoMembros(r.membros, r.equipe).length > 0
+        );
+
+        // Atualiza também o crachá de parceiros validados na obra aberta
+        const obraAbertaAtual = (minhasObrasHoje || []).find(r => r.id === dadosAtendimento.idEmAndamento) || (minhasObrasHoje || [])[0];
+        if (obraAbertaAtual) {
+            const jaValidados = extrairListaApoiosDoMembros(obraAbertaAtual.membros, obraAbertaAtual.equipe);
+            const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
+            if (lblBadge) {
+                lblBadge.innerText = jaValidados.length > 0 ? `✅ Validado: ${jaValidados.join(', ')}` : 'Individual';
+            }
+        }
+
+        if (obrasComPendentes.length === 0) {
+            boxValidacao.classList.add('hidden');
+            return;
+        }
+
+        let htmlCards = `
+            <div class="flex items-start gap-2">
+                <span class="text-lg animate-bounce">🤝</span>
+                <div>
+                    <h4 class="text-xs font-black text-amber-950 uppercase">Validação de Presença de Equipe de Apoio!</h4>
+                    <p class="text-[11px] text-amber-900">Confirme abaixo se o(s) técnico(s) realmente compareceram para apoiar você:</p>
+                </div>
+            </div>
+        `;
+
+        obrasComPendentes.forEach(ob => {
+            const pendentes = extrairListaApoiosPendentesDoMembros(ob.membros, ob.equipe);
+            pendentes.forEach(nomeAp => {
+                htmlCards += `
+                    <div class="bg-white p-2.5 rounded-xl border-2 border-amber-300 shadow-sm space-y-2">
+                        <div class="text-[11px] text-slate-800">
+                            👷 Técnico de Apoio: <b class="text-purple-950 text-xs">${nomeAp}</b><br>
+                            🏢 Imóvel: <b>${ob.imovel}</b> (${ob.projeto})
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" onclick="responderValidacaoApoioTitularCampo(${ob.id}, '${nomeAp}', true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 px-2 rounded-lg text-[11px] shadow-sm transition">
+                                ✅ Validar Presença
+                            </button>
+                            <button type="button" onclick="responderValidacaoApoioTitularCampo(${ob.id}, '${nomeAp}', false)" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-2 rounded-lg text-[11px] shadow-sm transition">
+                                ❌ Recusar Apoio
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+
+        boxValidacao.innerHTML = htmlCards;
+        boxValidacao.classList.remove('hidden');
+    } catch (e) {
+        console.warn("Aviso ao checar validações de apoio:", e);
+    }
+}
+
+async function responderValidacaoApoioTitularCampo(idObra, nomeApoiador, aprovar) {
+    try {
+        const { data: regBanco, error } = await supabaseClient
+            .from('registros_producao')
+            .select('*')
+            .eq('id', idObra)
+            .maybeSingle();
+
+        if (error || !regBanco) {
+            alert("⚠️ Registro não localizado na nuvem.");
+            return;
+        }
+
+        let validados = extrairListaApoiosDoMembros(regBanco.membros, regBanco.equipe);
+        let pendentes = extrairListaApoiosPendentesDoMembros(regBanco.membros, regBanco.equipe).filter(n => n !== nomeApoiador);
+
+        const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        let obsAtual = regBanco.observacoes || '';
+
+        if (aprovar) {
+            if (!validados.includes(nomeApoiador)) validados.push(nomeApoiador);
+            obsAtual = `${obsAtual} [APOIO_VALIDADO: Presença de ${nomeApoiador} validada pelo titular ${regBanco.equipe} às ${horaAgora}]`.trim();
+        } else {
+            obsAtual = `${obsAtual} [APOIO_RECUSADO: Solicitação de ${nomeApoiador} recusada pelo titular ${regBanco.equipe} às ${horaAgora}]`.trim();
+        }
+
+        const novoMembros = formatarStringMembrosApoio(regBanco.equipe, validados, pendentes);
+
+        const { error: errUpd } = await supabaseClient
+            .from('registros_producao')
+            .update({ membros: novoMembros, observacoes: obsAtual })
+            .eq('id', idObra);
+
+        if (errUpd) throw errUpd;
+
+        const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
+        if (lblBadge) {
+            lblBadge.innerText = validados.length > 0 ? `✅ Validado: ${validados.join(', ')}` : 'Individual';
+        }
+
+        await carregarRegistrosModoCampoLeve();
+        await verificarSolicitacoesApoioParaTitularCampo();
+
+        if (aprovar) {
+            alert(`✅ PRESENÇA VALIDADA!\n\nVocê confirmou a presença de ${nomeApoiador} trabalhando em conjunto no imóvel ${regBanco.imovel}.`);
+        } else {
+            alert(`❌ Solicitação de apoio de ${nomeApoiador} foi recusada e removida da atividade.`);
+        }
+    } catch (e) {
+        alert("❌ Erro ao validar apoio: " + e.message);
+    }
+}
+
 function inicializarInterfaceApoioConjuntoCampo() {
     const inpImovel = document.getElementById('inp-imovel');
     if (inpImovel && !document.getElementById('box-campo-apoio-conjunto')) {
@@ -2974,13 +3155,13 @@ function inicializarInterfaceApoioConjuntoCampo() {
         divApoio.innerHTML = `
             <div class="flex justify-between items-center">
                 <label class="block text-[11px] font-black text-purple-950 uppercase">🤝 Atuação Conjunta / Técnico em Apoio</label>
-                <span class="text-[9px] bg-purple-200 text-purple-900 font-bold px-1.5 py-0.5 rounded">Opcional</span>
+                <span class="text-[9px] bg-purple-200 text-purple-900 font-bold px-1.5 py-0.5 rounded">Validado pelo Titular</span>
             </div>
             <select id="sel-equipe-apoio-campo" onchange="popularOpcoesParceiroApoioCampo(true)" class="w-full text-xs border border-purple-300 rounded-lg p-2 bg-white outline-none font-bold text-purple-950">
                 <option value="">Sem apoio (Atuação individual)</option>
             </select>
             <button type="button" onclick="abrirModalEntrarEmApoioObraAtivaCampo()" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-black py-2 px-2.5 rounded-lg text-[11px] transition shadow-sm flex items-center justify-center gap-1.5">
-                🤝 Prestar Apoio em Obra Já em Andamento
+                🤝 Solicitar Entrada em Apoio (Obra em Andamento)
             </button>
         `;
         inpImovel.parentNode.appendChild(divApoio);
@@ -2993,15 +3174,15 @@ function inicializarInterfaceApoioConjuntoCampo() {
         divAberta.className = 'bg-purple-50 border border-purple-300 p-2.5 rounded-xl text-xs space-y-1.5';
         divAberta.innerHTML = `
             <div class="flex justify-between items-center">
-                <span class="font-black text-purple-950 text-[11px] uppercase">🤝 Equipe trabalhando em Conjunto nesta Obra:</span>
+                <span class="font-black text-purple-950 text-[11px] uppercase">🤝 Validar / Incluir Apoio nesta Obra:</span>
                 <span id="lbl-parceiro-apoio-atual-campo" class="text-[10px] font-bold bg-purple-200 text-purple-950 px-2 py-0.5 rounded">Individual</span>
             </div>
             <div class="flex gap-1.5">
                 <select id="sel-adicionar-apoio-em-andamento" class="flex-1 text-xs border border-purple-300 rounded-lg p-1.5 bg-white font-bold text-purple-950 outline-none">
-                    <option value="">+ Vincular técnico de apoio nesta obra...</option>
+                    <option value="">+ Validar e vincular técnico de apoio...</option>
                 </select>
-                <button type="button" onclick="vincularColegaApoioNaObraAbertaCampo()" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
-                    ✅ Vincular
+                <button type="button" onclick="vincularColegaApoioNaObraAbertaCampo()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
+                    ✅ Validar Apoio
                 </button>
             </div>
         `;
@@ -3016,17 +3197,17 @@ function inicializarInterfaceApoioConjuntoCampo() {
             <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-purple-300 flex flex-col max-h-[90vh]">
                 <div class="bg-purple-900 text-white p-4 flex justify-between items-center border-b-4 border-purple-400">
                     <div>
-                        <span class="bg-purple-300 text-purple-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Atuação Conjunta em Campo</span>
-                        <h3 class="font-bold text-sm mt-0.5">🤝 Entrar em Apoio numa Obra em Andamento</h3>
+                        <span class="bg-purple-300 text-purple-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Atuação Conjunta • Sujeita à Validação</span>
+                        <h3 class="font-bold text-sm mt-0.5">🤝 Solicitar Entrada em Apoio numa Obra</h3>
                     </div>
                     <button type="button" onclick="fecharModalEntrarEmApoioObraAtivaCampo()" class="text-white font-bold text-lg">✕</button>
                 </div>
                 <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
                     <div class="bg-purple-50 p-2.5 rounded-xl border border-purple-200 text-[11px] text-purple-950">
-                        👷 <b>Técnico que vai Apoiar:</b> <span id="lbl-meu-nome-apoio-modal" class="font-black">-</span>
+                        👷 <b>Técnico Solicitante do Apoio:</b> <span id="lbl-meu-nome-apoio-modal" class="font-black">-</span>
                     </div>
                     <p class="text-[11px] text-slate-600">
-                        Selecione abaixo qual atividade em andamento você está apoiando agora. O sistema registrará seu <b>Horário e GPS de chegada em apoio</b> e vinculará seu nome junto ao técnico titular:
+                        Selecione a atividade abaixo. Seu <b>Horário e GPS de chegada</b> serão enviados e o <b>Técnico Titular receberá um alerta na tela dele para validar sua presença</b>:
                     </p>
                     <div id="lista-obras-ativas-para-apoio-campo" class="space-y-2 max-h-64 overflow-y-auto"></div>
                 </div>
@@ -3057,7 +3238,7 @@ function popularOpcoesParceiroApoioCampo(apenasSincronizar = false) {
         : [];
 
     const opcoesHtml = `<option value="">Sem apoio (Atuação individual)</option>` +
-        equipesAtivas.map(eq => `<option value="${eq.nome}">🤝 Em conjunto com: ${eq.nome}</option>`).join('');
+        equipesAtivas.map(eq => `<option value="${eq.nome}">🤝 Validar em conjunto com: ${eq.nome}</option>`).join('');
 
     if (selApoio1) {
         const valAnt = selApoio1.value;
@@ -3066,7 +3247,7 @@ function popularOpcoesParceiroApoioCampo(apenasSincronizar = false) {
     }
     if (selApoio2) {
         const valAnt2 = selApoio2.value;
-        selApoio2.innerHTML = `<option value="">+ Selecione o técnico em apoio...</option>` +
+        selApoio2.innerHTML = `<option value="">+ Selecionar técnico de apoio p/ validar...</option>` +
             equipesAtivas.map(eq => `<option value="${eq.nome}">🤝 ${eq.nome}</option>`).join('');
         if (valAnt2 && valAnt2 !== titular) selApoio2.value = valAnt2;
     }
@@ -3103,22 +3284,29 @@ async function abrirModalEntrarEmApoioObraAtivaCampo() {
         }
 
         container.innerHTML = obrasDosColegas.map(ob => {
-            const apoiosJaVinculados = extrairListaApoiosDoMembros(ob.membros, ob.equipe);
-            const jaEstouNela = apoiosJaVinculados.includes(meuNome);
+            const validados = extrairListaApoiosDoMembros(ob.membros, ob.equipe);
+            const pendentes = extrairListaApoiosPendentesDoMembros(ob.membros, ob.equipe);
+            const jaValidado = validados.includes(meuNome);
+            const jaPendente = pendentes.includes(meuNome);
+
+            let botaoStatusHtml = `<button type="button" onclick="confirmarEntradaApoioObraCampo(${ob.id})" class="w-full mt-1 bg-purple-700 hover:bg-purple-800 text-white font-black py-2 rounded-lg text-[11px] shadow-sm transition">🤝 Solicitar Meu Apoio nesta Obra</button>`;
+            if (jaValidado) {
+                botaoStatusHtml = `<div class="text-[10px] font-black text-emerald-800 bg-emerald-100 p-1.5 rounded text-center mt-1">✅ Presença já VALIDADA pelo titular ${ob.equipe}!</div>`;
+            } else if (jaPendente) {
+                botaoStatusHtml = `<div class="text-[10px] font-black text-amber-900 bg-amber-100 p-1.5 rounded text-center mt-1 animate-pulse">⏳ Aguardando ${ob.equipe} validar sua presença na tela dele...</div>`;
+            }
+
             return `
-                <div class="p-3 rounded-xl border-2 ${jaEstouNela ? 'border-emerald-400 bg-emerald-50/60' : 'border-purple-200 bg-white'} shadow-sm space-y-1.5">
+                <div class="p-3 rounded-xl border-2 ${jaValidado ? 'border-emerald-400 bg-emerald-50/60' : (jaPendente ? 'border-amber-400 bg-amber-50/60' : 'border-purple-200 bg-white')} shadow-sm space-y-1.5">
                     <div class="flex justify-between items-start">
                         <div>
                             <span class="font-black text-blue-950 text-xs">🏢 Imóvel: ${ob.imovel}</span>
-                            <span class="block text-[10px] font-bold text-purple-900">👷 Titular: ${ob.equipe}</span>
+                            <span class="block text-[10px] font-bold text-purple-900">👷 Titular (Validador): ${ob.equipe}</span>
                         </div>
                         <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[9px]">${ob.projeto}</span>
                     </div>
-                    <div class="text-[10px] text-slate-500">🟢 Iniciada às: <b>${ob.h_entrada}</b> ${apoiosJaVinculados.length > 0 ? `• 🤝 Apoio atual: <b>${apoiosJaVinculados.join(', ')}</b>` : ''}</div>
-                    ${jaEstouNela
-                        ? `<div class="text-[10px] font-black text-emerald-800 pt-1">✅ Você já está vinculado em apoio nesta atividade!</div>`
-                        : `<button type="button" onclick="confirmarEntradaApoioObraCampo(${ob.id})" class="w-full mt-1 bg-purple-700 hover:bg-purple-800 text-white font-black py-2 rounded-lg text-[11px] shadow-sm transition">🤝 Confirmar Meu Apoio nesta Obra</button>`
-                    }
+                    <div class="text-[10px] text-slate-500">🟢 Iniciada às: <b>${ob.h_entrada}</b></div>
+                    ${botaoStatusHtml}
                 </div>
             `;
         }).join('');
@@ -3131,6 +3319,7 @@ function fecharModalEntrarEmApoioObraAtivaCampo() {
     document.getElementById('modal-entrar-apoio-campo')?.classList.add('hidden');
 }
 
+// Quando o técnico de apoio solicita entrada, grava como APOIO_PENDENTE aguardando validação do titular!
 async function confirmarEntradaApoioObraCampo(idObraAlvo) {
     const meuNome = validarTecnicoSelecionadoParaSolicitacao();
     if (!meuNome) return;
@@ -3150,10 +3339,13 @@ async function confirmarEntradaApoioObraCampo(idObraAlvo) {
         return;
     }
 
-    const listaApoios = extrairListaApoiosDoMembros(regBanco.membros, regBanco.equipe);
-    if (!listaApoios.includes(meuNome)) listaApoios.push(meuNome);
-    const novoMembros = formatarStringMembrosApoio(regBanco.equipe, listaApoios);
+    const validados = extrairListaApoiosDoMembros(regBanco.membros, regBanco.equipe);
+    const pendentes = extrairListaApoiosPendentesDoMembros(regBanco.membros, regBanco.equipe);
+    if (!validados.includes(meuNome) && !pendentes.includes(meuNome)) {
+        pendentes.push(meuNome);
+    }
 
+    const novoMembros = formatarStringMembrosApoio(regBanco.equipe, validados, pendentes);
     const notaApoio = `[APOIO_CONJUNTO: ${meuNome} entrou em apoio às ${horaAgora} (GPS: ${gpsStr})]`;
     const obsAtual = regBanco.observacoes || '';
     const novaObs = obsAtual.includes(notaApoio) ? obsAtual : `${notaApoio} ${obsAtual}`.trim();
@@ -3164,7 +3356,7 @@ async function confirmarEntradaApoioObraCampo(idObraAlvo) {
         .eq('id', idObraAlvo);
 
     if (errUpd) {
-        alert("❌ Erro ao vincular apoio: " + errUpd.message);
+        alert("❌ Erro ao enviar solicitação de apoio: " + errUpd.message);
         return;
     }
 
@@ -3175,46 +3367,50 @@ async function confirmarEntradaApoioObraCampo(idObraAlvo) {
     if (typeof carregarRegistrosModoCampoLeve === 'function') await carregarRegistrosModoCampoLeve();
     fecharModalEntrarEmApoioObraAtivaCampo();
     atualizarAbaMinhasAtividadesCampo(false);
-    alert(`🤝 ATUAÇÃO CONJUNTA REGISTRADA!\n\nVocê (${meuNome}) foi vinculado em apoio à atividade do imóvel ${regBanco.imovel} junto com ${regBanco.equipe} às ${horaAgora}!`);
+    alert(`⏳ SOLICITAÇÃO DE APOIO ENVIADA!\n\nSua chegada às ${horaAgora} foi registrada.\nPeça ao técnico titular (${regBanco.equipe}) para clicar em "✅ Validar Presença" na tela dele!`);
 }
 
+// Quando o PRÓPRIO TITULAR seleciona o colega na tela dele, já entra como VALIDADO!
 async function vincularColegaApoioNaObraAbertaCampo() {
     const selColega = document.getElementById('sel-adicionar-apoio-em-andamento');
     const nomeColega = selColega ? selColega.value.trim().toUpperCase() : '';
     if (!nomeColega) {
-        alert("⚠️ Selecione o nome do técnico que está apoiando nesta obra.");
+        alert("⚠️ Selecione o nome do técnico cuja presença você deseja validar nesta obra.");
         return;
     }
 
-    const titular = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
     const selApoio1 = document.getElementById('sel-equipe-apoio-campo');
     if (selApoio1) selApoio1.value = nomeColega;
-
-    const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
-    if (lblBadge) lblBadge.innerText = `🤝 Com: ${nomeColega}`;
 
     try {
         if (dadosAtendimento.idEmAndamento) {
             const { data: regAtual } = await supabaseClient
                 .from('registros_producao')
-                .select('id, equipe, membros')
+                .select('id, equipe, membros, observacoes')
                 .eq('id', dadosAtendimento.idEmAndamento)
                 .maybeSingle();
 
             if (regAtual) {
-                const listaAp = extrairListaApoiosDoMembros(regAtual.membros, regAtual.equipe);
-                if (!listaAp.includes(nomeColega)) listaAp.push(nomeColega);
-                const novoMemb = formatarStringMembrosApoio(regAtual.equipe, listaAp);
-                await supabaseClient.from('registros_producao').update({ membros: novoMemb }).eq('id', regAtual.id);
+                const listaVal = extrairListaApoiosDoMembros(regAtual.membros, regAtual.equipe);
+                const listaPend = extrairListaApoiosPendentesDoMembros(regAtual.membros, regAtual.equipe).filter(n => n !== nomeColega);
+                if (!listaVal.includes(nomeColega)) listaVal.push(nomeColega);
+                const novoMemb = formatarStringMembrosApoio(regAtual.equipe, listaVal, listaPend);
+                const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                const obsNova = `${regAtual.observacoes || ''} [APOIO_VALIDADO: Presença de ${nomeColega} validada pelo titular ${regAtual.equipe} às ${horaAgora}]`.trim();
+
+                await supabaseClient.from('registros_producao').update({ membros: novoMemb, observacoes: obsNova }).eq('id', regAtual.id);
+
+                const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
+                if (lblBadge) lblBadge.innerText = `✅ Validado: ${listaVal.join(', ')}`;
             }
         }
-        alert(`🤝 Técnico ${nomeColega} vinculado em conjunto nesta atividade!`);
+        await verificarSolicitacoesApoioParaTitularCampo();
+        alert(`✅ Presença do técnico ${nomeColega} VALIDADA em conjunto nesta atividade!`);
     } catch (e) {
-        console.warn("Aviso ao salvar apoio em andamento:", e);
+        console.warn("Aviso ao validar apoio em andamento:", e);
     }
 }
 
-// Intercepta as funções do campo.js para incluir Apoio Conjunto automaticamente no Check-in, Salvar e WhatsApp
 function instalarInterceptadoresApoioCampo() {
     if (typeof window.aoSelecionarEquipeCampo === 'function' && !window._apoioHookEquipe) {
         const origEq = window.aoSelecionarEquipeCampo;
@@ -3222,6 +3418,7 @@ function instalarInterceptadoresApoioCampo() {
             const res = origEq.apply(this, args);
             popularOpcoesParceiroApoioCampo();
             forcarPulsoGpsTempoRealCampo('troca_equipe');
+            verificarSolicitacoesApoioParaTitularCampo();
             return res;
         };
         window._apoioHookEquipe = true;
@@ -3235,9 +3432,9 @@ function instalarInterceptadoresApoioCampo() {
 
             const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
             if (parceiroEscolhido) {
-                if (lblBadge) lblBadge.innerText = `🤝 Com: ${parceiroEscolhido}`;
+                if (lblBadge) lblBadge.innerText = `✅ Validado: ${parceiroEscolhido}`;
                 const selTitular = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
-                const novoMembros = formatarStringMembrosApoio(selTitular, [parceiroEscolhido]);
+                const novoMembros = formatarStringMembrosApoio(selTitular, [parceiroEscolhido], []);
                 if (dadosAtendimento.idEmAndamento) {
                     await supabaseClient.from('registros_producao').update({ membros: novoMembros }).eq('id', dadosAtendimento.idEmAndamento);
                 }
@@ -3252,25 +3449,54 @@ function instalarInterceptadoresApoioCampo() {
     if (typeof window.salvarRegistro === 'function' && !window._apoioHookSalvar) {
         const origSalvar = window.salvarRegistro;
         window.salvarRegistro = async function(...args) {
+            let validadosNuvem = [];
+            // Antes de salvar, verifica se algum colega pediu apoio nesta obra e ainda está pendente de validação pelo titular!
+            if (dadosAtendimento.idEmAndamento) {
+                try {
+                    const { data: regNuvem } = await supabaseClient
+                        .from('registros_producao')
+                        .select('id, equipe, membros')
+                        .eq('id', dadosAtendimento.idEmAndamento)
+                        .maybeSingle();
+
+                    if (regNuvem) {
+                        validadosNuvem = extrairListaApoiosDoMembros(regNuvem.membros, regNuvem.equipe);
+                        const pendentesNuvem = extrairListaApoiosPendentesDoMembros(regNuvem.membros, regNuvem.equipe);
+                        for (const nomePend of pendentesNuvem) {
+                            const confirmaPresenca = confirm(
+                                `🤝 VALIDAÇÃO DE PRESENÇA DE APOIO\n\n` +
+                                `O técnico "${nomePend}" registrou entrada de apoio nesta atividade.\n\n` +
+                                `Você VALIDA e confirma que "${nomePend}" esteve presente apoiando você nesta obra?\n` +
+                                `(Clique em OK para Validar a presença ou Cancelar para Recusar)`
+                            );
+                            if (confirmaPresenca && !validadosNuvem.includes(nomePend)) {
+                                validadosNuvem.push(nomePend);
+                            }
+                        }
+                    }
+                } catch (e) {}
+            }
+
             const parceiro1 = document.getElementById('sel-equipe-apoio-campo')?.value?.trim().toUpperCase() || '';
             const parceiro2 = document.getElementById('sel-adicionar-apoio-em-andamento')?.value?.trim().toUpperCase() || '';
-            const parceiroFinal = parceiro2 || parceiro1;
+            if (parceiro1 && !validadosNuvem.includes(parceiro1)) validadosNuvem.push(parceiro1);
+            if (parceiro2 && !validadosNuvem.includes(parceiro2)) validadosNuvem.push(parceiro2);
+
             const titular = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
             const imovelBase = document.getElementById('inp-imovel')?.value?.trim() || '';
 
             const res = await origSalvar.apply(this, args);
 
-            if (parceiroFinal && titular) {
-                // Insere a linha de Atuação Conjunta no resumo do WhatsApp do técnico
+            if (validadosNuvem.length > 0 && titular) {
                 if (typeof ultimoResumoCampoTexto === 'string' && ultimoResumoCampoTexto && !ultimoResumoCampoTexto.includes('Atuação Conjunta')) {
                     ultimoResumoCampoTexto = ultimoResumoCampoTexto.replace(
                         `👷 *Equipe:* ${titular}`,
-                        `👷 *Equipe Titular:* ${titular}\n🤝 *Atuação Conjunta / Apoio:* ${parceiroFinal}`
+                        `👷 *Equipe Titular:* ${titular}\n🤝 *Apoio Validado:* ${validadosNuvem.join(', ')}`
                     );
                 }
 
                 const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
-                const novoMembros = formatarStringMembrosApoio(titular, [parceiroFinal]);
+                const novoMembros = formatarStringMembrosApoio(titular, validadosNuvem, []);
                 const { data: recemSalvos } = await supabaseClient
                     .from('registros_producao')
                     .select('id, imovel, membros')
@@ -3287,6 +3513,7 @@ function instalarInterceptadoresApoioCampo() {
                 if (selApoio1) selApoio1.value = '';
                 if (selApoio2) selApoio2.value = '';
             }
+            await verificarSolicitacoesApoioParaTitularCampo();
             return res;
         };
         window._apoioHookSalvar = true;
@@ -3297,4 +3524,5 @@ setTimeout(() => {
     inicializarInterfaceApoioConjuntoCampo();
     instalarInterceptadoresApoioCampo();
     iniciarMonitoramentoGpsAntiCongelamento();
+    verificarSolicitacoesApoioParaTitularCampo();
 }, 450);
