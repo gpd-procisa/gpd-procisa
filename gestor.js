@@ -1,4 +1,4 @@
-// ================= VARIÁVEIS GLOBAIS DO MAPA, GRÁFICOS POR GRUPO, EDIÇÃO E BACKUP =================
+// ================= VARIÁVEIS GLOBAIS DO MAPA, GRÁFICOS POR GRUPO, APOIO CONJUNTO, EDIÇÃO E BACKUP =================
 let mapaRastreioInstancia = null;
 let camadaMarcadoresRastreio = null;
 let coordenadasPinosAtuais = [];
@@ -16,6 +16,133 @@ let graficoProgramadoRetornoBairroInstancia = null;
 let grupoAtivoAbaGraficos = 'TODOS';
 
 let filtrosMultiplosAtivos = { equipes: [], setores: [], macrogrupos: [], projetos: [], desfechos: [] };
+
+// ================= FUNÇÕES DE APOIO CONJUNTO / ATUAÇÃO COMPARTILHADA =================
+function extrairApoiosDoRegistro(reg) {
+    if (!reg) return [];
+    const titular = (reg.equipe || '').toUpperCase().trim();
+    const lista = [];
+    const mStr = (reg.membros || '').trim();
+    if (mStr && mStr !== '__CONFIG_SISTEMA__' && mStr.toUpperCase() !== titular) {
+        const limpo = mStr.replace(/^APOIO:/i, '').trim();
+        limpo.split(',').forEach(nome => {
+            const n = nome.trim().toUpperCase();
+            if (n && n !== titular && !lista.includes(n)) lista.push(n);
+        });
+    }
+    const obs = (reg.observacoes || '') + ' ' + (reg.motivoDesfecho || '');
+    const regex = /\[APOIO_CONJUNTO:\s*([^\]\s]+(?:\s+[^\]\s]+)*?)\s+entrou/gi;
+    let match;
+    while ((match = regex.exec(obs)) !== null) {
+        const n = match[1].trim().toUpperCase();
+        if (n && n !== titular && !lista.includes(n)) lista.push(n);
+    }
+    return lista;
+}
+
+function formatarCampoMembrosComApoio(nomeTitular, listaApoios) {
+    const limpos = [...new Set((listaApoios || []).map(a => String(a || '').trim().toUpperCase()).filter(a => a && a !== (nomeTitular || '').toUpperCase().trim()))];
+    return limpos.length > 0 ? `APOIO:${limpos.join(', ')}` : (nomeTitular || '');
+}
+
+async function abrirModalGerirApoioGestor(idReg) {
+    const nivelNorm = String(nivelUsuarioLogado || '').trim().toLowerCase();
+    if (nivelNorm !== 'master' && nivelNorm !== 'operador') {
+        alert("⚠️ Apenas usuários Master ou Operador podem gerenciar vínculos de apoio.");
+        return;
+    }
+    const reg = (registrosSalvos || []).find(r => r.id === idReg);
+    if (!reg) return;
+
+    const apoiosAtuais = extrairApoiosDoRegistro(reg);
+    const equipesDisponiveis = (equipesSistema || []).filter(e => e.status === 'Ativo' && e.nome !== reg.equipe).map(e => e.nome);
+
+    let modal = document.getElementById('modal-gerir-apoio-gestor');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-gerir-apoio-gestor';
+        modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[79]';
+        document.body.appendChild(modal);
+    }
+
+    const checksEquipesHtml = equipesDisponiveis.map(nome => `
+        <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-purple-50 cursor-pointer border border-slate-100">
+            <input type="checkbox" name="chk-apoio-gestor" value="${nome}" ${apoiosAtuais.includes(nome) ? 'checked' : ''} class="w-4 h-4 accent-purple-800 rounded">
+            <span class="text-xs font-bold text-slate-800">🤝 ${nome}</span>
+        </label>
+    `).join('');
+
+    modal.innerHTML = `
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-purple-300 flex flex-col max-h-[90vh]">
+            <div class="bg-purple-900 text-white p-4 flex justify-between items-center border-b-4 border-purple-400">
+                <div>
+                    <span class="bg-purple-300 text-purple-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Gestão de Atuação Conjunta</span>
+                    <h3 class="font-bold text-sm mt-0.5">🤝 Direcionar / Vincular Equipe em Apoio</h3>
+                </div>
+                <button type="button" onclick="document.getElementById('modal-gerir-apoio-gestor').classList.add('hidden')" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
+                <div class="bg-purple-50 p-3 rounded-xl border border-purple-200 space-y-1">
+                    <div><strong>🏢 Imóvel:</strong> <span class="font-black text-purple-950">${reg.imovel}</span> (${reg.projeto})</div>
+                    <div><strong>👷 Técnico Titular:</strong> <span class="font-black text-blue-900">${reg.equipe}</span></div>
+                    <div><strong>🎯 Status:</strong> <span class="font-bold">${reg.desfecho}</span></div>
+                </div>
+                <div>
+                    <label class="block font-black text-slate-800 uppercase text-[11px] mb-1.5">Marque o(s) Técnico(s) em Apoio Conjunto neste Imóvel:</label>
+                    <div class="space-y-1 max-h-56 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50">
+                        ${checksEquipesHtml || '<span class="text-slate-400">Nenhuma outra equipe ativa cadastrada.</span>'}
+                    </div>
+                </div>
+                <p class="text-[10px] text-slate-500">
+                    💡 <b>Regra Opção A:</b> O imóvel conta 1 execução para o titular e o(s) técnico(s) em apoio recebem automaticamente o <b>Dia Trabalhado</b> e a contabilização na coluna <b>🤝 Apoios</b> nos gráficos e planilhas!
+                </p>
+            </div>
+            <div class="bg-slate-100 p-3 border-t flex justify-end gap-2">
+                <button type="button" onclick="document.getElementById('modal-gerir-apoio-gestor').classList.add('hidden')" class="bg-slate-300 text-slate-800 text-xs px-3 py-2 rounded-xl font-bold">Cancelar</button>
+                <button type="button" onclick="salvarVinculoApoioGestor(${reg.id})" class="bg-purple-800 hover:bg-purple-900 text-white text-xs px-4 py-2 rounded-xl font-black shadow-md">
+                    💾 Salvar Equipe em Apoio
+                </button>
+            </div>
+        </div>
+    `;
+    modal.classList.remove('hidden');
+}
+
+async function salvarVinculoApoioGestor(idReg) {
+    const reg = (registrosSalvos || []).find(r => r.id === idReg);
+    if (!reg) return;
+
+    const selecionados = Array.from(document.querySelectorAll('input[name="chk-apoio-gestor"]:checked')).map(c => c.value);
+    const novoMembros = formatarCampoMembrosComApoio(reg.equipe, selecionados);
+
+    // Aplica a todos os blocos irmãos do mesmo imóvel/data/equipe
+    const codBase = obterCodigoBaseImovel(reg.imovel);
+    const irmaos = (registrosSalvos || []).filter(r =>
+        r.dataRegistro === reg.dataRegistro &&
+        r.equipe === reg.equipe &&
+        r.projeto === reg.projeto &&
+        obterCodigoBaseImovel(r.imovel) === codBase
+    );
+    const idsAlvo = irmaos.length > 0 ? irmaos.map(i => i.id) : [reg.id];
+
+    const { error } = await supabaseClient
+        .from('registros_producao')
+        .update({ membros: novoMembros })
+        .in('id', idsAlvo);
+
+    if (error) {
+        alert("❌ Erro ao salvar vínculo de apoio: " + error.message);
+        return;
+    }
+
+    irmaos.forEach(ir => { ir.membros = novoMembros; });
+    reg.membros = novoMembros;
+
+    document.getElementById('modal-gerir-apoio-gestor')?.classList.add('hidden');
+    registrarLogAuditoria("VÍNCULO DE APOIO CONJUNTO", `Imóvel ${codBase} (Titular: ${reg.equipe}) atualizado com apoio de: ${selecionados.length > 0 ? selecionados.join(', ') : 'Nenhum (Individual)'}.`);
+    atualizarDashboardGestor();
+    alert(`✅ Vínculo de atuação conjunta atualizado com sucesso!`);
+}
 
 // ================= CLASSIFICADORES DOS 3 GRUPOS E SUBGRUPOS (EXCLUSIVOS PARA ABA GRÁFICOS E PLANILHAS) =================
 function obterSemanaDoMes(dataISO) {
@@ -83,7 +210,8 @@ function enriquecerStatusMacroEBairro(listaRegistros) {
     const ordenadosCronologico = [...(registrosSalvos || [])].filter(r =>
         r.projeto !== 'IMPREVISTO / ATRASO' &&
         r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
-        r.projeto !== PROJETO_SOLIC_MATERIAL
+        r.projeto !== PROJETO_SOLIC_MATERIAL &&
+        r.equipe !== '__CONFIG_SISTEMA__'
     ).sort((a, b) => {
         if (a.dataRegistro !== b.dataRegistro) return (a.dataRegistro || '').localeCompare(b.dataRegistro || '');
         return (a.id || 0) - (b.id || 0);
@@ -105,9 +233,11 @@ function enriquecerStatusMacroEBairro(listaRegistros) {
         } else if (codBase && mapaPrimeiraDataImovel[codBase] && r.dataRegistro > mapaPrimeiraDataImovel[codBase].data) {
             statusMacro = 'RETORNO';
         }
+        const listaApoios = extrairApoiosDoRegistro(r);
         return {
             ...r,
             codigoImovelBase: codBase,
+            apoiosConjunto: listaApoios,
             statusMacroPlanilha: statusMacro,
             bairroPlanilha: extrairBairroDoEndereco(r.endereco),
             semanaPlanilha: obterSemanaDoMes(r.dataRegistro),
@@ -141,7 +271,7 @@ function selecionarGrupoAbaGraficos(grupo) {
     atualizarDashboardGestor();
 }
 
-// ================= SINCRONIZAÇÃO DE AUDITORIA NA NUVEM (EXCLUSIVA DO MODO GESTÃO) =================
+// ================= SINCRONIZAÇÃO DE AUDITORIA NA NUVEM =================
 async function sincronizarAuditoriaNaNuvem() {
     try {
         if (trilhaAuditoria.length > 250) trilhaAuditoria = trilhaAuditoria.slice(0, 250);
@@ -153,7 +283,7 @@ async function sincronizarAuditoriaNaNuvem() {
             motivo_desfecho: "", malogros: [], agendamento: null, observacoes: JSON.stringify(trilhaAuditoria)
         };
         await supabaseClient.from('registros_producao').upsert([payloadAudit], { onConflict: 'id' });
-    } catch (e) { console.warn("Aviso ao sincronizar auditoria:", e); }
+    } catch (e) {}
 }
 
 async function carregarAuditoriaDaNuvem() {
@@ -168,7 +298,7 @@ async function carregarAuditoriaDaNuvem() {
                 localStorage.setItem('gpd_trilha_auditoria', JSON.stringify(trilhaAuditoria));
             }
         }
-    } catch (e) { console.warn("Aviso ao ler auditoria:", e); }
+    } catch (e) {}
 }
 
 registrarLogAuditoria = function(acao, detalhes) {
@@ -187,8 +317,8 @@ function aplicarTooltipsExplicativosGlobais() {
         'btn-modo-gestor': 'Acessar o Painel Gerencial completo com indicadores, mapas e controle operacional',
         'btn-sair-gestor': 'Encerrar a sessão atual do gestor e bloquear o acesso administrativo',
         'btn-importar-planilha': 'Importar planilha CSV ou colar linhas do Excel para distribuir atividades programadas',
-        'btn-boletim-whats-gestor': 'Copiar resumo executivo formatado com blocos organizados para colar no WhatsApp',
-        'btn-baixar-excel-gestor': 'Baixar planilha Excel (.xls) separada nos 3 Grupos: Vistoria, Construção (F e ON GOING) e Ativação (F e ON GOING)',
+        'btn-boletim-whats-gestor': 'Copiar resumo executivo formatado com blocos e apoios organizados para colar no WhatsApp',
+        'btn-baixar-excel-gestor': 'Baixar planilha Excel (.xls) separada nos 3 Grupos com coluna de Apoio Conjunto',
         'btn-atualizar-registros-gestor': 'Buscar imediatamente na nuvem todas as novas atividades, fotos e posições de GPS'
     };
     Object.entries(mapaTooltips).forEach(([id, texto]) => { const el = document.getElementById(id); if (el) el.title = texto; });
@@ -206,6 +336,19 @@ function inicializarMelhoriasVisuaisGestor() {
         btnMulti.className = 'bg-amber-400 hover:bg-amber-300 text-blue-950 font-black text-[11px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap flex items-center gap-1 shrink-0';
         btnMulti.innerHTML = `☑️ Filtro Múltiplo <span id="badge-qtd-filtros-multi" class="bg-blue-950 text-cyan-300 px-1.5 py-0.2 rounded text-[9px] hidden">0</span>`;
         selDesf.parentNode.appendChild(btnMulti);
+    }
+
+    // Injeta seletor de Técnico em Apoio também dentro do Super Modal de Edição
+    const selEqModalEdit = document.getElementById('edit-reg-equipe');
+    if (selEqModalEdit && !document.getElementById('edit-reg-apoio-conjunto')) {
+        const divPai = selEqModalEdit.parentNode;
+        const divApoioEdit = document.createElement('div');
+        divApoioEdit.className = 'mt-2 pt-2 border-t border-purple-200';
+        divApoioEdit.innerHTML = `
+            <label class="block font-black text-purple-900 text-[11px] mb-1">🤝 Técnico(s) em Apoio Conjunto (Separar por vírgula ou selecionar ao lado):</label>
+            <input type="text" id="edit-reg-apoio-conjunto" placeholder="Ex: BRUNO SOARES DA SILVA" class="w-full border-2 border-purple-300 rounded-lg p-1.5 bg-purple-50/40 outline-none font-bold text-purple-950 uppercase">
+        `;
+        divPai.appendChild(divApoioEdit);
     }
 
     const subBarra = document.getElementById('header-gestor-subbarra');
@@ -515,7 +658,7 @@ function baixarBackupIntegralJSON() {
 
     if (listaExportar.length === 0) { alert("⚠️ Nenhum registo encontrado no período."); return; }
     const pacoteBackup = {
-        sistema: "GPD MDU PROCISA RJ", versaoBackup: "6.0", dataExportacao: new Date().toISOString(), exportadoPor: usuarioLogado,
+        sistema: "GPD MDU PROCISA RJ", versaoBackup: "7.0", dataExportacao: new Date().toISOString(), exportadoPor: usuarioLogado,
         configuracoes: {
             equipes: equipesSistema, usuarios: usuariosSistema, gruposProjeto: GRUPOS_PROJETO_SISTEMA,
             catalogoProjetos: CATALOGO_PROJETOS_SISTEMA, opcoesCombustivel: OPCOES_COMBUSTIVEL_PADRAO,
@@ -650,7 +793,49 @@ function gerarRelatorioVisualImpressaoPDF() {
     setTimeout(() => { window.print(); }, 300);
 }
 
-// ================= MAPA DE RASTREAMENTO EM TEMPO REAL (LEAFLET) =================
+// ================= MAPA DE RASTREAMENTO EM TEMPO REAL (LEAFLET) E VARREDURA DO SINAL MAIS RECENTE =================
+function extrairCoordenadaMaisRecenteDoTecnicoHoje(nomeTec, regsHoje, obrasEmApoioHoje, tel) {
+    let melhorCandidato = { lat: null, lng: null, hora: null, minDia: -1, ts: 0, origem: '' };
+
+    const testarCandidato = (strCoord, strHora, timestampMs, origemLbl) => {
+        if (!strCoord || typeof strCoord !== 'string' || !strCoord.includes(',')) return;
+        const partes = strCoord.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length < 2 || isNaN(partes[0]) || isNaN(partes[1])) return;
+        const min = converterHorarioParaMinutos(strHora) ?? -1;
+        const tsVal = Number(timestampMs) || 0;
+
+        if ((tsVal > 0 && tsVal > melhorCandidato.ts && min >= melhorCandidato.minDia) || (min > melhorCandidato.minDia) || (melhorCandidato.lat === null)) {
+            melhorCandidato = { lat: partes[0], lng: partes[1], hora: strHora || '--:--', minDia: Math.max(min, melhorCandidato.minDia), ts: Math.max(tsVal, melhorCandidato.ts), origem: origemLbl };
+        }
+    };
+
+    // 1. Testa a telemetria direta do técnico
+    if (tel && tel.lat && tel.lng && !isNaN(Number(tel.lat)) && !isNaN(Number(tel.lng))) {
+        testarCandidato(`${tel.lat}, ${tel.lng}`, tel.horaUltimoSinal, tel.timestampUltimoSinal, 'Sinal Rastreio');
+    }
+
+    // 2. Varre TODOS os registros de hoje onde o técnico é titular (testando TANTO gpsEntrada QUANTO gpsSaida!)
+    (regsHoje || []).forEach(r => {
+        if (r.gpsEntrada && r.gpsEntrada.includes(',')) testarCandidato(r.gpsEntrada, r.hEntrada, r.id, `Check-in (${r.imovel})`);
+        if (r.gpsSaida && r.gpsSaida.includes(',')) testarCandidato(r.gpsSaida, r.hSaida, r.id + 1, `Check-out (${r.imovel})`);
+    });
+
+    // 3. Varre registros onde o técnico entrou como APOIO CONJUNTO hoje
+    (obrasEmApoioHoje || []).forEach(r => {
+        const obs = (r.observacoes || '');
+        const regexGpsApoio = new RegExp(`\\[APOIO_CONJUNTO:\\s*${nomeTec.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+entrou\\s+em\\s+apoio\\s+às\\s+(\\d{2}:\\d{2})\\s*\\(GPS:\\s*([-0-9.,\\s]+)\\)\\]`, 'i');
+        const m = obs.match(regexGpsApoio);
+        if (m && m[2] && m[2].includes(',')) {
+            testarCandidato(m[2], m[1], r.id + 2, `Apoio Conjunto (${r.imovel})`);
+        } else {
+            if (r.gpsSaida && r.gpsSaida.includes(',')) testarCandidato(r.gpsSaida, r.hSaida, r.id, `Apoio c/ ${r.equipe}`);
+            else if (r.gpsEntrada && r.gpsEntrada.includes(',')) testarCandidato(r.gpsEntrada, r.hEntrada, r.id, `Apoio c/ ${r.equipe}`);
+        }
+    });
+
+    return melhorCandidato;
+}
+
 function inicializarOuAtualizarMapaRastreio(listaPinos) {
     const containerMapa = document.getElementById('mapa-rastreio-equipes');
     if (!containerMapa || typeof L === 'undefined') return;
@@ -679,7 +864,7 @@ function inicializarOuAtualizarMapaRastreio(listaPinos) {
         });
 
         const marker = L.marker([p.lat, p.lng], { icon: iconeHtml });
-        marker.bindPopup(`<div style="font-family:sans-serif;font-size:11px;line-height:1.4;min-width:190px;"><div style="font-weight:900;color:#0f172a;font-size:12px;border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:4px;">👷 ${p.nome}</div><div><b>Status:</b> <span style="color:${p.corHex};font-weight:800;">${p.statusTexto}</span></div><div><b>Expediente:</b> ${p.turnoTexto}</div><div><b>Ocupação:</b> ${p.ocupacaoLimpa}</div><div><b>Último Sinal:</b> ${p.sinalTexto}</div><div style="margin-top:5px;padding-top:4px;border-top:1px solid #f1f5f9;"><a href="https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}" target="_blank" style="color:#2563eb;font-weight:bold;text-decoration:underline;">🗺️ Abrir no Google Maps (${p.lat.toFixed(5)}, ${p.lng.toFixed(5)})</a></div></div>`);
+        marker.bindPopup(`<div style="font-family:sans-serif;font-size:11px;line-height:1.4;min-width:195px;"><div style="font-weight:900;color:#0f172a;font-size:12px;border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:4px;">👷 ${p.nome}</div><div><b>Status:</b> <span style="color:${p.corHex};font-weight:800;">${p.statusTexto}</span></div><div><b>Expediente:</b> ${p.turnoTexto}</div><div><b>Ocupação:</b> ${p.ocupacaoLimpa}</div><div><b>Último Sinal:</b> ${p.sinalTexto}</div><div style="margin-top:5px;padding-top:4px;border-top:1px solid #f1f5f9;"><a href="https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}" target="_blank" style="color:#2563eb;font-weight:bold;text-decoration:underline;">🗺️ Abrir no Google Maps (${p.lat.toFixed(5)}, ${p.lng.toFixed(5)})</a></div></div>`);
         marker.addTo(camadaMarcadoresRastreio);
 
         if (containerAtalhos) {
@@ -687,7 +872,7 @@ function inicializarOuAtualizarMapaRastreio(listaPinos) {
             btnAtalho.type = "button";
             btnAtalho.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold text-white shadow-sm transition hover:opacity-90 flex items-center gap-1";
             btnAtalho.style.backgroundColor = p.corHex;
-            btnAtalho.innerHTML = `<span>${p.iconeEmoji}</span> <span>${p.nome}</span>`;
+            btnAtalho.innerHTML = `<span>${p.iconeEmoji}</span> <span>${p.nome} (${p.horaCurta || '--:--'})</span>`;
             btnAtalho.onclick = () => focarTecnicoNoMapa(p.lat, p.lng, p.nome);
             containerAtalhos.appendChild(btnAtalho);
         }
@@ -949,7 +1134,7 @@ async function processarImportacaoPlanilha() {
     alert(`✅ ${novosRegistros.length} atividade(s) enviadas!`);
 }
 
-// ================= PAINEL DE DISPONIBILIDADE + MAPA =================
+// ================= PAINEL DE DISPONIBILIDADE + MAPA (COM APOIO CONJUNTO E SINAL MAIS RECENTE) =================
 function renderizarPainelDisponibilidade() {
     try {
         const tbody = document.getElementById('tabela-disponibilidade-corpo');
@@ -960,13 +1145,25 @@ function renderizarPainelDisponibilidade() {
         let countDisp = 0, countAtend = 0, countIndisp = 0, countOffline = 0;
         const listaPinosParaMapa = [];
 
+        const todosRegsHoje = (registrosSalvos || []).filter(r =>
+            r.dataRegistro === hojeISO &&
+            r.equipe !== '__CONFIG_SISTEMA__' &&
+            r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+            r.projeto !== PROJETO_SOLIC_MATERIAL
+        );
+
         equipesAtivas.forEach(eq => {
-            const regsHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.dataRegistro === hojeISO && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL);
+            const regsHoje = todosRegsHoje.filter(r => r.equipe === eq.nome);
+            const obrasEmApoioHoje = todosRegsHoje.filter(r => r.equipe !== eq.nome && extrairApoiosDoRegistro(r).includes(eq.nome));
+
             const impAberto = regsHoje.find(r => r.desfecho === 'IMPREVISTO');
             const obraParalisada = regsHoje.find(r => r.desfecho === 'PARALISADA');
             const obraAndamento = regsHoje.find(r => r.desfecho === 'EM ANDAMENTO' || r.desfecho === 'REABERTA');
-            const programadasHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.desfecho === 'PROGRAMADA').length;
+            const apoioAndamento = obrasEmApoioHoje.find(r => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(r.desfecho));
+
+            const programadasHoje = (registrosSalvos || []).filter(r => r.equipe === eq.nome && r.desfecho === 'PROGRAMADA').length;
             const concluidasHoje = regsHoje.filter(r => r.desfecho === 'CONCLUIDA').length;
+            const apoiosConcluidosHoje = obrasEmApoioHoje.filter(r => r.desfecho === 'CONCLUIDA').length;
 
             const tel = (telemetriaEquipes && telemetriaEquipes[eq.nome] && telemetriaEquipes[eq.nome].data === hojeISO) ? telemetriaEquipes[eq.nome] : null;
             const turnoIniciado = tel && tel.statusTurno === 'DISPONIVEL';
@@ -982,15 +1179,11 @@ function renderizarPainelDisponibilidade() {
                 turnoTextoPuro = `Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})`;
             }
 
-            let latFinal = (tel && tel.lat) ? Number(tel.lat) : null;
-            let lngFinal = (tel && tel.lng) ? Number(tel.lng) : null;
-            let horaSinal = (tel && tel.horaUltimoSinal) ? tel.horaUltimoSinal : null;
-
-            const ultimoRegHojeComGps = regsHoje.find(r => r.gpsEntrada && r.gpsEntrada.includes(','));
-            if ((latFinal === null || isNaN(latFinal)) && ultimoRegHojeComGps) {
-                const partes = ultimoRegHojeComGps.gpsEntrada.split(',').map(s => parseFloat(s.trim()));
-                if (partes.length === 2 && !isNaN(partes[0])) { latFinal = partes[0]; lngFinal = partes[1]; horaSinal = ultimoRegHojeComGps.hEntrada; }
-            }
+            // CORREÇÃO DO MAPA TRAVADO: Busca a coordenada mais recente entre Telemetria, Check-ins, Check-outs e Apoios de hoje!
+            const melhorSinal = extrairCoordenadaMaisRecenteDoTecnicoHoje(eq.nome, regsHoje, obrasEmApoioHoje, tel);
+            const latFinal = melhorSinal.lat;
+            const lngFinal = melhorSinal.lng;
+            const horaSinal = melhorSinal.hora;
 
             let statusBadge = "", detalheTexto = "", ocupacaoLimpa = "", acaoHtml = "-";
             let corPinoHex = "#64748b", iconeEmojiPino = "⚪", statusTextoPuro = "OFFLINE";
@@ -1008,18 +1201,25 @@ function renderizarPainelDisponibilidade() {
                 ocupacaoLimpa = `Pausa no imóvel ${obraParalisada.imovel}`;
             } else if (obraAndamento) {
                 countAtend++; corPinoHex = "#2563eb"; iconeEmojiPino = "🔵"; statusTextoPuro = "EM ATENDIMENTO";
+                const apList = extrairApoiosDoRegistro(obraAndamento);
+                const txtAp = apList.length > 0 ? ` • <span class="text-purple-800 font-black">🤝 c/ ${apList.join(', ')}</span>` : '';
                 statusBadge = `<span class="bg-blue-600 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🔵 EM ATENDIMENTO</span>`;
-                detalheTexto = `Imóvel: <b>${obraAndamento.imovel}</b> (${obraAndamento.projeto})`;
-                ocupacaoLimpa = `Atendendo ${obraAndamento.imovel}`;
+                detalheTexto = `Imóvel: <b>${obraAndamento.imovel}</b> (${obraAndamento.projeto})${txtAp}`;
+                ocupacaoLimpa = `Atendendo ${obraAndamento.imovel}${apList.length > 0 ? ` (Conjunta c/ ${apList.join(', ')})` : ''}`;
+            } else if (apoioAndamento) {
+                countAtend++; corPinoHex = "#7c3aed"; iconeEmojiPino = "🤝"; statusTextoPuro = "EM APOIO CONJUNTO";
+                statusBadge = `<span class="bg-purple-700 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block animate-pulse">🤝 EM APOIO CONJUNTO</span>`;
+                detalheTexto = `Apoiando <b>${apoioAndamento.equipe}</b> no Imóvel <b>${apoioAndamento.imovel}</b> (${apoioAndamento.projeto})`;
+                ocupacaoLimpa = `Em apoio a ${apoioAndamento.equipe} (Imóvel ${apoioAndamento.imovel})`;
             } else if (turnoEncerrado) {
                 countOffline++; corPinoHex = "#475569"; iconeEmojiPino = "🏁"; statusTextoPuro = "EXPEDIENTE ENCERRADO";
                 statusBadge = `<span class="bg-slate-200 text-slate-700 border border-slate-300 font-bold px-2.5 py-1 rounded-md text-[10px] inline-block">🏁 ENCERRADO</span>`;
-                detalheTexto = `Turno finalizado (${concluidasHoje} concluída(s) hoje)`;
+                detalheTexto = `Turno finalizado (${concluidasHoje} concluída(s)${apoiosConcluidosHoje > 0 ? ` + ${apoiosConcluidosHoje} apoio(s)` : ''})`;
                 ocupacaoLimpa = `Turno encerrado`;
-            } else if (turnoIniciado || regsHoje.length > 0) {
+            } else if (turnoIniciado || regsHoje.length > 0 || obrasEmApoioHoje.length > 0) {
                 countDisp++; corPinoHex = "#059669"; iconeEmojiPino = "🟢"; statusTextoPuro = "EM ROTA / DISPONÍVEL";
                 statusBadge = `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🟢 DISPONÍVEL</span>`;
-                detalheTexto = `Em deslocamento (${concluidasHoje} concluída(s) hoje)`;
+                detalheTexto = `Em deslocamento / Livre (${concluidasHoje} concluída(s)${apoiosConcluidosHoje > 0 ? ` + <b>${apoiosConcluidosHoje} apoio(s)</b>` : ''} hoje)`;
                 ocupacaoLimpa = `Disponível em rota`;
             } else {
                 countOffline++; corPinoHex = "#94a3b8"; iconeEmojiPino = "⚪"; statusTextoPuro = "AGUARDANDO INÍCIO";
@@ -1032,9 +1232,14 @@ function renderizarPainelDisponibilidade() {
             let sinalTextoPuro = "Sem sinal hoje";
             if (latFinal !== null && lngFinal !== null && !isNaN(latFinal) && !isNaN(lngFinal)) {
                 const coordFormatada = `${latFinal.toFixed(5)}, ${lngFinal.toFixed(5)}`;
-                gpsStr = `<a href="https://www.google.com/maps/search/?api=1&query=${latFinal},${lngFinal}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${coordFormatada}</a>`;
+                sinalTextoPuro = `${horaSinal || '--:--'} (${melhorSinal.origem || 'GPS'})`;
+                gpsStr = `<div class="space-y-0.5"><div class="text-[9px] font-bold text-emerald-800">🕒 Às ${horaSinal || '--:--'} • ${melhorSinal.origem}</div><a href="https://www.google.com/maps/search/?api=1&query=${latFinal},${lngFinal}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${coordFormatada}</a></div>`;
                 acaoHtml = `<button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded">🎯 Ver no Mapa</button>`;
-                listaPinosParaMapa.push({ nome: eq.nome, lat: latFinal, lng: lngFinal, corHex: corPinoHex, iconeEmoji: iconeEmojiPino, statusTexto: statusTextoPuro, turnoTexto: turnoTextoPuro, ocupacaoLimpa, sinalTexto: horaSinal || sinalTextoPuro });
+                listaPinosParaMapa.push({
+                    nome: eq.nome, lat: latFinal, lng: lngFinal, corHex: corPinoHex,
+                    iconeEmoji: iconeEmojiPino, statusTexto: statusTextoPuro, turnoTexto: turnoTextoPuro,
+                    ocupacaoLimpa, sinalTexto: sinalTextoPuro, horaCurta: horaSinal
+                });
             }
 
             tbody.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="p-3 font-bold text-slate-800">${eq.nome}</td><td class="p-3">${obterBadgeSetorHtml(eq.setor)}</td><td class="p-3">${turnoHtml}</td><td class="p-3">${statusBadge}</td><td class="p-3">${detalheTexto}</td><td class="p-3">${gpsStr}</td><td class="p-3 whitespace-nowrap">${acaoHtml}</td></tr>`;
@@ -1047,14 +1252,13 @@ function renderizarPainelDisponibilidade() {
         setTxt('disp-card-offline', countOffline);
         setTxt('badge-aba-indisp', `${countIndisp} indisp.`);
         inicializarOuAtualizarMapaRastreio(listaPinosParaMapa);
-    } catch (e) {}
+    } catch (e) { console.warn("Erro disponibilidade:", e); }
 }
 
-// ================= ATUALIZAÇÃO CENTRAL DO DASHBOARD (CORRIGIDA PARA MOBILE, VISUALIZADOR E BLOCOS) =================
+// ================= ATUALIZAÇÃO CENTRAL DO DASHBOARD =================
 async function atualizarDashboardGestor(forcarRecargaMobile = false) {
     inicializarMelhoriasVisuaisGestor();
 
-    // CORREÇÃO MOBILE & VISUALIZADOR: Garante que se a memória estiver sem registros reais de obra, busca da nuvem imediatamente!
     const registrosReaisNaMemoria = (registrosSalvos || []).filter(r =>
         r.equipe !== "__CONFIG_SISTEMA__" &&
         r.projeto !== "__CONFIG_AUDITORIA__"
@@ -1072,7 +1276,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
             }
             cargaInicialGestorConcluida = true;
         } catch (errLoad) {
-            console.warn("Aviso ao sincronizar registros no mobile:", errLoad);
+            console.warn("Aviso ao sincronizar registros:", errLoad);
         } finally {
             sincronizandoRegistrosMobileEmCurso = false;
         }
@@ -1105,7 +1309,14 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
         else if (dataInicio) mData = item.dataRegistro >= dataInicio;
         else if (dataFim) mData = item.dataRegistro <= dataFim;
 
-        let mEquipe = filtrosMultiplosAtivos.equipes.length > 0 ? filtrosMultiplosAtivos.equipes.includes(item.equipe) : (fEquipe ? item.equipe === fEquipe : true);
+        const apoiosItem = extrairApoiosDoRegistro(item);
+        let mEquipe = true;
+        if (filtrosMultiplosAtivos.equipes.length > 0) {
+            mEquipe = filtrosMultiplosAtivos.equipes.includes(item.equipe) || apoiosItem.some(ap => filtrosMultiplosAtivos.equipes.includes(ap));
+        } else if (fEquipe) {
+            mEquipe = item.equipe === fEquipe || apoiosItem.includes(fEquipe);
+        }
+
         let mSetor = true;
         if (filtrosMultiplosAtivos.setores.length > 0) {
             const eqObj = equipesSistema.find(e => e.nome === item.equipe);
@@ -1119,6 +1330,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
                      (item.endereco && item.endereco.toLowerCase().includes(termoBusca)) ||
                      (item.liberouAcesso && item.liberouAcesso.toLowerCase().includes(termoBusca)) ||
                      (item.equipe && item.equipe.toLowerCase().includes(termoBusca)) ||
+                     (apoiosItem.some(ap => ap.toLowerCase().includes(termoBusca))) ||
                      (item.projeto && item.projeto.toLowerCase().includes(termoBusca)) ||
                      (item.motivoDesfecho && item.motivoDesfecho.toLowerCase().includes(termoBusca)) ||
                      (item.desfecho && item.desfecho.toLowerCase().includes(termoBusca));
@@ -1229,7 +1441,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
     totaisFinanceirosAtuais = { vistorias: sumVistorias, caboRL: sumCaboRL, conectores: sumConectores, fusoes: sumFusoes, caboDrop: sumCaboDrop, nap: sumNap, dio: sumDio, cxSobrepor: sumSobrepor, cxEmbutida: sumEmbutida, cxFosc: sumFosc };
     renderizarTabelaFinanceiro(totaisFinanceirosAtuais);
 
-    // ITEM 02: Renderiza a aba Atividades e Materiais LIMPA (sem tags de Retorno/Programado e sem Bairro)
+    // Renderiza a aba Atividades e Materiais (Com selo e botão de Apoio Conjunto)
     if (filtrados.length === 0) {
         if (corpoAtiv) {
             const totalGeralNoBanco = (registrosSalvos || []).filter(r => r.equipe !== "__CONFIG_SISTEMA__" && r.projeto !== "__CONFIG_AUDITORIA__").length;
@@ -1280,6 +1492,11 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
                 const somaTempoPausado = grupo.itens.reduce((acc, i) => acc + (Number(i.tempoPausadoMinutos) || 0), 0);
                 const totalFotosGrupo = grupo.itens.reduce((acc, i) => acc + (Number(i.qtdFotos) || (Array.isArray(i.fotos) ? i.fotos.length : 0)), 0);
                 const todasOpcoesGrupo = [...new Set(grupo.itens.flatMap(i => Array.isArray(i.malogros) ? i.malogros : []))];
+                const todosApoiosGrupo = [...new Set(grupo.itens.flatMap(i => extrairApoiosDoRegistro(i)))];
+
+                const badgeApoioHtml = todosApoiosGrupo.length > 0
+                    ? `<div class="mt-1"><span class="bg-purple-100 text-purple-950 border border-purple-300 font-black px-2 py-0.5 rounded text-[9px] inline-block">🤝 CONJUNTA / APOIO: ${todosApoiosGrupo.join(', ')}</span></div>`
+                    : '';
 
                 const trPrincipal = document.createElement('tr');
                 trPrincipal.className = (itemMaster.desfecho === 'EM ANDAMENTO' || itemMaster.desfecho === 'REABERTA')
@@ -1292,7 +1509,8 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
                     const podeFinalizadasReabrir = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(itemMaster.desfecho);
                     const btnReabrir = podeFinalizadasReabrir ? `<button onclick="autorizarReaberturaCampo(${itemMaster.id})" class="text-purple-800 hover:bg-purple-200 font-bold text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded">🔓 Reabrir</button>` : '';
                     const btnMover = !podeFinalizadasReabrir ? `<button onclick="abrirModalTransferirAtividade(${itemMaster.id})" class="text-indigo-900 hover:bg-indigo-200 font-bold text-[10px] bg-indigo-100 border border-indigo-300 px-2 py-1 rounded">🔀 Mover</button>` : '';
-                    botoesAcao = `<div class="flex flex-wrap gap-1">${btnMover}${btnReabrir}<button onclick="abrirModalEdicao(${itemMaster.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded">✏️ Editar</button><button onclick="excluirRegistro(${itemMaster.id}, '${itemMaster.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 border border-red-200 px-2 py-1 rounded">Excluir</button></div>`;
+                    const btnApoio = `<button onclick="abrirModalGerirApoioGestor(${itemMaster.id})" class="text-purple-950 hover:bg-purple-200 font-black text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded" title="Direcionar ou vincular técnico em apoio conjunto">🤝 Apoio</button>`;
+                    botoesAcao = `<div class="flex flex-wrap gap-1">${btnApoio}${btnMover}${btnReabrir}<button onclick="abrirModalEdicao(${itemMaster.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded">✏️ Editar</button><button onclick="excluirRegistro(${itemMaster.id}, '${itemMaster.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 border border-red-200 px-2 py-1 rounded">Excluir</button></div>`;
                 }
 
                 const minIn = converterHorarioParaMinutos(grupo.hEntrada);
@@ -1323,7 +1541,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
                         <div class="text-[10px] text-slate-400">${grupo.dataRegistro}</div>
                         ${botaoExpandirBlocos}
                     </td>
-                    <td class="p-3"><div class="font-semibold text-slate-800 mb-0.5">${grupo.equipe}</div>${obterBadgeSetorHtml(setorStr)}</td>
+                    <td class="p-3"><div class="font-semibold text-slate-800 mb-0.5">${grupo.equipe}</div>${obterBadgeSetorHtml(setorStr)}${badgeApoioHtml}</td>
                     <td class="p-3"><div class="flex flex-wrap items-center gap-1"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px] inline-block">${grupo.projeto}</span><span class="font-bold px-1.5 py-0.5 rounded text-[9px] ${badgeGrupoCor}">${macroGrupo}</span></div><div class="text-[10px] text-slate-500 mt-1 font-semibold">🏢 Andares: <b>${somaAndares}</b> | HPs: <b>${somaHps}</b></div></td>
                     <td class="p-3"><div class="flex flex-wrap items-center gap-1"><span class="font-bold px-2.5 py-1 rounded-md text-[10px] inline-block ${classeCorDesfecho}">${desfechoExibicao}</span>${badgeFotosHtml}</div>${tagsOpcoesHtml}</td>
                     <td class="p-3"><div class="text-[11px]">🟢 Início: <b>${grupo.hEntrada}</b></div><div class="text-[11px]">🔴 Fim: <b>${grupo.hSaida}</b></div>${badgePausaLinha}<div class="text-[10px] text-emerald-700 font-bold mt-0.5">⏱️ ${duracaoStr}</div></td>
@@ -1340,7 +1558,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
                     let cardsBlocosHtml = grupo.itens.map(blocoItem => {
                         const corDesfB = obterClasseCorDesfecho(blocoItem.desfecho);
                         const qtdFotosB = Number(blocoItem.qtdFotos) || (Array.isArray(blocoItem.fotos) ? blocoItem.fotos.length : 0);
-                        const acoesIndividuais = (nivelNorm === 'master' || nivelNorm === 'operador') ? `<div class="flex flex-wrap gap-1 pt-2 border-t border-slate-200 mt-1.5" onclick="event.stopPropagation()">${['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(blocoItem.desfecho) ? `<button onclick="autorizarReaberturaCampo(${blocoItem.id})" class="bg-purple-100 text-purple-900 border border-purple-300 font-bold text-[9px] px-2 py-0.5 rounded">🔓 Reabrir</button>` : `<button onclick="abrirModalTransferirAtividade(${blocoItem.id})" class="bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold text-[9px] px-2 py-0.5 rounded">🔀 Mover</button>`}<button onclick="abrirModalEdicao(${blocoItem.id})" class="bg-blue-50 text-blue-700 border border-blue-200 font-bold text-[9px] px-2 py-0.5 rounded">✏️ Editar</button><button onclick="excluirRegistro(${blocoItem.id}, '${blocoItem.imovel}')" class="bg-red-50 text-red-600 border border-red-200 font-bold text-[9px] px-2 py-0.5 rounded">🗑️ Excluir</button></div>` : '';
+                        const acoesIndividuais = (nivelNorm === 'master' || nivelNorm === 'operador') ? `<div class="flex flex-wrap gap-1 pt-2 border-t border-slate-200 mt-1.5" onclick="event.stopPropagation()"><button onclick="abrirModalGerirApoioGestor(${blocoItem.id})" class="bg-purple-100 text-purple-950 border border-purple-300 font-bold text-[9px] px-2 py-0.5 rounded">🤝 Apoio</button>${['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(blocoItem.desfecho) ? `<button onclick="autorizarReaberturaCampo(${blocoItem.id})" class="bg-purple-100 text-purple-900 border border-purple-300 font-bold text-[9px] px-2 py-0.5 rounded">🔓 Reabrir</button>` : `<button onclick="abrirModalTransferirAtividade(${blocoItem.id})" class="bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold text-[9px] px-2 py-0.5 rounded">🔀 Mover</button>`}<button onclick="abrirModalEdicao(${blocoItem.id})" class="bg-blue-50 text-blue-700 border border-blue-200 font-bold text-[9px] px-2 py-0.5 rounded">✏️ Editar</button><button onclick="excluirRegistro(${blocoItem.id}, '${blocoItem.imovel}')" class="bg-red-50 text-red-600 border border-red-200 font-bold text-[9px] px-2 py-0.5 rounded">🗑️ Excluir</button></div>` : '';
                         return `<div class="card-bloco-interno bg-white p-3 rounded-xl border border-blue-200 shadow-sm space-y-1 cursor-pointer hover:border-blue-500 transition" onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${blocoItem.id}))"><div class="flex justify-between items-center gap-1"><span class="font-black text-blue-950 text-xs">🏢 ${blocoItem.imovel}</span><span class="px-2 py-0.5 rounded text-[9px] font-bold ${corDesfB}">${blocoItem.desfecho}</span></div><div class="text-[10px] text-slate-600 font-semibold">Andares: <b>${blocoItem.andares || 0}</b> | HPs: <b>${blocoItem.hps || 0}</b> ${qtdFotosB > 0 ? `| 📷 <b>${qtdFotosB} foto(s)</b>` : ''}</div><div class="text-[10px] text-slate-500">📦 RL: <b>${blocoItem.caboRL}m</b> | Drop: <b>${blocoItem.caboDrop}m</b> | Conect: <b>${blocoItem.conectores}</b> | Fusões: <b>${blocoItem.fusoes}</b> | NAP: <b>${blocoItem.nap}</b> | DIO: <b>${blocoItem.dio}</b></div>${blocoItem.motivoDesfecho ? `<div class="text-[10px] text-amber-900 bg-amber-50 px-2 py-1 rounded">💬 ${blocoItem.motivoDesfecho}</div>` : ''}${acoesIndividuais}</div>`;
                     }).join('');
 
@@ -1351,9 +1569,10 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
 
             grupo.itens.forEach(item => {
                 if (!['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(item.desfecho) && corpoMat) {
+                    const apMat = extrairApoiosDoRegistro(item);
                     const trMat = document.createElement('tr');
                     trMat.className = "hover:bg-slate-50 border-b transition";
-                    trMat.innerHTML = `<td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td><td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td><td class="p-2.5 font-semibold">${item.caboRL} m</td><td class="p-2.5 font-semibold">${item.conectores}</td><td class="p-2.5 font-semibold">${item.caboDrop} m</td><td class="p-2.5 font-bold text-blue-900">${item.nap}</td><td class="p-2.5 font-bold text-indigo-700">${item.dio}</td><td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td><td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td><td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td><td class="p-2.5 font-semibold">${item.fusoes}</td>`;
+                    trMat.innerHTML = `<td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td><td class="p-2.5">${item.equipe}${apMat.length > 0 ? `<div class="text-[9px] font-bold text-purple-800">🤝 c/ ${apMat.join(', ')}</div>` : ''}<div class="text-[9px] text-blue-900">${item.projeto}</div></td><td class="p-2.5 font-semibold">${item.caboRL} m</td><td class="p-2.5 font-semibold">${item.conectores}</td><td class="p-2.5 font-semibold">${item.caboDrop} m</td><td class="p-2.5 font-bold text-blue-900">${item.nap}</td><td class="p-2.5 font-bold text-indigo-700">${item.dio}</td><td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td><td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td><td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td><td class="p-2.5 font-semibold">${item.fusoes}</td>`;
                     corpoMat.appendChild(trMat);
                 }
             });
@@ -1386,7 +1605,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
     try { renderizarTabelaConsolidada(finalizadasParaGraficosGerais); } catch (e) { console.warn("Erro consolidada:", e); }
     try { renderizarTabelaUsuariosPermissao(); } catch (e) {}
 }
-// ================= OS 3 BLOCOS INDEPENDENTES NA ABA GRÁFICOS: VISTORIA | CONSTRUÇÃO (F vs ON GOING) | ATIVAÇÃO (F vs ON GOING) =================
+// ================= OS 3 BLOCOS INDEPENDENTES NA ABA GRÁFICOS (COM APOIO CONJUNTO - OPÇÃO A) =================
 function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
     const hojeISO = obterDataLocalISO();
     const datasPresentes = [...new Set(dadosFinalizados.map(d => d.dataRegistro).filter(Boolean))].sort();
@@ -1394,14 +1613,16 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
     const lblDataRef = document.getElementById('lbl-data-ref-diaria');
     if (lblDataRef) lblDataRef.innerText = dataRefDiaria === hojeISO ? `Hoje (${hojeISO})` : dataRefDiaria;
 
+    // --- 1. BLOCO GRUPO VISTORIA (Vistoriadores + Contabilização de Apoios Opção A) ---
     const dadosVistoria = dadosFinalizados.filter(d => d.servicoPlanilha === 'VISTORIA');
     const mapaVist = {};
     equipesSistema.filter(e => e.status === 'Ativo' && tecnicoPertenceAoSetor(e.setor, 'Vistoriador')).forEach(eq => {
-        mapaVist[eq.nome] = { nome: eq.nome, prodDiaria: 0, exec: 0, nExec: 0, total: 0, hps: 0, duracoes: [], diasSet: new Set() };
+        mapaVist[eq.nome] = { nome: eq.nome, prodDiaria: 0, exec: 0, apoios: 0, nExec: 0, total: 0, hps: 0, duracoes: [], diasSet: new Set() };
     });
+
     dadosVistoria.forEach(d => {
         const nome = d.equipe || 'NÃO IDENTIFICADO';
-        if (!mapaVist[nome]) mapaVist[nome] = { nome, prodDiaria: 0, exec: 0, nExec: 0, total: 0, hps: 0, duracoes: [], diasSet: new Set() };
+        if (!mapaVist[nome]) mapaVist[nome] = { nome, prodDiaria: 0, exec: 0, apoios: 0, nExec: 0, total: 0, hps: 0, duracoes: [], diasSet: new Set() };
         const item = mapaVist[nome];
         item.total++;
         if (d.dataRegistro) item.diasSet.add(d.dataRegistro);
@@ -1415,6 +1636,14 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
             const dur = Math.max(0, (minOut - minIn) - (Number(d.tempoPausadoMinutos) || 0));
             if (dur > 0 && dur <= 840) item.duracoes.push(dur);
         }
+
+        // OPÇÃO A: Regista o apoio e garante o Dia Trabalhado sem duplicar o total de imóveis executados
+        const apoiosReg = extrairApoiosDoRegistro(d);
+        apoiosReg.forEach(nomeAp => {
+            if (!mapaVist[nomeAp]) mapaVist[nomeAp] = { nome: nomeAp, prodDiaria: 0, exec: 0, apoios: 0, nExec: 0, total: 0, hps: 0, duracoes: [], diasSet: new Set() };
+            if (d.dataRegistro) mapaVist[nomeAp].diasSet.add(d.dataRegistro);
+            if (d.desfecho === 'CONCLUIDA') mapaVist[nomeAp].apoios++;
+        });
     });
 
     const listaVist = Object.values(mapaVist).map(v => {
@@ -1426,10 +1655,10 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
             conversao: v.total > 0 ? ((v.exec / v.total) * 100) : 0,
             tma: v.duracoes.length > 0 ? formatarDuracaoTexto(v.duracoes.reduce((a, b) => a + b, 0) / v.duracoes.length) : '--h --m'
         };
-    }).sort((a, b) => b.exec - a.exec || b.total - a.total);
+    }).sort((a, b) => b.exec - a.exec || b.apoios - a.apoios || b.total - a.total);
 
     const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-    const vistComProd = listaVist.filter(x => x.total > 0);
+    const vistComProd = listaVist.filter(x => x.total > 0 || x.apoios > 0);
     setEl('card-vist-qtd-tec', `${listaVist.length} vist. (${vistComProd.length} c/ prod.)`);
     setEl('card-vist-diaria', listaVist.reduce((a, b) => a + b.prodDiaria, 0));
     setEl('card-vist-consolidado', listaVist.reduce((a, b) => a + b.exec, 0));
@@ -1437,30 +1666,49 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
 
     const tbodyVist = document.getElementById('tabela-executores-vistoria-corpo');
     if (tbodyVist) {
+        const trHeadVist = tbodyVist.closest('table')?.querySelector('thead tr');
+        if (trHeadVist && !trHeadVist.dataset.apoioInjetado) {
+            trHeadVist.dataset.apoioInjetado = "true";
+            trHeadVist.innerHTML = `
+                <th class="p-2.5 text-center">#</th>
+                <th class="p-2.5">Vistoriador / Equipe</th>
+                <th class="p-2.5 text-center bg-emerald-800">Executados</th>
+                <th class="p-2.5 text-center bg-purple-700 text-purple-100" title="Atuações em Apoio Conjunto (Opção A)">🤝 Apoios</th>
+                <th class="p-2.5 text-center bg-amber-800">N Executado</th>
+                <th class="p-2.5 text-center">Total Geral</th>
+                <th class="p-2.5 text-center">Dias Trab</th>
+                <th class="p-2.5 text-center bg-purple-800 text-purple-200 font-black">Produtividade</th>
+                <th class="p-2.5 text-center bg-cyan-900 text-cyan-200">QNT. HP</th>
+                <th class="p-2.5 text-center">HP / DIA</th>
+                <th class="p-2.5 text-center">TMA Líquido</th>
+                <th class="p-2.5 text-right">% Conversão</th>
+            `;
+        }
         tbodyVist.innerHTML = "";
-        let sExec = 0, sNExec = 0, sTot = 0, sHp = 0;
+        let sExec = 0, sAp = 0, sNExec = 0, sTot = 0, sHp = 0;
         listaVist.forEach((v, idx) => {
-            sExec += v.exec; sNExec += v.nExec; sTot += v.total; sHp += v.hps;
+            sExec += v.exec; sAp += v.apoios; sNExec += v.nExec; sTot += v.total; sHp += v.hps;
             const tr = document.createElement('tr');
             tr.className = "hover:bg-purple-50/60 border-b cursor-pointer";
             tr.onclick = () => dispararExplosaoGrafico('equipe_servico', `${v.nome}|VISTORIA`);
-            tr.innerHTML = `<td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td><td class="p-2.5 font-bold text-purple-950 underline decoration-dotted">${v.nome}</td><td class="p-2.5 text-center font-black text-emerald-700 bg-emerald-50/60 text-sm">${v.exec}</td><td class="p-2.5 text-center font-bold text-amber-800 bg-amber-50/40">${v.nExec}</td><td class="p-2.5 text-center font-black text-slate-800">${v.total}</td><td class="p-2.5 text-center font-mono">${v.dias}</td><td class="p-2.5 text-center font-black text-purple-900 bg-purple-50/80 text-sm">${v.produtividade.toFixed(2)}</td><td class="p-2.5 text-center font-black text-cyan-900 bg-cyan-50/50">${v.hps}</td><td class="p-2.5 text-center font-semibold">${v.hpDia.toFixed(1)}</td><td class="p-2.5 text-center font-bold text-emerald-800">${v.tma}</td><td class="p-2.5 text-right font-bold">${v.conversao.toFixed(1)}%</td>`;
+            tr.innerHTML = `<td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td><td class="p-2.5 font-bold text-purple-950 underline decoration-dotted">${v.nome}</td><td class="p-2.5 text-center font-black text-emerald-700 bg-emerald-50/60 text-sm">${v.exec}</td><td class="p-2.5 text-center font-black text-purple-800 bg-purple-100/60">${v.apoios > 0 ? `🤝 ${v.apoios}` : '0'}</td><td class="p-2.5 text-center font-bold text-amber-800 bg-amber-50/40">${v.nExec}</td><td class="p-2.5 text-center font-black text-slate-800">${v.total}</td><td class="p-2.5 text-center font-mono">${v.dias}</td><td class="p-2.5 text-center font-black text-purple-900 bg-purple-50/80 text-sm">${v.produtividade.toFixed(2)}</td><td class="p-2.5 text-center font-black text-cyan-900 bg-cyan-50/50">${v.hps}</td><td class="p-2.5 text-center font-semibold">${v.hpDia.toFixed(1)}</td><td class="p-2.5 text-center font-bold text-emerald-800">${v.tma}</td><td class="p-2.5 text-right font-bold">${v.conversao.toFixed(1)}%</td>`;
             tbodyVist.appendChild(tr);
         });
         const convGeralVist = sTot > 0 ? ((sExec / sTot) * 100).toFixed(1) : "0.0";
-        tbodyVist.innerHTML += `<tr class="bg-purple-950 text-white font-black text-xs"><td colspan="2" class="p-2.5 text-right uppercase">Total Grupo Vistoria:</td><td class="p-2.5 text-center text-emerald-300">${sExec}</td><td class="p-2.5 text-center text-amber-300">${sNExec}</td><td class="p-2.5 text-center">${sTot}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center text-purple-200">-</td><td class="p-2.5 text-center text-cyan-300">${sHp}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-right">${convGeralVist}%</td></tr>`;
+        tbodyVist.innerHTML += `<tr class="bg-purple-950 text-white font-black text-xs"><td colspan="2" class="p-2.5 text-right uppercase">Total Grupo Vistoria:</td><td class="p-2.5 text-center text-emerald-300">${sExec}</td><td class="p-2.5 text-center text-purple-200">🤝 ${sAp}</td><td class="p-2.5 text-center text-amber-300">${sNExec}</td><td class="p-2.5 text-center">${sTot}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center text-purple-200">-</td><td class="p-2.5 text-center text-cyan-300">${sHp}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-right">${convGeralVist}%</td></tr>`;
     }
 
     const ctxVist = document.getElementById('graficoExecutoresVistoria')?.getContext('2d');
     if (ctxVist) {
         if (graficoExecutoresVistoriaInstancia) graficoExecutoresVistoriaInstancia.destroy();
-        const grafVist = listaVist.filter(x => x.total > 0).length > 0 ? listaVist.filter(x => x.total > 0) : listaVist.slice(0, 10);
+        const grafVist = vistComProd.length > 0 ? vistComProd : listaVist.slice(0, 10);
         graficoExecutoresVistoriaInstancia = new Chart(ctxVist, {
             type: 'bar',
             data: {
                 labels: grafVist.map(v => `${v.nome.split(' ')[0]} ${v.nome.split(' ')[1] ? v.nome.split(' ')[1].charAt(0) + '.' : ''}`),
                 datasets: [
-                    { label: '🟢 Vistorias Executadas', data: grafVist.map(v => v.exec), backgroundColor: '#7c3aed', borderRadius: 5 },
+                    { label: '🟢 Vistorias Executadas (Titular)', data: grafVist.map(v => v.exec), backgroundColor: '#7c3aed', borderRadius: 5 },
+                    { label: '🤝 Apoios em Conjunto', data: grafVist.map(v => v.apoios), backgroundColor: '#ec4899', borderRadius: 5 },
                     { label: '🟠 Não Executadas', data: grafVist.map(v => v.nExec), backgroundColor: '#f59e0b', borderRadius: 5 },
                     { label: '⚡ Produtividade/Dia', data: grafVist.map(v => Number(v.produtividade.toFixed(2))), backgroundColor: '#059669', borderRadius: 5 }
                 ]
@@ -1472,24 +1720,28 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
         });
     }
 
+    // --- 2 e 3. CONSTRUÇÃO E ATIVAÇÃO (SEPARANDO F vs ON GOING + COLUNA E BARRA DE APOIOS OPÇÃO A) ---
     const processarGrupoComSubdivisaoFOuOnGoing = (macroServico, setorPadrao, idTbody, idCanvas, prefixoCard, corBarraF, corBarraOG) => {
         const dadosGrupo = dadosFinalizados.filter(d => d.servicoPlanilha === macroServico);
         const mapa = {};
         equipesSistema.filter(e => e.status === 'Ativo' && tecnicoPertenceAoSetor(e.setor, setorPadrao)).forEach(eq => {
             mapa[eq.nome] = {
                 nome: eq.nome, prodDiaria: 0,
-                execF: 0, execOG: 0, execTotal: 0,
+                execF: 0, execOG: 0, execTotal: 0, apoios: 0,
                 nExecF: 0, nExecOG: 0, nExecTotal: 0,
                 totalGeral: 0, hpF: 0, hpOG: 0, hpTotal: 0, diasSet: new Set()
             };
         });
+
+        // Evita contar 2 vezes o mesmo imóvel multi-bloco como 2 apoios no mesmo dia para o mesmo técnico
+        const setApoiosUnicosImovel = new Set();
 
         dadosGrupo.forEach(d => {
             const nome = d.equipe || 'NÃO IDENTIFICADO';
             if (!mapa[nome]) {
                 mapa[nome] = {
                     nome, prodDiaria: 0,
-                    execF: 0, execOG: 0, execTotal: 0,
+                    execF: 0, execOG: 0, execTotal: 0, apoios: 0,
                     nExecF: 0, nExecOG: 0, nExecTotal: 0,
                     totalGeral: 0, hpF: 0, hpOG: 0, hpTotal: 0, diasSet: new Set()
                 };
@@ -1511,6 +1763,25 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
                 if (ehF) item.nExecF++;
                 else item.nExecOG++;
             }
+
+            // OPÇÃO A: Computa os Apoios realizados sem inflar o Total Executado da operação
+            const apoiosReg = extrairApoiosDoRegistro(d);
+            apoiosReg.forEach(nomeAp => {
+                if (!mapa[nomeAp]) {
+                    mapa[nomeAp] = {
+                        nome: nomeAp, prodDiaria: 0,
+                        execF: 0, execOG: 0, execTotal: 0, apoios: 0,
+                        nExecF: 0, nExecOG: 0, nExecTotal: 0,
+                        totalGeral: 0, hpF: 0, hpOG: 0, hpTotal: 0, diasSet: new Set()
+                    };
+                }
+                if (d.dataRegistro) mapa[nomeAp].diasSet.add(d.dataRegistro);
+                const chaveAp = `${d.dataRegistro}_${obterCodigoBaseImovel(d.imovel)}_${nomeAp}`;
+                if (!setApoiosUnicosImovel.has(chaveAp)) {
+                    setApoiosUnicosImovel.add(chaveAp);
+                    mapa[nomeAp].apoios++;
+                }
+            });
         });
 
         const lista = Object.values(mapa).map(x => {
@@ -1521,9 +1792,9 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
                 hpDia: dias > 0 ? (x.hpTotal / dias) : 0,
                 conversao: x.totalGeral > 0 ? ((x.execTotal / x.totalGeral) * 100) : 0
             };
-        }).sort((a, b) => b.execTotal - a.execTotal || b.totalGeral - a.totalGeral);
+        }).sort((a, b) => b.execTotal - a.execTotal || b.apoios - a.apoios || b.totalGeral - a.totalGeral);
 
-        const comProd = lista.filter(x => x.totalGeral > 0);
+        const comProd = lista.filter(x => x.totalGeral > 0 || x.apoios > 0);
         const totExecF = lista.reduce((a, b) => a + b.execF, 0);
         const totExecOG = lista.reduce((a, b) => a + b.execOG, 0);
         const totExecGeral = lista.reduce((a, b) => a + b.execTotal, 0);
@@ -1537,10 +1808,32 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
 
         const tbody = document.getElementById(idTbody);
         if (tbody) {
+            const trHead = tbody.closest('table')?.querySelector('thead tr');
+            if (trHead && !trHead.dataset.apoioInjetado) {
+                trHead.dataset.apoioInjetado = "true";
+                trHead.innerHTML = `
+                    <th class="p-2.5 text-center">#</th>
+                    <th class="p-2.5">Equipe / Técnico</th>
+                    <th class="p-2.5 text-center bg-indigo-800 text-indigo-100">Exec. F</th>
+                    <th class="p-2.5 text-center bg-cyan-800 text-cyan-100">Exec. ON GOING</th>
+                    <th class="p-2.5 text-center bg-emerald-800 text-white font-black">Total Exec.</th>
+                    <th class="p-2.5 text-center bg-purple-800 text-purple-100" title="Atuações em Apoio Conjunto (Opção A)">🤝 Apoios</th>
+                    <th class="p-2.5 text-center bg-amber-800/80">N Exec. F</th>
+                    <th class="p-2.5 text-center bg-amber-700/80">N Exec. ON GOING</th>
+                    <th class="p-2.5 text-center bg-amber-900 text-amber-200">Total N Exec.</th>
+                    <th class="p-2.5 text-center">Total Geral</th>
+                    <th class="p-2.5 text-center">Dias Trab</th>
+                    <th class="p-2.5 text-center bg-blue-800 text-cyan-300 font-black">Produtividade</th>
+                    <th class="p-2.5 text-center bg-cyan-950 text-cyan-200">HP (F / ON GOING / Total)</th>
+                    <th class="p-2.5 text-center">HP / DIA</th>
+                    <th class="p-2.5 text-right">% Conv.</th>
+                `;
+            }
+
             tbody.innerHTML = "";
-            let sEF = 0, sEOG = 0, sET = 0, sNF = 0, sNOG = 0, sNT = 0, sTG = 0, sHF = 0, sHOG = 0, sHT = 0;
+            let sEF = 0, sEOG = 0, sET = 0, sAp = 0, sNF = 0, sNOG = 0, sNT = 0, sTG = 0, sHF = 0, sHOG = 0, sHT = 0;
             lista.forEach((x, idx) => {
-                sEF += x.execF; sEOG += x.execOG; sET += x.execTotal;
+                sEF += x.execF; sEOG += x.execOG; sET += x.execTotal; sAp += x.apoios;
                 sNF += x.nExecF; sNOG += x.nExecOG; sNT += x.nExecTotal;
                 sTG += x.totalGeral; sHF += x.hpF; sHOG += x.hpOG; sHT += x.hpTotal;
 
@@ -1553,6 +1846,7 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
                     <td class="p-2.5 text-center font-black text-indigo-800 bg-indigo-50/70">${x.execF}</td>
                     <td class="p-2.5 text-center font-black text-cyan-800 bg-cyan-50/70">${x.execOG}</td>
                     <td class="p-2.5 text-center font-black text-emerald-800 bg-emerald-100/70 text-sm">${x.execTotal}</td>
+                    <td class="p-2.5 text-center font-black text-purple-800 bg-purple-100/70">${x.apoios > 0 ? `🤝 ${x.apoios}` : '0'}</td>
                     <td class="p-2.5 text-center text-amber-800 bg-amber-50/40">${x.nExecF}</td>
                     <td class="p-2.5 text-center text-amber-800 bg-amber-50/40">${x.nExecOG}</td>
                     <td class="p-2.5 text-center font-bold text-amber-900 bg-amber-100/50">${x.nExecTotal}</td>
@@ -1565,7 +1859,7 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
                 tbody.appendChild(tr);
             });
             const convG = sTG > 0 ? ((sET / sTG) * 100).toFixed(1) : "0.0";
-            tbody.innerHTML += `<tr class="bg-slate-900 text-white font-black text-xs"><td colspan="2" class="p-2.5 text-right uppercase">Total Grupo ${macroServico}:</td><td class="p-2.5 text-center text-indigo-300">${sEF}</td><td class="p-2.5 text-center text-cyan-300">${sEOG}</td><td class="p-2.5 text-center text-emerald-300">${sET}</td><td class="p-2.5 text-center text-amber-200">${sNF}</td><td class="p-2.5 text-center text-amber-200">${sNOG}</td><td class="p-2.5 text-center text-amber-300">${sNT}</td><td class="p-2.5 text-center">${sTG}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center text-cyan-200">${sHF} / ${sHOG} / ${sHT}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-right">${convG}%</td></tr>`;
+            tbody.innerHTML += `<tr class="bg-slate-900 text-white font-black text-xs"><td colspan="2" class="p-2.5 text-right uppercase">Total Grupo ${macroServico}:</td><td class="p-2.5 text-center text-indigo-300">${sEF}</td><td class="p-2.5 text-center text-cyan-300">${sEOG}</td><td class="p-2.5 text-center text-emerald-300">${sET}</td><td class="p-2.5 text-center text-purple-300">🤝 ${sAp}</td><td class="p-2.5 text-center text-amber-200">${sNF}</td><td class="p-2.5 text-center text-amber-200">${sNOG}</td><td class="p-2.5 text-center text-amber-300">${sNT}</td><td class="p-2.5 text-center">${sTG}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center text-cyan-200">${sHF} / ${sHOG} / ${sHT}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-right">${convG}%</td></tr>`;
         }
 
         const ctx = document.getElementById(idCanvas)?.getContext('2d');
@@ -1578,6 +1872,7 @@ function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
                     datasets: [
                         { label: `🟣 Executado PROJETO F`, data: grafLista.map(x => x.execF), backgroundColor: corBarraF, borderRadius: 4 },
                         { label: `🔵 Executado ON GOING`, data: grafLista.map(x => x.execOG), backgroundColor: corBarraOG, borderRadius: 4 },
+                        { label: `🤝 Apoios em Conjunto`, data: grafLista.map(x => x.apoios), backgroundColor: '#ec4899', borderRadius: 4 },
                         { label: `🟠 Não Executado (F + ON GOING)`, data: grafLista.map(x => x.nExecTotal), backgroundColor: '#f59e0b', borderRadius: 4 },
                         { label: `⚡ Produtividade/Dia`, data: grafLista.map(x => Number(x.produtividade.toFixed(2))), backgroundColor: '#10b981', borderRadius: 4 }
                     ]
@@ -1623,6 +1918,7 @@ function renderizarPainelMallingEProjetoF(dados) {
                 labels: categorias5.map(c => c.label),
                 datasets: [
                     { label: '🟢 EXECUTADO', data: categorias5.map(c => dados.filter(d => c.filtro(d) && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#059669', borderRadius: 5 },
+                    { label: '🤝 Com Apoio Conjunto', data: categorias5.map(c => dados.filter(d => c.filtro(d) && extrairApoiosDoRegistro(d).length > 0).length), backgroundColor: '#9333ea', borderRadius: 5 },
                     { label: '🟠 N EXECUTADO', data: categorias5.map(c => dados.filter(d => c.filtro(d) && d.desfecho !== 'CONCLUIDA').length), backgroundColor: '#f59e0b', borderRadius: 5 }
                 ]
             },
@@ -1697,6 +1993,7 @@ function renderizarPainelMallingEProjetoF(dados) {
                 <th class="p-2 text-center bg-blue-900">Const. ON GOING (Exec / N Exec)</th>
                 <th class="p-2 text-center bg-emerald-900">Ativação F (Exec / N Exec)</th>
                 <th class="p-2 text-center bg-teal-900">Ativ. ON GOING (Exec / N Exec)</th>
+                <th class="p-2 text-center bg-purple-800 text-purple-100">🤝 Apoios</th>
                 <th class="p-2.5 text-center bg-slate-950 text-cyan-300 font-black">Total Executado</th>
                 <th class="p-2.5 text-center bg-slate-900">Total Geral</th>
             </tr>`;
@@ -1712,11 +2009,11 @@ function renderizarPainelMallingEProjetoF(dados) {
         const dadosDoGrp = dados.filter(d => d.servicoPlanilha === grp.chave);
         if (dadosDoGrp.length === 0) return;
 
-        tbodyCruz.innerHTML += `<tr class="${grp.cor} font-black text-xs"><td colspan="9" class="p-2 uppercase">${grp.titulo}</td></tr>`;
+        tbodyCruz.innerHTML += `<tr class="${grp.cor} font-black text-xs"><td colspan="10" class="p-2 uppercase">${grp.titulo}</td></tr>`;
         const mapaTec = {};
         dadosDoGrp.forEach(d => {
             const n = d.equipe || 'NÃO IDENTIFICADO';
-            if (!mapaTec[n]) mapaTec[n] = { nome: n, vE: 0, vN: 0, cfE: 0, cfN: 0, cogE: 0, cogN: 0, afE: 0, afN: 0, aogE: 0, aogN: 0, totE: 0, totG: 0 };
+            if (!mapaTec[n]) mapaTec[n] = { nome: n, vE: 0, vN: 0, cfE: 0, cfN: 0, cogE: 0, cogN: 0, afE: 0, afN: 0, aogE: 0, aogN: 0, ap: 0, totE: 0, totG: 0 };
             const t = mapaTec[n];
             t.totG++;
             const ok = d.desfecho === 'CONCLUIDA';
@@ -1729,14 +2026,19 @@ function renderizarPainelMallingEProjetoF(dados) {
                 if (d.subgrupoFOuOnGoing === 'F') { if (ok) t.afE++; else t.afN++; }
                 else { if (ok) t.aogE++; else t.aogN++; }
             }
+
+            extrairApoiosDoRegistro(d).forEach(apNome => {
+                if (!mapaTec[apNome]) mapaTec[apNome] = { nome: apNome, vE: 0, vN: 0, cfE: 0, cfN: 0, cogE: 0, cogN: 0, afE: 0, afN: 0, aogE: 0, aogN: 0, ap: 0, totE: 0, totG: 0 };
+                mapaTec[apNome].ap++;
+            });
         });
 
-        Object.values(mapaTec).sort((a, b) => b.totE - a.totE).forEach(t => {
+        Object.values(mapaTec).sort((a, b) => b.totE - a.totE || b.ap - a.ap).forEach(t => {
             const cel = (e, n) => e === 0 && n === 0 ? `<span class="text-slate-300">-</span>` : `<b class="text-emerald-700">${e}</b> <span class="text-slate-400">/</span> <span class="text-amber-700">${n}</span>`;
             const tr = document.createElement('tr');
             tr.className = "hover:bg-slate-50 border-b cursor-pointer";
             tr.onclick = () => dispararExplosaoGrafico('equipe_servico', `${t.nome}|${grp.chave}`);
-            tr.innerHTML = `<td class="p-2.5 font-bold text-slate-800">${t.nome}</td><td class="p-2.5 font-bold text-[10px]">${grp.chave}</td><td class="p-2 text-center">${cel(t.vE, t.vN)}</td><td class="p-2 text-center">${cel(t.cfE, t.cfN)}</td><td class="p-2 text-center">${cel(t.cogE, t.cogN)}</td><td class="p-2 text-center">${cel(t.afE, t.afN)}</td><td class="p-2 text-center">${cel(t.aogE, t.aogN)}</td><td class="p-2.5 text-center font-black bg-emerald-50 text-emerald-900">${t.totE}</td><td class="p-2.5 text-center font-bold bg-slate-50">${t.totG}</td>`;
+            tr.innerHTML = `<td class="p-2.5 font-bold text-slate-800">${t.nome}</td><td class="p-2.5 font-bold text-[10px]">${grp.chave}</td><td class="p-2 text-center">${cel(t.vE, t.vN)}</td><td class="p-2 text-center">${cel(t.cfE, t.cfN)}</td><td class="p-2 text-center">${cel(t.cogE, t.cogN)}</td><td class="p-2 text-center">${cel(t.afE, t.afN)}</td><td class="p-2 text-center">${cel(t.aogE, t.aogN)}</td><td class="p-2 text-center font-black text-purple-800 bg-purple-50/60">${t.ap > 0 ? `🤝 ${t.ap}` : '-'}</td><td class="p-2.5 text-center font-black bg-emerald-50 text-emerald-900">${t.totE}</td><td class="p-2.5 text-center font-bold bg-slate-50">${t.totG}</td>`;
             tbodyCruz.appendChild(tr);
         });
     });
@@ -1749,7 +2051,7 @@ function renderizarMatrizDiariaPlanilha(dados, datasOrdenadas) {
     tbody.innerHTML = "";
     const datasExibir = datasOrdenadas.length > 0 ? datasOrdenadas : [obterDataLocalISO()];
 
-    let htmlHead = `<tr class="bg-slate-900 text-white uppercase font-bold text-[9px] tracking-wider"><th class="p-2.5 text-center bg-emerald-900 text-cyan-300">Exec. Total</th><th class="p-2.5 text-center bg-indigo-950 text-indigo-200">F / ON GOING</th><th class="p-2.5">Equipe / Técnico</th>`;
+    let htmlHead = `<tr class="bg-slate-900 text-white uppercase font-bold text-[9px] tracking-wider"><th class="p-2.5 text-center bg-emerald-900 text-cyan-300">Exec. Total</th><th class="p-2.5 text-center bg-purple-900 text-purple-200">🤝 Apoios</th><th class="p-2.5 text-center bg-indigo-950 text-indigo-200">F / ON GOING</th><th class="p-2.5">Equipe / Técnico</th>`;
     datasExibir.forEach(dt => { htmlHead += `<th class="p-2 text-center font-mono">${dt.split('-').reverse().slice(0, 2).join('/')}</th>`; });
     htmlHead += `</tr>`;
     thead.innerHTML = htmlHead;
@@ -1764,43 +2066,51 @@ function renderizarMatrizDiariaPlanilha(dados, datasOrdenadas) {
         const dadosGrp = dados.filter(d => d.servicoPlanilha === grp.chave);
         if (dadosGrp.length === 0) return;
 
-        tbody.innerHTML += `<tr class="${grp.cor} font-black text-xs"><td colspan="${datasExibir.length + 3}" class="p-2 uppercase">${grp.titulo}</td></tr>`;
+        tbody.innerHTML += `<tr class="${grp.cor} font-black text-xs"><td colspan="${datasExibir.length + 4}" class="p-2 uppercase">${grp.titulo}</td></tr>`;
 
         const mapaDiario = {};
         dadosGrp.forEach(d => {
             const eq = d.equipe || "NÃO IDENTIFICADO";
-            if (!mapaDiario[eq]) mapaDiario[eq] = { nome: eq, totalExec: 0, execF: 0, execOG: 0, porData: {} };
+            if (!mapaDiario[eq]) mapaDiario[eq] = { nome: eq, totalExec: 0, totalAp: 0, execF: 0, execOG: 0, porData: {}, apPorData: {} };
             if (d.desfecho === 'CONCLUIDA') {
                 mapaDiario[eq].totalExec++;
                 if (d.subgrupoFOuOnGoing === 'F') mapaDiario[eq].execF++;
                 else mapaDiario[eq].execOG++;
                 mapaDiario[eq].porData[d.dataRegistro] = (mapaDiario[eq].porData[d.dataRegistro] || 0) + 1;
             }
+            extrairApoiosDoRegistro(d).forEach(apNome => {
+                if (!mapaDiario[apNome]) mapaDiario[apNome] = { nome: apNome, totalExec: 0, totalAp: 0, execF: 0, execOG: 0, porData: {}, apPorData: {} };
+                mapaDiario[apNome].totalAp++;
+                mapaDiario[apNome].apPorData[d.dataRegistro] = (mapaDiario[apNome].apPorData[d.dataRegistro] || 0) + 1;
+            });
         });
 
         const somaDiaGrupo = {};
         datasExibir.forEach(dt => somaDiaGrupo[dt] = 0);
-        let somaTotGrupo = 0, somaFGrupo = 0, somaOGGrupo = 0;
+        let somaTotGrupo = 0, somaApGrupo = 0, somaFGrupo = 0, somaOGGrupo = 0;
 
-        Object.values(mapaDiario).sort((a, b) => b.totalExec - a.totalExec).forEach(item => {
-            somaTotGrupo += item.totalExec; somaFGrupo += item.execF; somaOGGrupo += item.execOG;
+        Object.values(mapaDiario).sort((a, b) => b.totalExec - a.totalExec || b.totalAp - a.totalAp).forEach(item => {
+            somaTotGrupo += item.totalExec; somaApGrupo += item.totalAp; somaFGrupo += item.execF; somaOGGrupo += item.execOG;
             let colsDias = "";
             datasExibir.forEach(dt => {
                 const v = item.porData[dt] || 0;
+                const apDia = item.apPorData[dt] || 0;
                 somaDiaGrupo[dt] += v;
-                colsDias += `<td class="p-2 text-center ${v > 0 ? 'font-black text-emerald-800 bg-emerald-50/60' : 'text-slate-300'}">${v > 0 ? v : '-'}</td>`;
+                let txtCel = v > 0 ? `${v}` : (apDia > 0 ? '' : '-');
+                if (apDia > 0) txtCel += `${v > 0 ? ' ' : ''}<span class="text-[9px] text-purple-700 font-bold">(+${apDia}🤝)</span>`;
+                colsDias += `<td class="p-2 text-center ${v > 0 ? 'font-black text-emerald-800 bg-emerald-50/60' : (apDia > 0 ? 'bg-purple-50/50' : 'text-slate-300')}">${txtCel}</td>`;
             });
             const subF_OG = grp.chave === 'VISTORIA' ? '-' : `${item.execF} F / ${item.execOG} OG`;
             const tr = document.createElement('tr');
             tr.className = "hover:bg-slate-50 border-b cursor-pointer";
             tr.onclick = () => dispararExplosaoGrafico('equipe_servico', `${item.nome}|${grp.chave}`);
-            tr.innerHTML = `<td class="p-2 text-center font-black bg-emerald-50 text-emerald-950">${item.totalExec}</td><td class="p-2 text-center text-[10px] font-bold text-indigo-900 bg-indigo-50/40 whitespace-nowrap">${subF_OG}</td><td class="p-2 font-bold text-slate-800 whitespace-nowrap">${item.nome}</td>${colsDias}`;
+            tr.innerHTML = `<td class="p-2 text-center font-black bg-emerald-50 text-emerald-950">${item.totalExec}</td><td class="p-2 text-center font-black bg-purple-50 text-purple-900">${item.totalAp > 0 ? `🤝 ${item.totalAp}` : '-'}</td><td class="p-2 text-center text-[10px] font-bold text-indigo-900 bg-indigo-50/40 whitespace-nowrap">${subF_OG}</td><td class="p-2 font-bold text-slate-800 whitespace-nowrap">${item.nome}</td>${colsDias}`;
             tbody.appendChild(tr);
         });
 
         let colsSub = "";
         datasExibir.forEach(dt => { colsSub += `<td class="p-2 text-center font-black">${somaDiaGrupo[dt]}</td>`; });
-        tbody.innerHTML += `<tr class="bg-slate-200 text-slate-900 font-black text-[11px] border-b-2 border-slate-400"><td class="p-2 text-center">${somaTotGrupo}</td><td class="p-2 text-center text-[10px]">${grp.chave === 'VISTORIA' ? '-' : `${somaFGrupo} F / ${somaOGGrupo} OG`}</td><td class="p-2 uppercase">Subtotal ${grp.chave}</td>${colsSub}</tr>`;
+        tbody.innerHTML += `<tr class="bg-slate-200 text-slate-900 font-black text-[11px] border-b-2 border-slate-400"><td class="p-2 text-center">${somaTotGrupo}</td><td class="p-2 text-center text-purple-900">🤝 ${somaApGrupo}</td><td class="p-2 text-center text-[10px]">${grp.chave === 'VISTORIA' ? '-' : `${somaFGrupo} F / ${somaOGGrupo} OG`}</td><td class="p-2 uppercase">Subtotal ${grp.chave}</td>${colsSub}</tr>`;
     });
 }
 
@@ -1907,7 +2217,8 @@ function exportarPlanilhaProgramadoRetornoBairro() {
     const base = enriquecerStatusMacroEBairro(dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
         r.projeto !== 'IMPREVISTO / ATRASO' &&
         r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
-        r.projeto !== PROJETO_SOLIC_MATERIAL
+        r.projeto !== PROJETO_SOLIC_MATERIAL &&
+        r.equipe !== '__CONFIG_SISTEMA__'
     );
 
     if (base.length === 0) { alert("⚠️ Nenhum registro encontrado no período."); return; }
@@ -1923,18 +2234,19 @@ function exportarPlanilhaProgramadoRetornoBairro() {
         const regsGrp = base.filter(r => r.servicoPlanilha === grp.chave);
         html += `
             <tr style="background-color:${grp.cor};color:#ffffff;font-weight:bold;font-size:13px;">
-                <th colspan="15">${grp.titulo} — TOTAL: ${regsGrp.length} REGISTROS</th>
+                <th colspan="16">${grp.titulo} — TOTAL: ${regsGrp.length} REGISTROS</th>
             </tr>
             <tr style="background-color:#e2e8f0;font-weight:bold;">
-                <th>BAIRRO</th><th>GRUPO</th><th>PROGRAMADO (1ª VISITA)</th><th>RETORNO</th><th>EXECUTADO PROJETO F</th><th>EXECUTADO ON GOING</th><th>TOTAL EXECUTADO</th><th>N EXECUTADO</th><th>TOTAL ACIONADO</th><th colspan="6">SOMA DE HPs</th>
+                <th>BAIRRO</th><th>GRUPO</th><th>PROGRAMADO (1ª VISITA)</th><th>RETORNO</th><th>EXECUTADO PROJETO F</th><th>EXECUTADO ON GOING</th><th>TOTAL EXECUTADO</th><th>OBRAS EM CONJUNTO (APOIO)</th><th>N EXECUTADO</th><th>TOTAL ACIONADO</th><th colspan="6">SOMA DE HPs</th>
             </tr>`;
 
         const mapaB = {};
         regsGrp.forEach(d => {
             const b = d.bairroPlanilha || 'OUTROS';
-            if (!mapaB[b]) mapaB[b] = { bairro: b, prog: 0, ret: 0, execF: 0, execOG: 0, execTot: 0, nExec: 0, total: 0, hps: 0 };
+            if (!mapaB[b]) mapaB[b] = { bairro: b, prog: 0, ret: 0, execF: 0, execOG: 0, execTot: 0, comApoio: 0, nExec: 0, total: 0, hps: 0 };
             mapaB[b].total++;
             if (d.statusMacroPlanilha === 'RETORNO') mapaB[b].ret++; else mapaB[b].prog++;
+            if (extrairApoiosDoRegistro(d).length > 0) mapaB[b].comApoio++;
             if (d.desfecho === 'CONCLUIDA') {
                 mapaB[b].execTot++;
                 mapaB[b].hps += Number(d.hps) || 0;
@@ -1943,26 +2255,27 @@ function exportarPlanilhaProgramadoRetornoBairro() {
         });
 
         Object.values(mapaB).sort((a, b) => b.total - a.total).forEach(b => {
-            html += `<tr><td><b>${b.bairro}</b></td><td>${grp.chave}</td><td>${b.prog}</td><td>${b.ret}</td><td>${b.execF}</td><td>${b.execOG}</td><td><b>${b.execTot}</b></td><td>${b.nExec}</td><td><b>${b.total}</b></td><td colspan="6">${b.hps}</td></tr>`;
+            html += `<tr><td><b>${b.bairro}</b></td><td>${grp.chave}</td><td>${b.prog}</td><td>${b.ret}</td><td>${b.execF}</td><td>${b.execOG}</td><td><b>${b.execTot}</b></td><td><b>${b.comApoio}</b></td><td>${b.nExec}</td><td><b>${b.total}</b></td><td colspan="6">${b.hps}</td></tr>`;
         });
 
         html += `
             <tr style="background-color:#dbeafe;font-weight:bold;">
-                <th>SEMANA</th><th>MÊS</th><th>ANO</th><th>DATA</th><th>TÉCNICO / EXECUTOR</th><th>COD. IMOVEL</th><th>BAIRRO</th><th>GRUPO</th><th>SUBGRUPO (F / ON GOING)</th><th>PROJETO</th><th>ENDEREÇO</th><th>HP</th><th>STATUS MACRO (PROG/RETORNO)</th><th>STATUS1 (DETALHE/OFENSOR)</th><th>STATUS</th>
+                <th>SEMANA</th><th>MÊS</th><th>ANO</th><th>DATA</th><th>TÉCNICO TITULAR</th><th>TÉCNICO(S) EM APOIO / CONJUNTA</th><th>COD. IMOVEL</th><th>BAIRRO</th><th>GRUPO</th><th>SUBGRUPO (F / ON GOING)</th><th>PROJETO</th><th>ENDEREÇO</th><th>HP</th><th>STATUS MACRO</th><th>STATUS1 (DETALHE/OFENSOR)</th><th>STATUS</th>
             </tr>`;
 
         regsGrp.forEach(r => {
             const dt = r.dataRegistro || '';
             const status1 = (Array.isArray(r.malogros) && r.malogros.length > 0) ? r.malogros.join(' + ') : (r.motivoDesfecho || r.desfecho);
+            const apoiosStr = extrairApoiosDoRegistro(r).join(', ');
             html += `<tr>
                 <td>${r.semanaPlanilha}</td><td>${parseInt(dt.substring(5, 7) || '1', 10)}</td><td>${dt.substring(0, 4) || '2026'}</td>
-                <td>${dt}</td><td>${r.equipe}</td><td>${r.imovel}</td><td><b>${r.bairroPlanilha}</b></td>
+                <td>${dt}</td><td><b>${r.equipe}</b></td><td><b>${apoiosStr || '-'}</b></td><td>${r.imovel}</td><td><b>${r.bairroPlanilha}</b></td>
                 <td><b>${r.servicoPlanilha}</b></td><td><b>${r.subgrupoFOuOnGoing}</b></td><td>${r.projeto}</td>
                 <td>${r.endereco || ''}</td><td>${r.hps || 0}</td><td><b>${r.statusMacroPlanilha}</b></td>
                 <td>${status1}</td><td><b>${r.statusBinarioPlanilha}</b></td>
             </tr>`;
         });
-        html += `<tr><td colspan="15"></td></tr>`;
+        html += `<tr><td colspan="16"></td></tr>`;
     });
 
     html += `</table>`;
@@ -1971,22 +2284,23 @@ function exportarPlanilhaProgramadoRetornoBairro() {
     const a = document.createElement('a');
     a.href = url; a.download = `PLANILHA_GRUPOS_PROGRAMADO_RETORNO_BAIRRO_${obterDataLocalISO()}.xls`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    registrarLogAuditoria("EXPORTAÇÃO PROGRAMADO/RETORNO POR GRUPOS", `Exportados ${base.length} registros divididos por Vistoria, Construção (F/ON GOING) e Ativação (F/ON GOING).`);
+    registrarLogAuditoria("EXPORTAÇÃO PROGRAMADO/RETORNO POR GRUPOS", `Exportados ${base.length} registros divididos por Vistoria, Construção e Ativação.`);
 }
 
 function montarTabelaHtmlGrupoParaExcel(tituloBloco, corFundoHex, listaRegistros) {
     let html = `
         <tr style="background-color:${corFundoHex};color:#ffffff;font-weight:bold;font-size:13px;">
-            <th colspan="22">${tituloBloco} (${listaRegistros.length} REGISTROS)</th>
+            <th colspan="23">${tituloBloco} (${listaRegistros.length} REGISTROS)</th>
         </tr>
         <tr style="background-color:#f1f5f9;font-weight:bold;">
-            <th>SEMANA</th><th>DATA</th><th>TÉCNICO / EQUIPE</th><th>GRUPO</th><th>SUBGRUPO (F / ON GOING)</th><th>PROJETO</th><th>IMÓVEL / BLOCO</th><th>BAIRRO</th><th>ENDEREÇO</th><th>STATUS MACRO</th><th>STATUS PLANILHA</th><th>DESFECHO</th><th>STATUS1 / OFENSORES</th><th>H. ENTRADA</th><th>H. SAÍDA</th><th>ANDARES</th><th>HPs</th><th>CABO RL (m)</th><th>CABO DROP (m)</th><th>CONECTORES</th><th>FUSÕES</th><th>NAP / DIO</th>
+            <th>SEMANA</th><th>DATA</th><th>TÉCNICO TITULAR</th><th>TÉCNICO(S) EM APOIO / CONJUNTA</th><th>GRUPO</th><th>SUBGRUPO (F / ON GOING)</th><th>PROJETO</th><th>IMÓVEL / BLOCO</th><th>BAIRRO</th><th>ENDEREÇO</th><th>STATUS MACRO</th><th>STATUS PLANILHA</th><th>DESFECHO</th><th>STATUS1 / OFENSORES</th><th>H. ENTRADA</th><th>H. SAÍDA</th><th>ANDARES</th><th>HPs</th><th>CABO RL (m)</th><th>CABO DROP (m)</th><th>CONECTORES</th><th>FUSÕES</th><th>NAP / DIO</th>
         </tr>`;
 
     listaRegistros.forEach(r => {
         const status1 = (Array.isArray(r.malogros) && r.malogros.length > 0) ? r.malogros.join(' + ') : (r.motivoDesfecho || '');
+        const apoiosStr = extrairApoiosDoRegistro(r).join(', ');
         html += `<tr>
-            <td>${r.semanaPlanilha}</td><td>${r.dataRegistro}</td><td><b>${r.equipe}</b></td>
+            <td>${r.semanaPlanilha}</td><td>${r.dataRegistro}</td><td><b>${r.equipe}</b></td><td><b>${apoiosStr || '-'}</b></td>
             <td><b>${r.servicoPlanilha}</b></td><td><b>${r.subgrupoFOuOnGoing}</b></td><td>${r.projeto}</td>
             <td>${r.imovel}</td><td>${r.bairroPlanilha}</td><td>${r.endereco || ''}</td>
             <td><b>${r.statusMacroPlanilha}</b></td><td><b>${r.statusBinarioPlanilha}</b></td><td>${r.desfecho}</td>
@@ -1994,13 +2308,13 @@ function montarTabelaHtmlGrupoParaExcel(tituloBloco, corFundoHex, listaRegistros
             <td>${r.caboRL || 0}</td><td>${r.caboDrop || 0}</td><td>${r.conectores || 0}</td><td>${r.fusoes || 0}</td><td>NAP:${r.nap || 0} / DIO:${r.dio || 0}</td>
         </tr>`;
     });
-    html += `<tr><td colspan="22"></td></tr>`;
+    html += `<tr><td colspan="23"></td></tr>`;
     return html;
 }
 
 function exportarExcelGrupoEspecifico(grupoAlvo) {
     const todos = enriquecerStatusMacroEBairro(dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
-        r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL
+        r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL && r.equipe !== '__CONFIG_SISTEMA__'
     );
 
     let html = `<table border="1">`;
@@ -2029,7 +2343,7 @@ function exportarExcelGrupoEspecifico(grupoAlvo) {
 
 function exportarExcel() {
     const todos = enriquecerStatusMacroEBairro(dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
-        r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL
+        r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL && r.equipe !== '__CONFIG_SISTEMA__'
     );
     if (todos.length === 0) { alert("Nenhum registro para exportar no filtro atual."); return; }
 
@@ -2052,7 +2366,7 @@ function exportarExcel() {
     let a = document.createElement('a');
     a.href = url; a.download = `RELATORIO_POR_GRUPOS_GPD_PROCISA_${obterDataLocalISO()}.xls`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    registrarLogAuditoria("EXPORTAÇÃO DE RELATÓRIO POR GRUPOS", `Baixado relatório Excel separado por Vistoria, Construção (F/ON GOING) e Ativação (F/ON GOING).`);
+    registrarLogAuditoria("EXPORTAÇÃO DE RELATÓRIO POR GRUPOS", `Baixado relatório Excel separado por grupos e apoios.`);
 }
 
 function renderizarOfensoresMalogro(dados) {
@@ -2193,6 +2507,7 @@ async function abrirModalEdicao(id) {
     let reg = registrosSalvos.find(r => r.id === id);
     if (!reg) return;
     popularSelectProjetosGlobal();
+    inicializarMelhoriasVisuaisGestor();
 
     snapshotStatusEdicaoOriginal = { id: reg.id, desfecho: reg.desfecho, hSaida: reg.hSaida, equipe: reg.equipe };
     document.getElementById('edit-reg-id').value = reg.id;
@@ -2204,6 +2519,11 @@ async function abrirModalEdicao(id) {
         if (reg.equipe && !nomesEquipes.includes(reg.equipe)) nomesEquipes.unshift(reg.equipe);
         selEqEdit.innerHTML = nomesEquipes.map(nome => `<option value="${nome}">${nome}</option>`).join('');
         selEqEdit.value = reg.equipe || "";
+    }
+
+    const inpApoioEdit = document.getElementById('edit-reg-apoio-conjunto');
+    if (inpApoioEdit) {
+        inpApoioEdit.value = extrairApoiosDoRegistro(reg).join(', ');
     }
 
     document.getElementById('edit-reg-imovel').value = reg.imovel || '';
@@ -2269,6 +2589,10 @@ async function salvarEdicaoRegistro() {
 
     let data_registro = document.getElementById('edit-reg-data').value || obterDataLocalISO();
     let equipe = document.getElementById('edit-reg-equipe').value || '';
+    const strApoioDigitado = document.getElementById('edit-reg-apoio-conjunto')?.value || '';
+    const arrApoios = strApoioDigitado.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    const membrosFinal = formatarCampoMembrosComApoio(equipe, arrApoios);
+
     let imovel = document.getElementById('edit-reg-imovel').value.trim();
     let endereco = document.getElementById('edit-reg-endereco').value.trim();
     let liberouAcesso = document.getElementById('edit-reg-liberou-acesso').value.trim();
@@ -2301,7 +2625,7 @@ async function salvarEdicaoRegistro() {
     let obsComTagsEFotos = `${endereco ? `[END: ${endereco}] ` : ''}${liberouAcesso ? `[LIBEROU_ACESSO: ${liberouAcesso}] ` : ''}${pausaMin > 0 ? `[PAUSA_TOTAL: ${pausaMin}] ` : ''}${obsLimpa}${(fotosEdicaoTemporarias && fotosEdicaoTemporarias.length > 0) ? ` [FOTOS:${JSON.stringify(fotosEdicaoTemporarias)}]` : ''}`.trim();
 
     const { error } = await supabaseClient.from('registros_producao').update({
-        data_registro, equipe, membros: equipe, imovel, projeto, desfecho, h_entrada, h_saida,
+        data_registro, equipe, membros: membrosFinal, imovel, projeto, desfecho, h_entrada, h_saida,
         gps_entrada, gps_saida, responsavel, contato, email, servico_obra, motivo_desfecho,
         malogros: listaMalogrosOpcoes, andares, hps, observacoes: obsComTagsEFotos,
         cabo_rl, conectores, cabo_drop, nap, dio, fusoes, cx_sobrepor, cx_embutida, cx_fosc
@@ -2311,7 +2635,7 @@ async function salvarEdicaoRegistro() {
     if (error) { alert("Erro: " + error.message); return; }
     if (regOriginal) {
         Object.assign(regOriginal, {
-            dataRegistro: data_registro, equipe, membros: equipe, imovel, endereco, liberouAcesso, responsavel,
+            dataRegistro: data_registro, equipe, membros: membrosFinal, imovel, endereco, liberouAcesso, responsavel,
             contato, email, projeto, desfecho, hEntrada: h_entrada, hSaida: h_saida, tempoPausadoMinutos: pausaMin,
             gpsEntrada: gps_entrada, gpsSaida: gps_saida, servicoObra: servico_obra, motivoDesfecho: motivo_desfecho,
             malogros: listaMalogrosOpcoes, andares, hps, observacoes: obsLimpa, fotos: [...fotosEdicaoTemporarias],
@@ -2375,7 +2699,7 @@ function renderizarTabelaUsuariosPermissao() {
     });
 }
 
-// ================= ITEM 01, 02 e 03: MODAL DE DETALHES COMPLETO (MATERIAIS POR BLOCO, LINKS GPS MAPS E WHATSAPP MULTI-BLOCO) =================
+// ================= MODAL DE DETALHES COMPLETO (MATERIAIS POR BLOCO, LINKS GPS MAPS, APOIO CONJUNTO E WHATSAPP) =================
 async function abrirDetalhesAtividade(item) {
     if (!item) return;
     const modal = document.getElementById('modal-detalhes');
@@ -2451,10 +2775,12 @@ async function abrirDetalhesAtividade(item) {
     const somaEmbutida = blocosIrmaos.reduce((acc, b) => acc + (Number(b.cxEmbutida) || 0), 0);
     const somaFosc = blocosIrmaos.reduce((acc, b) => acc + (Number(b.cxFosc) || 0), 0);
     const pausaMin = blocosIrmaos.reduce((acc, b) => acc + (Number(b.tempoPausadoMinutos) || 0), 0);
+    const apoiosImovel = [...new Set(blocosIrmaos.flatMap(b => extrairApoiosDoRegistro(b)))];
 
     itemDetalheAtualModal = {
         ...item,
         imovel: temMultiplosBlocos ? `${codBase} (${blocosIrmaos.length} Blocos)` : item.imovel,
+        equipe: apoiosImovel.length > 0 ? `${item.equipe} (🤝 Apoio: ${apoiosImovel.join(', ')})` : item.equipe,
         andares: somaAndares,
         hps: somaHps,
         tempoPausadoMinutos: pausaMin,
@@ -2592,9 +2918,10 @@ async function abrirDetalhesAtividade(item) {
         ${infoTratativaHtml}
         <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
             <div class="col-span-2"><strong>📍 Endereço do Atendimento:</strong> <span class="font-bold text-blue-950">${item.endereco || item.imovel || 'Não informado'}</span></div>
+            ${apoiosImovel.length > 0 ? `<div class="col-span-2 bg-purple-100 p-2.5 rounded-lg border border-purple-300 text-purple-950"><strong>🤝 Atuação Conjunta / Apoio Operacional:</strong> <span class="font-black">${apoiosImovel.join(', ')}</span></div>` : ''}
             ${item.liberouAcesso ? `<div class="col-span-2 bg-amber-50 p-2 rounded border border-amber-200"><strong>🔑 Liberou o Acesso:</strong> <span class="font-black text-amber-950">${item.liberouAcesso}</span></div>` : ''}
             <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
-            <div><strong>Técnico / Equipe:</strong> <b class="text-blue-900">${item.equipe}</b></div>
+            <div><strong>Técnico Titular:</strong> <b class="text-blue-900">${item.equipe}</b></div>
             <div><strong>Projeto / Atividade:</strong> <b>${item.projeto}</b></div>
             <div><strong>Status / Desfecho:</strong> <span class="font-bold px-2 py-0.5 rounded text-[10px] ${classeCorDesfecho}">${item.desfecho}</span></div>
             <div><strong>Total de Andares:</strong> <b>${somaAndares}</b></div>
@@ -2626,7 +2953,7 @@ async function abrirDetalhesAtividade(item) {
 
 function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
 
-// ITEM 03: Boletim Executivo WhatsApp com agrupamento limpo de blocos
+// Boletim Executivo WhatsApp com agrupamento de blocos e evidência de Atuação Conjunta
 copiarBoletimGestorWhatsApp = function() {
     const lista = dadosFiltradosAtuais.length > 0
         ? dadosFiltradosAtuais
@@ -2646,6 +2973,7 @@ copiarBoletimGestorWhatsApp = function() {
     const concluidas = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
     const pendentes = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
     const malogradas = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
+    const totalObrasConjuntas = lista.filter(i => extrairApoiosDoRegistro(i).length > 0).length;
 
     let sumRL = 0, sumDrop = 0, sumConect = 0, sumNap = 0, sumDio = 0, sumFusoes = 0, sumSobre = 0, sumEmb = 0, sumFosc = 0;
     finalizadas.forEach(i => {
@@ -2671,9 +2999,11 @@ copiarBoletimGestorWhatsApp = function() {
     });
 
     const linhasImoveisFormatadas = Object.values(gruposImoveis).slice(0, 15).map(g => {
+        const apoiosGrp = [...new Set(g.blocos.flatMap(b => extrairApoiosDoRegistro(b)))];
+        const txtApoio = apoiosGrp.length > 0 ? ` *(🤝 Conjunta c/ ${apoiosGrp.join(', ')})*` : '';
         if (g.blocos.length === 1) {
             const u = g.blocos[0];
-            return `• *${u.imovel}* (${u.projeto}) - ${u.equipe}: *${u.desfecho}* | Andares: ${u.andares || 0} | HPs: ${u.hps || 0}${u.endereco ? `\n  📍 End: ${u.endereco}` : ''}${u.liberouAcesso ? ` | 🔑 Liberou: ${u.liberouAcesso}` : ''}`;
+            return `• *${u.imovel}* (${u.projeto}) - ${u.equipe}${txtApoio}: *${u.desfecho}* | Andares: ${u.andares || 0} | HPs: ${u.hps || 0}${u.endereco ? `\n  📍 End: ${u.endereco}` : ''}${u.liberouAcesso ? ` | 🔑 Liberou: ${u.liberouAcesso}` : ''}`;
         } else {
             const subBlocos = g.blocos.map(b => {
                 let nomeB = b.imovel || 'Bloco';
@@ -2681,7 +3011,7 @@ copiarBoletimGestorWhatsApp = function() {
                 if (idx !== -1) nomeB = nomeB.substring(idx + 3).trim();
                 return `   ↳ *${nomeB}*: *${b.desfecho}* (And: ${b.andares || 0} | HPs: ${b.hps || 0} | RL: ${b.caboRL || 0}m | Drop: ${b.caboDrop || 0}m | Conect: ${b.conectores || 0} | Fus: ${b.fusoes || 0} | NAP: ${b.nap || 0} | DIO: ${b.dio || 0})`;
             }).join('\n');
-            return `• *${g.codBase} (${g.blocos.length} Blocos)* (${g.projeto}) - ${g.equipe}${g.endereco ? `\n  📍 End: ${g.endereco}` : ''}${g.liberouAcesso ? ` | 🔑 Liberou: ${g.liberouAcesso}` : ''}\n${subBlocos}`;
+            return `• *${g.codBase} (${g.blocos.length} Blocos)* (${g.projeto}) - ${g.equipe}${txtApoio}${g.endereco ? `\n  📍 End: ${g.endereco}` : ''}${g.liberouAcesso ? ` | 🔑 Liberou: ${g.liberouAcesso}` : ''}\n${subBlocos}`;
         }
     }).join('\n');
 
@@ -2692,6 +3022,7 @@ copiarBoletimGestorWhatsApp = function() {
         `🔵 *Ativas / Em Execução Agora:* ${andamento}`,
         `📈 *Total Finalizadas:* ${finalizadas.length}`,
         `🟢 *Concluídas:* ${concluidas}`,
+        `🤝 *Atuações em Conjunto (Apoio):* ${totalObrasConjuntas}`,
         `🟡 *Pendentes:* ${pendentes}`,
         `🔴 *Malogradas:* ${malogradas}`,
         `⚠️ *Imprevistos Reportados:* ${listaImprevistosAtuais.length}`,
@@ -2706,7 +3037,7 @@ copiarBoletimGestorWhatsApp = function() {
         linhasImoveisFormatadas || 'Nenhuma atividade finalizada no filtro.'
     ].join('\n');
 
-    copiarParaAreaTransferencia(texto, "✅ Boletim Executivo (com blocos organizados) copiado para o WhatsApp!");
+    copiarParaAreaTransferencia(texto, "✅ Boletim Executivo (com blocos e apoios conjuntos) copiado para o WhatsApp!");
 };
 
 function dispararExplosaoGrafico(filtroTipo, filtroValor) {
@@ -2716,11 +3047,12 @@ function dispararExplosaoGrafico(filtroTipo, filtroValor) {
     corpo.innerHTML = "";
 
     let subset = dadosFiltradosAtuais.filter(item => {
+        const apoios = extrairApoiosDoRegistro(item);
         if (filtroTipo === 'projeto') return item.projeto === filtroValor;
         if (filtroTipo === 'macro_servico') return item.servicoPlanilha === filtroValor;
         if (filtroTipo === 'equipe_servico') {
             const [eq, serv] = filtroValor.split('|');
-            return item.equipe === eq && item.servicoPlanilha === serv;
+            return (item.equipe === eq || apoios.includes(eq)) && item.servicoPlanilha === serv;
         }
         if (filtroTipo === 'grupo_subgrupo') {
             const [serv, sub] = filtroValor.split('|');
@@ -2730,7 +3062,7 @@ function dispararExplosaoGrafico(filtroTipo, filtroValor) {
         if (filtroTipo === 'data') return item.dataRegistro === filtroValor;
         if (filtroTipo === 'bairro') return item.bairroPlanilha === filtroValor;
         if (filtroTipo === 'desfecho') return item.desfecho === filtroValor;
-        if (filtroTipo === 'equipe') return item.equipe === filtroValor;
+        if (filtroTipo === 'equipe') return item.equipe === filtroValor || apoios.includes(filtroValor);
         if (filtroTipo === 'ofensor') return (item.desfecho === 'MALOGRADA' || item.desfecho === 'PENDENTE') && Array.isArray(item.malogros) && item.malogros.map(m => m.trim().toUpperCase()).includes(filtroValor.toUpperCase());
         return false;
     });
@@ -2740,7 +3072,9 @@ function dispararExplosaoGrafico(filtroTipo, filtroValor) {
     } else {
         subset.forEach(item => {
             let detalheInfo = item.malogros && item.malogros.length > 0 ? `STATUS1: ${item.malogros.join(' + ')}` : (item.motivoDesfecho || 'Concluído');
-            corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); fecharModalGraficoExpandido(); fecharModalTabelaExpandida(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))"><td class="p-2.5 font-mono font-bold">${item.dataRegistro}<div class="text-[9px] text-indigo-700">${item.semanaPlanilha}</div></td><td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'} (<b>${item.bairroPlanilha}</b>)</div></td><td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td><td class="p-2.5"><b>${item.servicoPlanilha} (${item.subgrupoFOuOnGoing})</b><div class="text-[9px] text-slate-500">${item.projeto} • ${item.statusMacroPlanilha}</div></td><td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] ${obterClasseCorDesfecho(item.desfecho)}">${item.desfecho}</span><div class="text-[9px] mt-0.5">HPs: <b>${item.hps || 0}</b></div></td><td class="p-2.5 text-slate-500">${detalheInfo}</td></tr>`;
+            const apoios = extrairApoiosDoRegistro(item);
+            const badgeAp = apoios.length > 0 ? `<div class="text-[9px] font-black text-purple-800">🤝 Apoio: ${apoios.join(', ')}</div>` : '';
+            corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); fecharModalGraficoExpandido(); fecharModalTabelaExpandida(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))"><td class="p-2.5 font-mono font-bold">${item.dataRegistro}<div class="text-[9px] text-indigo-700">${item.semanaPlanilha}</div></td><td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'} (<b>${item.bairroPlanilha}</b>)</div></td><td class="p-2.5 font-semibold text-blue-900">${item.equipe}${badgeAp}</td><td class="p-2.5"><b>${item.servicoPlanilha} (${item.subgrupoFOuOnGoing})</b><div class="text-[9px] text-slate-500">${item.projeto} • ${item.statusMacroPlanilha}</div></td><td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] ${obterClasseCorDesfecho(item.desfecho)}">${item.desfecho}</span><div class="text-[9px] mt-0.5">HPs: <b>${item.hps || 0}</b></div></td><td class="p-2.5 text-slate-500">${detalheInfo}</td></tr>`;
         });
     }
     modal.classList.remove('hidden');
@@ -2891,7 +3225,7 @@ function exportarExcelFinanceiro() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
-// ================= EQUIPES, USUÁRIOS, AUDITORIA E NAVEGAÇÃO (CORRIGIDA PARA MOBILE E VISUALIZADOR) =================
+// ================= EQUIPES, USUÁRIOS, AUDITORIA E NAVEGAÇÃO =================
 function alternarChaveSetorEquipe(setorEscolhido) {
     let inputHidden = document.getElementById('inp-setor-equipe');
     let atuais = obterArraySetores(inputHidden.value);
@@ -3076,12 +3410,15 @@ async function limparLogsAuditoria() {
     }
 }
 
-// Sobrescreve recarregarDadosGestor para garantir que o botão Atualizar funcione perfeitamente para Visualizador no Smartphone
+// Sobrescreve recarregarDadosGestor para atualizar também a Telemetria do Mapa e funcionar em Smartphone
 recarregarDadosGestor = async function(silencioso = false) {
     try {
-        if (!modoConsultaBackupAtivo && typeof carregarRegistrosDaNuvem === "function") {
-            await carregarRegistrosDaNuvem(true);
-            cargaInicialGestorConcluida = true;
+        if (!modoConsultaBackupAtivo) {
+            if (typeof carregarTelemetriaDaNuvem === "function") await carregarTelemetriaDaNuvem();
+            if (typeof carregarRegistrosDaNuvem === "function") {
+                await carregarRegistrosDaNuvem(true);
+                cargaInicialGestorConcluida = true;
+            }
         }
         await atualizarDashboardGestor(false);
         const lblSync = document.getElementById('txt-hora-sync');
@@ -3101,7 +3438,6 @@ function mudarSubAbaGestor(aba) {
         aba = 'atividades';
     }
 
-    // Garante que a barra superior de filtros e atualização esteja visível no Smartphone
     document.getElementById('header-gestor-acoes')?.classList.remove('hidden');
     document.getElementById('header-gestor-subbarra')?.classList.remove('hidden');
 
