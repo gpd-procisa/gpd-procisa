@@ -2947,11 +2947,12 @@ function capturarCoordenadaGpsFrescaCampo(timeoutMs = 8000) {
     });
 }
 
+// CORREÇÃO ITEM 03: Só envia pulso de GPS se o técnico JÁ tiver iniciado o expediente manualmente hoje!
 async function forcarPulsoGpsTempoRealCampo(origem = 'auto') {
     try {
         const selEq = document.getElementById('sel-equipe');
         const nomeTec = (selEq?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
-        if (!nomeTec) return;
+        if (!nomeTec || equipeAutenticadaSessao !== nomeTec) return;
 
         const agora = Date.now();
         if (origem === 'auto' && (agora - ultimoDisparoGpsCampoTs) < 15000) return;
@@ -2959,19 +2960,10 @@ async function forcarPulsoGpsTempoRealCampo(origem = 'auto') {
         const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
         const telAtual = (typeof telemetriaEquipes !== 'undefined' && telemetriaEquipes && telemetriaEquipes[nomeTec]) ? telemetriaEquipes[nomeTec] : null;
 
-        // Se o técnico já encerrou o expediente hoje, NÃO reativa sozinho em pulsos automáticos!
-        if (telAtual && telAtual.data === hojeISO && telAtual.statusTurno === 'ENCERRADO' && origem === 'auto') {
-            return;
-        }
-
-        const temObraAtivaHoje = (typeof registrosSalvos !== 'undefined' && Array.isArray(registrosSalvos)) && registrosSalvos.some(r =>
-            r.dataRegistro === hojeISO &&
-            ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(r.desfecho) &&
-            (r.equipe === nomeTec || extrairListaApoiosDoMembros(r.membros, r.equipe).includes(nomeTec))
-        );
-
-        const turnoAtivoHoje = telAtual && telAtual.data === hojeISO && telAtual.statusTurno === 'DISPONIVEL';
-        if (!turnoAtivoHoje && !temObraAtivaHoje && origem === 'auto') return;
+        // TRAVA ESTRITA: Nunca inicia o expediente automaticamente ao logar.
+        // Só atualiza a posição se o técnico já clicou manualmente em "Iniciar Expediente" hoje (statusTurno === 'DISPONIVEL').
+        const turnoAtivoManualmenteHoje = telAtual && telAtual.data === hojeISO && telAtual.statusTurno === 'DISPONIVEL';
+        if (!turnoAtivoManualmenteHoje) return;
 
         const coord = await capturarCoordenadaGpsFrescaCampo(7000);
         if (!coord || isNaN(coord.lat) || isNaN(coord.lng)) return;
@@ -2988,7 +2980,6 @@ async function forcarPulsoGpsTempoRealCampo(origem = 'auto') {
 function iniciarMonitoramentoGpsAntiCongelamento() {
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            ativarWakeLockTela();
             forcarPulsoGpsTempoRealCampo('retorno_tela');
             verificarSolicitacoesApoioParaTitularCampo();
         }
@@ -3008,7 +2999,7 @@ function iniciarMonitoramentoGpsAntiCongelamento() {
     }, 30000);
 }
 
-// ================= ITEM 01: CAIXA DE VALIDAÇÃO DE PRESENÇA DE APOIO PELO TÉCNICO TITULAR =================
+// ================= CAIXA DE VALIDAÇÃO DE PRESENÇA DE APOIO PELO TÉCNICO TITULAR =================
 async function verificarSolicitacoesApoioParaTitularCampo() {
     try {
         const titular = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
@@ -3018,7 +3009,7 @@ async function verificarSolicitacoesApoioParaTitularCampo() {
         if (containerLancamento && !boxValidacao) {
             boxValidacao = document.createElement('div');
             boxValidacao.id = 'box-validacao-apoio-titular-campo';
-            boxValidacao.className = 'bg-amber-50 border-2 border-amber-500 p-3.5 rounded-xl space-y-2.5 hidden shadow-md';
+            boxValidacao.className = 'w-full box-border bg-amber-50 border-2 border-amber-500 p-3 rounded-xl space-y-2.5 hidden shadow-md mb-3';
             containerLancamento.insertBefore(boxValidacao, containerLancamento.firstChild);
         }
         if (!boxValidacao) return;
@@ -3029,27 +3020,26 @@ async function verificarSolicitacoesApoioParaTitularCampo() {
         }
 
         const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
-        const { data: minhasObrasHoje } = await supabaseClient
+        const { data: minhasAtividadesHoje } = await supabaseClient
             .from('registros_producao')
             .select('id, imovel, projeto, equipe, membros, desfecho')
             .eq('data_registro', hojeISO)
             .eq('equipe', titular);
 
-        const obrasComPendentes = (minhasObrasHoje || []).filter(r =>
+        const atividadesComPendentes = (minhasAtividadesHoje || []).filter(r =>
             extrairListaApoiosPendentesDoMembros(r.membros, r.equipe).length > 0
         );
 
-        // Atualiza também o crachá de parceiros validados na obra aberta
-        const obraAbertaAtual = (minhasObrasHoje || []).find(r => r.id === dadosAtendimento.idEmAndamento) || (minhasObrasHoje || [])[0];
-        if (obraAbertaAtual) {
-            const jaValidados = extrairListaApoiosDoMembros(obraAbertaAtual.membros, obraAbertaAtual.equipe);
+        const ativAbertaAtual = (minhasAtividadesHoje || []).find(r => r.id === dadosAtendimento.idEmAndamento) || (minhasAtividadesHoje || [])[0];
+        if (ativAbertaAtual) {
+            const jaValidados = extrairListaApoiosDoMembros(ativAbertaAtual.membros, ativAbertaAtual.equipe);
             const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
             if (lblBadge) {
                 lblBadge.innerText = jaValidados.length > 0 ? `✅ Validado: ${jaValidados.join(', ')}` : 'Individual';
             }
         }
 
-        if (obrasComPendentes.length === 0) {
+        if (atividadesComPendentes.length === 0) {
             boxValidacao.classList.add('hidden');
             return;
         }
@@ -3059,25 +3049,25 @@ async function verificarSolicitacoesApoioParaTitularCampo() {
                 <span class="text-lg animate-bounce">🤝</span>
                 <div>
                     <h4 class="text-xs font-black text-amber-950 uppercase">Validação de Presença de Equipe de Apoio!</h4>
-                    <p class="text-[11px] text-amber-900">Confirme abaixo se o(s) técnico(s) realmente compareceram para apoiar você:</p>
+                    <p class="text-[11px] text-amber-900">Confirme abaixo se o(s) técnico(s) realmente compareceram para apoiar você nesta atividade:</p>
                 </div>
             </div>
         `;
 
-        obrasComPendentes.forEach(ob => {
-            const pendentes = extrairListaApoiosPendentesDoMembros(ob.membros, ob.equipe);
+        atividadesComPendentes.forEach(at => {
+            const pendentes = extrairListaApoiosPendentesDoMembros(at.membros, at.equipe);
             pendentes.forEach(nomeAp => {
                 htmlCards += `
-                    <div class="bg-white p-2.5 rounded-xl border-2 border-amber-300 shadow-sm space-y-2">
-                        <div class="text-[11px] text-slate-800">
+                    <div class="bg-white p-2.5 rounded-xl border-2 border-amber-300 shadow-sm space-y-2 w-full box-border">
+                        <div class="text-[11px] text-slate-800 break-words">
                             👷 Técnico de Apoio: <b class="text-purple-950 text-xs">${nomeAp}</b><br>
-                            🏢 Imóvel: <b>${ob.imovel}</b> (${ob.projeto})
+                            🏢 Atividade / Imóvel: <b>${at.imovel}</b> (${at.projeto})
                         </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <button type="button" onclick="responderValidacaoApoioTitularCampo(${ob.id}, '${nomeAp}', true)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 px-2 rounded-lg text-[11px] shadow-sm transition">
+                        <div class="grid grid-cols-2 gap-2 w-full">
+                            <button type="button" onclick="responderValidacaoApoioTitularCampo(${at.id}, '${nomeAp}', true)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 px-2 rounded-lg text-[11px] shadow-sm transition text-center">
                                 ✅ Validar Presença
                             </button>
-                            <button type="button" onclick="responderValidacaoApoioTitularCampo(${ob.id}, '${nomeAp}', false)" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-2 rounded-lg text-[11px] shadow-sm transition">
+                            <button type="button" onclick="responderValidacaoApoioTitularCampo(${at.id}, '${nomeAp}', false)" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-2 rounded-lg text-[11px] shadow-sm transition text-center">
                                 ❌ Recusar Apoio
                             </button>
                         </div>
@@ -3093,12 +3083,12 @@ async function verificarSolicitacoesApoioParaTitularCampo() {
     }
 }
 
-async function responderValidacaoApoioTitularCampo(idObra, nomeApoiador, aprovar) {
+async function responderValidacaoApoioTitularCampo(idAtividade, nomeApoiador, aprovar) {
     try {
         const { data: regBanco, error } = await supabaseClient
             .from('registros_producao')
             .select('*')
-            .eq('id', idObra)
+            .eq('id', idAtividade)
             .maybeSingle();
 
         if (error || !regBanco) {
@@ -3124,7 +3114,7 @@ async function responderValidacaoApoioTitularCampo(idObra, nomeApoiador, aprovar
         const { error: errUpd } = await supabaseClient
             .from('registros_producao')
             .update({ membros: novoMembros, observacoes: obsAtual })
-            .eq('id', idObra);
+            .eq('id', idAtividade);
 
         if (errUpd) throw errUpd;
 
@@ -3137,7 +3127,7 @@ async function responderValidacaoApoioTitularCampo(idObra, nomeApoiador, aprovar
         await verificarSolicitacoesApoioParaTitularCampo();
 
         if (aprovar) {
-            alert(`✅ PRESENÇA VALIDADA!\n\nVocê confirmou a presença de ${nomeApoiador} trabalhando em conjunto no imóvel ${regBanco.imovel}.`);
+            alert(`✅ PRESENÇA VALIDADA!\n\nVocê confirmou a presença de ${nomeApoiador} atuando em conjunto na atividade do imóvel ${regBanco.imovel}.`);
         } else {
             alert(`❌ Solicitação de apoio de ${nomeApoiador} foi recusada e removida da atividade.`);
         }
@@ -3146,43 +3136,50 @@ async function responderValidacaoApoioTitularCampo(idObra, nomeApoiador, aprovar
     }
 }
 
+// CORREÇÃO ITEM 01 e 02: Layout 100% responsivo/centralizado para smartphone e termos trocados de "Obra" para "Atividade"
 function inicializarInterfaceApoioConjuntoCampo() {
-    const inpImovel = document.getElementById('inp-imovel');
-    if (inpImovel && !document.getElementById('box-campo-apoio-conjunto')) {
+    const formContainer = document.getElementById('form-campo-container');
+    const btnCheckin = document.getElementById('btn-checkin');
+
+    if (formContainer && !document.getElementById('box-campo-apoio-conjunto')) {
         const divApoio = document.createElement('div');
         divApoio.id = 'box-campo-apoio-conjunto';
-        divApoio.className = 'bg-purple-50/80 border-2 border-purple-300 rounded-xl p-2.5 space-y-2 mt-2';
+        divApoio.className = 'w-full box-border bg-purple-50/90 border-2 border-purple-300 rounded-xl p-3 space-y-2.5 my-2 shadow-sm';
         divApoio.innerHTML = `
-            <div class="flex justify-between items-center">
-                <label class="block text-[11px] font-black text-purple-950 uppercase">🤝 Atuação Conjunta / Técnico em Apoio</label>
-                <span class="text-[9px] bg-purple-200 text-purple-900 font-bold px-1.5 py-0.5 rounded">Validado pelo Titular</span>
+            <div class="flex flex-wrap justify-between items-center gap-1">
+                <label class="block text-[11px] font-black text-purple-950 uppercase">🤝 Atuação Conjunta / Equipe de Apoio</label>
+                <span class="text-[9px] bg-purple-200 text-purple-900 font-bold px-2 py-0.5 rounded">Validado pelo Titular</span>
             </div>
-            <select id="sel-equipe-apoio-campo" onchange="popularOpcoesParceiroApoioCampo(true)" class="w-full text-xs border border-purple-300 rounded-lg p-2 bg-white outline-none font-bold text-purple-950">
+            <select id="sel-equipe-apoio-campo" onchange="popularOpcoesParceiroApoioCampo(true)" class="w-full box-border text-xs border border-purple-300 rounded-lg p-2.5 bg-white outline-none font-bold text-purple-950">
                 <option value="">Sem apoio (Atuação individual)</option>
             </select>
-            <button type="button" onclick="abrirModalEntrarEmApoioObraAtivaCampo()" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-black py-2 px-2.5 rounded-lg text-[11px] transition shadow-sm flex items-center justify-center gap-1.5">
-                🤝 Solicitar Entrada em Apoio (Obra em Andamento)
+            <button type="button" onclick="abrirModalEntrarEmApoioObraAtivaCampo()" class="w-full box-border bg-purple-700 hover:bg-purple-800 text-white font-black py-2.5 px-3 rounded-lg text-[11px] transition shadow-sm flex items-center justify-center gap-1.5 text-center">
+                🤝 Solicitar Entrada em Apoio (Atividade em Andamento)
             </button>
         `;
-        inpImovel.parentNode.appendChild(divApoio);
+        if (btnCheckin && btnCheckin.parentNode === formContainer) {
+            formContainer.insertBefore(divApoio, btnCheckin);
+        } else {
+            formContainer.appendChild(divApoio);
+        }
     }
 
     const blocoPosAbertura = document.getElementById('bloco-pos-abertura');
     if (blocoPosAbertura && !document.getElementById('barra-apoio-obra-aberta-campo')) {
         const divAberta = document.createElement('div');
         divAberta.id = 'barra-apoio-obra-aberta-campo';
-        divAberta.className = 'bg-purple-50 border border-purple-300 p-2.5 rounded-xl text-xs space-y-1.5';
+        divAberta.className = 'w-full box-border bg-purple-50 border-2 border-purple-300 p-3 rounded-xl text-xs space-y-2 mb-3 shadow-sm';
         divAberta.innerHTML = `
-            <div class="flex justify-between items-center">
-                <span class="font-black text-purple-950 text-[11px] uppercase">🤝 Validar / Incluir Apoio nesta Obra:</span>
+            <div class="flex flex-wrap justify-between items-center gap-1">
+                <span class="font-black text-purple-950 text-[11px] uppercase">🤝 Validar / Incluir Apoio nesta Atividade:</span>
                 <span id="lbl-parceiro-apoio-atual-campo" class="text-[10px] font-bold bg-purple-200 text-purple-950 px-2 py-0.5 rounded">Individual</span>
             </div>
-            <div class="flex gap-1.5">
-                <select id="sel-adicionar-apoio-em-andamento" class="flex-1 text-xs border border-purple-300 rounded-lg p-1.5 bg-white font-bold text-purple-950 outline-none">
-                    <option value="">+ Validar e vincular técnico de apoio...</option>
+            <div class="flex flex-col gap-2 w-full">
+                <select id="sel-adicionar-apoio-em-andamento" class="w-full box-border text-xs border border-purple-300 rounded-lg p-2.5 bg-white font-bold text-purple-950 outline-none">
+                    <option value="">+ Selecionar equipe de apoio para validar...</option>
                 </select>
-                <button type="button" onclick="vincularColegaApoioNaObraAbertaCampo()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
-                    ✅ Validar Apoio
+                <button type="button" onclick="vincularColegaApoioNaObraAbertaCampo()" class="w-full box-border bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs py-2.5 px-3 rounded-lg shadow-sm transition text-center">
+                    ✅ Validar Presença da Equipe de Apoio
                 </button>
             </div>
         `;
@@ -3198,7 +3195,7 @@ function inicializarInterfaceApoioConjuntoCampo() {
                 <div class="bg-purple-900 text-white p-4 flex justify-between items-center border-b-4 border-purple-400">
                     <div>
                         <span class="bg-purple-300 text-purple-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Atuação Conjunta • Sujeita à Validação</span>
-                        <h3 class="font-bold text-sm mt-0.5">🤝 Solicitar Entrada em Apoio numa Obra</h3>
+                        <h3 class="font-bold text-sm mt-0.5">🤝 Solicitar Entrada em Apoio em Atividade</h3>
                     </div>
                     <button type="button" onclick="fecharModalEntrarEmApoioObraAtivaCampo()" class="text-white font-bold text-lg">✕</button>
                 </div>
@@ -3207,7 +3204,7 @@ function inicializarInterfaceApoioConjuntoCampo() {
                         👷 <b>Técnico Solicitante do Apoio:</b> <span id="lbl-meu-nome-apoio-modal" class="font-black">-</span>
                     </div>
                     <p class="text-[11px] text-slate-600">
-                        Selecione a atividade abaixo. Seu <b>Horário e GPS de chegada</b> serão enviados e o <b>Técnico Titular receberá um alerta na tela dele para validar sua presença</b>:
+                        Selecione a atividade em andamento abaixo. Seu <b>Horário e GPS de chegada</b> serão enviados e o <b>Técnico Titular receberá um alerta na tela dele para validar sua presença</b>:
                     </p>
                     <div id="lista-obras-ativas-para-apoio-campo" class="space-y-2 max-h-64 overflow-y-auto"></div>
                 </div>
@@ -3238,7 +3235,7 @@ function popularOpcoesParceiroApoioCampo(apenasSincronizar = false) {
         : [];
 
     const opcoesHtml = `<option value="">Sem apoio (Atuação individual)</option>` +
-        equipesAtivas.map(eq => `<option value="${eq.nome}">🤝 Validar em conjunto com: ${eq.nome}</option>`).join('');
+        equipesAtivas.map(eq => `<option value="${eq.nome}">🤝 Em conjunto com: ${eq.nome}</option>`).join('');
 
     if (selApoio1) {
         const valAnt = selApoio1.value;
@@ -3247,7 +3244,7 @@ function popularOpcoesParceiroApoioCampo(apenasSincronizar = false) {
     }
     if (selApoio2) {
         const valAnt2 = selApoio2.value;
-        selApoio2.innerHTML = `<option value="">+ Selecionar técnico de apoio p/ validar...</option>` +
+        selApoio2.innerHTML = `<option value="">+ Selecionar equipe de apoio para validar...</option>` +
             equipesAtivas.map(eq => `<option value="${eq.nome}">🤝 ${eq.nome}</option>`).join('');
         if (valAnt2 && valAnt2 !== titular) selApoio2.value = valAnt2;
     }
@@ -3259,7 +3256,7 @@ async function abrirModalEntrarEmApoioObraAtivaCampo() {
 
     document.getElementById('lbl-meu-nome-apoio-modal').innerText = meuNome;
     const container = document.getElementById('lista-obras-ativas-para-apoio-campo');
-    container.innerHTML = `<div class="p-4 text-center text-purple-900 font-bold animate-pulse">☁️ Buscando obras em andamento hoje...</div>`;
+    container.innerHTML = `<div class="p-4 text-center text-purple-900 font-bold animate-pulse">☁️ Buscando atividades em andamento hoje...</div>`;
     document.getElementById('modal-entrar-apoio-campo').classList.remove('hidden');
 
     try {
@@ -3272,46 +3269,46 @@ async function abrirModalEntrarEmApoioObraAtivaCampo() {
 
         if (error) throw error;
 
-        const obrasDosColegas = (data || []).filter(r =>
+        const atividadesDosColegas = (data || []).filter(r =>
             r.equipe !== '__CONFIG_SISTEMA__' &&
             r.equipe !== meuNome &&
             r.projeto !== 'IMPREVISTO / ATRASO'
         );
 
-        if (obrasDosColegas.length === 0) {
+        if (atividadesDosColegas.length === 0) {
             container.innerHTML = `<div class="p-4 bg-slate-50 rounded-xl border text-center text-slate-500">Nenhuma atividade de outro técnico está com status "EM ANDAMENTO" hoje neste momento.</div>`;
             return;
         }
 
-        container.innerHTML = obrasDosColegas.map(ob => {
-            const validados = extrairListaApoiosDoMembros(ob.membros, ob.equipe);
-            const pendentes = extrairListaApoiosPendentesDoMembros(ob.membros, ob.equipe);
+        container.innerHTML = atividadesDosColegas.map(at => {
+            const validados = extrairListaApoiosDoMembros(at.membros, at.equipe);
+            const pendentes = extrairListaApoiosPendentesDoMembros(at.membros, at.equipe);
             const jaValidado = validados.includes(meuNome);
             const jaPendente = pendentes.includes(meuNome);
 
-            let botaoStatusHtml = `<button type="button" onclick="confirmarEntradaApoioObraCampo(${ob.id})" class="w-full mt-1 bg-purple-700 hover:bg-purple-800 text-white font-black py-2 rounded-lg text-[11px] shadow-sm transition">🤝 Solicitar Meu Apoio nesta Obra</button>`;
+            let botaoStatusHtml = `<button type="button" onclick="confirmarEntradaApoioObraCampo(${at.id})" class="w-full mt-1 bg-purple-700 hover:bg-purple-800 text-white font-black py-2 rounded-lg text-[11px] shadow-sm transition">🤝 Solicitar Meu Apoio nesta Atividade</button>`;
             if (jaValidado) {
-                botaoStatusHtml = `<div class="text-[10px] font-black text-emerald-800 bg-emerald-100 p-1.5 rounded text-center mt-1">✅ Presença já VALIDADA pelo titular ${ob.equipe}!</div>`;
+                botaoStatusHtml = `<div class="text-[10px] font-black text-emerald-800 bg-emerald-100 p-1.5 rounded text-center mt-1">✅ Presença já VALIDADA pelo titular ${at.equipe}!</div>`;
             } else if (jaPendente) {
-                botaoStatusHtml = `<div class="text-[10px] font-black text-amber-900 bg-amber-100 p-1.5 rounded text-center mt-1 animate-pulse">⏳ Aguardando ${ob.equipe} validar sua presença na tela dele...</div>`;
+                botaoStatusHtml = `<div class="text-[10px] font-black text-amber-900 bg-amber-100 p-1.5 rounded text-center mt-1 animate-pulse">⏳ Aguardando ${at.equipe} validar sua presença na tela dele...</div>`;
             }
 
             return `
                 <div class="p-3 rounded-xl border-2 ${jaValidado ? 'border-emerald-400 bg-emerald-50/60' : (jaPendente ? 'border-amber-400 bg-amber-50/60' : 'border-purple-200 bg-white')} shadow-sm space-y-1.5">
                     <div class="flex justify-between items-start">
                         <div>
-                            <span class="font-black text-blue-950 text-xs">🏢 Imóvel: ${ob.imovel}</span>
-                            <span class="block text-[10px] font-bold text-purple-900">👷 Titular (Validador): ${ob.equipe}</span>
+                            <span class="font-black text-blue-950 text-xs">🏢 Imóvel: ${at.imovel}</span>
+                            <span class="block text-[10px] font-bold text-purple-900">👷 Titular (Validador): ${at.equipe}</span>
                         </div>
-                        <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[9px]">${ob.projeto}</span>
+                        <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[9px]">${at.projeto}</span>
                     </div>
-                    <div class="text-[10px] text-slate-500">🟢 Iniciada às: <b>${ob.h_entrada}</b></div>
+                    <div class="text-[10px] text-slate-500">🟢 Iniciada às: <b>${at.h_entrada}</b></div>
                     ${botaoStatusHtml}
                 </div>
             `;
         }).join('');
     } catch (e) {
-        container.innerHTML = `<div class="p-3 bg-red-50 text-red-700 rounded-xl">Erro ao buscar obras: ${e.message}</div>`;
+        container.innerHTML = `<div class="p-3 bg-red-50 text-red-700 rounded-xl">Erro ao buscar atividades: ${e.message}</div>`;
     }
 }
 
@@ -3319,8 +3316,7 @@ function fecharModalEntrarEmApoioObraAtivaCampo() {
     document.getElementById('modal-entrar-apoio-campo')?.classList.add('hidden');
 }
 
-// Quando o técnico de apoio solicita entrada, grava como APOIO_PENDENTE aguardando validação do titular!
-async function confirmarEntradaApoioObraCampo(idObraAlvo) {
+async function confirmarEntradaApoioObraCampo(idAtividadeAlvo) {
     const meuNome = validarTecnicoSelecionadoParaSolicitacao();
     if (!meuNome) return;
 
@@ -3331,7 +3327,7 @@ async function confirmarEntradaApoioObraCampo(idObraAlvo) {
     const { data: regBanco, error: errBusca } = await supabaseClient
         .from('registros_producao')
         .select('*')
-        .eq('id', idObraAlvo)
+        .eq('id', idAtividadeAlvo)
         .maybeSingle();
 
     if (errBusca || !regBanco) {
@@ -3353,29 +3349,31 @@ async function confirmarEntradaApoioObraCampo(idObraAlvo) {
     const { error: errUpd } = await supabaseClient
         .from('registros_producao')
         .update({ membros: novoMembros, observacoes: novaObs })
-        .eq('id', idObraAlvo);
+        .eq('id', idAtividadeAlvo);
 
     if (errUpd) {
         alert("❌ Erro ao enviar solicitação de apoio: " + errUpd.message);
         return;
     }
 
-    if (coord && typeof registrarPontoTelemetriaEquipe === 'function') {
+    // Só atualiza coordenada se o técnico já estiver com expediente ativo
+    const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+    const telMeu = (typeof telemetriaEquipes !== 'undefined' && telemetriaEquipes) ? telemetriaEquipes[meuNome] : null;
+    if (coord && telMeu && telMeu.data === hojeISO && telMeu.statusTurno === 'DISPONIVEL' && typeof registrarPontoTelemetriaEquipe === 'function') {
         await registrarPontoTelemetriaEquipe(meuNome, coord.lat, coord.lng, 'DISPONIVEL');
     }
 
     if (typeof carregarRegistrosModoCampoLeve === 'function') await carregarRegistrosModoCampoLeve();
     fecharModalEntrarEmApoioObraAtivaCampo();
     atualizarAbaMinhasAtividadesCampo(false);
-    alert(`⏳ SOLICITAÇÃO DE APOIO ENVIADA!\n\nSua chegada às ${horaAgora} foi registrada.\nPeça ao técnico titular (${regBanco.equipe}) para clicar em "✅ Validar Presença" na tela dele!`);
+    alert(`⏳ SOLICITAÇÃO DE APOIO ENVIADA!\n\nSua chegada na atividade às ${horaAgora} foi registrada.\nPeça ao técnico titular (${regBanco.equipe}) para clicar em "✅ Validar Presença" na tela dele!`);
 }
 
-// Quando o PRÓPRIO TITULAR seleciona o colega na tela dele, já entra como VALIDADO!
 async function vincularColegaApoioNaObraAbertaCampo() {
     const selColega = document.getElementById('sel-adicionar-apoio-em-andamento');
     const nomeColega = selColega ? selColega.value.trim().toUpperCase() : '';
     if (!nomeColega) {
-        alert("⚠️ Selecione o nome do técnico cuja presença você deseja validar nesta obra.");
+        alert("⚠️ Selecione o nome da equipe/técnico cuja presença você deseja validar nesta atividade.");
         return;
     }
 
@@ -3405,19 +3403,19 @@ async function vincularColegaApoioNaObraAbertaCampo() {
             }
         }
         await verificarSolicitacoesApoioParaTitularCampo();
-        alert(`✅ Presença do técnico ${nomeColega} VALIDADA em conjunto nesta atividade!`);
+        alert(`✅ Presença da equipe de apoio (${nomeColega}) VALIDADA em conjunto nesta atividade!`);
     } catch (e) {
         console.warn("Aviso ao validar apoio em andamento:", e);
     }
 }
 
 function instalarInterceptadoresApoioCampo() {
+    // CORREÇÃO ITEM 03: Ao selecionar/logar na equipe, apenas atualiza as listas de apoio e checa pendências, SEM iniciar o expediente automaticamente!
     if (typeof window.aoSelecionarEquipeCampo === 'function' && !window._apoioHookEquipe) {
         const origEq = window.aoSelecionarEquipeCampo;
         window.aoSelecionarEquipeCampo = function(...args) {
             const res = origEq.apply(this, args);
             popularOpcoesParceiroApoioCampo();
-            forcarPulsoGpsTempoRealCampo('troca_equipe');
             verificarSolicitacoesApoioParaTitularCampo();
             return res;
         };
@@ -3450,7 +3448,6 @@ function instalarInterceptadoresApoioCampo() {
         const origSalvar = window.salvarRegistro;
         window.salvarRegistro = async function(...args) {
             let validadosNuvem = [];
-            // Antes de salvar, verifica se algum colega pediu apoio nesta obra e ainda está pendente de validação pelo titular!
             if (dadosAtendimento.idEmAndamento) {
                 try {
                     const { data: regNuvem } = await supabaseClient
@@ -3464,9 +3461,9 @@ function instalarInterceptadoresApoioCampo() {
                         const pendentesNuvem = extrairListaApoiosPendentesDoMembros(regNuvem.membros, regNuvem.equipe);
                         for (const nomePend of pendentesNuvem) {
                             const confirmaPresenca = confirm(
-                                `🤝 VALIDAÇÃO DE PRESENÇA DE APOIO\n\n` +
+                                `🤝 VALIDAÇÃO DE PRESENÇA DE EQUIPE DE APOIO\n\n` +
                                 `O técnico "${nomePend}" registrou entrada de apoio nesta atividade.\n\n` +
-                                `Você VALIDA e confirma que "${nomePend}" esteve presente apoiando você nesta obra?\n` +
+                                `Você VALIDA e confirma que "${nomePend}" esteve presente apoiando você nesta atividade?\n` +
                                 `(Clique em OK para Validar a presença ou Cancelar para Recusar)`
                             );
                             if (confirmaPresenca && !validadosNuvem.includes(nomePend)) {
@@ -3488,7 +3485,7 @@ function instalarInterceptadoresApoioCampo() {
             const res = await origSalvar.apply(this, args);
 
             if (validadosNuvem.length > 0 && titular) {
-                if (typeof ultimoResumoCampoTexto === 'string' && ultimoResumoCampoTexto && !ultimoResumoCampoTexto.includes('Atuação Conjunta')) {
+                if (typeof ultimoResumoCampoTexto === 'string' && ultimoResumoCampoTexto && !ultimoResumoCampoTexto.includes('Apoio Validado')) {
                     ultimoResumoCampoTexto = ultimoResumoCampoTexto.replace(
                         `👷 *Equipe:* ${titular}`,
                         `👷 *Equipe Titular:* ${titular}\n🤝 *Apoio Validado:* ${validadosNuvem.join(', ')}`
