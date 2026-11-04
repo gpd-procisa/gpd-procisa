@@ -1,3166 +1,3644 @@
-// ================= VARIÁVEIS GLOBAIS DO MAPA, GRÁFICOS POR GRUPO, EDIÇÃO E BACKUP =================
-let mapaRastreioInstancia = null;
-let camadaMarcadoresRastreio = null;
-let coordenadasPinosAtuais = [];
-let fotosEdicaoTemporarias = [];
-let opcoesMarcadasEdicaoTemporarias = [];
-let snapshotStatusEdicaoOriginal = null;
-let modoConsultaBackupAtivo = false;
-let cacheRegistrosNuvemOriginal = null;
-let sincronizandoRegistrosMobileEmCurso = false;
+// ================= CONTROLE DE RASTREIO GPS, WAKE LOCK, FILA OFFLINE E SOLICITAÇÕES =================
+let watchIdRastreioGps = null;
+let timerEnvioRastreioGps = null;
+let wakeLockAtivo = null;
+let ultimaCoordRastreioCache = null;
 
-let graficoExecutoresVistoriaInstancia = null;
-let graficoExecutoresConstrucaoInstancia = null;
-let graficoExecutoresAtivacaoInstancia = null;
-let graficoProgramadoRetornoBairroInstancia = null;
-let grupoAtivoAbaGraficos = 'TODOS';
-
-let filtrosMultiplosAtivos = { equipes: [], setores: [], macrogrupos: [], projetos: [], desfechos: [] };
-
-// ================= CLASSIFICADORES DOS 3 GRUPOS E SUBGRUPOS (EXCLUSIVOS PARA ABA GRÁFICOS E PLANILHAS) =================
-function obterSemanaDoMes(dataISO) {
-    if (!dataISO || typeof dataISO !== 'string' || dataISO.length < 10) return 'Sem 1';
-    const dia = parseInt(dataISO.substring(8, 10), 10);
-    if (isNaN(dia) || dia <= 7) return 'Sem 1';
-    if (dia <= 14) return 'Sem 2';
-    if (dia <= 21) return 'Sem 3';
-    if (dia <= 28) return 'Sem 4';
-    return 'Sem 5';
-}
-
-function obterMacroServicoPlanilha(projeto) {
-    const p = (projeto || '').toUpperCase();
-    if (p.includes('VISTORIA')) return 'VISTORIA';
-    if (p.includes('ATIVAÇÃO') || p.includes('ATIVACAO')) return 'ATIVAÇÃO';
-    return 'CONSTRUÇÃO';
-}
-
-function obterSubgrupoFOuOnGoing(projeto) {
-    const p = (projeto || '').toUpperCase().trim();
-    if (p.includes('VISTORIA')) return 'VISTORIA';
-    const macroCat = typeof obterMacroGrupoProjeto === 'function' ? obterMacroGrupoProjeto(projeto).toUpperCase() : '';
-    if (p.endsWith(' F') || p.includes('PROJETO F') || p === 'CONSTRUÇÃO F' || p === 'ATIVAÇÃO F' || macroCat.includes('PROJETO F')) {
-        return 'F';
-    }
-    return 'ON GOING';
-}
-
-function extrairBairroDoEndereco(endereco) {
-    if (!endereco || typeof endereco !== 'string') return 'NÃO INFORMADO';
-    let limpo = endereco.toUpperCase().trim().replace(/\([^)]*\)/g, '').trim();
-    if (limpo.includes(' - ')) {
-        const partes = limpo.split(' - ').map(p => p.trim()).filter(Boolean);
-        const candidato = partes[partes.length - 1];
-        if (candidato && candidato.length >= 2 && !/^\d+$/.test(candidato) && !candidato.startsWith('BL ') && !candidato.startsWith('APT')) {
-            return candidato;
-        }
-    }
-    const bairrosRJ = [
-        'COPACABANA', 'TIJUCA', 'RECREIO DOS BANDEIRANTES', 'RECREIO DO BANDEIRANTES', 'BOTAFOGO',
-        'TAQUARA', 'FREGUESIA', 'PECHINCHA', 'CAMPO GRANDE', 'TODOS OS SANTOS', 'VARGEM GRANDE',
-        'LEME', 'IPANEMA', 'LEBLON', 'FLAMENGO', 'LARANJEIRAS', 'CATETE', 'GLORIA', 'CENTRO',
-        'BARRA DA TIJUCA', 'GRAJAU', 'VILA ISABEL', 'MARACANA', 'MEIER', 'ENGENHO NOVO',
-        'LINS DE VASCONCELOS', 'CACHAMBI', 'DEL CASTILHO', 'INHAUMA', 'MADUREIRA', 'BANGU',
-        'REALENGO', 'JACAREPAGUA', 'ANIL', 'CURICICA', 'TANQUE', 'PRACA SECA', 'VILA VALQUEIRE',
-        'QUINTINO BOCAIUVA', 'SAMPAIO', 'PRACA DA BANDEIRA', 'SAO CRISTOVAO', 'HUMAITA', 'GAVEA',
-        'JARDIM BOTANICO', 'URCA', 'SANTA TERESA', 'RIO COMPRIDO', 'ESTACIO', 'ROCHA', 'RIACHUELO'
-    ];
-    for (const b of bairrosRJ) {
-        if (limpo.includes(b)) return b === 'RECREIO DO BANDEIRANTES' ? 'RECREIO DOS BANDEIRANTES' : b;
-    }
-    return 'OUTROS / VER ENDEREÇO';
-}
-
-function obterCodigoBaseImovel(imovelStr) {
-    let cod = (imovelStr || '').toUpperCase().trim();
-    const idx = cod.lastIndexOf(' - BLOCO');
-    if (idx !== -1) cod = cod.substring(0, idx).trim();
-    return cod;
-}
-
-function enriquecerStatusMacroEBairro(listaRegistros) {
-    const mapaPrimeiraDataImovel = {};
-    const ordenadosCronologico = [...(registrosSalvos || [])].filter(r =>
-        r.projeto !== 'IMPREVISTO / ATRASO' &&
-        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
-        r.projeto !== PROJETO_SOLIC_MATERIAL
-    ).sort((a, b) => {
-        if (a.dataRegistro !== b.dataRegistro) return (a.dataRegistro || '').localeCompare(b.dataRegistro || '');
-        return (a.id || 0) - (b.id || 0);
-    });
-
-    ordenadosCronologico.forEach(r => {
-        const codBase = obterCodigoBaseImovel(r.imovel);
-        if (codBase && !mapaPrimeiraDataImovel[codBase]) {
-            mapaPrimeiraDataImovel[codBase] = { data: r.dataRegistro, id: r.id };
-        }
-    });
-
-    return listaRegistros.map(r => {
-        const codBase = obterCodigoBaseImovel(r.imovel);
-        const obsSuperior = ((r.observacoes || '') + ' ' + (r.motivoDesfecho || '')).toUpperCase();
-        let statusMacro = 'PROGRAMADO';
-        if (obsSuperior.includes('RETORNO') || obsSuperior.includes('REINCID')) {
-            statusMacro = 'RETORNO';
-        } else if (codBase && mapaPrimeiraDataImovel[codBase] && r.dataRegistro > mapaPrimeiraDataImovel[codBase].data) {
-            statusMacro = 'RETORNO';
-        }
-        return {
-            ...r,
-            codigoImovelBase: codBase,
-            statusMacroPlanilha: statusMacro,
-            bairroPlanilha: extrairBairroDoEndereco(r.endereco),
-            semanaPlanilha: obterSemanaDoMes(r.dataRegistro),
-            servicoPlanilha: obterMacroServicoPlanilha(r.projeto),
-            subgrupoFOuOnGoing: obterSubgrupoFOuOnGoing(r.projeto),
-            statusBinarioPlanilha: r.desfecho === 'CONCLUIDA' ? 'EXECUTADO' : 'N EXECUTADO'
-        };
-    });
-}
-
-function selecionarGrupoAbaGraficos(grupo) {
-    grupoAtivoAbaGraficos = grupo;
-    const botoes = [
-        { id: 'TODOS', corAtiva: 'bg-cyan-400 text-slate-950 shadow-sm font-black', corInativa: 'bg-slate-800 text-slate-200 hover:bg-slate-700 font-bold' },
-        { id: 'VISTORIA', corAtiva: 'bg-purple-500 text-white shadow-sm font-black', corInativa: 'bg-slate-800 text-purple-200 hover:bg-purple-900 border border-purple-500/40 font-bold' },
-        { id: 'CONSTRUCAO', corAtiva: 'bg-blue-500 text-white shadow-sm font-black', corInativa: 'bg-slate-800 text-blue-200 hover:bg-blue-900 border border-blue-500/40 font-bold' },
-        { id: 'ATIVACAO', corAtiva: 'bg-emerald-500 text-white shadow-sm font-black', corInativa: 'bg-slate-800 text-emerald-200 hover:bg-emerald-900 border border-emerald-500/40 font-bold' }
-    ];
-    botoes.forEach(b => {
-        const el = document.getElementById(`btn-grupo-graf-${b.id}`);
-        if (el) el.className = `py-2 px-3 rounded-lg text-xs transition ${grupo === b.id ? b.corAtiva : b.corInativa}`;
-    });
-
-    const secVist = document.getElementById('secao-grupo-vistoria');
-    const secConst = document.getElementById('secao-grupo-construcao');
-    const secAtiv = document.getElementById('secao-grupo-ativacao');
-    if (secVist) secVist.classList.toggle('hidden', grupo !== 'TODOS' && grupo !== 'VISTORIA');
-    if (secConst) secConst.classList.toggle('hidden', grupo !== 'TODOS' && grupo !== 'CONSTRUCAO');
-    if (secAtiv) secAtiv.classList.toggle('hidden', grupo !== 'TODOS' && grupo !== 'ATIVACAO');
-
-    atualizarDashboardGestor();
-}
-
-// ================= SINCRONIZAÇÃO DE AUDITORIA NA NUVEM (EXCLUSIVA DO MODO GESTÃO) =================
-async function sincronizarAuditoriaNaNuvem() {
-    try {
-        if (trilhaAuditoria.length > 250) trilhaAuditoria = trilhaAuditoria.slice(0, 250);
-        localStorage.setItem('gpd_trilha_auditoria', JSON.stringify(trilhaAuditoria));
-        const payloadAudit = {
-            id: ID_NUVEM_AUDITORIA, data_registro: "2000-01-01", equipe: "__CONFIG_SISTEMA__",
-            membros: "__CONFIG_SISTEMA__", projeto: "__CONFIG_AUDITORIA__", imovel: "__CONFIG_AUDITORIA__",
-            h_entrada: "00:00", h_saida: "00:00", gps_entrada: "", gps_saida: "", desfecho: "CONFIG",
-            motivo_desfecho: "", malogros: [], agendamento: null, observacoes: JSON.stringify(trilhaAuditoria)
-        };
-        await supabaseClient.from('registros_producao').upsert([payloadAudit], { onConflict: 'id' });
-    } catch (e) { console.warn("Aviso ao sincronizar auditoria:", e); }
-}
-
-async function carregarAuditoriaDaNuvem() {
-    try {
-        const { data } = await supabaseClient.from('registros_producao').select('observacoes').eq('id', ID_NUVEM_AUDITORIA).maybeSingle();
-        if (data && data.observacoes) {
-            const listaNuvem = JSON.parse(data.observacoes);
-            if (Array.isArray(listaNuvem)) {
-                const mapaLogs = new Map();
-                [...trilhaAuditoria, ...listaNuvem].forEach(item => { if (item && item.id) mapaLogs.set(item.id, item); });
-                trilhaAuditoria = Array.from(mapaLogs.values()).sort((a, b) => b.id - a.id).slice(0, 250);
-                localStorage.setItem('gpd_trilha_auditoria', JSON.stringify(trilhaAuditoria));
-            }
-        }
-    } catch (e) { console.warn("Aviso ao ler auditoria:", e); }
-}
-
-registrarLogAuditoria = function(acao, detalhes) {
-    if (!usuarioLogado) return;
-    trilhaAuditoria.unshift({
-        id: Date.now() + Math.floor(Math.random() * 100),
-        dataHora: new Date().toLocaleString('pt-BR'),
-        usuario: usuarioLogado, acao, detalhes
-    });
-    setTimeout(() => { sincronizarAuditoriaNaNuvem(); }, 10);
+let fotosSolicCombustivelTemp = {
+    painel: null,
+    mapa: null,
+    cartao: null
 };
 
-function aplicarTooltipsExplicativosGlobais() {
-    const mapaTooltips = {
-        'btn-modo-campo': 'Alternar para a interface móvel de lançamento de atividades dos técnicos em campo',
-        'btn-modo-gestor': 'Acessar o Painel Gerencial completo com indicadores, mapas e controle operacional',
-        'btn-sair-gestor': 'Encerrar a sessão atual do gestor e bloquear o acesso administrativo',
-        'btn-importar-planilha': 'Importar planilha CSV ou colar linhas do Excel para distribuir atividades programadas',
-        'btn-boletim-whats-gestor': 'Copiar resumo executivo formatado com blocos organizados para colar no WhatsApp',
-        'btn-baixar-excel-gestor': 'Baixar planilha Excel (.xls) separada nos 3 Grupos: Vistoria, Construção (F e ON GOING) e Ativação (F e ON GOING)',
-        'btn-atualizar-registros-gestor': 'Buscar imediatamente na nuvem todas as novas atividades, fotos e posições de GPS'
-    };
-    Object.entries(mapaTooltips).forEach(([id, texto]) => { const el = document.getElementById(id); if (el) el.title = texto; });
-}
-
-function inicializarMelhoriasVisuaisGestor() {
-    aplicarTooltipsExplicativosGlobais();
-
-    const selDesf = document.getElementById('gestor-filtro-desfecho');
-    if (selDesf && !document.getElementById('btn-abrir-filtro-multiplo')) {
-        const btnMulti = document.createElement('button');
-        btnMulti.type = 'button';
-        btnMulti.id = 'btn-abrir-filtro-multiplo';
-        btnMulti.onclick = abrirModalFiltroMultiplo;
-        btnMulti.className = 'bg-amber-400 hover:bg-amber-300 text-blue-950 font-black text-[11px] px-2.5 py-1 rounded-lg shadow-sm transition whitespace-nowrap flex items-center gap-1 shrink-0';
-        btnMulti.innerHTML = `☑️ Filtro Múltiplo <span id="badge-qtd-filtros-multi" class="bg-blue-950 text-cyan-300 px-1.5 py-0.2 rounded text-[9px] hidden">0</span>`;
-        selDesf.parentNode.appendChild(btnMulti);
-    }
-
-    const subBarra = document.getElementById('header-gestor-subbarra');
-    if (subBarra) {
-        const divBotoesExtras = subBarra.querySelector('.ml-auto');
-        if (divBotoesExtras && !divBotoesExtras.id) {
-            divBotoesExtras.id = 'botoes-atalho-exclusivos-disponibilidade';
-            divBotoesExtras.classList.add('hidden');
-        }
-    }
-
-    if (!document.getElementById('modal-filtro-multiplo')) {
-        const modalMulti = document.createElement('div');
-        modalMulti.id = 'modal-filtro-multiplo';
-        modalMulti.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[78]';
-        modalMulti.innerHTML = `
-            <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
-                <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-amber-400">
-                    <div>
-                        <span class="bg-amber-400 text-blue-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Filtro Avançado Combinado</span>
-                        <h3 class="font-bold text-sm sm:text-base mt-0.5">☑️ Seleção Múltipla de Equipes, Grupos, Projetos e Status</h3>
-                    </div>
-                    <button onclick="fecharModalFiltroMultiplo()" class="text-white font-bold text-lg hover:text-red-300">✕</button>
-                </div>
-                <div class="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs text-slate-700">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-                            <div class="font-black text-blue-950 uppercase text-[11px] border-b pb-1">1. Funções / Setores</div>
-                            <div id="multi-lista-setores" class="space-y-1.5"></div>
-                            <div class="font-black text-indigo-950 uppercase text-[11px] border-b pb-1 pt-2">2. Grupos de Projeto</div>
-                            <div id="multi-lista-macrogrupos" class="space-y-1.5"></div>
-                        </div>
-                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-                            <div class="font-black text-blue-950 uppercase text-[11px] border-b pb-1">3. Tipos de Serviço / Projetos</div>
-                            <div id="multi-lista-projetos" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
-                            <div class="font-black text-emerald-950 uppercase text-[11px] border-b pb-1 pt-2">4. Status / Desfechos</div>
-                            <div id="multi-lista-desfechos" class="space-y-1.5"></div>
-                        </div>
-                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col">
-                            <div class="flex justify-between items-center border-b pb-1 mb-2">
-                                <span class="font-black text-blue-950 uppercase text-[11px]">5. Equipes / Técnicos</span>
-                                <div class="flex gap-1">
-                                    <button type="button" onclick="marcarOuDesmarcarTodasEquipesMulti(true)" class="text-[9px] bg-blue-100 text-blue-900 font-bold px-1.5 py-0.5 rounded">Todos</button>
-                                    <button type="button" onclick="marcarOuDesmarcarTodasEquipesMulti(false)" class="text-[9px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded">Limpar</button>
-                                </div>
-                            </div>
-                            <div id="multi-lista-equipes" class="space-y-1 overflow-y-auto max-h-64 pr-1"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-slate-100 px-5 py-3 border-t flex justify-between items-center">
-                    <button type="button" onclick="limparFiltrosMultiplos()" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs px-4 py-2 rounded-xl font-bold">🗑️ Limpar Seleção Múltipla</button>
-                    <div class="flex gap-2">
-                        <button type="button" onclick="fecharModalFiltroMultiplo()" class="bg-slate-300 text-slate-800 text-xs px-4 py-2 rounded-xl font-bold">Cancelar</button>
-                        <button type="button" onclick="aplicarFiltrosMultiplosDoModal()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-5 py-2 rounded-xl font-black shadow-md">✅ Aplicar Filtros Selecionados</button>
-                    </div>
-                </div>
-            </div>`;
-        document.body.appendChild(modalMulti);
-    }
-
-    const viewOpcoes = document.getElementById('subview-opcoes');
-    if (viewOpcoes && !document.getElementById('central-master-backup-nuvem')) {
-        const divBackup = document.createElement('div');
-        divBackup.id = 'central-master-backup-nuvem';
-        divBackup.className = 'mt-6 pt-5 border-t-2 border-slate-200 space-y-4';
-        divBackup.innerHTML = `
-            <div class="bg-slate-900 text-white p-4 rounded-2xl shadow-md space-y-3">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-700 pb-3">
-                    <div>
-                        <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Exclusivo Master • Proteção de Dados</span>
-                        <h4 class="font-bold text-sm sm:text-base mt-1">💾 Central de Backup Integral (.JSON), Consulta Histórica e Alívio de Nuvem</h4>
-                    </div>
-                    <span id="badge-estimativa-peso-nuvem" class="bg-slate-800 border border-slate-600 text-cyan-300 font-mono text-xs px-3 py-1.5 rounded-xl whitespace-nowrap">Calculando uso...</span>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-                    <div class="bg-slate-800/90 border border-slate-700 p-3.5 rounded-xl space-y-2.5 flex flex-col justify-between">
-                        <div>
-                            <h5 class="font-black text-cyan-300 text-xs uppercase">1. Exportar Backup Completo (.JSON)</h5>
-                            <div class="grid grid-cols-2 gap-1.5 mt-2">
-                                <div><label class="text-[9px] text-slate-400 uppercase font-bold block">De:</label><input type="date" id="bkp-data-inicio" class="w-full text-[11px] bg-slate-900 border border-slate-600 rounded p-1 text-white"></div>
-                                <div><label class="text-[9px] text-slate-400 uppercase font-bold block">Até:</label><input type="date" id="bkp-data-fim" class="w-full text-[11px] bg-slate-900 border border-slate-600 rounded p-1 text-white"></div>
-                            </div>
-                        </div>
-                        <button type="button" onclick="baixarBackupIntegralJSON()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 rounded-xl text-xs transition shadow">📦 Baixar Backup Integral (.JSON)</button>
-                    </div>
-                    <div class="bg-slate-800/90 border border-slate-700 p-3.5 rounded-xl space-y-2.5 flex flex-col justify-between">
-                        <div>
-                            <h5 class="font-black text-amber-300 text-xs uppercase">2. Carregar / Restaurar Backup (.JSON)</h5>
-                            <input type="file" id="inp-upload-backup-json" accept=".json" class="w-full text-[10px] bg-slate-900 border border-slate-600 rounded-lg p-1.5 text-slate-200 mt-2">
-                        </div>
-                        <div class="grid grid-cols-2 gap-1.5">
-                            <button type="button" onclick="processarArquivoBackupJSON('consulta')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-2 px-2 rounded-xl text-[11px] transition shadow">👁️ Modo Consulta</button>
-                            <button type="button" onclick="processarArquivoBackupJSON('nuvem')" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black py-2 px-2 rounded-xl text-[11px] transition shadow">☁️ Subir p/ Nuvem</button>
-                        </div>
-                    </div>
-                    <div class="bg-slate-800/90 border border-red-900/60 p-3.5 rounded-xl space-y-2.5 flex flex-col justify-between">
-                        <div>
-                            <h5 class="font-black text-red-400 text-xs uppercase">3. Limpeza Inteligente da Nuvem</h5>
-                            <div class="mt-2"><label class="text-[9px] text-red-300 uppercase font-bold block">Limpar registos anteriores a:*</label><input type="date" id="expurgo-data-limite" class="w-full text-[11px] bg-slate-900 border border-red-700 rounded p-1 text-white"></div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-1.5">
-                            <button type="button" onclick="executarLimpezaInteligenteNuvem('apenas_fotos')" class="bg-orange-600 hover:bg-orange-500 text-white font-bold py-2 px-2 rounded-xl text-[10px] transition shadow">🧹 Limpar Só Fotos</button>
-                            <button type="button" onclick="executarLimpezaInteligenteNuvem('registros_completos')" class="bg-red-700 hover:bg-red-600 text-white font-bold py-2 px-2 rounded-xl text-[10px] transition shadow">🗑️ Excluir Antigos</button>
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-        viewOpcoes.appendChild(divBackup);
-    }
-}
-
-setTimeout(inicializarMelhoriasVisuaisGestor, 350);
-
-// ================= SOLICITAÇÕES DE COMBUSTÍVEL E MATERIAL (48H) =================
-function calcularTempoRestante48h(timestampTratado) {
-    if (!timestampTratado || isNaN(timestampTratado)) return "Exclusão em 48h";
-    const restanteMs = Math.max(0, PRAZO_EXPURGO_48H_MS - (Date.now() - Number(timestampTratado)));
-    const horas = Math.floor(restanteMs / (1000 * 60 * 60));
-    const min = Math.floor((restanteMs % (1000 * 60 * 60)) / (1000 * 60));
-    return `Auto-exclusão em ${horas}h ${min}m`;
-}
-
-async function abrirFotosSolicitacaoCombustivelModal(idReg) {
-    const reg = (registrosSalvos || []).find(r => r.id === idReg);
-    if (reg) await abrirDetalhesAtividade(reg);
-}
-
-async function marcarSolicitacaoComoTratada(idReg) {
-    if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') { alert("⚠️ Permissão insuficiente."); return; }
-    const reg = (registrosSalvos || []).find(r => r.id === idReg);
-    if (!reg) return;
-
-    const ehComb = reg.projeto === PROJETO_SOLIC_COMBUSTIVEL;
-    const obsGestor = prompt(`✅ MARCAR SOLICITAÇÃO COMO TRATADA (${ehComb ? 'COMBUSTÍVEL' : 'MATERIAL'})\n\nTécnico: ${reg.equipe}\nDetalhe: ${reg.imovel}\n\nObservação da tratativa:`, "Atendido / Liberado pela gestão");
-    if (obsGestor === null) return;
-
-    const uObj = (usuariosSistema || []).find(u => u.email.toLowerCase() === (usuarioLogado || '').toLowerCase());
-    const nomeTratador = uObj ? `${uObj.nome} (${usuarioLogado})` : (usuarioLogado || 'Gestor');
-    const dataHoraAgora = new Date().toLocaleString('pt-BR');
-    const tsAgora = Date.now();
-
-    let fotosAtuais = Array.isArray(reg.fotos) ? reg.fotos : [];
-    if (fotosAtuais.length === 0 && typeof obterFotosSobDemandaDoRegistro === 'function' && Number(reg.qtdFotos) > 0) {
-        fotosAtuais = await obterFotosSobDemandaDoRegistro(reg.id);
-    }
-
-    const tagEnd = reg.endereco ? `[END: ${reg.endereco}] ` : '';
-    const tagTratado = `[TRATADO_POR: ${nomeTratador}] [TRATADO_EM: ${dataHoraAgora}] [TRATADO_TS: ${tsAgora}] `;
-    const sufixoFotos = (fotosAtuais && fotosAtuais.length > 0) ? ` [FOTOS:${JSON.stringify(fotosAtuais)}]` : '';
-    const textoObsLimpo = obsGestor.trim() ? `${reg.observacoes ? reg.observacoes + ' | ' : ''}Tratativa: ${obsGestor.trim()}` : (reg.observacoes || '');
-    const obsFinalBanco = `${tagEnd}${tagTratado}${textoObsLimpo}${sufixoFotos}`.trim();
-    const horaCurta = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-
-    const { error } = await supabaseClient.from('registros_producao').update({ desfecho: "TRATADA", h_saida: horaCurta, observacoes: obsFinalBanco }).eq('id', idReg);
-    if (error) { alert("❌ Erro: " + error.message); return; }
-
-    Object.assign(reg, { desfecho: "TRATADA", hSaida: horaCurta, tratadoPor: nomeTratador, tratadoDataHora: dataHoraAgora, tratadoTimestamp: tsAgora, observacoes: textoObsLimpo });
-    registrarLogAuditoria(ehComb ? "COMBUSTÍVEL TRATADO" : "MATERIAL TRATADO", `Solicitação de ${reg.equipe} (${reg.imovel}) tratada por ${nomeTratador}.`);
-    atualizarDashboardGestor();
-    alert(`✅ Solicitação marcada como TRATADA por ${nomeTratador}!`);
-}
-
-function renderizarTabelasSolicitacoesGestor() {
-    const corpoComb = document.getElementById('tabela-solic-combustivel-corpo');
-    const corpoMat  = document.getElementById('tabela-solic-material-corpo');
-    const pendComb = listaSolicitacoesCombustivelAtuais.filter(r => r.desfecho !== 'TRATADA').length;
-    const pendMat  = listaSolicitacoesMaterialAtuais.filter(r => r.desfecho !== 'TRATADA').length;
-
-    const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-    setTxt('badge-aba-combustivel', `${pendComb} pend.`);
-    setTxt('badge-aba-solic-material', `${pendMat} pend.`);
-    setTxt('contador-solic-combustivel', `${listaSolicitacoesCombustivelAtuais.length} solicitação(ões) (${pendComb} pendente(s))`);
-    setTxt('contador-solic-material', `${listaSolicitacoesMaterialAtuais.length} solicitação(ões) (${pendMat} pendente(s))`);
-
-    const podeTratar = (nivelUsuarioLogado === 'Master' || nivelUsuarioLogado === 'Operador');
-
-    if (corpoComb) {
-        corpoComb.innerHTML = "";
-        if (listaSolicitacoesCombustivelAtuais.length === 0) {
-            corpoComb.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhuma solicitação de recarga de combustível ativa no momento.</td></tr>`;
-        } else {
-            listaSolicitacoesCombustivelAtuais.forEach(item => {
-                const tratada = item.desfecho === 'TRATADA';
-                const qtdFotos = Number(item.qtdFotos) || (Array.isArray(item.fotos) ? item.fotos.length : 0);
-                const labelsFotos = Array.isArray(item.malogros) && item.malogros.length > 0 ? item.malogros.join(' • ') : 'Painel + Mapa de Bordo';
-                const statusHtml = tratada
-                    ? `<div class="space-y-0.5"><span class="bg-emerald-100 text-emerald-900 border border-emerald-300 font-black px-2 py-0.5 rounded text-[10px] inline-block">🟢 TRATADA</span><div class="text-[10px] text-slate-700 font-bold">👤 Por: ${item.tratadoPor || 'Gestor'}</div><div class="text-[10px] text-slate-500 font-mono">🕒 Em: ${item.tratadoDataHora || item.hSaida}</div><div class="text-[9px] text-orange-700 font-bold">⏳ ${calcularTempoRestante48h(item.tratadoTimestamp)}</div></div>`
-                    : `<span class="bg-amber-100 text-amber-900 border border-amber-300 font-black px-2.5 py-1 rounded text-[10px] inline-block animate-pulse">🟡 AGUARDANDO TRATATIVA</span>`;
-                let botoesHtml = podeTratar
-                    ? `<div class="flex flex-wrap gap-1">${!tratada ? `<button onclick="marcarSolicitacaoComoTratada(${item.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Marcar Tratada</button>` : ''}<button onclick="abrirFotosSolicitacaoCombustivelModal(${item.id})" class="bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold text-[10px] px-2 py-1 rounded">📷 Ver Fotos (${qtdFotos})</button><button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-[10px] px-2 py-1 rounded">🗑️</button></div>`
-                    : `<span class="text-slate-400 text-[10px]">Leitura</span>`;
-                const tr = document.createElement('tr');
-                tr.className = tratada ? "bg-slate-50/70 border-b hover:bg-slate-100/70 transition cursor-pointer" : "bg-orange-50/30 border-b hover:bg-orange-50/70 transition cursor-pointer";
-                tr.onclick = () => abrirDetalhesAtividade(item);
-                tr.innerHTML = `<td class="p-3"><div class="font-bold text-slate-800">${item.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">Solicitado às ${item.hEntrada}</div></td><td class="p-3 font-bold text-blue-950">${item.equipe}</td><td class="p-3"><span class="bg-orange-100 text-orange-950 border border-orange-300 font-black px-2.5 py-1 rounded text-xs inline-block">${item.imovel}</span></td><td class="p-3 text-slate-700 font-medium">${item.motivoDesfecho || '-'}</td><td class="p-3"><span class="bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold px-2 py-0.5 rounded text-[10px] inline-block">📷 ${qtdFotos} foto(s)</span><div class="text-[9px] text-slate-500 mt-0.5">${labelsFotos}</div></td><td class="p-3">${statusHtml}</td><td class="p-3 whitespace-nowrap" onclick="event.stopPropagation()">${botoesHtml}</td>`;
-                corpoComb.appendChild(tr);
+async function ativarWakeLockTela() {
+    try {
+        if ('wakeLock' in navigator && !wakeLockAtivo) {
+            wakeLockAtivo = await navigator.wakeLock.request('screen');
+            wakeLockAtivo.addEventListener('release', () => {
+                wakeLockAtivo = null;
             });
         }
+    } catch (e) {
+        console.warn("Aviso WakeLock:", e);
     }
+}
 
-    if (corpoMat) {
-        corpoMat.innerHTML = "";
-        if (listaSolicitacoesMaterialAtuais.length === 0) {
-            corpoMat.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhuma solicitação de material ativa no momento.</td></tr>`;
-        } else {
-            listaSolicitacoesMaterialAtuais.forEach(item => {
-                const tratada = item.desfecho === 'TRATADA';
-                const tagsItens = Array.isArray(item.malogros) && item.malogros.length > 0
-                    ? item.malogros.map(m => `<span class="bg-indigo-100 text-indigo-950 border border-indigo-300 font-black px-2 py-0.5 rounded text-[10px] inline-block">${m}</span>`).join(' ')
-                    : `<span class="font-bold text-slate-700">${item.motivoDesfecho || '-'}</span>`;
-                const statusHtml = tratada
-                    ? `<div class="space-y-0.5"><span class="bg-emerald-100 text-emerald-900 border border-emerald-300 font-black px-2 py-0.5 rounded text-[10px] inline-block">🟢 TRATADA</span><div class="text-[10px] text-slate-700 font-bold">👤 Por: ${item.tratadoPor || 'Gestor'}</div><div class="text-[10px] text-slate-500 font-mono">🕒 Em: ${item.tratadoDataHora || item.hSaida}</div><div class="text-[9px] text-indigo-700 font-bold">⏳ ${calcularTempoRestante48h(item.tratadoTimestamp)}</div></div>`
-                    : `<span class="bg-amber-100 text-amber-900 border border-amber-300 font-black px-2.5 py-1 rounded text-[10px] inline-block animate-pulse">🟡 AGUARDANDO TRATATIVA</span>`;
-                let botoesHtml = podeTratar
-                    ? `<div class="flex flex-wrap gap-1">${!tratada ? `<button onclick="marcarSolicitacaoComoTratada(${item.id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded shadow-sm">✅ Marcar Tratada</button>` : ''}<button onclick="excluirRegistro(${item.id}, '${item.imovel}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold text-[10px] px-2 py-1 rounded">🗑️ Excluir</button></div>`
-                    : `<span class="text-slate-400 text-[10px]">Leitura</span>`;
-                const tr = document.createElement('tr');
-                tr.className = tratada ? "bg-slate-50/70 border-b hover:bg-slate-100/70 transition cursor-pointer" : "bg-indigo-50/30 border-b hover:bg-indigo-50/70 transition cursor-pointer";
-                tr.onclick = () => abrirDetalhesAtividade(item);
-                tr.innerHTML = `<td class="p-3"><div class="font-bold text-slate-800">${item.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">Solicitado às ${item.hEntrada}</div></td><td class="p-3 font-bold text-blue-950">${item.equipe}</td><td class="p-3"><div class="flex flex-wrap gap-1">${tagsItens}</div></td><td class="p-3 text-slate-600">${item.observacoes || item.responsavel || '-'}</td><td class="p-3">${statusHtml}</td><td class="p-3 whitespace-nowrap" onclick="event.stopPropagation()">${botoesHtml}</td>`;
-                corpoMat.appendChild(tr);
-            });
+function liberarWakeLockTela() {
+    try {
+        if (wakeLockAtivo) {
+            wakeLockAtivo.release();
+            wakeLockAtivo = null;
         }
+    } catch (e) {
+        console.warn("Aviso ao liberar WakeLock:", e);
     }
 }
 
-// ================= FILTROS DE MARCAÇÃO MÚLTIPLA =================
-function abrirModalFiltroMultiplo() {
-    inicializarMelhoriasVisuaisGestor();
-    const modal = document.getElementById('modal-filtro-multiplo');
-    if (!modal) return;
-
-    const desenharChecks = (idContainer, opcoes, arraySelecionados, nomeGrupo) => {
-        const el = document.getElementById(idContainer);
-        if (!el) return;
-        el.innerHTML = opcoes.map(op => `<label class="flex items-center gap-2 font-semibold text-slate-700 hover:bg-blue-50 p-1 rounded cursor-pointer"><input type="checkbox" name="${nomeGrupo}" value="${op.valor}" ${arraySelecionados.includes(op.valor) ? 'checked' : ''} class="w-4 h-4 accent-blue-900 rounded"><span class="text-[11px]">${op.label}</span></label>`).join('');
-    };
-
-    desenharChecks('multi-lista-setores', [{ valor: 'Vistoriador', label: '🔍 Vistoriador' }, { valor: 'Instalador', label: '🛠️ Instalador' }, { valor: 'Ativador', label: '⚡ Ativador' }], filtrosMultiplosAtivos.setores, 'chk-multi-setor');
-    desenharChecks('multi-lista-macrogrupos', GRUPOS_PROJETO_SISTEMA.map(grp => ({ valor: grp, label: `📂 Grupo ${grp}` })), filtrosMultiplosAtivos.macrogrupos, 'chk-multi-macro');
-    desenharChecks('multi-lista-projetos', CATALOGO_PROJETOS_SISTEMA.map(p => ({ valor: p.nome, label: `${p.nome} (${p.grupo})` })), filtrosMultiplosAtivos.projetos, 'chk-multi-projeto');
-    desenharChecks('multi-lista-desfechos', [{ valor: 'PROGRAMADA', label: '📋 Programadas' }, { valor: 'EM ANDAMENTO', label: '🔵 Em Andamento' }, { valor: 'PARALISADA', label: '⏸️ Paralisadas' }, { valor: 'REABERTA', label: '🔄 Reabertas' }, { valor: 'CONCLUIDA', label: '🟢 Concluídas' }, { valor: 'PENDENTE', label: '🟡 Pendentes' }, { valor: 'MALOGRADA', label: '🔴 Malogradas' }], filtrosMultiplosAtivos.desfechos, 'chk-multi-desfecho');
-    desenharChecks('multi-lista-equipes', equipesSistema.map(e => ({ valor: e.nome, label: `${e.nome} (${formatarSetoresString(e.setor)})` })), filtrosMultiplosAtivos.equipes, 'chk-multi-equipe');
-    modal.classList.remove('hidden');
-}
-
-function fecharModalFiltroMultiplo() { document.getElementById('modal-filtro-multiplo')?.classList.add('hidden'); }
-function marcarOuDesmarcarTodasEquipesMulti(marcar) { document.querySelectorAll('input[name="chk-multi-equipe"]').forEach(c => c.checked = marcar); }
-
-function atualizarBadgeFiltroMultiplo() {
-    const total = filtrosMultiplosAtivos.equipes.length + filtrosMultiplosAtivos.setores.length + filtrosMultiplosAtivos.macrogrupos.length + filtrosMultiplosAtivos.projetos.length + filtrosMultiplosAtivos.desfechos.length;
-    const badge = document.getElementById('badge-qtd-filtros-multi');
-    if (!badge) return;
-    if (total > 0) { badge.innerText = total; badge.classList.remove('hidden'); }
-    else { badge.classList.add('hidden'); }
-}
-
-function aplicarFiltrosMultiplosDoModal() {
-    const lerGrupo = (nome) => Array.from(document.querySelectorAll(`input[name="${nome}"]:checked`)).map(c => c.value);
-    filtrosMultiplosAtivos.setores = lerGrupo('chk-multi-setor');
-    filtrosMultiplosAtivos.macrogrupos = lerGrupo('chk-multi-macro');
-    filtrosMultiplosAtivos.projetos = lerGrupo('chk-multi-projeto');
-    filtrosMultiplosAtivos.desfechos = lerGrupo('chk-multi-desfecho');
-    filtrosMultiplosAtivos.equipes = lerGrupo('chk-multi-equipe');
-
-    if (filtrosMultiplosAtivos.equipes.length > 0) document.getElementById('gestor-filtro-equipe').value = "";
-    if (filtrosMultiplosAtivos.projetos.length > 0) document.getElementById('gestor-filtro-projeto').value = "";
-    if (filtrosMultiplosAtivos.desfechos.length > 0) document.getElementById('gestor-filtro-desfecho').value = "";
-
-    atualizarBadgeFiltroMultiplo();
-    fecharModalFiltroMultiplo();
-    atualizarDashboardGestor();
-}
-
-function limparFiltrosMultiplos() {
-    filtrosMultiplosAtivos = { equipes: [], setores: [], macrogrupos: [], projetos: [], desfechos: [] };
-    atualizarBadgeFiltroMultiplo();
-    fecharModalFiltroMultiplo();
-    atualizarDashboardGestor();
-}
-
-// ================= CENTRAL MASTER DE BACKUP (.JSON) =================
-function atualizarEstimativaPesoNuvem() {
-    if (typeof renderizarPainelCapacidadeNuvem === "function") renderizarPainelCapacidadeNuvem();
-}
-
-function baixarBackupIntegralJSON() {
-    if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas o perfil Master pode exportar o Backup Integral."); return; }
-    const dIni = document.getElementById('bkp-data-inicio')?.value || "";
-    const dFim = document.getElementById('bkp-data-fim')?.value || "";
-
-    let listaExportar = (registrosSalvos || []).map(r => ({
-        id: r.id, dataRegistro: r.dataRegistro, equipe: r.equipe, membros: r.membros, projeto: r.projeto,
-        imovel: r.imovel, endereco: r.endereco, liberouAcesso: r.liberouAcesso, tempoPausadoMinutos: r.tempoPausadoMinutos,
-        qtdBlocosProgramados: r.qtdBlocosProgramados, fotos: (typeof cacheFotosSobDemanda !== 'undefined' && cacheFotosSobDemanda.get(r.id)) || r.fotos || [],
-        hEntrada: r.hEntrada, hSaida: r.hSaida, gpsEntrada: r.gpsEntrada, gpsSaida: r.gpsSaida, desfecho: r.desfecho,
-        motivoDesfecho: r.motivoDesfecho, malogros: r.malogros, responsavel: r.responsavel, contato: r.contato,
-        email: r.email, agendamento: r.agendamento, andares: r.andares, hps: r.hps, servicoObra: r.servicoObra,
-        observacoes: r.observacoes, fusoes: r.fusoes, conectores: r.conectores, caboRL: r.caboRL, caboDrop: r.caboDrop,
-        nap: r.nap, dio: r.dio, cxSobrepor: r.cxSobrepor, cxEmbutida: r.cxEmbutida, cxFosc: r.cxFosc
-    })).filter(r => {
-        if (dIni && r.dataRegistro < dIni) return false;
-        if (dFim && r.dataRegistro > dFim) return false;
-        return true;
-    });
-
-    if (listaExportar.length === 0) { alert("⚠️ Nenhum registo encontrado no período."); return; }
-    const pacoteBackup = {
-        sistema: "GPD MDU PROCISA RJ", versaoBackup: "6.0", dataExportacao: new Date().toISOString(), exportadoPor: usuarioLogado,
-        configuracoes: {
-            equipes: equipesSistema, usuarios: usuariosSistema, gruposProjeto: GRUPOS_PROJETO_SISTEMA,
-            catalogoProjetos: CATALOGO_PROJETOS_SISTEMA, opcoesCombustivel: OPCOES_COMBUSTIVEL_PADRAO,
-            opcoesMaterialSolicitacao: OPCOES_MATERIAL_SOLICITACAO, opcoesPendencia: OPCOES_PENDENCIA_PADRAO,
-            opcoesMalogro: OPCOES_MALOGRO_PADRAO, opcoesImprevisto: OPCOES_IMPREVISTO_PADRAO, auditoria: trilhaAuditoria
-        },
-        registros: listaExportar
-    };
-
-    const blob = new Blob([JSON.stringify(pacoteBackup)], { type: 'application/json;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const sufixoData = (dIni || dFim) ? `${dIni || 'inicio'}_a_${dFim || 'hoje'}` : `completo_${obterDataLocalISO()}`;
-    a.href = url; a.download = `BACKUP_GPD_PROCISA_${sufixoData}.json`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    registrarLogAuditoria("BACKUP INTEGRAL (.JSON)", `Exportados ${listaExportar.length} registos.`);
-}
-
-async function processarArquivoBackupJSON(modo) {
-    if (nivelUsuarioLogado !== 'Master') { alert("⚠️ Apenas o perfil Master pode carregar backups."); return; }
-    const inp = document.getElementById('inp-upload-backup-json');
-    const file = inp?.files && inp.files[0];
-    if (!file) { alert("⚠️ Selecione um ficheiro .JSON."); return; }
-
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-        try {
-            const pacote = JSON.parse(e.target.result);
-            if (!pacote || !Array.isArray(pacote.registros)) { alert("❌ Ficheiro inválido!"); return; }
-            if (modo === 'consulta') {
-                if (!modoConsultaBackupAtivo) cacheRegistrosNuvemOriginal = [...registrosSalvos];
-                modoConsultaBackupAtivo = true;
-                if (typeof cacheFotosSobDemanda !== 'undefined') cacheFotosSobDemanda.clear();
-                registrosSalvos = pacote.registros.map(r => {
-                    if (typeof cacheFotosSobDemanda !== 'undefined' && Array.isArray(r.fotos)) cacheFotosSobDemanda.set(r.id, r.fotos);
-                    return { ...r, qtdFotos: Array.isArray(r.fotos) ? r.fotos.length : 0 };
-                });
-                if (typeof reciclarContagemBytesFotos === 'function') reciclarContagemBytesFotos();
-                exibirBannerModoConsultaBackup(file.name, registrosSalvos.length);
-                atualizarDashboardGestor();
-                mudarSubAbaGestor('atividades');
-            } else if (modo === 'nuvem') {
-                if (!confirm(`☁️ Restaurar ${pacote.registros.length} registos para o Supabase?`)) return;
-                const linhasParaUpsert = pacote.registros.map(r => {
-                    let tagEnd = r.endereco ? `[END: ${r.endereco}] ` : '';
-                    let tagLiberou = r.liberouAcesso ? `[LIBEROU_ACESSO: ${r.liberouAcesso}] ` : '';
-                    let tagPausa = r.tempoPausadoMinutos > 0 ? `[PAUSA_TOTAL: ${r.tempoPausadoMinutos}] ` : '';
-                    let sufixoBlocos = r.qtdBlocosProgramados > 1 ? ` [BLOCOS: ${r.qtdBlocosProgramados}]` : '';
-                    let fotosArr = (typeof cacheFotosSobDemanda !== 'undefined' && cacheFotosSobDemanda.get(r.id)) || r.fotos || [];
-                    let sufixoFotos = (fotosArr && fotosArr.length > 0) ? ` [FOTOS:${JSON.stringify(fotosArr)}]` : '';
-                    return {
-                        id: r.id, data_registro: r.dataRegistro, equipe: r.equipe, membros: r.membros || r.equipe,
-                        projeto: r.projeto, imovel: r.imovel, h_entrada: r.hEntrada, h_saida: r.hSaida,
-                        gps_entrada: r.gpsEntrada, gps_saida: r.gpsSaida, desfecho: r.desfecho, motivo_desfecho: r.motivoDesfecho,
-                        malogros: r.malogros || [], responsavel: r.responsavel || '', contato: r.contato || '', email: r.email || '',
-                        agendamento: null, andares: Number(r.andares) || 0, hps: Number(r.hps) || 0, servico_obra: r.servicoObra || 'SIM',
-                        observacoes: `${tagEnd}${tagLiberou}${tagPausa}${r.observacoes || ''}${sufixoBlocos}${sufixoFotos}`.trim(),
-                        fusoes: Number(r.fusoes) || 0, conectores: Number(r.conectores) || 0, cabo_rl: Number(r.caboRL) || 0,
-                        cabo_drop: Number(r.caboDrop) || 0, nap: Number(r.nap) || 0, dio: Number(r.dio) || 0,
-                        cx_sobrepor: Number(r.cxSobrepor) || 0, cx_embutida: Number(r.cxEmbutida) || 0, cx_fosc: Number(r.cxFosc) || 0
-                    };
-                });
-                for (let i = 0; i < linhasParaUpsert.length; i += 25) {
-                    const { error } = await supabaseClient.from('registros_producao').upsert(linhasParaUpsert.slice(i, i + 25), { onConflict: 'id' });
-                    if (error) throw error;
-                }
-                inp.value = "";
-                await recarregarDadosGestor(true);
-                alert(`✅ ${linhasParaUpsert.length} registos restaurados!`);
-            }
-        } catch (err) { alert("❌ Erro: " + err.message); }
-    };
-    reader.readAsText(file, 'UTF-8');
-}
-
-function exibirBannerModoConsultaBackup(nomeArquivo, qtd) {
-    let banner = document.getElementById('banner-modo-consulta-backup');
-    const mainGestor = document.getElementById('view-gestor');
-    if (!mainGestor) return;
-    if (!banner) {
-        banner = document.createElement('div');
-        banner.id = 'banner-modo-consulta-backup';
-        banner.className = 'bg-indigo-950 text-white p-3.5 rounded-xl border-2 border-amber-400 flex flex-col sm:flex-row justify-between items-center gap-3 shadow-lg';
-        mainGestor.insertBefore(banner, mainGestor.firstChild);
+document.addEventListener('visibilitychange', () => {
+    const nomeEq = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao;
+    const hojeISO = obterDataLocalISO();
+    const dadosTel = (nomeEq && typeof telemetriaEquipes !== 'undefined') ? telemetriaEquipes[nomeEq] : null;
+    if (document.visibilityState === 'visible' && dadosTel && dadosTel.data === hojeISO && dadosTel.statusTurno === 'DISPONIVEL') {
+        ativarWakeLockTela();
+        capturarEEnviarPosicaoRastreio(nomeEq, false);
     }
-    banner.classList.remove('hidden');
-    banner.innerHTML = `<div class="flex items-center gap-3"><span class="text-2xl">📂</span><div><h4 class="font-black text-amber-300 text-xs uppercase">Modo Consulta de Backup Ativo (${nomeArquivo})</h4><p class="text-xs text-indigo-100">Exibindo <b>${qtd} registos</b> carregados localmente.</p></div></div><button type="button" onclick="sairModoConsultaBackup()" class="bg-amber-400 hover:bg-amber-300 text-indigo-950 font-black text-xs px-4 py-2 rounded-xl shadow">🔙 Sair do Modo Consulta</button>`;
+});
+
+// ================= ITEM 01, 02 e 04: SOLICITAÇÃO DE COMBUSTÍVEL EXTRA E DE MATERIAL NO MODO CAMPO =================
+
+function validarTecnicoSelecionadoParaSolicitacao() {
+    const selEq = document.getElementById('sel-equipe');
+    const nomeEq = selEq?.value || equipeAutenticadaSessao || "";
+    if (!nomeEq || equipeAutenticadaSessao !== nomeEq) {
+        alert("⚠️ Selecione primeiro o seu nome em 'Equipe / Técnico' e digite seu PIN de 4 dígitos para enviar solicitações.");
+        if (selEq) selEq.focus();
+        return null;
+    }
+    return nomeEq;
 }
 
-async function sairModoConsultaBackup() {
-    modoConsultaBackupAtivo = false;
-    if (cacheRegistrosNuvemOriginal) { registrosSalvos = [...cacheRegistrosNuvemOriginal]; cacheRegistrosNuvemOriginal = null; }
-    else { await carregarRegistrosDaNuvem(true); }
-    document.getElementById('banner-modo-consulta-backup')?.classList.add('hidden');
-    atualizarDashboardGestor();
+function abrirModalSolicitacaoCombustivelCampo() {
+    const nomeEq = validarTecnicoSelecionadoParaSolicitacao();
+    if (!nomeEq) return;
+
+    document.getElementById('lbl-tec-solic-comb').innerText = nomeEq;
+    document.getElementById('inp-comb-placa').value = localStorage.getItem(`gpd_ultima_placa_${nomeEq}`) || "";
+    document.getElementById('inp-comb-km').value = "";
+    document.getElementById('inp-comb-motivo').value = "";
+
+    const selSug = document.getElementById('sel-comb-motivo-sugerido');
+    if (selSug) {
+        const opcoes = (typeof OPCOES_COMBUSTIVEL_PADRAO !== 'undefined' && Array.isArray(OPCOES_COMBUSTIVEL_PADRAO))
+            ? OPCOES_COMBUSTIVEL_PADRAO
+            : [];
+        selSug.innerHTML = `<option value="">Selecione um motivo rápido (opcional) ou digite abaixo...</option>` +
+            opcoes.map(op => `<option value="${op}">⛽ ${op}</option>`).join('');
+    }
+
+    fotosSolicCombustivelTemp = { painel: null, mapa: null, cartao: null };
+    atualizarPreviewSlotCombustivel('painel', null, 'Nenhuma foto anexada');
+    atualizarPreviewSlotCombustivel('mapa', null, 'Nenhuma foto anexada');
+    atualizarPreviewSlotCombustivel('cartao', null, 'Opcional');
+
+    document.getElementById('modal-solic-combustivel').classList.remove('hidden');
 }
 
-async function executarLimpezaInteligenteNuvem(tipoExpurgo) {
-    if (nivelUsuarioLogado !== 'Master') return;
-    const dataLimite = document.getElementById('expurgo-data-limite')?.value;
-    if (!dataLimite) { alert("⚠️ Selecione a data limite."); return; }
-    const alvos = (registrosSalvos || []).filter(r => r.dataRegistro && r.dataRegistro < dataLimite);
-    if (alvos.length === 0) { alert(`ℹ️ Nenhum registo anterior a ${dataLimite}.`); return; }
+function fecharModalSolicitacaoCombustivelCampo() {
+    document.getElementById('modal-solic-combustivel')?.classList.add('hidden');
+}
 
-    if (tipoExpurgo === 'apenas_fotos') {
-        const comFotos = alvos.filter(r => (Number(r.qtdFotos) || (Array.isArray(r.fotos) ? r.fotos.length : 0)) > 0);
-        if (comFotos.length === 0 || !confirm(`🧹 Limpar fotos de ${comFotos.length} registos anteriores a ${dataLimite}?`)) return;
-        for (const r of comFotos) {
-            let obsSemFotos = `${r.endereco ? `[END: ${r.endereco}] ` : ''}${r.liberouAcesso ? `[LIBEROU_ACESSO: ${r.liberouAcesso}] ` : ''}${r.tempoPausadoMinutos > 0 ? `[PAUSA_TOTAL: ${r.tempoPausadoMinutos}] ` : ''}${r.observacoes || ''}`.trim();
-            await supabaseClient.from('registros_producao').update({ observacoes: obsSemFotos }).eq('id', r.id);
-            if (typeof cacheFotosSobDemanda !== 'undefined') cacheFotosSobDemanda.set(r.id, []);
-            r.qtdFotos = 0;
+function aoSelecionarMotivoSugeridoCombustivel(valor) {
+    if (valor) {
+        document.getElementById('inp-comb-motivo').value = valor;
+    }
+}
+
+function atualizarPreviewSlotCombustivel(slot, base64, textoPadrao) {
+    const imgEl = document.getElementById(`prev-foto-comb-${slot}`);
+    const statusEl = document.getElementById(`status-foto-comb-${slot}`);
+    if (base64) {
+        if (imgEl) {
+            imgEl.src = base64;
+            imgEl.classList.remove('hidden');
         }
-        if (typeof reciclarContagemBytesFotos === 'function') reciclarContagemBytesFotos();
-        atualizarDashboardGestor();
-        alert(`✅ Fotos removidas!`);
-    } else if (tipoExpurgo === 'registros_completos') {
-        if (!confirm(`🗑️ Excluir ${alvos.length} registos anteriores a ${dataLimite}?`)) return;
-        const idsParaExcluir = alvos.map(r => r.id);
-        const setExcluir = new Set(idsParaExcluir);
-        for (let i = 0; i < idsParaExcluir.length; i += 100) {
-            await supabaseClient.from('registros_producao').delete().in('id', idsParaExcluir.slice(i, i + 100));
+        if (statusEl) {
+            statusEl.innerText = "✅ Foto anexada com sucesso";
+            statusEl.className = "text-[10px] text-emerald-700 font-bold";
         }
-        registrosSalvos = registrosSalvos.filter(r => !setExcluir.has(r.id));
-        atualizarDashboardGestor();
-        alert(`✅ ${idsParaExcluir.length} registos excluídos!`);
-    }
-}
-
-function gerarRelatorioVisualImpressaoPDF() {
-    mudarSubAbaGestor('graficos');
-    setTimeout(() => { window.print(); }, 300);
-}
-
-// ================= MAPA DE RASTREAMENTO EM TEMPO REAL (LEAFLET) =================
-function inicializarOuAtualizarMapaRastreio(listaPinos) {
-    const containerMapa = document.getElementById('mapa-rastreio-equipes');
-    if (!containerMapa || typeof L === 'undefined') return;
-
-    if (!mapaRastreioInstancia) {
-        mapaRastreioInstancia = L.map('mapa-rastreio-equipes').setView([-22.9068, -43.1729], 11);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap • GPD PROCISA RJ' }).addTo(mapaRastreioInstancia);
-        camadaMarcadoresRastreio = L.layerGroup().addTo(mapaRastreioInstancia);
-    }
-
-    setTimeout(() => { if (mapaRastreioInstancia) mapaRastreioInstancia.invalidateSize(); }, 180);
-    camadaMarcadoresRastreio.clearLayers();
-    coordenadasPinosAtuais = [];
-
-    const containerAtalhos = document.getElementById('lista-atalhos-tecnicos-mapa');
-    if (containerAtalhos) containerAtalhos.innerHTML = "";
-
-    listaPinos.forEach(p => {
-        if (p.lat === null || p.lng === null || isNaN(p.lat) || isNaN(p.lng)) return;
-        coordenadasPinosAtuais.push([p.lat, p.lng]);
-        const primeiroNome = p.nome.split(' ')[0];
-        const iconeHtml = L.divIcon({
-            className: 'custom-pin-gpd',
-            html: `<div style="display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%);"><div style="background:${p.corHex};color:#fff;font-weight:900;font-size:10px;padding:2px 7px;border-radius:8px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);white-space:nowrap;display:flex;align-items:center;gap:4px;"><span>${p.iconeEmoji}</span><span>${primeiroNome}</span></div><div style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid ${p.corHex};margin-top:-1px;"></div></div>`,
-            iconSize: [0, 0], iconAnchor: [0, 0]
-        });
-
-        const marker = L.marker([p.lat, p.lng], { icon: iconeHtml });
-        marker.bindPopup(`<div style="font-family:sans-serif;font-size:11px;line-height:1.4;min-width:190px;"><div style="font-weight:900;color:#0f172a;font-size:12px;border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:4px;">👷 ${p.nome}</div><div><b>Status:</b> <span style="color:${p.corHex};font-weight:800;">${p.statusTexto}</span></div><div><b>Expediente:</b> ${p.turnoTexto}</div><div><b>Ocupação:</b> ${p.ocupacaoLimpa}</div><div><b>Último Sinal:</b> ${p.sinalTexto}</div><div style="margin-top:5px;padding-top:4px;border-top:1px solid #f1f5f9;"><a href="https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}" target="_blank" style="color:#2563eb;font-weight:bold;text-decoration:underline;">🗺️ Abrir no Google Maps (${p.lat.toFixed(5)}, ${p.lng.toFixed(5)})</a></div></div>`);
-        marker.addTo(camadaMarcadoresRastreio);
-
-        if (containerAtalhos) {
-            const btnAtalho = document.createElement('button');
-            btnAtalho.type = "button";
-            btnAtalho.className = "px-2.5 py-1 rounded-lg text-[10px] font-bold text-white shadow-sm transition hover:opacity-90 flex items-center gap-1";
-            btnAtalho.style.backgroundColor = p.corHex;
-            btnAtalho.innerHTML = `<span>${p.iconeEmoji}</span> <span>${p.nome}</span>`;
-            btnAtalho.onclick = () => focarTecnicoNoMapa(p.lat, p.lng, p.nome);
-            containerAtalhos.appendChild(btnAtalho);
-        }
-    });
-
-    if (containerAtalhos && coordenadasPinosAtuais.length === 0) {
-        containerAtalhos.innerHTML = `<span class="text-[11px] text-slate-400 italic">Nenhum técnico transmitiu coordenada GPS hoje até o momento.</span>`;
-    }
-    const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-    setTxt('lbl-contador-pinos-mapa', `${coordenadasPinosAtuais.length} técnico(s) no mapa`);
-    setTxt('badge-aba-mapa', `${coordenadasPinosAtuais.length} no mapa`);
-}
-
-function centralizarMapaEquipes() {
-    if (!mapaRastreioInstancia) return;
-    mapaRastreioInstancia.invalidateSize();
-    if (coordenadasPinosAtuais.length === 0) { mapaRastreioInstancia.setView([-22.9068, -43.1729], 11); return; }
-    if (coordenadasPinosAtuais.length === 1) mapaRastreioInstancia.setView(coordenadasPinosAtuais[0], 16);
-    else mapaRastreioInstancia.fitBounds(L.latLngBounds(coordenadasPinosAtuais), { padding: [45, 45], maxZoom: 16 });
-}
-
-function focarTecnicoNoMapa(lat, lng, nome) {
-    if (isNaN(lat) || isNaN(lng)) return;
-    const subMapa = document.getElementById('subview-mapa');
-    if (subMapa && subMapa.classList.contains('hidden')) mudarSubAbaGestor('mapa');
-    document.getElementById('mapa-rastreio-equipes')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setTimeout(() => {
-        if (!mapaRastreioInstancia) renderizarPainelDisponibilidade();
-        if (mapaRastreioInstancia) { mapaRastreioInstancia.invalidateSize(); mapaRastreioInstancia.setView([lat, lng], 16); }
-    }, 280);
-}
-
-function converterHorarioParaMinutos(strHora) {
-    if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
-    const partes = strHora.trim().split(':');
-    const h = parseInt(partes[0], 10), m = parseInt(partes[1], 10);
-    if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
-    return (h * 60) + m;
-}
-
-function formatarMinutosParaHHMM(totalMinutos) {
-    if (totalMinutos === null || isNaN(totalMinutos) || totalMinutos < 0) return "--:--";
-    const h = Math.floor(totalMinutos / 60), m = Math.round(totalMinutos % 60);
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
-
-function formatarDuracaoTexto(totalMinutos) {
-    if (totalMinutos === null || isNaN(totalMinutos) || totalMinutos <= 0) return "--h --m";
-    const h = Math.floor(totalMinutos / 60), m = Math.round(totalMinutos % 60);
-    return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
-}
-
-function stringParaHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) { hash = ((hash << 5) - hash) + str.charCodeAt(i); hash |= 0; }
-    return hash;
-}
-
-function alternarVisualizacaoBlocosAgrupados(idElemento, btnEl) {
-    const el = document.getElementById(idElemento);
-    if (!el) return;
-    if (el.classList.contains('hidden')) {
-        el.classList.remove('hidden');
-        btnEl.innerText = "📂 Ocultar Blocos";
-        btnEl.className = "mt-1.5 bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition";
     } else {
-        el.classList.add('hidden');
-        const qtd = el.dataset.qtdBlocos || el.querySelectorAll('.card-bloco-interno').length;
-        btnEl.innerText = `📂 Expandir Blocos (${qtd})`;
-        btnEl.className = "mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition";
-    }
-}
-
-function expandirGraficoModal(idCanvasOrigem, tituloJanela) {
-    const modal = document.getElementById('modal-expandir-grafico');
-    const titulo = document.getElementById('modal-grafico-expandido-titulo');
-    const canvasOrigem = document.getElementById(idCanvasOrigem);
-    const canvasAlvo = document.getElementById('canvasGraficoExpandido');
-    if (!modal || !canvasOrigem || !canvasAlvo) return;
-    if (titulo) titulo.innerText = tituloJanela;
-    modal.classList.remove('hidden');
-
-    const chartOriginal = Chart.getChart(canvasOrigem);
-    if (!chartOriginal) return;
-    if (graficoExpandidoInstancia) graficoExpandidoInstancia.destroy();
-
-    graficoExpandidoInstancia = new Chart(canvasAlvo, {
-        type: chartOriginal.config.type,
-        data: JSON.parse(JSON.stringify(chartOriginal.data)),
-        options: {
-            ...chartOriginal.config.options, responsive: true, maintainAspectRatio: false,
-            plugins: { ...chartOriginal.config.options.plugins, legend: { display: true, position: 'top' } },
-            onClick: (event, elements) => { if (elements.length > 0 && chartOriginal.config.options.onClick) chartOriginal.config.options.onClick(event, elements); }
+        if (imgEl) {
+            imgEl.src = "";
+            imgEl.classList.add('hidden');
         }
-    });
-}
-
-function fecharModalGraficoExpandido() {
-    document.getElementById('modal-expandir-grafico')?.classList.add('hidden');
-    if (graficoExpandidoInstancia) { graficoExpandidoInstancia.destroy(); graficoExpandidoInstancia = null; }
-}
-
-function expandirTabelaModal(idTbodyOrigem, tituloJanela) {
-    const modal = document.getElementById('modal-expandir-tabela');
-    const titulo = document.getElementById('modal-tabela-expandida-titulo');
-    const container = document.getElementById('container-tabela-expandida');
-    const tbodyOrigem = document.getElementById(idTbodyOrigem);
-    if (!modal || !container || !tbodyOrigem) return;
-    const tabelaOriginal = tbodyOrigem.closest('table');
-    if (!tabelaOriginal) return;
-
-    if (titulo) titulo.innerText = tituloJanela;
-    container.innerHTML = "";
-    const tabelaClone = tabelaOriginal.cloneNode(true);
-    tabelaClone.className = "w-full text-left border-collapse text-xs sm:text-sm";
-    tabelaClone.querySelector('thead')?.classList.add('sticky', 'top-0', 'z-10', 'shadow-sm');
-
-    const linhasOriginais = tbodyOrigem.querySelectorAll('tr');
-    const tbodyClone = tabelaClone.querySelector('tbody');
-    if (tbodyClone) {
-        tbodyClone.removeAttribute('id');
-        tbodyClone.querySelectorAll('tr').forEach((trClone, idx) => {
-            const trOrig = linhasOriginais[idx];
-            if (trOrig && typeof trOrig.onclick === 'function') {
-                trClone.onclick = (ev) => { fecharModalTabelaExpandida(); trOrig.onclick(ev); };
-            }
-        });
+        if (statusEl) {
+            statusEl.innerText = textoPadrao;
+            statusEl.className = "text-[10px] text-slate-500";
+        }
     }
-    container.appendChild(tabelaClone);
-    modal.classList.remove('hidden');
 }
 
-function fecharModalTabelaExpandida() { document.getElementById('modal-expandir-tabela')?.classList.add('hidden'); }
-
-async function autorizarReaberturaCampo(id) {
-    if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') { alert("⚠️ Apenas Gestores podem autorizar a reabertura."); return; }
-    const reg = registrosSalvos.find(r => r.id === id);
-    if (!reg) return;
-    const motivoReabertura = prompt(`🔓 AUTORIZAR REABERTURA PARA O TÉCNICO:\n\nImóvel: ${reg.imovel}\nTécnico: ${reg.equipe}\nStatus Atual: ${reg.desfecho}\n\nMotivo:`, "Correção de dados / inclusão de fotos");
-    if (motivoReabertura === null) return;
-
-    const { error } = await supabaseClient.from('registros_producao').update({ desfecho: "REABERTA" }).eq('id', id);
-    if (error) { alert("❌ Erro: " + error.message); return; }
-
-    reg.desfecho = "REABERTA";
-    atualizarDashboardGestor();
-    registrarLogAuditoria("REABERTURA AUTORIZADA", `Imóvel ${reg.imovel} reaberto para ${reg.equipe}.`);
-    alert(`✅ Atividade do imóvel "${reg.imovel}" REABERTA!`);
-}
-
-function abrirModalTransferirAtividade(id) {
-    if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') return;
-    const reg = registrosSalvos.find(r => r.id === id);
-    if (!reg || ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(reg.desfecho)) return;
-
-    document.getElementById('transf-reg-id').value = reg.id;
-    document.getElementById('transf-lbl-imovel').innerText = reg.imovel;
-    document.getElementById('transf-lbl-projeto').innerText = reg.projeto;
-    document.getElementById('transf-lbl-status').innerText = reg.desfecho;
-    document.getElementById('transf-lbl-atual').innerText = reg.equipe;
-    document.getElementById('inp-motivo-transf').value = "";
-
-    const selDestino = document.getElementById('sel-tecnico-destino-transf');
-    if (selDestino) {
-        const equipesAtivas = equipesSistema.filter(e => e.status === 'Ativo' && e.nome !== reg.equipe);
-        selDestino.innerHTML = `<option value="">Selecione o técnico de destino...</option>` + equipesAtivas.map(eq => `<option value="${eq.nome}">${eq.nome} (${formatarSetoresString(eq.setor)})</option>`).join('');
-    }
-    document.getElementById('modal-transferir-atividade').classList.remove('hidden');
-}
-
-function fecharModalTransferirAtividade() { document.getElementById('modal-transferir-atividade')?.classList.add('hidden'); }
-
-async function confirmarTransferenciaAtividade() {
-    if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') return;
-    const id = Number(document.getElementById('transf-reg-id').value);
-    const novoTecnico = document.getElementById('sel-tecnico-destino-transf').value;
-    const motivo = document.getElementById('inp-motivo-transf').value.trim();
-    if (!novoTecnico) { alert("⚠️ Selecione o técnico de destino."); return; }
-
-    const reg = registrosSalvos.find(r => r.id === id);
-    if (!reg) return;
-    const tecnicoAnterior = reg.equipe;
-    const novoMotivoDesfecho = `${reg.motivoDesfecho ? reg.motivoDesfecho + ' | ' : ''}🔀 Transferida de ${tecnicoAnterior} para ${novoTecnico}${motivo ? ` (${motivo})` : ''}`;
-
-    const { error } = await supabaseClient.from('registros_producao').update({ equipe: novoTecnico, membros: novoTecnico, motivo_desfecho: novoMotivoDesfecho }).eq('id', id);
-    if (error) { alert("❌ Erro: " + error.message); return; }
-
-    Object.assign(reg, { equipe: novoTecnico, membros: novoTecnico, motivoDesfecho: novoMotivoDesfecho });
-    fecharModalTransferirAtividade();
-    atualizarDashboardGestor();
-    registrarLogAuditoria("TRANSFERÊNCIA DE ATIVIDADE", `Imóvel ${reg.imovel} transferido de '${tecnicoAnterior}' para '${novoTecnico}'.`);
-}
-
-function abrirModalImportarPlanilha() {
-    if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') return;
-    document.getElementById('inp-arquivo-planilha').value = "";
-    document.getElementById('txt-linhas-planilha').value = "";
-    document.getElementById('modal-importar-planilha').classList.remove('hidden');
-}
-
-function fecharModalImportarPlanilha() { document.getElementById('modal-importar-planilha').classList.add('hidden'); }
-
-function baixarModeloPlanilhaCSV() {
-    const cabecalho = "IMOVEL;ENDERECO;PROJETO;TECNICO;QTD_BLOCOS;ANDARES;HPS;RESPONSAVEL;CONTATO;EMAIL;OBSERVACOES\n";
-    const ex1 = "848465405;Rua Conde de Bonfim 450 - TIJUCA;VISTORIA;ANDREO FAGUNDES;2;10;40;Sr. Carlos;21 99888-7766;sindico@bonfim450.com.br;Condomínio com 2 blocos\n";
-    const ex2 = "848473602;Av Nossa Senhora de Copacabana 800 - COPACABANA;CONSTRUÇÃO F;BRUNO SOARES DA SILVA;1;12;60;Dona Maria;21 98777-6655;portaria@copa800.com.br;Construção F\n";
-    const blob = new Blob(['\ufeff' + cabecalho + ex1 + ex2], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `planilha_carga_gpd_procisa_${obterDataLocalISO()}.csv`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-}
-
-function lerArquivoPlanilhaUpload(inputEl) {
+async function processarFotoSlotCombustivel(slot, inputEl) {
     const file = inputEl.files && inputEl.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) { document.getElementById('txt-linhas-planilha').value = e.target.result || ""; };
-    reader.readAsText(file, 'UTF-8');
-}
-
-async function processarImportacaoPlanilha() {
-    const textoBruto = document.getElementById('txt-linhas-planilha').value.trim();
-    if (!textoBruto) return;
-    const linhas = textoBruto.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    const hojeISO = obterDataLocalISO();
-    const novosRegistros = [];
-
-    linhas.forEach((linha, idx) => {
-        if (idx === 0 && (linha.toUpperCase().startsWith("IMOVEL") || linha.toUpperCase().startsWith("IMÓVEL"))) return;
-        let delimitador = linha.includes('\t') ? '\t' : (!linha.includes(';') && linha.includes(',') ? ',' : ';');
-        const partes = linha.split(delimitador).map(p => p.trim());
-        if (partes.length < 4) return;
-        const imovel = partes[0], endereco = partes[1] || "Endereço a confirmar";
-        const projeto = normalizarNomeProjeto(partes[2] || "CONSTRUÇÃO ON GOING");
-        const tecnico = (partes[3] || "").toUpperCase().trim();
-        const qtdBlocos = Math.max(1, Math.min(20, Number(partes[4]) || 1));
-        if (!imovel || !tecnico) return;
-
-        novosRegistros.push({
-            id: Date.now() + idx + Math.floor(Math.random() * 1000), data_registro: hojeISO, equipe: tecnico, membros: tecnico,
-            projeto: TODOS_OS_PROJETOS.includes(projeto) ? projeto : "CONSTRUÇÃO ON GOING",
-            imovel, h_entrada: "Programada", h_saida: "Aguardando", gps_entrada: "Carga Gestor", gps_saida: "-",
-            desfecho: "PROGRAMADA", motivo_desfecho: `Carga Programada (${qtdBlocos} Bloco${qtdBlocos > 1 ? 's' : ''}) por ${usuarioLogado || 'Gestor'}`,
-            malogros: [], responsavel: partes[7] || "", contato: partes[8] || "", email: partes[9] || "", agendamento: null,
-            andares: Number(partes[5]) || 0, hps: Number(partes[6]) || 0, servico_obra: "SIM",
-            observacoes: `[END: ${endereco}] [BLOCOS: ${qtdBlocos}] ${partes[10] || "Atividade programada pela gestão."}`.trim()
-        });
-    });
-
-    if (novosRegistros.length === 0) return;
-    const { error } = await supabaseClient.from('registros_producao').insert(novosRegistros);
-    if (error) { alert("❌ Erro: " + error.message); return; }
-    if (typeof converterLinhaBancoParaObjetoGpd === "function") {
-        registrosSalvos = [...novosRegistros.map(converterLinhaBancoParaObjetoGpd), ...registrosSalvos];
-    }
-    fecharModalImportarPlanilha();
-    atualizarDashboardGestor();
-    alert(`✅ ${novosRegistros.length} atividade(s) enviadas!`);
-}
-
-// ================= PAINEL DE DISPONIBILIDADE + MAPA =================
-function renderizarPainelDisponibilidade() {
     try {
-        const tbody = document.getElementById('tabela-disponibilidade-corpo');
-        if (!tbody) return;
-        tbody.innerHTML = "";
-        const hojeISO = obterDataLocalISO();
-        const equipesAtivas = equipesSistema.filter(e => e.status === 'Ativo');
-        let countDisp = 0, countAtend = 0, countIndisp = 0, countOffline = 0;
-        const listaPinosParaMapa = [];
+        const comprimida = await comprimirImagemBase64(file, 780, 0.60);
+        fotosSolicCombustivelTemp[slot] = comprimida;
+        atualizarPreviewSlotCombustivel(slot, comprimida, "");
+    } catch (e) {
+        alert("⚠️ Erro ao processar imagem. Tente novamente.");
+    }
+    inputEl.value = "";
+}
 
-        equipesAtivas.forEach(eq => {
-            const regsHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.dataRegistro === hojeISO && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL);
-            const impAberto = regsHoje.find(r => r.desfecho === 'IMPREVISTO');
-            const obraParalisada = regsHoje.find(r => r.desfecho === 'PARALISADA');
-            const obraAndamento = regsHoje.find(r => r.desfecho === 'EM ANDAMENTO' || r.desfecho === 'REABERTA');
-            const programadasHoje = registrosSalvos.filter(r => r.equipe === eq.nome && r.desfecho === 'PROGRAMADA').length;
-            const concluidasHoje = regsHoje.filter(r => r.desfecho === 'CONCLUIDA').length;
+async function enviarSolicitacaoCombustivelCampo() {
+    const nomeEq = validarTecnicoSelecionadoParaSolicitacao();
+    if (!nomeEq) return;
 
-            const tel = (telemetriaEquipes && telemetriaEquipes[eq.nome] && telemetriaEquipes[eq.nome].data === hojeISO) ? telemetriaEquipes[eq.nome] : null;
-            const turnoIniciado = tel && tel.statusTurno === 'DISPONIVEL';
-            const turnoEncerrado = tel && tel.statusTurno === 'ENCERRADO';
+    const placa = (document.getElementById('inp-comb-placa')?.value || "").trim().toUpperCase();
+    const km = (document.getElementById('inp-comb-km')?.value || "").trim();
+    const motivo = (document.getElementById('inp-comb-motivo')?.value || "").trim() || "Solicitação de recarga em campo";
 
-            let turnoHtml = `<span class="bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">⚪ Não iniciado hoje</span>`;
-            let turnoTextoPuro = "Não iniciado hoje";
-            if (turnoIniciado) {
-                turnoHtml = `<span class="bg-emerald-50 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold">🟢 Ativo desde ${tel.horaInicio || '--:--'}</span>`;
-                turnoTextoPuro = `Ativo desde ${tel.horaInicio || '--:--'}`;
-            } else if (turnoEncerrado) {
-                turnoHtml = `<span class="bg-slate-200 text-slate-800 border border-slate-300 px-2 py-0.5 rounded text-[10px] font-bold">🔴 Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})</span>`;
-                turnoTextoPuro = `Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})`;
-            }
+    if (!placa) {
+        alert("⚠️ Informe obrigatoriamente a PLACA do veículo.");
+        document.getElementById('inp-comb-placa')?.focus();
+        return;
+    }
+    if (!km || isNaN(Number(km)) || Number(km) <= 0) {
+        alert("⚠️ Informe obrigatoriamente o KM ATUAL do veículo.");
+        document.getElementById('inp-comb-km')?.focus();
+        return;
+    }
+    if (!fotosSolicCombustivelTemp.painel) {
+        alert("⚠️ A foto do PAINEL DO CARRO é obrigatória.");
+        return;
+    }
+    if (!fotosSolicCombustivelTemp.mapa) {
+        alert("⚠️ A foto do MAPA DE BORDO é obrigatória.");
+        return;
+    }
 
-            let latFinal = (tel && tel.lat) ? Number(tel.lat) : null;
-            let lngFinal = (tel && tel.lng) ? Number(tel.lng) : null;
-            let horaSinal = (tel && tel.horaUltimoSinal) ? tel.horaUltimoSinal : null;
+    localStorage.setItem(`gpd_ultima_placa_${nomeEq}`, placa);
 
-            const ultimoRegHojeComGps = regsHoje.find(r => r.gpsEntrada && r.gpsEntrada.includes(','));
-            if ((latFinal === null || isNaN(latFinal)) && ultimoRegHojeComGps) {
-                const partes = ultimoRegHojeComGps.gpsEntrada.split(',').map(s => parseFloat(s.trim()));
-                if (partes.length === 2 && !isNaN(partes[0])) { latFinal = partes[0]; lngFinal = partes[1]; horaSinal = ultimoRegHojeComGps.hEntrada; }
-            }
+    const btn = document.getElementById('btn-enviar-solic-comb');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "⏳ Enviando solicitação e fotos...";
+    }
 
-            let statusBadge = "", detalheTexto = "", ocupacaoLimpa = "", acaoHtml = "-";
-            let corPinoHex = "#64748b", iconeEmojiPino = "⚪", statusTextoPuro = "OFFLINE";
-
-            if (impAberto) {
-                countIndisp++; corPinoHex = "#dc2626"; iconeEmojiPino = "🔴"; statusTextoPuro = "INDISPONÍVEL (IMPREVISTO)";
-                statusBadge = `<span class="bg-red-100 text-red-800 border border-red-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🔴 INDISPONÍVEL</span>`;
-                const mot = (impAberto.malogros && impAberto.malogros.length > 0) ? impAberto.malogros.join(' + ') : impAberto.motivoDesfecho;
-                detalheTexto = `<span class="font-bold text-red-900">${mot}</span>`;
-                ocupacaoLimpa = `Imprevisto: ${mot}`;
-            } else if (obraParalisada) {
-                countAtend++; corPinoHex = "#ea580c"; iconeEmojiPino = "⏸️"; statusTextoPuro = "ATIVIDADE PARALISADA";
-                statusBadge = `<span class="bg-orange-500 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block">⏸️ PARALISADA</span>`;
-                detalheTexto = `Imóvel: <b>${obraParalisada.imovel}</b> (${obraParalisada.projeto})`;
-                ocupacaoLimpa = `Pausa no imóvel ${obraParalisada.imovel}`;
-            } else if (obraAndamento) {
-                countAtend++; corPinoHex = "#2563eb"; iconeEmojiPino = "🔵"; statusTextoPuro = "EM ATENDIMENTO";
-                statusBadge = `<span class="bg-blue-600 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🔵 EM ATENDIMENTO</span>`;
-                detalheTexto = `Imóvel: <b>${obraAndamento.imovel}</b> (${obraAndamento.projeto})`;
-                ocupacaoLimpa = `Atendendo ${obraAndamento.imovel}`;
-            } else if (turnoEncerrado) {
-                countOffline++; corPinoHex = "#475569"; iconeEmojiPino = "🏁"; statusTextoPuro = "EXPEDIENTE ENCERRADO";
-                statusBadge = `<span class="bg-slate-200 text-slate-700 border border-slate-300 font-bold px-2.5 py-1 rounded-md text-[10px] inline-block">🏁 ENCERRADO</span>`;
-                detalheTexto = `Turno finalizado (${concluidasHoje} concluída(s) hoje)`;
-                ocupacaoLimpa = `Turno encerrado`;
-            } else if (turnoIniciado || regsHoje.length > 0) {
-                countDisp++; corPinoHex = "#059669"; iconeEmojiPino = "🟢"; statusTextoPuro = "EM ROTA / DISPONÍVEL";
-                statusBadge = `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🟢 DISPONÍVEL</span>`;
-                detalheTexto = `Em deslocamento (${concluidasHoje} concluída(s) hoje)`;
-                ocupacaoLimpa = `Disponível em rota`;
-            } else {
-                countOffline++; corPinoHex = "#94a3b8"; iconeEmojiPino = "⚪"; statusTextoPuro = "AGUARDANDO INÍCIO";
-                statusBadge = `<span class="bg-slate-100 text-slate-500 border border-slate-200 font-bold px-2.5 py-1 rounded-md text-[10px] inline-block">⚪ AGUARDANDO</span>`;
-                detalheTexto = `Sem check-in hoje (${programadasHoje} na fila)`;
-                ocupacaoLimpa = "Aguardando início";
-            }
-
-            let gpsStr = `<span class="text-slate-400 text-[10px]">Sem sinal hoje</span>`;
-            let sinalTextoPuro = "Sem sinal hoje";
-            if (latFinal !== null && lngFinal !== null && !isNaN(latFinal) && !isNaN(lngFinal)) {
-                const coordFormatada = `${latFinal.toFixed(5)}, ${lngFinal.toFixed(5)}`;
-                gpsStr = `<a href="https://www.google.com/maps/search/?api=1&query=${latFinal},${lngFinal}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${coordFormatada}</a>`;
-                acaoHtml = `<button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded">🎯 Ver no Mapa</button>`;
-                listaPinosParaMapa.push({ nome: eq.nome, lat: latFinal, lng: lngFinal, corHex: corPinoHex, iconeEmoji: iconeEmojiPino, statusTexto: statusTextoPuro, turnoTexto: turnoTextoPuro, ocupacaoLimpa, sinalTexto: horaSinal || sinalTextoPuro });
-            }
-
-            tbody.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="p-3 font-bold text-slate-800">${eq.nome}</td><td class="p-3">${obterBadgeSetorHtml(eq.setor)}</td><td class="p-3">${turnoHtml}</td><td class="p-3">${statusBadge}</td><td class="p-3">${detalheTexto}</td><td class="p-3">${gpsStr}</td><td class="p-3 whitespace-nowrap">${acaoHtml}</td></tr>`;
-        });
-
-        const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-        setTxt('disp-card-disponiveis', countDisp);
-        setTxt('disp-card-atendimento', countAtend);
-        setTxt('disp-card-indisponiveis', countIndisp);
-        setTxt('disp-card-offline', countOffline);
-        setTxt('badge-aba-indisp', `${countIndisp} indisp.`);
-        inicializarOuAtualizarMapaRastreio(listaPinosParaMapa);
+    let gpsAtual = "Sem GPS no momento";
+    try {
+        gpsAtual = await capturarGpsReal(5000);
     } catch (e) {}
-}
 
-// ================= ATUALIZAÇÃO CENTRAL DO DASHBOARD (CORRIGIDA PARA MOBILE, VISUALIZADOR E BLOCOS) =================
-async function atualizarDashboardGestor(forcarRecargaMobile = false) {
-    inicializarMelhoriasVisuaisGestor();
-
-    // CORREÇÃO MOBILE & VISUALIZADOR: Garante que se a memória estiver sem registros reais de obra, busca da nuvem imediatamente!
-    const registrosReaisNaMemoria = (registrosSalvos || []).filter(r =>
-        r.equipe !== "__CONFIG_SISTEMA__" &&
-        r.projeto !== "__CONFIG_AUDITORIA__"
-    );
-
-    if ((forcarRecargaMobile || !cargaInicialGestorConcluida || registrosReaisNaMemoria.length === 0) && !modoConsultaBackupAtivo && !sincronizandoRegistrosMobileEmCurso) {
-        sincronizandoRegistrosMobileEmCurso = true;
-        try {
-            const corpoAtivLoading = document.getElementById('tabela-gestor-corpo');
-            if (corpoAtivLoading && registrosReaisNaMemoria.length === 0) {
-                corpoAtivLoading.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-blue-900 font-bold animate-pulse">☁️ Carregando atividades da nuvem...</td></tr>`;
-            }
-            if (typeof carregarRegistrosDaNuvem === "function") {
-                await carregarRegistrosDaNuvem(true);
-            }
-            cargaInicialGestorConcluida = true;
-        } catch (errLoad) {
-            console.warn("Aviso ao sincronizar registros no mobile:", errLoad);
-        } finally {
-            sincronizandoRegistrosMobileEmCurso = false;
-        }
+    const fotosArray = [
+        fotosSolicCombustivelTemp.painel,
+        fotosSolicCombustivelTemp.mapa
+    ];
+    if (fotosSolicCombustivelTemp.cartao) {
+        fotosArray.push(fotosSolicCombustivelTemp.cartao);
     }
 
-    const nivelNorm = String(nivelUsuarioLogado || '').trim().toLowerCase();
-    if (nivelNorm === 'master' || nivelNorm === 'operador') {
-        try { await verificarEExpurgarSolicitacoesVencidas48h(); } catch (e) {}
-    }
-    atualizarEstimativaPesoNuvem();
+    const tagsLabelsFotos = fotosSolicCombustivelTemp.cartao
+        ? ["PAINEL DO CARRO", "MAPA DE BORDO", "CARTÃO DE COMBUSTÍVEL"]
+        : ["PAINEL DO CARRO", "MAPA DE BORDO"];
 
-    const dataInicio = document.getElementById('gestor-filtro-data-inicio')?.value || "";
-    const dataFim = document.getElementById('gestor-filtro-data-fim')?.value || "";
-    const fEquipe = document.getElementById('gestor-filtro-equipe')?.value || "";
-    const fProjeto = document.getElementById('gestor-filtro-projeto')?.value || "";
-    const fDesfecho = document.getElementById('gestor-filtro-desfecho')?.value || "";
-    const termoBusca = document.getElementById('inp-busca-global')?.value.toLowerCase().trim() || "";
-
-    const corpoAtiv = document.getElementById('tabela-gestor-corpo');
-    const corpoMat = document.getElementById('tabela-materiais-corpo');
-    const corpoImp = document.getElementById('tabela-imprevistos-corpo');
-    if (corpoAtiv) corpoAtiv.innerHTML = "";
-    if (corpoMat) corpoMat.innerHTML = "";
-    if (corpoImp) corpoImp.innerHTML = "";
-
-    let filtradosBase = (registrosSalvos || []).filter(item => {
-        if (!item || item.equipe === "__CONFIG_SISTEMA__" || item.projeto === "__CONFIG_AUDITORIA__") return false;
-        let mData = true;
-        if (dataInicio && dataFim) mData = item.dataRegistro >= dataInicio && item.dataRegistro <= dataFim;
-        else if (dataInicio) mData = item.dataRegistro >= dataInicio;
-        else if (dataFim) mData = item.dataRegistro <= dataFim;
-
-        let mEquipe = filtrosMultiplosAtivos.equipes.length > 0 ? filtrosMultiplosAtivos.equipes.includes(item.equipe) : (fEquipe ? item.equipe === fEquipe : true);
-        let mSetor = true;
-        if (filtrosMultiplosAtivos.setores.length > 0) {
-            const eqObj = equipesSistema.find(e => e.nome === item.equipe);
-            const setoresTec = obterArraySetores(eqObj ? eqObj.setor : obterSetorDoProjeto(item.projeto));
-            mSetor = filtrosMultiplosAtivos.setores.some(s => setoresTec.includes(s));
-        }
-
-        let mBusca = true;
-        if (termoBusca) {
-            mBusca = (item.imovel && item.imovel.toLowerCase().includes(termoBusca)) ||
-                     (item.endereco && item.endereco.toLowerCase().includes(termoBusca)) ||
-                     (item.liberouAcesso && item.liberouAcesso.toLowerCase().includes(termoBusca)) ||
-                     (item.equipe && item.equipe.toLowerCase().includes(termoBusca)) ||
-                     (item.projeto && item.projeto.toLowerCase().includes(termoBusca)) ||
-                     (item.motivoDesfecho && item.motivoDesfecho.toLowerCase().includes(termoBusca)) ||
-                     (item.desfecho && item.desfecho.toLowerCase().includes(termoBusca));
-        }
-        return mData && mEquipe && mSetor && mBusca;
-    });
-
-    listaSolicitacoesCombustivelAtuais = filtradosBase.filter(i => i.projeto === PROJETO_SOLIC_COMBUSTIVEL);
-    listaSolicitacoesMaterialAtuais    = filtradosBase.filter(i => i.projeto === PROJETO_SOLIC_MATERIAL);
-    renderizarTabelasSolicitacoesGestor();
-
-    let listaImprevistos = filtradosBase.filter(i => i.projeto === 'IMPREVISTO / ATRASO' || i.desfecho === 'IMPREVISTO' || i.desfecho === 'IMPREVISTO RESOLVIDO');
-
-    let filtrados = filtradosBase.filter(i => {
-        if (i.projeto === 'IMPREVISTO / ATRASO' || i.projeto === PROJETO_SOLIC_COMBUSTIVEL || i.projeto === PROJETO_SOLIC_MATERIAL || i.desfecho === 'IMPREVISTO' || i.desfecho === 'IMPREVISTO RESOLVIDO') return false;
-        let mMacro = filtrosMultiplosAtivos.macrogrupos.length > 0 ? filtrosMultiplosAtivos.macrogrupos.includes(obterMacroGrupoProjeto(i.projeto)) : true;
-        let mProj = filtrosMultiplosAtivos.projetos.length > 0 ? filtrosMultiplosAtivos.projetos.includes(i.projeto) : (fProjeto ? i.projeto === fProjeto : true);
-        let mDesf = filtrosMultiplosAtivos.desfechos.length > 0 ? filtrosMultiplosAtivos.desfechos.includes(i.desfecho) : (fDesfecho ? i.desfecho === fDesfecho : true);
-        return mMacro && mProj && mDesf;
-    });
-
-    filtrados = enriquecerStatusMacroEBairro(filtrados);
-    dadosFiltradosAtuais = filtrados;
-    listaImprevistosAtuais = listaImprevistos;
-    renderizarPainelDisponibilidade();
-
-    const qtdEmAndamento = filtrados.filter(i => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(i.desfecho)).length;
-    const qtdProgramadas = filtrados.filter(i => i.desfecho === 'PROGRAMADA').length;
-    const imprevistosAbertos = listaImprevistos.filter(i => i.desfecho === 'IMPREVISTO').length;
-
-    const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-    setTxt('kpi-proj-andamento', qtdEmAndamento);
-    setTxt('badge-aba-andamento', `${qtdEmAndamento} ativas`);
-    setTxt('kpi-proj-imprevistos', listaImprevistos.length);
-    setTxt('badge-aba-imprevistos', listaImprevistos.length);
-    setTxt('contador-imprevistos', `${listaImprevistos.length} imprevisto(s) (${imprevistosAbertos} ativo(s))`);
-
-    if (corpoImp) {
-        if (listaImprevistos.length === 0) {
-            corpoImp.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum imprevisto reportado no período.</td></tr>`;
-        } else {
-            listaImprevistos.forEach(imp => {
-                const motivoPrincipal = (imp.malogros && imp.malogros.length > 0) ? imp.malogros.join(' + ') : "IMPREVISTO";
-                const estaAberto = imp.desfecho === 'IMPREVISTO';
-                const badgeSituacao = estaAberto ? `<span class="bg-red-100 text-red-800 border border-red-300 font-black px-2 py-0.5 rounded text-[10px]">🔴 EM ABERTO</span>` : `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold px-2 py-0.5 rounded text-[10px]">🟢 RESOLVIDO</span>`;
-                let acoesImp = (nivelNorm === 'master' || nivelNorm === 'operador')
-                    ? `${estaAberto ? `<button onclick="resolverImprevistoPorId(${imp.id}, true)" class="bg-emerald-600 text-white font-bold text-[10px] px-2.5 py-1 rounded mr-1">✅ Resolver</button>` : ''}<button onclick="abrirModalEdicao(${imp.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded mr-1">✏️ Editar</button><button onclick="excluirRegistro(${imp.id}, 'IMPREVISTO')" class="text-red-500 font-bold text-[10px] bg-red-50 px-2 py-1 rounded">Excluir</button>`
-                    : `<span class="text-slate-400 text-[10px]">Leitura</span>`;
-                const linkGpsImp = (imp.gpsEntrada && imp.gpsEntrada.includes(','))
-                    ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(imp.gpsEntrada)}" target="_blank" onclick="event.stopPropagation()" class="text-blue-600 underline font-bold">🗺️ ${imp.gpsEntrada}</a>`
-                    : (imp.gpsEntrada || "-");
-                const trImp = document.createElement('tr');
-                trImp.className = "hover:bg-amber-50/50 border-b cursor-pointer";
-                trImp.onclick = () => abrirDetalhesAtividade(imp);
-                trImp.innerHTML = `<td class="p-3"><div class="font-bold text-slate-800">${imp.dataRegistro}</div><div class="text-[10px] font-mono text-slate-500">${imp.hEntrada} às ${imp.hSaida}</div></td><td class="p-3 font-bold text-blue-900">${imp.equipe}</td><td class="p-3"><span class="bg-amber-100 text-amber-900 font-bold px-2.5 py-1 rounded text-[10px]">${motivoPrincipal}</span></td><td class="p-3">${badgeSituacao}</td><td class="p-3 text-slate-600">${imp.observacoes || imp.motivoDesfecho || "-"}</td><td class="p-3 font-mono text-[10px]">${linkGpsImp}</td><td class="p-3 whitespace-nowrap" onclick="event.stopPropagation()">${acoesImp}</td>`;
-                corpoImp.appendChild(trImp);
-            });
-        }
-    }
-
-    const finalizadas = filtrados.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
-    setTxt('kpi-proj-vistoria', finalizadas.filter(i => i.servicoPlanilha === 'VISTORIA' && i.desfecho === 'CONCLUIDA').length);
-    setTxt('kpi-proj-const-f', finalizadas.filter(i => i.servicoPlanilha === 'CONSTRUÇÃO' && i.subgrupoFOuOnGoing === 'F' && i.desfecho === 'CONCLUIDA').length);
-    setTxt('kpi-proj-const-ongoing', finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO ON GOING' && i.desfecho === 'CONCLUIDA').length);
-    setTxt('kpi-proj-const-nap', finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO NAP LOTADA' && i.desfecho === 'CONCLUIDA').length);
-    setTxt('kpi-proj-ativ-f', finalizadas.filter(i => i.servicoPlanilha === 'ATIVAÇÃO' && i.subgrupoFOuOnGoing === 'F' && i.desfecho === 'CONCLUIDA').length);
-    setTxt('kpi-proj-ativ-ongoing', finalizadas.filter(i => i.projeto === 'ATIVAÇÃO ON GOING' && i.desfecho === 'CONCLUIDA').length);
-    setTxt('kpi-proj-ativ-nap', finalizadas.filter(i => i.projeto === 'ATIVAÇÃO NAP LOTADA' && i.desfecho === 'CONCLUIDA').length);
-
-    setTxt('contador-resultados', `${filtrados.length} registros (${qtdEmAndamento} ativas/pausa | ${qtdProgramadas} programadas)`);
-    setTxt('contador-materiais', finalizadas.length + " registros finalizados");
-
-    let concluidasCount = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
-    let malogradasCount = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
-    let pendentesCount = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
-
-    setTxt('bonif-elegiveis', concluidasCount);
-    setTxt('bonif-parciais', pendentesCount);
-    setTxt('bonif-media-geral', finalizadas.length > 0 ? (concluidasCount / (new Set(finalizadas.map(i => i.dataRegistro)).size || 1)).toFixed(1) : "0.0");
-    setTxt('bonif-malogros', malogradasCount);
-
-    let sumCaboRL = 0, sumConectores = 0, sumCaboDrop = 0, sumNap = 0, sumDio = 0, sumFusoes = 0;
-    let sumSobrepor = 0, sumEmbutida = 0, sumFosc = 0, sumVistorias = 0;
-
-    finalizadas.forEach(i => {
-        if (i.servicoPlanilha === 'VISTORIA' && i.desfecho === 'CONCLUIDA') sumVistorias++;
-        sumCaboRL += Number(i.caboRL) || 0;
-        sumConectores += Number(i.conectores) || 0;
-        sumCaboDrop += Number(i.caboDrop) || 0;
-        sumNap += Number(i.nap) || 0;
-        sumDio += Number(i.dio) || 0;
-        sumFusoes += Number(i.fusoes) || 0;
-        sumSobrepor += Number(i.cxSobrepor) || 0;
-        sumEmbutida += Number(i.cxEmbutida) || 0;
-        sumFosc += Number(i.cxFosc) || 0;
-    });
-
-    setTxt('total-cabo-rl', sumCaboRL + " m");
-    setTxt('total-conectores', sumConectores);
-    setTxt('total-cabo-drop', sumCaboDrop + " m");
-    setTxt('total-nap', sumNap);
-    setTxt('total-dio', sumDio);
-    setTxt('total-fusoes', sumFusoes);
-    setTxt('total-cx-sobrepor', sumSobrepor);
-    setTxt('total-cx-embutida', sumEmbutida);
-    setTxt('total-cx-fosc', sumFosc);
-
-    totaisFinanceirosAtuais = { vistorias: sumVistorias, caboRL: sumCaboRL, conectores: sumConectores, fusoes: sumFusoes, caboDrop: sumCaboDrop, nap: sumNap, dio: sumDio, cxSobrepor: sumSobrepor, cxEmbutida: sumEmbutida, cxFosc: sumFosc };
-    renderizarTabelaFinanceiro(totaisFinanceirosAtuais);
-
-    // ITEM 02: Renderiza a aba Atividades e Materiais LIMPA (sem tags de Retorno/Programado e sem Bairro)
-    if (filtrados.length === 0) {
-        if (corpoAtiv) {
-            const totalGeralNoBanco = (registrosSalvos || []).filter(r => r.equipe !== "__CONFIG_SISTEMA__" && r.projeto !== "__CONFIG_AUDITORIA__").length;
-            const dicaFiltro = totalGeralNoBanco > 0
-                ? `<div class="mt-2"><button type="button" onclick="aplicarAtalhoPeriodo('tudo')" class="bg-blue-900 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm">🔄 Mostrar Todos os ${totalGeralNoBanco} Registros do Histórico</button></div>`
-                : '';
-            corpoAtiv.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-slate-400">Nenhum registro encontrado para a data/filtro selecionado.${dicaFiltro}</td></tr>`;
-        }
-        if (corpoMat) corpoMat.innerHTML = `<tr><td colspan="11" class="p-6 text-center text-slate-400">Nenhum material registrado no período.</td></tr>`;
-    } else {
-        const prioridadeStatus = { 'EM ANDAMENTO': 1, 'PARALISADA': 2, 'REABERTA': 3, 'PROGRAMADA': 4 };
-        const filtradosOrdenados = [...filtrados].sort((a, b) => {
-            const pA = prioridadeStatus[a.desfecho] || 5, pB = prioridadeStatus[b.desfecho] || 5;
-            if (pA !== pB) return pA - pB;
-            return b.id - a.id;
-        });
-
-        const mapaAgrupado = {};
-        filtradosOrdenados.forEach(item => {
-            let codigoBase = (item.imovel || "").trim();
-            const idxTraco = codigoBase.toUpperCase().lastIndexOf(" - BLOCO");
-            if (idxTraco !== -1) codigoBase = codigoBase.substring(0, idxTraco).trim();
-            const chaveAgrupamento = `${item.dataRegistro}_${item.equipe}_${codigoBase.toUpperCase()}_${item.projeto}`;
-            if (!mapaAgrupado[chaveAgrupamento]) {
-                mapaAgrupado[chaveAgrupamento] = {
-                    codigoBase, projeto: item.projeto, equipe: item.equipe, dataRegistro: item.dataRegistro,
-                    endereco: item.endereco, liberouAcesso: item.liberouAcesso, hEntrada: item.hEntrada,
-                    hSaida: item.hSaida, gpsEntrada: item.gpsEntrada, gpsSaida: item.gpsSaida, itens: []
-                };
-            }
-            mapaAgrupado[chaveAgrupamento].itens.push(item);
-        });
-
-        Object.values(mapaAgrupado).forEach(grupo => {
-            if (corpoAtiv) {
-                const qtdBlocosNoGrupo = grupo.itens.length;
-                const itemMaster = grupo.itens[0];
-                const idGrupoUnico = `grupo_bloco_${Math.abs(stringParaHash(grupo.codigoBase + grupo.dataRegistro + grupo.equipe + grupo.projeto))}`;
-
-                let desfechoExibicao = itemMaster.desfecho;
-                if (qtdBlocosNoGrupo > 1) {
-                    const desfechosUnicos = [...new Set(grupo.itens.map(i => i.desfecho))];
-                    desfechoExibicao = desfechosUnicos.length === 1 ? desfechosUnicos[0] : "MÚLTIPLO";
-                }
-
-                const somaAndares = grupo.itens.reduce((acc, i) => acc + (Number(i.andares) || 0), 0);
-                const somaHps = grupo.itens.reduce((acc, i) => acc + (Number(i.hps) || 0), 0);
-                const somaTempoPausado = grupo.itens.reduce((acc, i) => acc + (Number(i.tempoPausadoMinutos) || 0), 0);
-                const totalFotosGrupo = grupo.itens.reduce((acc, i) => acc + (Number(i.qtdFotos) || (Array.isArray(i.fotos) ? i.fotos.length : 0)), 0);
-                const todasOpcoesGrupo = [...new Set(grupo.itens.flatMap(i => Array.isArray(i.malogros) ? i.malogros : []))];
-
-                const trPrincipal = document.createElement('tr');
-                trPrincipal.className = (itemMaster.desfecho === 'EM ANDAMENTO' || itemMaster.desfecho === 'REABERTA')
-                    ? "bg-blue-50/70 hover:bg-blue-100/60 border-b cursor-pointer transition"
-                    : (itemMaster.desfecho === 'PARALISADA' ? "bg-orange-50/70 hover:bg-orange-100/60 border-b cursor-pointer transition" : (itemMaster.desfecho === 'PROGRAMADA' ? "bg-cyan-50/40 hover:bg-cyan-100/50 border-b cursor-pointer transition" : "hover:bg-blue-50/50 border-b cursor-pointer transition"));
-                trPrincipal.onclick = () => abrirDetalhesAtividade(itemMaster);
-
-                let botoesAcao = `<span class="text-slate-400 text-[10px] font-semibold">👁️ Visualização</span>`;
-                if (nivelNorm === 'master' || nivelNorm === 'operador') {
-                    const podeFinalizadasReabrir = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(itemMaster.desfecho);
-                    const btnReabrir = podeFinalizadasReabrir ? `<button onclick="autorizarReaberturaCampo(${itemMaster.id})" class="text-purple-800 hover:bg-purple-200 font-bold text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded">🔓 Reabrir</button>` : '';
-                    const btnMover = !podeFinalizadasReabrir ? `<button onclick="abrirModalTransferirAtividade(${itemMaster.id})" class="text-indigo-900 hover:bg-indigo-200 font-bold text-[10px] bg-indigo-100 border border-indigo-300 px-2 py-1 rounded">🔀 Mover</button>` : '';
-                    botoesAcao = `<div class="flex flex-wrap gap-1">${btnMover}${btnReabrir}<button onclick="abrirModalEdicao(${itemMaster.id})" class="text-blue-600 font-bold text-[10px] bg-blue-50 border border-blue-200 px-2 py-1 rounded">✏️ Editar</button><button onclick="excluirRegistro(${itemMaster.id}, '${itemMaster.imovel}')" class="text-red-500 font-bold text-[10px] bg-red-50 border border-red-200 px-2 py-1 rounded">Excluir</button></div>`;
-                }
-
-                const minIn = converterHorarioParaMinutos(grupo.hEntrada);
-                const minOut = converterHorarioParaMinutos(grupo.hSaida);
-                let duracaoStr = "-";
-                if (minIn !== null && minOut !== null && minOut >= minIn) duracaoStr = formatarDuracaoTexto(Math.max(0, (minOut - minIn) - somaTempoPausado));
-                else if (itemMaster.desfecho === 'EM ANDAMENTO') duracaoStr = '⏳ Em execução';
-                else if (itemMaster.desfecho === 'PARALISADA') duracaoStr = '⏸️ Em pausa';
-                else if (itemMaster.desfecho === 'REABERTA') duracaoStr = '🔄 Aguardando edição';
-                else if (itemMaster.desfecho === 'PROGRAMADA') duracaoStr = `📋 Na fila (${itemMaster.qtdBlocosProgramados || 1} Bloco${(itemMaster.qtdBlocosProgramados || 1) > 1 ? 's' : ''})`;
-
-                const badgePausaLinha = somaTempoPausado > 0 ? `<div class="text-[10px] text-orange-700 font-bold">⏸️ Pausa: ${somaTempoPausado} min</div>` : '';
-                const infoLiberouLinha = grupo.liberouAcesso ? `<div class="text-[10px] text-amber-900 font-semibold truncate max-w-[200px]">🔑 Liberou: ${grupo.liberouAcesso}</div>` : '';
-                const classeCorDesfecho = obterClasseCorDesfecho(desfechoExibicao);
-                const eqObj = equipesSistema.find(e => e.nome === grupo.equipe);
-                const setorStr = eqObj ? eqObj.setor : "Instalador";
-                const macroGrupo = obterMacroGrupoProjeto(grupo.projeto);
-                const badgeGrupoCor = macroGrupo === 'PROJETO F' ? 'bg-indigo-100 text-indigo-900 border border-indigo-300' : 'bg-cyan-50 text-cyan-900 border border-cyan-200';
-                const tagsOpcoesHtml = todasOpcoesGrupo.length > 0 ? `<div class="mt-1 flex flex-wrap gap-1">${todasOpcoesGrupo.map(op => `<span class="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">${op}</span>`).join('')}</div>` : '';
-                const badgeFotosHtml = totalFotosGrupo > 0 ? `<span class="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-300 font-bold px-2 py-0.5 rounded-md text-[10px] inline-block">📷 ${totalFotosGrupo} foto(s)</span>` : '';
-                const botaoExpandirBlocos = qtdBlocosNoGrupo > 1 ? `<button type="button" onclick="event.stopPropagation(); alternarVisualizacaoBlocosAgrupados('${idGrupoUnico}', this)" class="mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition">📂 Expandir Blocos (${qtdBlocosNoGrupo})</button>` : '';
-
-                trPrincipal.innerHTML = `
-                    <td class="p-3">
-                        <div class="font-black text-slate-800">${qtdBlocosNoGrupo > 1 ? `${grupo.codigoBase} <span class="text-blue-700 font-bold text-[11px]">(${qtdBlocosNoGrupo} Blocos)</span>` : itemMaster.imovel}</div>
-                        <div class="text-[10px] text-blue-900 font-medium truncate max-w-[200px]">📍 ${grupo.endereco || 'Endereço não informado'}</div>
-                        ${infoLiberouLinha}
-                        <div class="text-[10px] text-slate-400">${grupo.dataRegistro}</div>
-                        ${botaoExpandirBlocos}
-                    </td>
-                    <td class="p-3"><div class="font-semibold text-slate-800 mb-0.5">${grupo.equipe}</div>${obterBadgeSetorHtml(setorStr)}</td>
-                    <td class="p-3"><div class="flex flex-wrap items-center gap-1"><span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px] inline-block">${grupo.projeto}</span><span class="font-bold px-1.5 py-0.5 rounded text-[9px] ${badgeGrupoCor}">${macroGrupo}</span></div><div class="text-[10px] text-slate-500 mt-1 font-semibold">🏢 Andares: <b>${somaAndares}</b> | HPs: <b>${somaHps}</b></div></td>
-                    <td class="p-3"><div class="flex flex-wrap items-center gap-1"><span class="font-bold px-2.5 py-1 rounded-md text-[10px] inline-block ${classeCorDesfecho}">${desfechoExibicao}</span>${badgeFotosHtml}</div>${tagsOpcoesHtml}</td>
-                    <td class="p-3"><div class="text-[11px]">🟢 Início: <b>${grupo.hEntrada}</b></div><div class="text-[11px]">🔴 Fim: <b>${grupo.hSaida}</b></div>${badgePausaLinha}<div class="text-[10px] text-emerald-700 font-bold mt-0.5">⏱️ ${duracaoStr}</div></td>
-                    <td class="p-3 text-[10px] font-mono text-slate-600"><div>In: ${grupo.gpsEntrada}</div><div>Out: ${grupo.gpsSaida}</div></td>
-                    <td class="p-3" onclick="event.stopPropagation()">${botoesAcao}</td>`;
-                corpoAtiv.appendChild(trPrincipal);
-
-                if (qtdBlocosNoGrupo > 1) {
-                    const trDetalheBlocos = document.createElement('tr');
-                    trDetalheBlocos.id = idGrupoUnico;
-                    trDetalheBlocos.dataset.qtdBlocos = qtdBlocosNoGrupo;
-                    trDetalheBlocos.className = "hidden bg-slate-100/90 border-b";
-
-                    let cardsBlocosHtml = grupo.itens.map(blocoItem => {
-                        const corDesfB = obterClasseCorDesfecho(blocoItem.desfecho);
-                        const qtdFotosB = Number(blocoItem.qtdFotos) || (Array.isArray(blocoItem.fotos) ? blocoItem.fotos.length : 0);
-                        const acoesIndividuais = (nivelNorm === 'master' || nivelNorm === 'operador') ? `<div class="flex flex-wrap gap-1 pt-2 border-t border-slate-200 mt-1.5" onclick="event.stopPropagation()">${['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(blocoItem.desfecho) ? `<button onclick="autorizarReaberturaCampo(${blocoItem.id})" class="bg-purple-100 text-purple-900 border border-purple-300 font-bold text-[9px] px-2 py-0.5 rounded">🔓 Reabrir</button>` : `<button onclick="abrirModalTransferirAtividade(${blocoItem.id})" class="bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold text-[9px] px-2 py-0.5 rounded">🔀 Mover</button>`}<button onclick="abrirModalEdicao(${blocoItem.id})" class="bg-blue-50 text-blue-700 border border-blue-200 font-bold text-[9px] px-2 py-0.5 rounded">✏️ Editar</button><button onclick="excluirRegistro(${blocoItem.id}, '${blocoItem.imovel}')" class="bg-red-50 text-red-600 border border-red-200 font-bold text-[9px] px-2 py-0.5 rounded">🗑️ Excluir</button></div>` : '';
-                        return `<div class="card-bloco-interno bg-white p-3 rounded-xl border border-blue-200 shadow-sm space-y-1 cursor-pointer hover:border-blue-500 transition" onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${blocoItem.id}))"><div class="flex justify-between items-center gap-1"><span class="font-black text-blue-950 text-xs">🏢 ${blocoItem.imovel}</span><span class="px-2 py-0.5 rounded text-[9px] font-bold ${corDesfB}">${blocoItem.desfecho}</span></div><div class="text-[10px] text-slate-600 font-semibold">Andares: <b>${blocoItem.andares || 0}</b> | HPs: <b>${blocoItem.hps || 0}</b> ${qtdFotosB > 0 ? `| 📷 <b>${qtdFotosB} foto(s)</b>` : ''}</div><div class="text-[10px] text-slate-500">📦 RL: <b>${blocoItem.caboRL}m</b> | Drop: <b>${blocoItem.caboDrop}m</b> | Conect: <b>${blocoItem.conectores}</b> | Fusões: <b>${blocoItem.fusoes}</b> | NAP: <b>${blocoItem.nap}</b> | DIO: <b>${blocoItem.dio}</b></div>${blocoItem.motivoDesfecho ? `<div class="text-[10px] text-amber-900 bg-amber-50 px-2 py-1 rounded">💬 ${blocoItem.motivoDesfecho}</div>` : ''}${acoesIndividuais}</div>`;
-                    }).join('');
-
-                    trDetalheBlocos.innerHTML = `<td colspan="7" class="p-3 pl-6"><div class="bg-blue-50/60 p-3 rounded-xl border border-blue-200 space-y-2"><div class="flex justify-between items-center border-b border-blue-200 pb-1.5"><span class="font-black text-blue-950 text-xs uppercase">📂 Detalhamento Individual dos ${qtdBlocosNoGrupo} Blocos do Imóvel ${grupo.codigoBase}</span><span class="text-[10px] text-blue-800">Clique em qualquer bloco para abrir detalhes e fotos</span></div><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">${cardsBlocosHtml}</div></div></td>`;
-                    corpoAtiv.appendChild(trDetalheBlocos);
-                }
-            }
-
-            grupo.itens.forEach(item => {
-                if (!['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(item.desfecho) && corpoMat) {
-                    const trMat = document.createElement('tr');
-                    trMat.className = "hover:bg-slate-50 border-b transition";
-                    trMat.innerHTML = `<td class="p-2.5 font-bold text-slate-800">${item.imovel}<div class="text-[9px] text-slate-400 font-normal">${item.dataRegistro}</div></td><td class="p-2.5">${item.equipe}<div class="text-[9px] text-blue-900">${item.projeto}</div></td><td class="p-2.5 font-semibold">${item.caboRL} m</td><td class="p-2.5 font-semibold">${item.conectores}</td><td class="p-2.5 font-semibold">${item.caboDrop} m</td><td class="p-2.5 font-bold text-blue-900">${item.nap}</td><td class="p-2.5 font-bold text-indigo-700">${item.dio}</td><td class="p-2.5 font-bold text-amber-700">${item.cxSobrepor}</td><td class="p-2.5 font-bold text-orange-700">${item.cxEmbutida}</td><td class="p-2.5 font-bold text-purple-700">${item.cxFosc}</td><td class="p-2.5 font-semibold">${item.fusoes}</td>`;
-                    corpoMat.appendChild(trMat);
-                }
-            });
-        });
-    }
-
-    const finalizadasParaGraficosGerais = grupoAtivoAbaGraficos === 'TODOS'
-        ? finalizadas
-        : finalizadas.filter(d => {
-            if (grupoAtivoAbaGraficos === 'VISTORIA') return d.servicoPlanilha === 'VISTORIA';
-            if (grupoAtivoAbaGraficos === 'CONSTRUCAO') return d.servicoPlanilha === 'CONSTRUÇÃO';
-            if (grupoAtivoAbaGraficos === 'ATIVACAO') return d.servicoPlanilha === 'ATIVAÇÃO';
-            return true;
-        });
-
-    const filtradosParaGraficosGerais = grupoAtivoAbaGraficos === 'TODOS'
-        ? filtrados
-        : filtrados.filter(d => {
-            if (grupoAtivoAbaGraficos === 'VISTORIA') return d.servicoPlanilha === 'VISTORIA';
-            if (grupoAtivoAbaGraficos === 'CONSTRUCAO') return d.servicoPlanilha === 'CONSTRUÇÃO';
-            if (grupoAtivoAbaGraficos === 'ATIVACAO') return d.servicoPlanilha === 'ATIVAÇÃO';
-            return true;
-        });
-
-    try { renderizarTresBlocosDeGruposNaAbaGraficos(finalizadas); } catch (e) { console.warn("Erro 3 grupos:", e); }
-    try { renderizarPainelMallingEProjetoF(finalizadasParaGraficosGerais); } catch (e) { console.warn("Erro visões planilha:", e); }
-    try { renderizarPainelProgramadoRetornoEBairro(filtradosParaGraficosGerais); } catch (e) { console.warn("Erro Programado/Retorno:", e); }
-    try { renderizarGraficos(finalizadasParaGraficosGerais, filtradosParaGraficosGerais); } catch (e) { console.warn("Erro graficos:", e); }
-    try { renderizarOfensoresMalogro(finalizadasParaGraficosGerais); } catch (e) { console.warn("Erro ofensores:", e); }
-    try { renderizarTabelaConsolidada(finalizadasParaGraficosGerais); } catch (e) { console.warn("Erro consolidada:", e); }
-    try { renderizarTabelaUsuariosPermissao(); } catch (e) {}
-}
-// ================= OS 3 BLOCOS INDEPENDENTES NA ABA GRÁFICOS: VISTORIA | CONSTRUÇÃO (F vs ON GOING) | ATIVAÇÃO (F vs ON GOING) =================
-function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
     const hojeISO = obterDataLocalISO();
-    const datasPresentes = [...new Set(dadosFinalizados.map(d => d.dataRegistro).filter(Boolean))].sort();
-    const dataRefDiaria = datasPresentes.includes(hojeISO) ? hojeISO : (datasPresentes.length > 0 ? datasPresentes[datasPresentes.length - 1] : hojeISO);
-    const lblDataRef = document.getElementById('lbl-data-ref-diaria');
-    if (lblDataRef) lblDataRef.innerText = dataRefDiaria === hojeISO ? `Hoje (${hojeISO})` : dataRefDiaria;
+    const horaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
 
-    const dadosVistoria = dadosFinalizados.filter(d => d.servicoPlanilha === 'VISTORIA');
-    const mapaVist = {};
-    equipesSistema.filter(e => e.status === 'Ativo' && tecnicoPertenceAoSetor(e.setor, 'Vistoriador')).forEach(eq => {
-        mapaVist[eq.nome] = { nome: eq.nome, prodDiaria: 0, exec: 0, nExec: 0, total: 0, hps: 0, duracoes: [], diasSet: new Set() };
-    });
-    dadosVistoria.forEach(d => {
-        const nome = d.equipe || 'NÃO IDENTIFICADO';
-        if (!mapaVist[nome]) mapaVist[nome] = { nome, prodDiaria: 0, exec: 0, nExec: 0, total: 0, hps: 0, duracoes: [], diasSet: new Set() };
-        const item = mapaVist[nome];
-        item.total++;
-        if (d.dataRegistro) item.diasSet.add(d.dataRegistro);
-        if (d.desfecho === 'CONCLUIDA') {
-            item.exec++;
-            item.hps += Number(d.hps) || 0;
-            if (d.dataRegistro === dataRefDiaria) item.prodDiaria++;
-        } else item.nExec++;
-        const minIn = converterHorarioParaMinutos(d.hEntrada), minOut = converterHorarioParaMinutos(d.hSaida);
-        if (minIn !== null && minOut !== null && minOut >= minIn) {
-            const dur = Math.max(0, (minOut - minIn) - (Number(d.tempoPausadoMinutos) || 0));
-            if (dur > 0 && dur <= 840) item.duracoes.push(dur);
-        }
-    });
-
-    const listaVist = Object.values(mapaVist).map(v => {
-        const dias = v.diasSet.size;
-        return {
-            ...v, dias,
-            produtividade: dias > 0 ? (v.exec / dias) : 0,
-            hpDia: dias > 0 ? (v.hps / dias) : 0,
-            conversao: v.total > 0 ? ((v.exec / v.total) * 100) : 0,
-            tma: v.duracoes.length > 0 ? formatarDuracaoTexto(v.duracoes.reduce((a, b) => a + b, 0) / v.duracoes.length) : '--h --m'
-        };
-    }).sort((a, b) => b.exec - a.exec || b.total - a.total);
-
-    const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-    const vistComProd = listaVist.filter(x => x.total > 0);
-    setEl('card-vist-qtd-tec', `${listaVist.length} vist. (${vistComProd.length} c/ prod.)`);
-    setEl('card-vist-diaria', listaVist.reduce((a, b) => a + b.prodDiaria, 0));
-    setEl('card-vist-consolidado', listaVist.reduce((a, b) => a + b.exec, 0));
-    setEl('card-vist-media', (vistComProd.length > 0 ? vistComProd.reduce((a, b) => a + b.produtividade, 0) / vistComProd.length : 0).toFixed(2));
-
-    const tbodyVist = document.getElementById('tabela-executores-vistoria-corpo');
-    if (tbodyVist) {
-        tbodyVist.innerHTML = "";
-        let sExec = 0, sNExec = 0, sTot = 0, sHp = 0;
-        listaVist.forEach((v, idx) => {
-            sExec += v.exec; sNExec += v.nExec; sTot += v.total; sHp += v.hps;
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-purple-50/60 border-b cursor-pointer";
-            tr.onclick = () => dispararExplosaoGrafico('equipe_servico', `${v.nome}|VISTORIA`);
-            tr.innerHTML = `<td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td><td class="p-2.5 font-bold text-purple-950 underline decoration-dotted">${v.nome}</td><td class="p-2.5 text-center font-black text-emerald-700 bg-emerald-50/60 text-sm">${v.exec}</td><td class="p-2.5 text-center font-bold text-amber-800 bg-amber-50/40">${v.nExec}</td><td class="p-2.5 text-center font-black text-slate-800">${v.total}</td><td class="p-2.5 text-center font-mono">${v.dias}</td><td class="p-2.5 text-center font-black text-purple-900 bg-purple-50/80 text-sm">${v.produtividade.toFixed(2)}</td><td class="p-2.5 text-center font-black text-cyan-900 bg-cyan-50/50">${v.hps}</td><td class="p-2.5 text-center font-semibold">${v.hpDia.toFixed(1)}</td><td class="p-2.5 text-center font-bold text-emerald-800">${v.tma}</td><td class="p-2.5 text-right font-bold">${v.conversao.toFixed(1)}%</td>`;
-            tbodyVist.appendChild(tr);
-        });
-        const convGeralVist = sTot > 0 ? ((sExec / sTot) * 100).toFixed(1) : "0.0";
-        tbodyVist.innerHTML += `<tr class="bg-purple-950 text-white font-black text-xs"><td colspan="2" class="p-2.5 text-right uppercase">Total Grupo Vistoria:</td><td class="p-2.5 text-center text-emerald-300">${sExec}</td><td class="p-2.5 text-center text-amber-300">${sNExec}</td><td class="p-2.5 text-center">${sTot}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center text-purple-200">-</td><td class="p-2.5 text-center text-cyan-300">${sHp}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-right">${convGeralVist}%</td></tr>`;
-    }
-
-    const ctxVist = document.getElementById('graficoExecutoresVistoria')?.getContext('2d');
-    if (ctxVist) {
-        if (graficoExecutoresVistoriaInstancia) graficoExecutoresVistoriaInstancia.destroy();
-        const grafVist = listaVist.filter(x => x.total > 0).length > 0 ? listaVist.filter(x => x.total > 0) : listaVist.slice(0, 10);
-        graficoExecutoresVistoriaInstancia = new Chart(ctxVist, {
-            type: 'bar',
-            data: {
-                labels: grafVist.map(v => `${v.nome.split(' ')[0]} ${v.nome.split(' ')[1] ? v.nome.split(' ')[1].charAt(0) + '.' : ''}`),
-                datasets: [
-                    { label: '🟢 Vistorias Executadas', data: grafVist.map(v => v.exec), backgroundColor: '#7c3aed', borderRadius: 5 },
-                    { label: '🟠 Não Executadas', data: grafVist.map(v => v.nExec), backgroundColor: '#f59e0b', borderRadius: 5 },
-                    { label: '⚡ Produtividade/Dia', data: grafVist.map(v => Number(v.produtividade.toFixed(2))), backgroundColor: '#059669', borderRadius: 5 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('equipe_servico', `${grafVist[el[0].index].nome}|VISTORIA`); }
-            }
-        });
-    }
-
-    const processarGrupoComSubdivisaoFOuOnGoing = (macroServico, setorPadrao, idTbody, idCanvas, prefixoCard, corBarraF, corBarraOG) => {
-        const dadosGrupo = dadosFinalizados.filter(d => d.servicoPlanilha === macroServico);
-        const mapa = {};
-        equipesSistema.filter(e => e.status === 'Ativo' && tecnicoPertenceAoSetor(e.setor, setorPadrao)).forEach(eq => {
-            mapa[eq.nome] = {
-                nome: eq.nome, prodDiaria: 0,
-                execF: 0, execOG: 0, execTotal: 0,
-                nExecF: 0, nExecOG: 0, nExecTotal: 0,
-                totalGeral: 0, hpF: 0, hpOG: 0, hpTotal: 0, diasSet: new Set()
-            };
-        });
-
-        dadosGrupo.forEach(d => {
-            const nome = d.equipe || 'NÃO IDENTIFICADO';
-            if (!mapa[nome]) {
-                mapa[nome] = {
-                    nome, prodDiaria: 0,
-                    execF: 0, execOG: 0, execTotal: 0,
-                    nExecF: 0, nExecOG: 0, nExecTotal: 0,
-                    totalGeral: 0, hpF: 0, hpOG: 0, hpTotal: 0, diasSet: new Set()
-                };
-            }
-            const item = mapa[nome];
-            item.totalGeral++;
-            if (d.dataRegistro) item.diasSet.add(d.dataRegistro);
-            const ehF = d.subgrupoFOuOnGoing === 'F';
-            const hpsVal = Number(d.hps) || 0;
-
-            if (d.desfecho === 'CONCLUIDA') {
-                item.execTotal++;
-                item.hpTotal += hpsVal;
-                if (ehF) { item.execF++; item.hpF += hpsVal; }
-                else { item.execOG++; item.hpOG += hpsVal; }
-                if (d.dataRegistro === dataRefDiaria) item.prodDiaria++;
-            } else {
-                item.nExecTotal++;
-                if (ehF) item.nExecF++;
-                else item.nExecOG++;
-            }
-        });
-
-        const lista = Object.values(mapa).map(x => {
-            const dias = x.diasSet.size;
-            return {
-                ...x, dias,
-                produtividade: dias > 0 ? (x.execTotal / dias) : 0,
-                hpDia: dias > 0 ? (x.hpTotal / dias) : 0,
-                conversao: x.totalGeral > 0 ? ((x.execTotal / x.totalGeral) * 100) : 0
-            };
-        }).sort((a, b) => b.execTotal - a.execTotal || b.totalGeral - a.totalGeral);
-
-        const comProd = lista.filter(x => x.totalGeral > 0);
-        const totExecF = lista.reduce((a, b) => a + b.execF, 0);
-        const totExecOG = lista.reduce((a, b) => a + b.execOG, 0);
-        const totExecGeral = lista.reduce((a, b) => a + b.execTotal, 0);
-
-        setEl(`card-${prefixoCard}-qtd-tec`, `${lista.length} eq. (${comProd.length} c/ prod.)`);
-        setEl(`card-${prefixoCard}-exec-f`, totExecF);
-        setEl(`card-${prefixoCard}-exec-ongoing`, totExecOG);
-        setEl(`card-${prefixoCard}-consolidado`, totExecGeral);
-        setEl(`card-${prefixoCard}-diaria`, lista.reduce((a, b) => a + b.prodDiaria, 0));
-        setEl(`card-${prefixoCard}-media`, (comProd.length > 0 ? comProd.reduce((a, b) => a + b.produtividade, 0) / comProd.length : 0).toFixed(2));
-
-        const tbody = document.getElementById(idTbody);
-        if (tbody) {
-            tbody.innerHTML = "";
-            let sEF = 0, sEOG = 0, sET = 0, sNF = 0, sNOG = 0, sNT = 0, sTG = 0, sHF = 0, sHOG = 0, sHT = 0;
-            lista.forEach((x, idx) => {
-                sEF += x.execF; sEOG += x.execOG; sET += x.execTotal;
-                sNF += x.nExecF; sNOG += x.nExecOG; sNT += x.nExecTotal;
-                sTG += x.totalGeral; sHF += x.hpF; sHOG += x.hpOG; sHT += x.hpTotal;
-
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-blue-50/60 border-b cursor-pointer";
-                tr.onclick = () => dispararExplosaoGrafico('equipe_servico', `${x.nome}|${macroServico}`);
-                tr.innerHTML = `
-                    <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
-                    <td class="p-2.5 font-bold text-blue-950 underline decoration-dotted">${x.nome}</td>
-                    <td class="p-2.5 text-center font-black text-indigo-800 bg-indigo-50/70">${x.execF}</td>
-                    <td class="p-2.5 text-center font-black text-cyan-800 bg-cyan-50/70">${x.execOG}</td>
-                    <td class="p-2.5 text-center font-black text-emerald-800 bg-emerald-100/70 text-sm">${x.execTotal}</td>
-                    <td class="p-2.5 text-center text-amber-800 bg-amber-50/40">${x.nExecF}</td>
-                    <td class="p-2.5 text-center text-amber-800 bg-amber-50/40">${x.nExecOG}</td>
-                    <td class="p-2.5 text-center font-bold text-amber-900 bg-amber-100/50">${x.nExecTotal}</td>
-                    <td class="p-2.5 text-center font-black text-slate-800">${x.totalGeral}</td>
-                    <td class="p-2.5 text-center font-mono">${x.dias}</td>
-                    <td class="p-2.5 text-center font-black text-blue-950 bg-blue-50/80 text-sm">${x.produtividade.toFixed(2)}</td>
-                    <td class="p-2.5 text-center font-semibold text-xs bg-slate-50"><span class="text-indigo-700 font-bold">${x.hpF}</span> / <span class="text-cyan-800 font-bold">${x.hpOG}</span> / <b class="text-slate-900">${x.hpTotal}</b></td>
-                    <td class="p-2.5 text-center font-semibold">${x.hpDia.toFixed(1)}</td>
-                    <td class="p-2.5 text-right font-bold">${x.conversao.toFixed(1)}%</td>`;
-                tbody.appendChild(tr);
-            });
-            const convG = sTG > 0 ? ((sET / sTG) * 100).toFixed(1) : "0.0";
-            tbody.innerHTML += `<tr class="bg-slate-900 text-white font-black text-xs"><td colspan="2" class="p-2.5 text-right uppercase">Total Grupo ${macroServico}:</td><td class="p-2.5 text-center text-indigo-300">${sEF}</td><td class="p-2.5 text-center text-cyan-300">${sEOG}</td><td class="p-2.5 text-center text-emerald-300">${sET}</td><td class="p-2.5 text-center text-amber-200">${sNF}</td><td class="p-2.5 text-center text-amber-200">${sNOG}</td><td class="p-2.5 text-center text-amber-300">${sNT}</td><td class="p-2.5 text-center">${sTG}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center text-cyan-200">${sHF} / ${sHOG} / ${sHT}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-right">${convG}%</td></tr>`;
-        }
-
-        const ctx = document.getElementById(idCanvas)?.getContext('2d');
-        if (ctx) {
-            const grafLista = comProd.length > 0 ? comProd : lista.slice(0, 12);
-            const novaInst = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: grafLista.map(x => `${x.nome.split(' ')[0]} ${x.nome.split(' ')[1] ? x.nome.split(' ')[1].charAt(0) + '.' : ''}`),
-                    datasets: [
-                        { label: `🟣 Executado PROJETO F`, data: grafLista.map(x => x.execF), backgroundColor: corBarraF, borderRadius: 4 },
-                        { label: `🔵 Executado ON GOING`, data: grafLista.map(x => x.execOG), backgroundColor: corBarraOG, borderRadius: 4 },
-                        { label: `🟠 Não Executado (F + ON GOING)`, data: grafLista.map(x => x.nExecTotal), backgroundColor: '#f59e0b', borderRadius: 4 },
-                        { label: `⚡ Produtividade/Dia`, data: grafLista.map(x => Number(x.produtividade.toFixed(2))), backgroundColor: '#10b981', borderRadius: 4 }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('equipe_servico', `${grafLista[el[0].index].nome}|${macroServico}`); }
-                }
-            });
-            if (macroServico === 'CONSTRUÇÃO') {
-                if (graficoExecutoresConstrucaoInstancia) graficoExecutoresConstrucaoInstancia.destroy();
-                graficoExecutoresConstrucaoInstancia = novaInst;
-            } else {
-                if (graficoExecutoresAtivacaoInstancia) graficoExecutoresAtivacaoInstancia.destroy();
-                graficoExecutoresAtivacaoInstancia = novaInst;
-            }
-        }
+    const novoRegDB = {
+        id: Date.now(),
+        data_registro: hojeISO,
+        equipe: nomeEq,
+        membros: nomeEq,
+        projeto: PROJETO_SOLIC_COMBUSTIVEL,
+        imovel: `PLACA: ${placa} | KM: ${km}`,
+        h_entrada: horaAtual,
+        h_saida: "Pendente",
+        gps_entrada: gpsAtual,
+        gps_saida: "-",
+        desfecho: "AGUARDANDO TRATATIVA",
+        motivo_desfecho: motivo,
+        malogros: tagsLabelsFotos,
+        responsavel: placa,
+        contato: String(km),
+        email: "",
+        agendamento: null,
+        andares: Number(km) || 0,
+        hps: fotosArray.length,
+        servico_obra: "NÃO",
+        observacoes: `[END: Placa ${placa} • KM ${km}] ${motivo} [FOTOS:${JSON.stringify(fotosArray)}]`
     };
 
-    processarGrupoComSubdivisaoFOuOnGoing('CONSTRUÇÃO', 'Instalador', 'tabela-executores-construcao-corpo', 'graficoExecutoresConstrucao', 'inst', '#4f46e5', '#0284c7');
-    processarGrupoComSubdivisaoFOuOnGoing('ATIVAÇÃO', 'Ativador', 'tabela-executores-ativacao-corpo', 'graficoExecutoresAtivacao', 'ativ', '#6366f1', '#0d9488');
+    try {
+        const { error } = await supabaseClient.from('registros_producao').insert([novoRegDB]);
+        if (error) throw error;
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "🚀 Enviar Solicitação de Recarga";
+        }
+
+        fecharModalSolicitacaoCombustivelCampo();
+        await carregarRegistrosModoCampoLeve();
+        renderizarResumoSolicitacoesCampo();
+        alert(`✅ Solicitação de Combustível enviada com sucesso!\n\nPlaca: ${placa} | KM: ${km}\nA gestão já recebeu seu pedido em tempo real.`);
+    } catch (err) {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "🚀 Enviar Solicitação de Recarga";
+        }
+        alert("❌ Erro ao enviar solicitação: " + (err.message || "Verifique sua conexão."));
+    }
 }
 
-// ================= GRÁFICOS DINÂMICOS E MATRIZES SEPARADAS POR GRUPO NA ABA GRÁFICOS =================
-function renderizarPainelMallingEProjetoF(dados) {
-    const categorias5 = [
-        { label: '🔍 VISTORIA', filtro: d => d.servicoPlanilha === 'VISTORIA', chaveExp: 'VISTORIA|TODOS' },
-        { label: '🛠️ CONSTRUÇÃO F', filtro: d => d.servicoPlanilha === 'CONSTRUÇÃO' && d.subgrupoFOuOnGoing === 'F', chaveExp: 'CONSTRUÇÃO|F' },
-        { label: '🛠️ CONST. ON GOING', filtro: d => d.servicoPlanilha === 'CONSTRUÇÃO' && d.subgrupoFOuOnGoing === 'ON GOING', chaveExp: 'CONSTRUÇÃO|ON GOING' },
-        { label: '⚡ ATIVAÇÃO F', filtro: d => d.servicoPlanilha === 'ATIVAÇÃO' && d.subgrupoFOuOnGoing === 'F', chaveExp: 'ATIVAÇÃO|F' },
-        { label: '⚡ ATIV. ON GOING', filtro: d => d.servicoPlanilha === 'ATIVAÇÃO' && d.subgrupoFOuOnGoing === 'ON GOING', chaveExp: 'ATIVAÇÃO|ON GOING' }
-    ];
+function abrirModalSolicitacaoMaterialCampo() {
+    const nomeEq = validarTecnicoSelecionadoParaSolicitacao();
+    if (!nomeEq) return;
 
-    const badgeTotalServ = document.getElementById('badge-total-malling');
-    if (badgeTotalServ) badgeTotalServ.innerText = `${dados.length} acionamentos`;
+    document.getElementById('lbl-tec-solic-mat').innerText = nomeEq;
+    document.getElementById('inp-obs-solic-material').value = "";
 
-    const ctxServ = document.getElementById('graficoGrupoMalling')?.getContext('2d');
-    if (ctxServ) {
-        if (graficoGrupoMallingInstancia) graficoGrupoMallingInstancia.destroy();
-        graficoGrupoMallingInstancia = new Chart(ctxServ, {
-            type: 'bar',
-            data: {
-                labels: categorias5.map(c => c.label),
-                datasets: [
-                    { label: '🟢 EXECUTADO', data: categorias5.map(c => dados.filter(d => c.filtro(d) && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#059669', borderRadius: 5 },
-                    { label: '🟠 N EXECUTADO', data: categorias5.map(c => dados.filter(d => c.filtro(d) && d.desfecho !== 'CONCLUIDA').length), backgroundColor: '#f59e0b', borderRadius: 5 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('grupo_subgrupo', categorias5[el[0].index].chaveExp); }
+    const container = document.getElementById('lista-itens-solic-material-campo');
+    if (container) {
+        const catalogoMat = (typeof OPCOES_MATERIAL_SOLICITACAO !== 'undefined' && Array.isArray(OPCOES_MATERIAL_SOLICITACAO) && OPCOES_MATERIAL_SOLICITACAO.length > 0)
+            ? OPCOES_MATERIAL_SOLICITACAO
+            : ["CABO RL (m)", "CONECTORES (un)", "CABO DROP (m)", "NAP (un)", "DIO (un)", "FUSÕES / TUBETES (un)", "CX. SOBREPOR (un)", "CX. EMBUTIDA (un)", "CX. FOSC (un)"];
+
+        container.innerHTML = catalogoMat.map((item, idx) => `
+            <div class="py-1.5 flex justify-between items-center gap-2">
+                <label class="font-bold text-slate-800 text-[11px] flex-1" for="inp-qtd-mat-solic-${idx}">📦 ${item}</label>
+                <input type="number" id="inp-qtd-mat-solic-${idx}" data-nome-material="${item}" min="0" placeholder="0" class="w-20 text-center font-black text-xs border-2 border-indigo-200 rounded-lg p-1.5 bg-white text-indigo-950 outline-none focus:border-indigo-600">
+            </div>
+        `).join('');
+    }
+
+    document.getElementById('modal-solic-material').classList.remove('hidden');
+}
+
+function fecharModalSolicitacaoMaterialCampo() {
+    document.getElementById('modal-solic-material')?.classList.add('hidden');
+}
+
+async function enviarSolicitacaoMaterialCampo() {
+    const nomeEq = validarTecnicoSelecionadoParaSolicitacao();
+    if (!nomeEq) return;
+
+    const inputs = document.querySelectorAll('#lista-itens-solic-material-campo input[data-nome-material]');
+    const itensPedidos = [];
+
+    inputs.forEach(inp => {
+        const qtd = Number(inp.value) || 0;
+        if (qtd > 0) {
+            itensPedidos.push(`${inp.dataset.nomeMaterial}: ${qtd}`);
+        }
+    });
+
+    if (itensPedidos.length === 0) {
+        alert("⚠️ Informe a quantidade (maior que zero) em pelo menos 1 item de material.");
+        return;
+    }
+
+    const obs = (document.getElementById('inp-obs-solic-material')?.value || "").trim();
+    const btn = document.getElementById('btn-enviar-solic-mat');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "⏳ Enviando pedido de material...";
+    }
+
+    let gpsAtual = "Sem GPS no momento";
+    try {
+        gpsAtual = await capturarGpsReal(4000);
+    } catch (e) {}
+
+    const hojeISO = obterDataLocalISO();
+    const horaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    const resumoPedido = itensPedidos.join(" | ");
+
+    const novoRegDB = {
+        id: Date.now(),
+        data_registro: hojeISO,
+        equipe: nomeEq,
+        membros: nomeEq,
+        projeto: PROJETO_SOLIC_MATERIAL,
+        imovel: `PEDIDO (${itensPedidos.length} item/itens)`,
+        h_entrada: horaAtual,
+        h_saida: "Pendente",
+        gps_entrada: gpsAtual,
+        gps_saida: "-",
+        desfecho: "AGUARDANDO TRATATIVA",
+        motivo_desfecho: resumoPedido,
+        malogros: itensPedidos,
+        responsavel: obs || "Solicitação via Modo Campo",
+        contato: "",
+        email: "",
+        agendamento: null,
+        andares: itensPedidos.length,
+        hps: 0,
+        servico_obra: "NÃO",
+        observacoes: obs || "Aguardando separação/entrega"
+    };
+
+    try {
+        const { error } = await supabaseClient.from('registros_producao').insert([novoRegDB]);
+        if (error) throw error;
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "🚀 Enviar Pedido de Material";
+        }
+
+        fecharModalSolicitacaoMaterialCampo();
+        await carregarRegistrosModoCampoLeve();
+        renderizarResumoSolicitacoesCampo();
+        alert(`✅ Pedido de Material enviado com sucesso!\n\nItens solicitados:\n• ${itensPedidos.join('\n• ')}`);
+    } catch (err) {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "🚀 Enviar Pedido de Material";
+        }
+        alert("❌ Erro ao enviar pedido de material: " + (err.message || "Verifique sua conexão."));
+    }
+}
+
+function renderizarResumoSolicitacoesCampo() {
+    const box = document.getElementById('box-status-solicitacoes-campo');
+    if (!box) return;
+
+    const nomeEq = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "";
+    if (!nomeEq) {
+        box.classList.add('hidden');
+        return;
+    }
+
+    const minhasSolic = (registrosSalvos || []).filter(r =>
+        r.equipe === nomeEq &&
+        (r.projeto === PROJETO_SOLIC_COMBUSTIVEL || r.projeto === PROJETO_SOLIC_MATERIAL)
+    ).slice(0, 4);
+
+    if (minhasSolic.length === 0) {
+        box.classList.add('hidden');
+        return;
+    }
+
+    box.classList.remove('hidden');
+    box.innerHTML = minhasSolic.map(s => {
+        const ehComb = s.projeto === PROJETO_SOLIC_COMBUSTIVEL;
+        const icone = ehComb ? "⛽" : "🧰";
+        const tipoTitulo = ehComb ? s.imovel : `Material (${(s.malogros || []).length} itens)`;
+        const tratada = s.desfecho === 'TRATADA';
+        const badge = tratada
+            ? `<span class="bg-emerald-100 text-emerald-900 border border-emerald-300 font-black px-1.5 py-0.5 rounded text-[9px]">🟢 TRATADA por ${s.tratadoPor || 'Gestor'} (${s.tratadoDataHora || s.hSaida})</span>`
+            : `<span class="bg-amber-100 text-amber-900 border border-amber-300 font-bold px-1.5 py-0.5 rounded text-[9px]">🟡 AGUARDANDO TRATATIVA (${s.hEntrada})</span>`;
+
+        return `
+            <div class="bg-white p-2 rounded-lg border border-slate-200 flex flex-col gap-0.5 text-[10px]">
+                <div class="flex justify-between items-center gap-1">
+                    <span class="font-bold text-slate-800">${icone} ${tipoTitulo}</span>
+                    <span class="text-[9px] text-slate-400">${s.dataRegistro}</span>
+                </div>
+                <div>${badge}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+// ================= FILA OFFLINE DE SALVAMENTO (PROTEÇÃO CONTRA SUBSOLO / SEM SINAL 4G) =================
+
+function obterFilaOfflineCampo() {
+    try {
+        const bruto = localStorage.getItem('gpd_fila_offline_campo');
+        if (!bruto) return [];
+        const parsed = JSON.parse(bruto);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function salvarNaFilaOfflineCampo(pacoteRegistros, resumoTexto) {
+    const fila = obterFilaOfflineCampo();
+    fila.push({
+        idFila: Date.now(),
+        dataHora: new Date().toLocaleString('pt-BR'),
+        idEmAndamentoParaDeletar: dadosAtendimento.idEmAndamento || null,
+        registros: pacoteRegistros,
+        resumoWhats: resumoTexto
+    });
+    localStorage.setItem('gpd_fila_offline_campo', JSON.stringify(fila));
+    renderizarBannerFilaOfflineCampo();
+}
+
+function renderizarBannerFilaOfflineCampo() {
+    const fila = obterFilaOfflineCampo();
+    let banner = document.getElementById('banner-fila-offline-campo');
+    const containerPai = document.getElementById('subview-campo-lancamento');
+    if (!containerPai) return;
+
+    if (fila.length === 0) {
+        if (banner) banner.classList.add('hidden');
+        return;
+    }
+
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'banner-fila-offline-campo';
+        banner.className = 'bg-amber-100 border-2 border-amber-500 p-3 rounded-xl space-y-2 shadow-sm';
+        containerPai.insertBefore(banner, containerPai.firstChild);
+    }
+
+    banner.classList.remove('hidden');
+    banner.innerHTML = `
+        <div class="flex justify-between items-start gap-2">
+            <div>
+                <h4 class="text-xs font-black text-amber-950 uppercase flex items-center gap-1">
+                    📡 ${fila.length} Atendimento(s) Guardado(s) na Fila Offline
+                </h4>
+                <p class="text-[10px] text-amber-900 mt-0.5">
+                    Salvo(s) no celular durante queda de sinal 4G. Assim que a conexão estabilizar, clique abaixo ou aguarde o envio automático.
+                </p>
+            </div>
+        </div>
+        <button type="button" onclick="sincronizarFilaOfflineCampo(true)" title="Enviar agora os atendimentos que foram salvos sem internet no subsolo/DG para a nuvem do GPD" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-2 rounded-lg text-xs transition shadow-sm">
+            🔄 Sincronizar Fila Offline Agora (${fila.length})
+        </button>
+    `;
+}
+
+async function sincronizarFilaOfflineCampo(exibirFeedback = false) {
+    const fila = obterFilaOfflineCampo();
+    if (fila.length === 0) return;
+
+    let restantes = [];
+    let enviados = 0;
+
+    for (const item of fila) {
+        try {
+            if (item.idEmAndamentoParaDeletar) {
+                await supabaseClient.from('registros_producao').delete().eq('id', item.idEmAndamentoParaDeletar);
             }
-        });
-    }
-
-    const semanas = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5'];
-    const badgeSem = document.getElementById('badge-total-projetof');
-    if (badgeSem) badgeSem.innerText = `${dados.filter(d => d.desfecho === 'CONCLUIDA').length} executados`;
-
-    const ctxSem = document.getElementById('graficoGrupoProjetoF')?.getContext('2d');
-    if (ctxSem) {
-        if (graficoGrupoProjetoFInstancia) graficoGrupoProjetoFInstancia.destroy();
-        graficoGrupoProjetoFInstancia = new Chart(ctxSem, {
-            type: 'bar',
-            data: {
-                labels: semanas,
-                datasets: [
-                    { label: '🔍 Vistoria (Exec.)', data: semanas.map(s => dados.filter(d => obterSemanaDoMes(d.dataRegistro) === s && d.servicoPlanilha === 'VISTORIA' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#7c3aed', borderRadius: 4 },
-                    { label: '🛠️ Construção F (Exec.)', data: semanas.map(s => dados.filter(d => obterSemanaDoMes(d.dataRegistro) === s && d.servicoPlanilha === 'CONSTRUÇÃO' && d.subgrupoFOuOnGoing === 'F' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#4f46e5', borderRadius: 4 },
-                    { label: '🛠️ Construção ON GOING (Exec.)', data: semanas.map(s => dados.filter(d => obterSemanaDoMes(d.dataRegistro) === s && d.servicoPlanilha === 'CONSTRUÇÃO' && d.subgrupoFOuOnGoing === 'ON GOING' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#0284c7', borderRadius: 4 },
-                    { label: '⚡ Ativação F + ON GOING (Exec.)', data: semanas.map(s => dados.filter(d => obterSemanaDoMes(d.dataRegistro) === s && d.servicoPlanilha === 'ATIVAÇÃO' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#059669', borderRadius: 4 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('semana', semanas[el[0].index]); }
-            }
-        });
-    }
-
-    const datasOrdenadas = [...new Set(dados.map(d => d.dataRegistro).filter(Boolean))].sort();
-    const ctxDiario = document.getElementById('graficoEvolucaoGrupos')?.getContext('2d');
-    if (ctxDiario) {
-        if (graficoEvolucaoGruposInstancia) graficoEvolucaoGruposInstancia.destroy();
-        graficoEvolucaoGruposInstancia = new Chart(ctxDiario, {
-            type: 'bar',
-            data: {
-                labels: datasOrdenadas.length > 0 ? datasOrdenadas.map(dt => dt.split('-').reverse().slice(0, 2).join('/')) : ['Sem datas'],
-                datasets: [
-                    { label: '🔍 Vistoria (Exec.)', data: datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && d.servicoPlanilha === 'VISTORIA' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#7c3aed', borderRadius: 4 },
-                    { label: '🛠️ Construção (F + ON GOING Exec.)', data: datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && d.servicoPlanilha === 'CONSTRUÇÃO' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#2563eb', borderRadius: 4 },
-                    { label: '⚡ Ativação (F + ON GOING Exec.)', data: datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && d.servicoPlanilha === 'ATIVAÇÃO' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#059669', borderRadius: 4 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } },
-                onClick: (e, el) => { if (el.length > 0 && datasOrdenadas[el[0].index]) dispararExplosaoGrafico('data', datasOrdenadas[el[0].index]); }
-            }
-        });
-    }
-
-    renderizarMatrizDiariaPlanilha(dados, datasOrdenadas);
-
-    const theadCruz = document.getElementById('thead-cruzamento-executores');
-    const tbodyCruz = document.getElementById('tabela-cruzamento-executores-corpo');
-    if (!tbodyCruz) return;
-    tbodyCruz.innerHTML = "";
-
-    if (theadCruz) {
-        theadCruz.innerHTML = `
-            <tr class="bg-slate-800 text-white uppercase font-bold text-[9px] border-b">
-                <th class="p-2.5">Executor / Técnico</th>
-                <th class="p-2.5">Grupo Principal</th>
-                <th class="p-2 text-center bg-purple-900">Vistoria (Exec / N Exec)</th>
-                <th class="p-2 text-center bg-indigo-900">Construção F (Exec / N Exec)</th>
-                <th class="p-2 text-center bg-blue-900">Const. ON GOING (Exec / N Exec)</th>
-                <th class="p-2 text-center bg-emerald-900">Ativação F (Exec / N Exec)</th>
-                <th class="p-2 text-center bg-teal-900">Ativ. ON GOING (Exec / N Exec)</th>
-                <th class="p-2.5 text-center bg-slate-950 text-cyan-300 font-black">Total Executado</th>
-                <th class="p-2.5 text-center bg-slate-900">Total Geral</th>
-            </tr>`;
-    }
-
-    const gruposMacro = [
-        { chave: 'VISTORIA', titulo: '🔍 GRUPO VISTORIA (Vistoriadores)', cor: 'bg-purple-100 text-purple-950' },
-        { chave: 'CONSTRUÇÃO', titulo: '🛠️ GRUPO CONSTRUÇÃO (Instaladores — F & ON GOING)', cor: 'bg-blue-100 text-blue-950' },
-        { chave: 'ATIVAÇÃO', titulo: '⚡ GRUPO ATIVAÇÃO (Ativadores — F & ON GOING)', cor: 'bg-emerald-100 text-emerald-950' }
-    ];
-
-    gruposMacro.forEach(grp => {
-        const dadosDoGrp = dados.filter(d => d.servicoPlanilha === grp.chave);
-        if (dadosDoGrp.length === 0) return;
-
-        tbodyCruz.innerHTML += `<tr class="${grp.cor} font-black text-xs"><td colspan="9" class="p-2 uppercase">${grp.titulo}</td></tr>`;
-        const mapaTec = {};
-        dadosDoGrp.forEach(d => {
-            const n = d.equipe || 'NÃO IDENTIFICADO';
-            if (!mapaTec[n]) mapaTec[n] = { nome: n, vE: 0, vN: 0, cfE: 0, cfN: 0, cogE: 0, cogN: 0, afE: 0, afN: 0, aogE: 0, aogN: 0, totE: 0, totG: 0 };
-            const t = mapaTec[n];
-            t.totG++;
-            const ok = d.desfecho === 'CONCLUIDA';
-            if (ok) t.totE++;
-            if (d.servicoPlanilha === 'VISTORIA') { if (ok) t.vE++; else t.vN++; }
-            else if (d.servicoPlanilha === 'CONSTRUÇÃO') {
-                if (d.subgrupoFOuOnGoing === 'F') { if (ok) t.cfE++; else t.cfN++; }
-                else { if (ok) t.cogE++; else t.cogN++; }
+            const { error } = await supabaseClient.from('registros_producao').insert(item.registros);
+            if (error) {
+                restantes.push(item);
             } else {
-                if (d.subgrupoFOuOnGoing === 'F') { if (ok) t.afE++; else t.afN++; }
-                else { if (ok) t.aogE++; else t.aogN++; }
+                enviados++;
             }
-        });
+        } catch (err) {
+            restantes.push(item);
+        }
+    }
 
-        Object.values(mapaTec).sort((a, b) => b.totE - a.totE).forEach(t => {
-            const cel = (e, n) => e === 0 && n === 0 ? `<span class="text-slate-300">-</span>` : `<b class="text-emerald-700">${e}</b> <span class="text-slate-400">/</span> <span class="text-amber-700">${n}</span>`;
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-slate-50 border-b cursor-pointer";
-            tr.onclick = () => dispararExplosaoGrafico('equipe_servico', `${t.nome}|${grp.chave}`);
-            tr.innerHTML = `<td class="p-2.5 font-bold text-slate-800">${t.nome}</td><td class="p-2.5 font-bold text-[10px]">${grp.chave}</td><td class="p-2 text-center">${cel(t.vE, t.vN)}</td><td class="p-2 text-center">${cel(t.cfE, t.cfN)}</td><td class="p-2 text-center">${cel(t.cogE, t.cogN)}</td><td class="p-2 text-center">${cel(t.afE, t.afN)}</td><td class="p-2 text-center">${cel(t.aogE, t.aogN)}</td><td class="p-2.5 text-center font-black bg-emerald-50 text-emerald-900">${t.totE}</td><td class="p-2.5 text-center font-bold bg-slate-50">${t.totG}</td>`;
-            tbodyCruz.appendChild(tr);
-        });
-    });
+    localStorage.setItem('gpd_fila_offline_campo', JSON.stringify(restantes));
+    renderizarBannerFilaOfflineCampo();
+
+    if (enviados > 0) {
+        await carregarRegistrosModoCampoLeve();
+        atualizarAbaMinhasAtividadesCampo(false);
+        if (exibirFeedback) {
+            alert(`✅ ${enviados} atendimento(s) da Fila Offline foram sincronizados com sucesso na nuvem!`);
+        }
+    } else if (exibirFeedback && restantes.length > 0) {
+        alert("⚠️ Ainda sem conexão estável com a nuvem. Os dados continuam seguros no aparelho.");
+    }
 }
 
-function renderizarMatrizDiariaPlanilha(dados, datasOrdenadas) {
-    const thead = document.getElementById('thead-matriz-diaria-equipes');
-    const tbody = document.getElementById('tabela-matriz-diaria-equipes-corpo');
-    if (!thead || !tbody) return;
-    tbody.innerHTML = "";
-    const datasExibir = datasOrdenadas.length > 0 ? datasOrdenadas : [obterDataLocalISO()];
+window.addEventListener('online', () => {
+    sincronizarFilaOfflineCampo(true);
+});
 
-    let htmlHead = `<tr class="bg-slate-900 text-white uppercase font-bold text-[9px] tracking-wider"><th class="p-2.5 text-center bg-emerald-900 text-cyan-300">Exec. Total</th><th class="p-2.5 text-center bg-indigo-950 text-indigo-200">F / ON GOING</th><th class="p-2.5">Equipe / Técnico</th>`;
-    datasExibir.forEach(dt => { htmlHead += `<th class="p-2 text-center font-mono">${dt.split('-').reverse().slice(0, 2).join('/')}</th>`; });
-    htmlHead += `</tr>`;
-    thead.innerHTML = htmlHead;
+// ================= BAIXA AUTOMÁTICA DE IMPREVISTO AO INICIAR ATIVIDADE =================
 
-    const gruposDiario = [
-        { chave: 'VISTORIA', titulo: '🔍 GRUPO VISTORIA (Vistoriadores)', cor: 'bg-purple-900 text-white' },
-        { chave: 'CONSTRUÇÃO', titulo: '🛠️ GRUPO CONSTRUÇÃO — Instaladores (F & ON GOING)', cor: 'bg-blue-900 text-white' },
-        { chave: 'ATIVAÇÃO', titulo: '⚡ GRUPO ATIVAÇÃO — Ativadores (F & ON GOING)', cor: 'bg-emerald-900 text-white' }
-    ];
+async function encerrarImprevistosAbertosAoIniciarAtividade(nomeEquipe, gpsAtual = null) {
+    if (!nomeEquipe) return;
+    try {
+        const imprevistosAbertos = (registrosSalvos || []).filter(r =>
+            r.equipe === nomeEquipe &&
+            r.desfecho === 'IMPREVISTO'
+        );
 
-    gruposDiario.forEach(grp => {
-        const dadosGrp = dados.filter(d => d.servicoPlanilha === grp.chave);
-        if (dadosGrp.length === 0) return;
+        const horaFim = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
 
-        tbody.innerHTML += `<tr class="${grp.cor} font-black text-xs"><td colspan="${datasExibir.length + 3}" class="p-2 uppercase">${grp.titulo}</td></tr>`;
+        await supabaseClient
+            .from('registros_producao')
+            .update({
+                desfecho: "IMPREVISTO RESOLVIDO",
+                h_saida: horaFim,
+                gps_saida: gpsAtual || "Encerrado ao iniciar atividade"
+            })
+            .eq('equipe', nomeEquipe)
+            .eq('desfecho', 'IMPREVISTO');
 
-        const mapaDiario = {};
-        dadosGrp.forEach(d => {
-            const eq = d.equipe || "NÃO IDENTIFICADO";
-            if (!mapaDiario[eq]) mapaDiario[eq] = { nome: eq, totalExec: 0, execF: 0, execOG: 0, porData: {} };
-            if (d.desfecho === 'CONCLUIDA') {
-                mapaDiario[eq].totalExec++;
-                if (d.subgrupoFOuOnGoing === 'F') mapaDiario[eq].execF++;
-                else mapaDiario[eq].execOG++;
-                mapaDiario[eq].porData[d.dataRegistro] = (mapaDiario[eq].porData[d.dataRegistro] || 0) + 1;
-            }
-        });
-
-        const somaDiaGrupo = {};
-        datasExibir.forEach(dt => somaDiaGrupo[dt] = 0);
-        let somaTotGrupo = 0, somaFGrupo = 0, somaOGGrupo = 0;
-
-        Object.values(mapaDiario).sort((a, b) => b.totalExec - a.totalExec).forEach(item => {
-            somaTotGrupo += item.totalExec; somaFGrupo += item.execF; somaOGGrupo += item.execOG;
-            let colsDias = "";
-            datasExibir.forEach(dt => {
-                const v = item.porData[dt] || 0;
-                somaDiaGrupo[dt] += v;
-                colsDias += `<td class="p-2 text-center ${v > 0 ? 'font-black text-emerald-800 bg-emerald-50/60' : 'text-slate-300'}">${v > 0 ? v : '-'}</td>`;
+        if (imprevistosAbertos.length > 0) {
+            imprevistosAbertos.forEach(imp => {
+                imp.desfecho = "IMPREVISTO RESOLVIDO";
+                imp.hSaida = horaFim;
             });
-            const subF_OG = grp.chave === 'VISTORIA' ? '-' : `${item.execF} F / ${item.execOG} OG`;
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-slate-50 border-b cursor-pointer";
-            tr.onclick = () => dispararExplosaoGrafico('equipe_servico', `${item.nome}|${grp.chave}`);
-            tr.innerHTML = `<td class="p-2 text-center font-black bg-emerald-50 text-emerald-950">${item.totalExec}</td><td class="p-2 text-center text-[10px] font-bold text-indigo-900 bg-indigo-50/40 whitespace-nowrap">${subF_OG}</td><td class="p-2 font-bold text-slate-800 whitespace-nowrap">${item.nome}</td>${colsDias}`;
-            tbody.appendChild(tr);
-        });
+        }
 
-        let colsSub = "";
-        datasExibir.forEach(dt => { colsSub += `<td class="p-2 text-center font-black">${somaDiaGrupo[dt]}</td>`; });
-        tbody.innerHTML += `<tr class="bg-slate-200 text-slate-900 font-black text-[11px] border-b-2 border-slate-400"><td class="p-2 text-center">${somaTotGrupo}</td><td class="p-2 text-center text-[10px]">${grp.chave === 'VISTORIA' ? '-' : `${somaFGrupo} F / ${somaOGGrupo} OG`}</td><td class="p-2 uppercase">Subtotal ${grp.chave}</td>${colsSub}</tr>`;
-    });
+        const boxImp = document.getElementById('box-imprevisto-ativo-campo');
+        if (boxImp) boxImp.classList.add('hidden');
+    } catch (e) {
+        console.warn("Aviso ao encerrar imprevisto automaticamente:", e);
+    }
 }
 
-// ================= SEÇÃO E PLANILHA SEPARADA POR GRUPOS: PROGRAMADO vs. RETORNO & BAIRRO =================
-function renderizarPainelProgramadoRetornoEBairro(dadosEnriquecidos) {
-    const tbody = document.getElementById('tabela-programado-retorno-bairro-corpo');
-    if (!tbody) return;
-    tbody.innerHTML = "";
+// ================= ALERTA DE HISTÓRICO / REINCIDÊNCIA DO IMÓVEL NO CHECK-IN =================
 
-    const baseValida = dadosEnriquecidos.filter(d => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(d.desfecho));
-    const totalValidos = baseValida.length;
-    const qtdProg = baseValida.filter(d => d.statusMacroPlanilha === 'PROGRAMADO').length;
-    const qtdRet  = baseValida.filter(d => d.statusMacroPlanilha === 'RETORNO').length;
+function verificarHistoricoReincidenciaImovelCampo(codDigitado) {
+    try {
+        const codigo = (codDigitado || "").trim().toUpperCase();
+        const inpImovel = document.getElementById('inp-imovel');
+        if (!inpImovel) return null;
 
-    const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-    setEl('kpi-macro-programado', qtdProg);
-    setEl('kpi-macro-programado-perc', totalValidos > 0 ? `${((qtdProg / totalValidos) * 100).toFixed(1)}% do total` : '0% do total');
-    setEl('kpi-macro-retorno', qtdRet);
-    setEl('kpi-macro-retorno-perc', totalValidos > 0 ? `${((qtdRet / totalValidos) * 100).toFixed(1)}% do total` : '0% do total');
+        let boxAlerta = document.getElementById('box-alerta-reincidencia-imovel');
+        if (!boxAlerta) {
+            boxAlerta = document.createElement('div');
+            boxAlerta.id = 'box-alerta-reincidencia-imovel';
+            boxAlerta.className = 'mt-1.5 p-2.5 rounded-xl border text-[11px] hidden space-y-1';
+            inpImovel.parentNode.appendChild(boxAlerta);
+        }
 
-    const mapaBairrosGlobal = {};
-    baseValida.forEach(d => {
-        const b = d.bairroPlanilha || 'OUTROS / VER ENDEREÇO';
-        if (!mapaBairrosGlobal[b]) mapaBairrosGlobal[b] = { bairro: b, programado: 0, retorno: 0, executado: 0, total: 0 };
-        mapaBairrosGlobal[b].total++;
-        if (d.statusMacroPlanilha === 'RETORNO') mapaBairrosGlobal[b].retorno++;
-        else mapaBairrosGlobal[b].programado++;
-        if (d.desfecho === 'CONCLUIDA') mapaBairrosGlobal[b].executado++;
-    });
+        if (codigo.length < 3 || !Array.isArray(registrosSalvos)) {
+            boxAlerta.classList.add('hidden');
+            return null;
+        }
 
-    const listaBairrosGlobal = Object.values(mapaBairrosGlobal).sort((a, b) => b.total - a.total);
-    setEl('kpi-macro-qtd-bairros', listaBairrosGlobal.length);
-    if (listaBairrosGlobal.length > 0) {
-        setEl('kpi-macro-top-bairro', listaBairrosGlobal[0].bairro);
-        setEl('kpi-macro-top-bairro-qtd', `${listaBairrosGlobal[0].total} acionamentos (${listaBairrosGlobal[0].executado} exec.)`);
+        const historico = registrosSalvos.filter(r => {
+            const codReg = (r.imovel || "").toUpperCase().trim();
+            return (codReg === codigo || codReg.startsWith(codigo + " -")) &&
+                   ['PENDENTE', 'MALOGRADA', 'CONCLUIDA'].includes(r.desfecho);
+        });
+
+        if (historico.length === 0) {
+            boxAlerta.classList.add('hidden');
+            return null;
+        }
+
+        const ultimo = historico[0];
+        const opcoesStr = (Array.isArray(ultimo.malogros) && ultimo.malogros.length > 0) ? ultimo.malogros.join(' + ') : 'Sem ofensor marcado';
+        const motivoStr = ultimo.motivoDesfecho || ultimo.observacoes || 'Sem observações detalhadas';
+
+        if (ultimo.desfecho === 'PENDENTE' || ultimo.desfecho === 'MALOGRADA') {
+            boxAlerta.className = 'mt-1.5 p-2.5 rounded-xl border-2 border-amber-400 bg-amber-50 text-amber-950 text-[11px] space-y-1 shadow-sm';
+            boxAlerta.innerHTML = `
+                <div class="font-black uppercase flex items-center justify-between">
+                    <span>⚠️ Histórico de Reincidência (${ultimo.desfecho})</span>
+                    <span class="text-[10px] font-mono bg-amber-200 px-1.5 py-0.5 rounded">${ultimo.dataRegistro}</span>
+                </div>
+                <div><b>Projeto:</b> ${ultimo.projeto} • <b>Técnico:</b> ${ultimo.equipe}</div>
+                <div><b>Ofensor/Opção:</b> <span class="font-bold text-red-800">${opcoesStr}</span></div>
+                <div class="italic text-[10px] bg-white p-1.5 rounded border border-amber-200">💬 "${motivoStr}"</div>
+            `;
+        } else {
+            boxAlerta.className = 'mt-1.5 p-2.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-950 text-[11px] space-y-0.5';
+            boxAlerta.innerHTML = `
+                <div class="font-bold flex items-center justify-between">
+                    <span>ℹ️ Imóvel com registro anterior CONCLUÍDO</span>
+                    <span class="text-[10px] font-mono">${ultimo.dataRegistro}</span>
+                </div>
+                <div class="text-[10px]"><b>Projeto:</b> ${ultimo.projeto} • <b>Técnico:</b> ${ultimo.equipe}</div>
+            `;
+        }
+
+        boxAlerta.classList.remove('hidden');
+        return ultimo;
+    } catch (e) {
+        return null;
+    }
+}
+
+setTimeout(() => {
+    const inp = document.getElementById('inp-imovel');
+    if (inp) {
+        inp.addEventListener('input', (e) => verificarHistoricoReincidenciaImovelCampo(e.target.value));
+    }
+    renderizarBannerFilaOfflineCampo();
+}, 400);
+
+function atualizarBarraExpedienteCampo() {
+    const nomeEq = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "";
+    const boxExp = document.getElementById('box-controle-expediente-campo');
+    if (!boxExp) return;
+
+    if (!nomeEq || equipeAutenticadaSessao !== nomeEq) {
+        boxExp.classList.add('hidden');
+        return;
+    }
+
+    boxExp.classList.remove('hidden');
+    const hojeISO = obterDataLocalISO();
+    const info = (typeof telemetriaEquipes !== 'undefined' && telemetriaEquipes) ? telemetriaEquipes[nomeEq] : null;
+    const turnoAtivoHoje = info && info.data === hojeISO && info.statusTurno === 'DISPONIVEL';
+    const turnoEncerradoHoje = info && info.data === hojeISO && info.statusTurno === 'ENCERRADO';
+
+    const dot = document.getElementById('dot-rastreio-campo');
+    const lblStatus = document.getElementById('lbl-status-expediente-campo');
+    const lblHoraIni = document.getElementById('lbl-hora-inicio-expediente');
+    const lblInfoGps = document.getElementById('lbl-info-rastreio-gps');
+    const btnIniciar = document.getElementById('btn-iniciar-expediente-campo');
+    const btnEncerrar = document.getElementById('btn-encerrar-expediente-campo');
+
+    if (turnoAtivoHoje) {
+        boxExp.className = "p-3 rounded-xl border-2 border-emerald-400 bg-emerald-50/70 space-y-2";
+        if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-600 animate-ping inline-block";
+        if (lblStatus) {
+            lblStatus.className = "text-emerald-950 font-black";
+            lblStatus.innerText = "🟢 Expediente Ativo (Em Rota)";
+        }
+        if (lblHoraIni) lblHoraIni.innerText = `Início: ${info.horaInicio || '--:--'}`;
+        if (lblInfoGps) {
+            lblInfoGps.className = "text-[10px] text-emerald-800 font-semibold leading-tight";
+            lblInfoGps.innerText = `📡 Rastreamento GPS Ativo • Último envio: ${info.horaUltimoSinal || '--:--'} (${info.lat ? `${info.lat}, ${info.lng}` : 'Aguardando sinal'})`;
+        }
+        if (btnIniciar) btnIniciar.classList.add('hidden');
+        if (btnEncerrar) btnEncerrar.classList.remove('hidden');
+
+        if (!watchIdRastreioGps) {
+            iniciarMonitoramentoContinuoGps(nomeEq);
+        }
+    } else if (turnoEncerradoHoje) {
+        boxExp.className = "p-3 rounded-xl border-2 border-red-200 bg-red-50/50 space-y-2";
+        if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-red-500 inline-block";
+        if (lblStatus) {
+            lblStatus.className = "text-red-900 font-black";
+            lblStatus.innerText = "🔴 Expediente Encerrado Hoje";
+        }
+        if (lblHoraIni) lblHoraIni.innerText = `${info.horaInicio || '--:--'} às ${info.horaFim || '--:--'}`;
+        if (lblInfoGps) {
+            lblInfoGps.className = "text-[10px] text-red-700 leading-tight";
+            lblInfoGps.innerText = `Turno finalizado às ${info.horaFim || '--:--'}. Caso precise retornar à rota hoje, clique abaixo para reativar.`;
+        }
+        if (btnIniciar) {
+            btnIniciar.innerText = "🟢 Reativar Expediente / Voltar para Rota";
+            btnIniciar.classList.remove('hidden');
+        }
+        if (btnEncerrar) btnEncerrar.classList.add('hidden');
     } else {
-        setEl('kpi-macro-top-bairro', '-');
-        setEl('kpi-macro-top-bairro-qtd', '0 acionamentos');
-    }
-
-    const gruposBairro = [
-        { chave: 'VISTORIA', titulo: '🔍 GRUPO VISTORIA — Por Bairro', cor: 'bg-purple-900 text-white' },
-        { chave: 'CONSTRUÇÃO', titulo: '🛠️ GRUPO CONSTRUÇÃO (F vs. ON GOING) — Por Bairro', cor: 'bg-blue-900 text-white' },
-        { chave: 'ATIVAÇÃO', titulo: '⚡ GRUPO ATIVAÇÃO (F vs. ON GOING) — Por Bairro', cor: 'bg-emerald-900 text-white' }
-    ];
-
-    if (baseValida.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Nenhum registro finalizado no período.</td></tr>`;
-    } else {
-        gruposBairro.forEach(grp => {
-            const itensGrp = baseValida.filter(d => d.servicoPlanilha === grp.chave);
-            if (itensGrp.length === 0) return;
-
-            tbody.innerHTML += `<tr class="${grp.cor} font-black text-[11px]"><td colspan="7" class="p-2 uppercase">${grp.titulo} (${itensGrp.length} reg.)</td></tr>`;
-            const mapaB = {};
-            itensGrp.forEach(d => {
-                const b = d.bairroPlanilha || 'OUTROS / VER ENDEREÇO';
-                if (!mapaB[b]) mapaB[b] = { bairro: b, prog: 0, ret: 0, exec: 0, execF: 0, execOG: 0, nExec: 0, total: 0, hps: 0 };
-                mapaB[b].total++;
-                if (d.statusMacroPlanilha === 'RETORNO') mapaB[b].ret++;
-                else mapaB[b].prog++;
-                if (d.desfecho === 'CONCLUIDA') {
-                    mapaB[b].exec++;
-                    mapaB[b].hps += Number(d.hps) || 0;
-                    if (d.subgrupoFOuOnGoing === 'F') mapaB[b].execF++;
-                    else mapaB[b].execOG++;
-                } else mapaB[b].nExec++;
-            });
-
-            Object.values(mapaB).sort((a, b) => b.total - a.total).forEach(item => {
-                const detExec = grp.chave === 'VISTORIA' ? `${item.exec}` : `${item.exec} <span class="text-[9px] text-slate-500">(${item.execF}F / ${item.execOG}OG)</span>`;
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-amber-50/50 border-b cursor-pointer";
-                tr.onclick = () => dispararExplosaoGrafico('bairro', item.bairro);
-                tr.innerHTML = `<td class="p-2 font-bold text-slate-800">${item.bairro}</td><td class="p-2 text-center font-bold text-blue-800 bg-blue-50/40">${item.prog}</td><td class="p-2 text-center font-bold text-amber-800 bg-amber-50/40">${item.ret}</td><td class="p-2 text-center font-black text-emerald-700 bg-emerald-50/40">${detExec}</td><td class="p-2 text-center text-slate-500">${item.nExec}</td><td class="p-2 text-center font-black">${item.total}</td><td class="p-2 text-right font-bold text-indigo-900">${item.hps}</td>`;
-                tbody.appendChild(tr);
-            });
-        });
-    }
-
-    const topBairrosGraf = listaBairrosGlobal.slice(0, 12);
-    const ctxBairro = document.getElementById('graficoProgramadoRetornoBairro')?.getContext('2d');
-    if (ctxBairro) {
-        if (graficoProgramadoRetornoBairroInstancia) graficoProgramadoRetornoBairroInstancia.destroy();
-        graficoProgramadoRetornoBairroInstancia = new Chart(ctxBairro, {
-            type: 'bar',
-            data: {
-                labels: topBairrosGraf.length > 0 ? topBairrosGraf.map(b => b.bairro) : ['Sem dados'],
-                datasets: [
-                    { label: '📋 PROGRAMADO (1ª Visita)', data: topBairrosGraf.map(b => b.programado), backgroundColor: '#2563eb', borderRadius: 4 },
-                    { label: '🔄 RETORNO (Reincidência)', data: topBairrosGraf.map(b => b.retorno), backgroundColor: '#d97706', borderRadius: 4 },
-                    { label: '🟢 EXECUTADO', data: topBairrosGraf.map(b => b.executado), backgroundColor: '#059669', borderRadius: 4 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                onClick: (e, el) => { if (el.length > 0 && topBairrosGraf[el[0].index]) dispararExplosaoGrafico('bairro', topBairrosGraf[el[0].index].bairro); }
-            }
-        });
+        boxExp.className = "p-3 rounded-xl border-2 border-slate-200 bg-slate-50 space-y-2";
+        if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-slate-400 inline-block";
+        if (lblStatus) {
+            lblStatus.className = "text-slate-800 font-black";
+            lblStatus.innerText = "⚪ Expediente Não Iniciado";
+        }
+        if (lblHoraIni) lblHoraIni.innerText = "Início: --:--";
+        if (lblInfoGps) {
+            lblInfoGps.className = "text-[10px] text-slate-500 leading-tight";
+            lblInfoGps.innerText = "Clique abaixo ao sair para campo para ficar Disponível no painel e transmitir sua posição em rota.";
+        }
+        if (btnIniciar) {
+            btnIniciar.innerText = "🟢 Iniciar Expediente / Ficar Disponível em Rota";
+            btnIniciar.classList.remove('hidden');
+        }
+        if (btnEncerrar) btnEncerrar.classList.add('hidden');
     }
 }
 
-function exportarPlanilhaProgramadoRetornoBairro() {
-    const base = enriquecerStatusMacroEBairro(dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
+async function capturarEEnviarPosicaoRastreio(nomeEq, exibirAlertaErro = false) {
+    if (!nomeEq) return null;
+    try {
+        const coordStr = await capturarGpsReal(10000);
+        const partes = coordStr.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0]) && !isNaN(partes[1])) {
+            ultimaCoordRastreioCache = { lat: partes[0], lng: partes[1] };
+            await registrarPontoTelemetriaEquipe(nomeEq, partes[0], partes[1]);
+            return coordStr;
+        }
+    } catch (e) {
+        if (exibirAlertaErro) {
+            alert("⚠️ Não foi possível obter o sinal de GPS. Verifique se a Localização do celular está ativada.");
+        }
+    }
+    return null;
+}
+
+async function registrarPontoTelemetriaEquipe(nomeEq, lat, lng, statusCustom = null) {
+    if (!nomeEq) return;
+    const hojeISO = obterDataLocalISO();
+    const horaAgora = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    const anterior = (telemetriaEquipes[nomeEq] && telemetriaEquipes[nomeEq].data === hojeISO) ? telemetriaEquipes[nomeEq] : {};
+
+    const novoObjeto = {
+        equipe: nomeEq,
+        data: hojeISO,
+        statusTurno: statusCustom || anterior.statusTurno || 'DISPONIVEL',
+        horaInicio: anterior.horaInicio || horaAgora,
+        horaFim: statusCustom === 'ENCERRADO' ? horaAgora : (anterior.horaFim || null),
+        lat: lat !== null && lat !== undefined ? Number(Number(lat).toFixed(6)) : (anterior.lat || null),
+        lng: lng !== null && lng !== undefined ? Number(Number(lng).toFixed(6)) : (anterior.lng || null),
+        horaUltimoSinal: horaAgora,
+        timestampUltimoSinal: Date.now()
+    };
+
+    telemetriaEquipes[nomeEq] = novoObjeto;
+    await sincronizarTelemetriaNaNuvem(nomeEq, novoObjeto);
+    atualizarBarraExpedienteCampo();
+}
+
+function iniciarMonitoramentoContinuoGps(nomeEq) {
+    pararMonitoramentoContinuoGps();
+    if (!navigator.geolocation || !nomeEq) return;
+
+    ativarWakeLockTela();
+
+    watchIdRastreioGps = navigator.geolocation.watchPosition(
+        (pos) => {
+            const lat = Number(pos.coords.latitude.toFixed(6));
+            const lng = Number(pos.coords.longitude.toFixed(6));
+            ultimaCoordRastreioCache = { lat, lng };
+        },
+        (err) => {
+            console.warn("Aviso watchPosition:", err);
+        },
+        { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+    );
+
+    timerEnvioRastreioGps = setInterval(async () => {
+        const eqAtual = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao;
+        const info = eqAtual ? telemetriaEquipes[eqAtual] : null;
+        if (!eqAtual || !info || info.statusTurno !== 'DISPONIVEL') {
+            pararMonitoramentoContinuoGps();
+            return;
+        }
+        if (ultimaCoordRastreioCache) {
+            await registrarPontoTelemetriaEquipe(eqAtual, ultimaCoordRastreioCache.lat, ultimaCoordRastreioCache.lng, 'DISPONIVEL');
+        } else {
+            await capturarEEnviarPosicaoRastreio(eqAtual, false);
+        }
+    }, 60000);
+}
+
+function pararMonitoramentoContinuoGps() {
+    if (watchIdRastreioGps !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRastreioGps);
+        watchIdRastreioGps = null;
+    }
+    if (timerEnvioRastreioGps !== null) {
+        clearInterval(timerEnvioRastreioGps);
+        timerEnvioRastreioGps = null;
+    }
+    liberarWakeLockTela();
+}
+
+async function iniciarExpedienteRastreioCampo() {
+    const nomeEq = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao;
+    if (!nomeEq) {
+        alert("⚠️ Selecione a sua Equipe / Técnico primeiro.");
+        return;
+    }
+
+    const btn = document.getElementById('btn-iniciar-expediente-campo');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "📡 Capturando GPS e iniciando expediente...";
+    }
+
+    let latIni = null, lngIni = null;
+    try {
+        const coord = await capturarGpsReal(12000);
+        const partes = coord.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            latIni = partes[0];
+            lngIni = partes[1];
+            ultimaCoordRastreioCache = { lat: latIni, lng: lngIni };
+        }
+    } catch (e) {
+        alert("❌ Ative o GPS / Localização do celular para iniciar o expediente e ficar disponível em rota.");
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = "🟢 Iniciar Expediente / Ficar Disponível em Rota";
+        }
+        return;
+    }
+
+    const hojeISO = obterDataLocalISO();
+    const horaAgora = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+    const dadosTurno = {
+        equipe: nomeEq,
+        data: hojeISO,
+        statusTurno: 'DISPONIVEL',
+        horaInicio: telemetriaEquipes[nomeEq]?.data === hojeISO && telemetriaEquipes[nomeEq]?.horaInicio ? telemetriaEquipes[nomeEq].horaInicio : horaAgora,
+        horaFim: null,
+        lat: latIni,
+        lng: lngIni,
+        horaUltimoSinal: horaAgora,
+        timestampUltimoSinal: Date.now()
+    };
+
+    telemetriaEquipes[nomeEq] = dadosTurno;
+    await sincronizarTelemetriaNaNuvem(nomeEq, dadosTurno);
+
+    if (btn) {
+        btn.disabled = false;
+        btn.innerText = "🟢 Iniciar Expediente / Ficar Disponível em Rota";
+    }
+
+    iniciarMonitoramentoContinuoGps(nomeEq);
+    atualizarBarraExpedienteCampo();
+    alert(`🟢 Expediente iniciado às ${horaAgora}!\nVocê já consta como DISPONÍVEL EM ROTA no mapa da gestão.`);
+}
+
+async function encerrarExpedienteRastreioCampo() {
+    const nomeEq = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao;
+    if (!nomeEq) return;
+
+    const posAberturaVisivel = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
+    if (posAberturaVisivel) {
+        alert("🚫 NÃO É PERMITIDO ENCERRAR O EXPEDIENTE!\n\nVocê possui um atendimento aberto na sua tela neste momento. Finalize e salve o atendimento (ou cancele a abertura) antes de encerrar o turno.");
+        return;
+    }
+
+    const btnEnc = document.getElementById('btn-encerrar-expediente-campo');
+    if (btnEnc) {
+        btnEnc.disabled = true;
+        btnEnc.innerText = "⏳ Verificando atividades em aberto...";
+    }
+
+    await carregarRegistrosModoCampoLeve();
+
+    if (btnEnc) {
+        btnEnc.disabled = false;
+        btnEnc.innerText = "🔴 Encerrar Expediente do Dia";
+    }
+
+    const pendentesAbertasNuvem = (registrosSalvos || []).filter(r =>
+        r.equipe === nomeEq &&
+        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+        r.projeto !== PROJETO_SOLIC_MATERIAL &&
+        ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'IMPREVISTO'].includes(r.desfecho)
+    );
+
+    if (pendentesAbertasNuvem.length > 0) {
+        const resumoPendencias = pendentesAbertasNuvem.map(p => `• ${p.imovel} (${p.desfecho})`).join('\n');
+        alert(
+            `🚫 ENCERRAMENTO DE EXPEDIENTE BLOQUEADO!\n\n` +
+            `Você ainda possui ${pendentesAbertasNuvem.length} atividade(s) ou imprevisto(s) em aberto no painel:\n\n` +
+            `${resumoPendencias}\n\n` +
+            `Finalize todas as atividades em andamento, paralisadas, reabertas ou resolva o imprevisto antes de encerrar o seu turno do dia.`
+        );
+        return;
+    }
+
+    if (!confirm(`🔴 ENCERRAR EXPEDIENTE DO DIA\n\nNenhuma atividade em aberto encontrada.\nConfirmar o encerramento do turno de hoje para ${nomeEq}? O compartilhamento de GPS em rota será desligado.`)) {
+        return;
+    }
+
+    let latFim = ultimaCoordRastreioCache?.lat || telemetriaEquipes[nomeEq]?.lat || null;
+    let lngFim = ultimaCoordRastreioCache?.lng || telemetriaEquipes[nomeEq]?.lng || null;
+
+    try {
+        const coord = await capturarGpsReal(6000);
+        const partes = coord.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            latFim = partes[0];
+            lngFim = partes[1];
+        }
+    } catch (e) {}
+
+    pararMonitoramentoContinuoGps();
+    await registrarPontoTelemetriaEquipe(nomeEq, latFim, lngFim, 'ENCERRADO');
+
+    const horaFim = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    alert(`🔴 Expediente encerrado às ${horaFim}! Bom descanso.`);
+}
+
+function comprimirImagemBase64(file, maxWidth = 780, quality = 0.60) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                resolve(dataUrl);
+            };
+            img.onerror = reject;
+            img.src = event.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+async function aoSelecionarFotosBloco(idx, inputEl) {
+    lerDadosBlocosDaTela();
+    const arquivos = Array.from(inputEl.files || []);
+    if (arquivos.length === 0) return;
+
+    const bloco = dadosAtendimento.blocos[idx];
+    if (!bloco.fotos) bloco.fotos = [];
+
+    if (bloco.fotos.length + arquivos.length > 10) {
+        alert("⚠️ Você pode anexar no máximo 10 fotos por bloco.");
+        inputEl.value = "";
+        return;
+    }
+
+    for (const arq of arquivos) {
+        try {
+            const base64Comprimida = await comprimirImagemBase64(arq, 780, 0.60);
+            bloco.fotos.push(base64Comprimida);
+        } catch (e) {
+            console.warn("Erro ao processar foto:", e);
+        }
+    }
+
+    inputEl.value = "";
+    renderizarBlocosCampo();
+    salvarRascunhoCampo();
+}
+
+function removerFotoBloco(idxBloco, idxFoto) {
+    lerDadosBlocosDaTela();
+    const bloco = dadosAtendimento.blocos[idxBloco];
+    if (bloco && Array.isArray(bloco.fotos)) {
+        bloco.fotos.splice(idxFoto, 1);
+        renderizarBlocosCampo();
+        salvarRascunhoCampo();
+    }
+}
+
+function abrirZoomFoto(srcBase64, nomeArquivo = "foto_gpd.jpg") {
+    const modal = document.getElementById('modal-zoom-foto');
+    const img = document.getElementById('img-zoom-alvo');
+    const btnDown = document.getElementById('btn-download-zoom-foto');
+    const lbl = document.getElementById('lbl-titulo-zoom-foto');
+    if (!modal || !img) return;
+
+    img.src = srcBase64;
+    btnDown.href = srcBase64;
+    btnDown.download = nomeArquivo;
+    lbl.innerText = `📷 ${nomeArquivo}`;
+    modal.classList.remove('hidden');
+}
+
+function fecharZoomFoto() {
+    document.getElementById('modal-zoom-foto').classList.add('hidden');
+}
+
+function baixarFotoDireto(srcBase64, nomeArquivo) {
+    const a = document.createElement('a');
+    a.href = srcBase64;
+    a.download = nomeArquivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// ================= SUB-ABAS DO MODO CAMPO (ATENDIMENTO vs MINHAS ATIVIDADES) =================
+
+function mudarSubAbaCampo(aba) {
+    const vLanc = document.getElementById('subview-campo-lancamento');
+    const vPainel = document.getElementById('subview-campo-painel');
+    const btnLanc = document.getElementById('btn-aba-campo-lancamento');
+    const btnPainel = document.getElementById('btn-aba-campo-painel');
+
+    if (!vLanc || !vPainel) return;
+
+    if (aba === 'painel') {
+        vLanc.classList.add('hidden');
+        vPainel.classList.remove('hidden');
+        if (btnPainel) btnPainel.className = "py-2 px-3 rounded-lg font-bold text-xs transition bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5";
+        if (btnLanc) btnLanc.className = "py-2 px-3 rounded-lg font-bold text-xs transition bg-white text-slate-700 hover:bg-slate-200 flex items-center justify-center gap-1.5";
+        atualizarAbaMinhasAtividadesCampo(false);
+    } else {
+        vPainel.classList.add('hidden');
+        vLanc.classList.remove('hidden');
+        if (btnLanc) btnLanc.className = "py-2 px-3 rounded-lg font-bold text-xs transition bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5";
+        if (btnPainel) btnPainel.className = "py-2 px-3 rounded-lg font-bold text-xs transition bg-white text-slate-700 hover:bg-slate-200 flex items-center justify-center gap-1.5";
+    }
+}
+
+async function atualizarAbaMinhasAtividadesCampo(forcarRecarregamentoNuvem = false) {
+    if (forcarRecarregamentoNuvem) {
+        await carregarRegistrosModoCampoLeve();
+    }
+
+    renderizarResumoSolicitacoesCampo();
+
+    const equipeSelecionada = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "";
+    const container = document.getElementById('lista-minhas-atividades-campo');
+    const badgeQtd = document.getElementById('badge-qtd-minhas-ativ');
+
+    if (!container) return;
+
+    if (!equipeSelecionada) {
+        if (badgeQtd) badgeQtd.innerText = "0";
+        container.innerHTML = `
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-center text-xs text-slate-500">
+                🔒 Selecione a sua <b>Equipe / Técnico</b> e autentique seu PIN na aba "Atendimento" para visualizar e controlar todas as suas atividades no painel de gestão.
+            </div>
+        `;
+        return;
+    }
+
+    const hojeISO = obterDataLocalISO();
+    const meusRegistros = (registrosSalvos || []).filter(r =>
+        r.equipe === equipeSelecionada &&
         r.projeto !== 'IMPREVISTO / ATRASO' &&
         r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
         r.projeto !== PROJETO_SOLIC_MATERIAL
     );
 
-    if (base.length === 0) { alert("⚠️ Nenhum registro encontrado no período."); return; }
+    const ativasPainel = meusRegistros.filter(r => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'PROGRAMADA'].includes(r.desfecho));
+    const finalizadasHoje = meusRegistros.filter(r => r.dataRegistro === hojeISO && ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(r.desfecho));
 
-    let html = `<table border="1">`;
-    const gruposExport = [
-        { chave: 'VISTORIA', titulo: 'GRUPO 1: VISTORIA (RESULTADOS DOS VISTORIADORES)', cor: '#581c87' },
-        { chave: 'CONSTRUÇÃO', titulo: 'GRUPO 2: CONSTRUÇÃO — INSTALADORES (SEPARANDO PROJETO F E ON GOING)', cor: '#1e3a8a' },
-        { chave: 'ATIVAÇÃO', titulo: 'GRUPO 3: ATIVAÇÃO — ATIVADORES (SEPARANDO PROJETO F E ON GOING)', cor: '#064e3b' }
+    if (badgeQtd) badgeQtd.innerText = ativasPainel.length;
+
+    const ordemPrioridade = { 'EM ANDAMENTO': 1, 'PARALISADA': 2, 'REABERTA': 3, 'PROGRAMADA': 4 };
+    ativasPainel.sort((a, b) => (ordemPrioridade[a.desfecho] || 9) - (ordemPrioridade[b.desfecho] || 9));
+
+    let html = "";
+
+    if (ativasPainel.length === 0) {
+        html += `
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center text-xs text-emerald-900 font-semibold">
+                ✅ Você não possui atividades pendentes, programadas ou em aberto na fila do painel neste momento.
+            </div>
+        `;
+    } else {
+        html += `<div class="text-[11px] font-black text-slate-700 uppercase px-1">🔥 Ativas / Na Fila do Painel (${ativasPainel.length})</div>`;
+        ativasPainel.forEach(r => {
+            const corBadge = obterClasseCorDesfecho(r.desfecho);
+            const qtdB = r.qtdBlocosProgramados || 1;
+            let btnAcao = "";
+
+            if (r.desfecho === 'PROGRAMADA') {
+                btnAcao = `<button type="button" onclick="mudarSubAbaCampo('lancamento'); iniciarAtividadeProgramadaCampo(${r.id})" title="Capturar GPS e iniciar esta atividade programada" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">🚀 Iniciar Agora</button>`;
+            } else if (r.desfecho === 'REABERTA') {
+                btnAcao = `<button type="button" onclick="mudarSubAbaCampo('lancamento'); retomarAtividadeReabertaCampo(${r.id})" title="Abrir atividade liberada pelo gestor para edição" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">✏️ Editar Reaberta</button>`;
+            } else if (r.desfecho === 'EM ANDAMENTO' || r.desfecho === 'PARALISADA') {
+                btnAcao = `<button type="button" onclick="mudarSubAbaCampo('lancamento'); retomarAtividadeEmAndamentoOuParalisadaNuvem(${r.id})" title="Retomar o preenchimento desta atividade em andamento" class="bg-blue-800 hover:bg-blue-900 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">▶️ Abrir / Continuar</button>`;
+            }
+
+            html += `
+                <div class="bg-white p-3 rounded-xl border-2 border-slate-200 shadow-sm space-y-1.5">
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <span class="font-black text-blue-950 text-xs">🏢 ${r.imovel}</span>
+                            <span class="ml-1 bg-blue-50 text-blue-900 border border-blue-200 px-1.5 py-0.5 rounded text-[9px] font-bold">${r.projeto}</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[9px] font-bold ${corBadge}">${r.desfecho}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-600">📍 ${r.endereco || 'Endereço a confirmar'}</div>
+                    <div class="flex justify-between items-center pt-1.5 border-t border-slate-100 text-[10px] text-slate-500">
+                        <span>📅 ${r.dataRegistro} • Blocos: <b>${qtdB}</b> ${r.tempoPausadoMinutos > 0 ? `• ⏸️ Pausa: <b>${r.tempoPausadoMinutos}m</b>` : ''}</span>
+                        ${btnAcao}
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    if (finalizadasHoje.length > 0) {
+        html += `<div class="text-[11px] font-black text-slate-700 uppercase px-1 pt-3 border-t border-slate-200">✔️ Finalizadas por Você Hoje (${finalizadasHoje.length})</div>`;
+        finalizadasHoje.forEach(r => {
+            const corBadge = obterClasseCorDesfecho(r.desfecho);
+            html += `
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex justify-between items-center gap-2 text-xs">
+                    <div>
+                        <div class="font-bold text-slate-800">🏢 ${r.imovel} <span class="text-[10px] font-normal text-slate-500">(${r.projeto})</span></div>
+                        <div class="text-[10px] text-slate-500">🕒 ${r.hEntrada} às ${r.hSaida} ${r.tempoPausadoMinutos > 0 ? `• ⏸️ ${r.tempoPausadoMinutos}m pausa` : ''}</div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-[9px] font-bold ${corBadge}">${r.desfecho}</span>
+                </div>
+            `;
+        });
+    }
+
+    container.innerHTML = html;
+}
+
+function retomarAtividadeEmAndamentoOuParalisadaNuvem(idReg) {
+    if (dadosAtendimento.idEmAndamento && dadosAtendimento.idEmAndamento === idReg) {
+        mudarSubAbaCampo('lancamento');
+        return;
+    }
+
+    const r = (registrosSalvos || []).find(item => item.id === idReg);
+    if (!r) return;
+
+    encerrarImprevistosAbertosAoIniciarAtividade(r.equipe, r.gpsEntrada);
+    atualizarProjetosPermitidosCampo(r.equipe, r.projeto);
+    document.getElementById('sel-projeto').value = r.projeto;
+    document.getElementById('inp-imovel').value = r.imovel;
+
+    dadosAtendimento.idEmAndamento = r.id;
+    dadosAtendimento.eraReaberta = false;
+    dadosAtendimento.eraProgramada = (r.motivoDesfecho || '').includes('[ORIGEM:PROGRAMADA]');
+    dadosAtendimento.hEntrada = (r.hEntrada && r.hEntrada !== 'Programada') ? r.hEntrada : new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    dadosAtendimento.gpsEntrada = r.gpsEntrada || "Mantido da abertura";
+    dadosAtendimento.minutosPausados = Number(r.tempoPausadoMinutos) || 0;
+    dadosAtendimento.emPausa = (r.desfecho === 'PARALISADA');
+    dadosAtendimento.inicioPausa = dadosAtendimento.emPausa ? Date.now() : null;
+    dadosAtendimento.motivoPausaAtual = dadosAtendimento.emPausa ? (r.motivoDesfecho || 'Atividade paralisada') : '';
+
+    const totalBlocos = Math.max(1, Math.min(20, Number(r.qtdBlocosProgramados) || 1));
+    dadosAtendimento.blocos = [];
+    for (let i = 1; i <= totalBlocos; i++) {
+        const b = criarObjetoBlocoPadrao(i);
+        if (r.andares) b.andares = r.andares;
+        if (r.hps) b.hps = r.hps;
+        if (r.observacoes && r.observacoes !== 'Em andamento') b.observacoes = r.observacoes;
+        dadosAtendimento.blocos.push(b);
+    }
+
+    document.getElementById('lbl-imovel-aberto').innerText = `${r.imovel} (${r.projeto})`;
+    document.getElementById('lbl-h-entrada').innerText = dadosAtendimento.hEntrada;
+    document.getElementById('lbl-gps-entrada').innerText = dadosAtendimento.gpsEntrada;
+
+    document.getElementById('form-endereco').value = r.endereco || '';
+    document.getElementById('form-liberou-acesso').value = r.liberouAcesso || '';
+    document.getElementById('form-responsavel').value = r.responsavel || '';
+    document.getElementById('form-contato').value = r.contato || '';
+    document.getElementById('form-email').value = r.email || '';
+    document.getElementById('inp-qtd-blocos').value = totalBlocos;
+
+    document.getElementById('form-campo-container').classList.add('hidden');
+    document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+
+    mudarTipoProjeto();
+    renderizarBlocosCampo();
+    sincronizarVisualPausaCampo();
+    salvarRascunhoCampo();
+}
+
+// ================= PARALISAR E RETOMAR ATIVIDADE EM CAMPO =================
+
+function sincronizarVisualPausaCampo() {
+    const btnParalisar = document.getElementById('btn-paralisar-atividade');
+    const bannerPausa = document.getElementById('banner-atividade-paralisada-ativa');
+    const corpoForm = document.getElementById('corpo-formulario-blocos-campo');
+    const lblStatus = document.getElementById('lbl-status-execucao-campo');
+    const lblAcumulado = document.getElementById('lbl-tempo-pausado-acumulado');
+    const dotStatus = document.getElementById('dot-status-execucao');
+
+    if (lblAcumulado) {
+        lblAcumulado.innerText = dadosAtendimento.minutosPausados > 0 ? `(⏸️ Pausas: ${dadosAtendimento.minutosPausados} min)` : "";
+    }
+
+    if (dadosAtendimento.emPausa) {
+        if (btnParalisar) btnParalisar.classList.add('hidden');
+        if (bannerPausa) bannerPausa.classList.remove('hidden');
+        if (corpoForm) corpoForm.classList.add('opacity-50', 'pointer-events-none');
+        if (lblStatus) lblStatus.innerText = "⏸️ ATIVIDADE PARALISADA";
+        if (dotStatus) dotStatus.className = "inline-block w-2 h-2 rounded-full bg-orange-500 animate-ping";
+
+        const horaPausa = dadosAtendimento.inicioPausa 
+            ? new Date(dadosAtendimento.inicioPausa).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
+            : '--:--';
+        const elHora = document.getElementById('lbl-hora-inicio-pausa');
+        const elMot = document.getElementById('lbl-motivo-pausa-atual');
+        if (elHora) elHora.innerText = `Desde ${horaPausa}`;
+        if (elMot) elMot.innerText = `Motivo: ${dadosAtendimento.motivoPausaAtual || 'Não informado'}`;
+    } else {
+        if (btnParalisar) btnParalisar.classList.remove('hidden');
+        if (bannerPausa) bannerPausa.classList.add('hidden');
+        if (corpoForm) corpoForm.classList.remove('opacity-50', 'pointer-events-none');
+        if (lblStatus) lblStatus.innerText = dadosAtendimento.eraReaberta ? "🔄 Editando Atividade Reaberta" : "Status: Em Andamento no Painel";
+        if (dotStatus) dotStatus.className = "inline-block w-2 h-2 rounded-full bg-blue-600 animate-ping";
+    }
+}
+
+async function paralisarAtividadeAtualCampo() {
+    if (!dadosAtendimento.idEmAndamento) return;
+    lerDadosBlocosDaTela();
+
+    const motivo = prompt("⏸️ PARALISAR ATIVIDADE TEMPORARIAMENTE\n\nInforme o motivo da paralisação (Ex: Horário de almoço, chuva, aguardando síndico/material):");
+    if (motivo === null) return;
+    const motivoLimpo = motivo.trim() || "Paralisação temporária em campo";
+
+    const agora = Date.now();
+    const horaStr = new Date(agora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+    dadosAtendimento.emPausa = true;
+    dadosAtendimento.inicioPausa = agora;
+    dadosAtendimento.motivoPausaAtual = motivoLimpo;
+
+    const endAtual = document.getElementById('form-endereco')?.value.trim() || '';
+    const libAtual = document.getElementById('form-liberou-acesso')?.value.trim() || '';
+    const tagEnd = endAtual ? `[END: ${endAtual}] ` : '';
+    const tagLib = libAtual ? `[LIBEROU_ACESSO: ${libAtual}] ` : '';
+    const tagPausa = `[PAUSA_INICIO: ${agora}] [PAUSA_TOTAL: ${dadosAtendimento.minutosPausados || 0}]`;
+
+    await supabaseClient.from('registros_producao').update({
+        desfecho: "PARALISADA",
+        h_saida: "Paralisada",
+        motivo_desfecho: `⏸️ Paralisada às ${horaStr}: ${motivoLimpo}`,
+        observacoes: `${tagEnd}${tagLib}${tagPausa}`.trim()
+    }).eq('id', dadosAtendimento.idEmAndamento);
+
+    sincronizarVisualPausaCampo();
+    salvarRascunhoCampo();
+    await carregarRegistrosModoCampoLeve();
+    atualizarAbaMinhasAtividadesCampo(false);
+    alert(`⏸️ Atividade paralisada às ${horaStr}!\nSeus dados preenchidos estão salvos. Clique em "Retomar Atividade Agora" quando voltar ao serviço.`);
+}
+
+async function retomarAtividadeParalisadaCampo() {
+    if (!dadosAtendimento.idEmAndamento || !dadosAtendimento.emPausa) return;
+
+    const agora = Date.now();
+    const inicio = dadosAtendimento.inicioPausa || agora;
+    const minutosDestaPausa = Math.max(1, Math.round((agora - inicio) / 60000));
+
+    dadosAtendimento.minutosPausados = (Number(dadosAtendimento.minutosPausados) || 0) + minutosDestaPausa;
+    dadosAtendimento.emPausa = false;
+    dadosAtendimento.inicioPausa = null;
+    dadosAtendimento.motivoPausaAtual = "";
+
+    const horaStr = new Date(agora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    const endAtual = document.getElementById('form-endereco')?.value.trim() || '';
+    const libAtual = document.getElementById('form-liberou-acesso')?.value.trim() || '';
+    const tagEnd = endAtual ? `[END: ${endAtual}] ` : '';
+    const tagLib = libAtual ? `[LIBEROU_ACESSO: ${libAtual}] ` : '';
+    const tagPausa = `[PAUSA_TOTAL: ${dadosAtendimento.minutosPausados}]`;
+
+    await supabaseClient.from('registros_producao').update({
+        desfecho: "EM ANDAMENTO",
+        h_saida: "Em Andamento",
+        motivo_desfecho: `▶️ Retomada às ${horaStr} (Pausa acumulada: ${dadosAtendimento.minutosPausados} min)`,
+        observacoes: `${tagEnd}${tagLib}${tagPausa}`.trim()
+    }).eq('id', dadosAtendimento.idEmAndamento);
+
+    sincronizarVisualPausaCampo();
+    salvarRascunhoCampo();
+    await carregarRegistrosModoCampoLeve();
+    atualizarAbaMinhasAtividadesCampo(false);
+    alert(`▶️ Atividade retomada com sucesso!\nTempo desta pausa: ${minutosDestaPausa} min (Total acumulado: ${dadosAtendimento.minutosPausados} min).`);
+}
+
+function criarObjetoBlocoPadrao(numero) {
+    return {
+        identificacao: `BLOCO ${numero}`,
+        andares: "",
+        hps: "",
+        fusoes: 0,
+        conectores: 0,
+        caboRL: 0,
+        caboDrop: 0,
+        nap: 0,
+        dio: 0,
+        cxSobrepor: 0,
+        cxEmbutida: 0,
+        cxFosc: 0,
+        desfecho: null,
+        servicoObra: "SIM",
+        concluidasOpcoes: [],
+        obsConcluida: "",
+        obsPendente: "",
+        pendenciasOpcoes: [],
+        obsMalograda: "",
+        malogros: [],
+        observacoes: "",
+        fotos: []
+    };
+}
+
+function lerDadosBlocosDaTela() {
+    const qtd = dadosAtendimento.blocos.length;
+    for (let i = 0; i < qtd; i++) {
+        const b = dadosAtendimento.blocos[i];
+        const elId = document.getElementById(`bloco-ident-${i}`);
+        if (!elId) continue;
+        b.identificacao = elId.value;
+        b.andares = document.getElementById(`bloco-andares-${i}`)?.value || "";
+        b.hps = document.getElementById(`bloco-hps-${i}`)?.value || "";
+        b.fusoes = document.getElementById(`bloco-fusoes-${i}`)?.value || 0;
+        b.conectores = document.getElementById(`bloco-conectores-${i}`)?.value || 0;
+        b.caboRL = document.getElementById(`bloco-cabo-rl-${i}`)?.value || 0;
+        b.caboDrop = document.getElementById(`bloco-cabo-drop-${i}`)?.value || 0;
+        b.nap = document.getElementById(`bloco-nap-${i}`)?.value || 0;
+        b.dio = document.getElementById(`bloco-dio-${i}`)?.value || 0;
+        b.cxSobrepor = document.getElementById(`bloco-cx-sobrepor-${i}`)?.value || 0;
+        b.cxEmbutida = document.getElementById(`bloco-cx-embutida-${i}`)?.value || 0;
+        b.cxFosc = document.getElementById(`bloco-cx-fosc-${i}`)?.value || 0;
+        b.servicoObra = document.getElementById(`bloco-servico-obra-${i}`)?.value || "SIM";
+        b.obsConcluida = document.getElementById(`bloco-obs-conc-${i}`)?.value || "";
+        b.obsPendente = document.getElementById(`bloco-obs-pend-${i}`)?.value || "";
+        b.obsMalograda = document.getElementById(`bloco-obs-malo-${i}`)?.value || "";
+        b.observacoes = document.getElementById(`bloco-observacoes-${i}`)?.value || "";
+
+        const checksConc = document.querySelectorAll(`input[name="bloco-concluida-check-${i}"]:checked`);
+        b.concluidasOpcoes = Array.from(checksConc).map(c => c.value);
+
+        const checksPend = document.querySelectorAll(`input[name="bloco-pendencia-check-${i}"]:checked`);
+        b.pendenciasOpcoes = Array.from(checksPend).map(c => c.value);
+
+        const checksMalo = document.querySelectorAll(`input[name="bloco-malogro-check-${i}"]:checked`);
+        b.malogros = Array.from(checksMalo).map(c => c.value);
+    }
+}
+
+function alterarQuantidadeBlocos(novaQtd) {
+    lerDadosBlocosDaTela();
+    let qtd = parseInt(novaQtd, 10);
+    if (isNaN(qtd) || qtd < 1) qtd = 1;
+    if (qtd > 20) qtd = 20;
+    document.getElementById('inp-qtd-blocos').value = qtd;
+
+    while (dadosAtendimento.blocos.length < qtd) {
+        dadosAtendimento.blocos.push(criarObjetoBlocoPadrao(dadosAtendimento.blocos.length + 1));
+    }
+    if (dadosAtendimento.blocos.length > qtd) {
+        dadosAtendimento.blocos = dadosAtendimento.blocos.slice(0, qtd);
+    }
+    renderizarBlocosCampo();
+    salvarRascunhoCampo();
+}
+
+function selecionarDesfechoBloco(idx, tipo) {
+    lerDadosBlocosDaTela();
+    if (dadosAtendimento.blocos[idx]) {
+        dadosAtendimento.blocos[idx].desfecho = tipo;
+    }
+    renderizarBlocosCampo();
+    salvarRascunhoCampo();
+}
+
+function renderizarBlocosCampo() {
+    const container = document.getElementById('container-blocos-dinamicos');
+    if (!container) return;
+    container.innerHTML = "";
+
+    const qtdTotal = dadosAtendimento.blocos.length;
+
+    dadosAtendimento.blocos.forEach((b, idx) => {
+        if (!b.fotos) b.fotos = [];
+        if (!b.concluidasOpcoes) b.concluidasOpcoes = [];
+        const mostrarIdentBloco = qtdTotal > 1;
+        const d = b.desfecho;
+
+        const btnConcClass = d === 'CONCLUIDA' ? 'ring-2 ring-offset-1 ring-emerald-700 bg-emerald-700 text-white' : 'bg-emerald-600/90 text-white opacity-80';
+        const btnPendClass = d === 'PENDENTE' ? 'ring-2 ring-offset-1 ring-amber-600 bg-amber-600 text-white' : 'bg-amber-500/90 text-white opacity-80';
+        const btnMaloClass = d === 'MALOGRADA' ? 'ring-2 ring-offset-1 ring-red-700 bg-red-700 text-white' : 'bg-red-600/90 text-white opacity-80';
+
+        const checkboxesConcluidaHtml = OPCOES_CONCLUIDA_PADRAO.map(op => {
+            const checked = (b.concluidasOpcoes && b.concluidasOpcoes.includes(op)) ? 'checked' : '';
+            return `<label class="flex items-center gap-1.5"><input type="checkbox" name="bloco-concluida-check-${idx}" value="${op}" ${checked}> ${op}</label>`;
+        }).join('');
+
+        const checkboxesPendenciaHtml = OPCOES_PENDENCIA_PADRAO.map(op => {
+            const checked = (b.pendenciasOpcoes && b.pendenciasOpcoes.includes(op)) ? 'checked' : '';
+            const destaque = op === 'REDE CORRETIVA' ? 'font-black text-amber-900 bg-amber-100/70 px-1.5 py-0.5 rounded' : '';
+            return `<label class="flex items-center gap-1.5 ${destaque}"><input type="checkbox" name="bloco-pendencia-check-${idx}" value="${op}" ${checked}> ${op}</label>`;
+        }).join('');
+
+        const checkboxesMalogroHtml = OPCOES_MALOGRO_PADRAO.map(ofensor => {
+            const checked = (b.malogros && b.malogros.includes(ofensor)) ? 'checked' : '';
+            const destaque = ofensor === 'REDE CORRETIVA' ? 'font-black text-red-900 bg-red-100/70 px-1.5 py-0.5 rounded' : '';
+            return `<label class="flex items-center gap-1.5 ${destaque}"><input type="checkbox" name="bloco-malogro-check-${idx}" value="${ofensor}" ${checked}> ${ofensor}</label>`;
+        }).join('');
+
+        const miniaturasFotosHtml = b.fotos.map((fotoSrc, fIdx) => `
+            <div class="relative group border border-slate-300 rounded-lg overflow-hidden w-16 h-16 bg-slate-100">
+                <img src="${fotoSrc}" onclick="abrirZoomFoto('${fotoSrc}', 'Foto_${fIdx + 1}.jpg')" class="w-full h-full object-cover cursor-pointer">
+                <button type="button" onclick="removerFotoBloco(${idx}, ${fIdx})" title="Remover esta foto" class="absolute top-0.5 right-0.5 bg-red-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow">✕</button>
+            </div>
+        `).join('');
+
+        const card = document.createElement('div');
+        card.className = "bg-white p-3.5 rounded-xl border-2 border-blue-900/20 shadow-sm space-y-3";
+        card.innerHTML = `
+            <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                <span class="bg-blue-900 text-white font-black text-[11px] px-2.5 py-1 rounded-md uppercase">
+                    🏢 ${qtdTotal > 1 ? `Bloco ${idx + 1} de ${qtdTotal}` : 'Dados Técnicos do Bloco / Imóvel'}
+                </span>
+                ${mostrarIdentBloco ? `
+                    <div class="flex items-center gap-1">
+                        <span class="text-[10px] font-bold text-slate-600">Nome/Nº:</span>
+                        <input type="text" id="bloco-ident-${idx}" value="${b.identificacao}" placeholder="Ex: BLOCO A" class="w-28 text-xs font-bold border border-blue-300 rounded px-2 py-1 uppercase text-blue-950 outline-none">
+                    </div>
+                ` : `<input type="hidden" id="bloco-ident-${idx}" value="${b.identificacao}">`}
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 bg-amber-50/60 p-2.5 rounded-lg border border-amber-200">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-800">Nº de Andares <span class="text-red-600">*</span></label>
+                    <input type="number" id="bloco-andares-${idx}" value="${b.andares}" min="1" class="w-full text-xs font-bold border border-slate-300 rounded-lg p-2 bg-white outline-none" placeholder="Obrigatório">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-800">Nº de HPs <span class="text-red-600">*</span></label>
+                    <input type="number" id="bloco-hps-${idx}" value="${b.hps}" min="1" class="w-full text-xs font-bold border border-slate-300 rounded-lg p-2 bg-white outline-none" placeholder="Obrigatório">
+                </div>
+            </div>
+
+            <div class="space-y-2 pt-1">
+                <h4 class="text-[10px] font-bold text-blue-900 uppercase">Materiais e Caixas (${qtdTotal > 1 ? b.identificacao : 'Rede MDU'})</h4>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block text-[10px] font-semibold text-slate-600">Fusões</label><input type="number" id="bloco-fusoes-${idx}" value="${b.fusoes}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                    <div><label class="block text-[10px] font-semibold text-slate-600">Conectores</label><input type="number" id="bloco-conectores-${idx}" value="${b.conectores}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block text-[10px] font-semibold text-slate-600">Cabo RL (m)</label><input type="number" id="bloco-cabo-rl-${idx}" value="${b.caboRL}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                    <div><label class="block text-[10px] font-semibold text-slate-600">Cabo Drop (m)</label><input type="number" id="bloco-cabo-drop-${idx}" value="${b.caboDrop}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div><label class="block text-[10px] font-semibold text-slate-600">NAP</label><input type="number" id="bloco-nap-${idx}" value="${b.nap}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                    <div><label class="block text-[10px] font-semibold text-slate-600">DIO</label><input type="number" id="bloco-dio-${idx}" value="${b.dio}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
+                    <div><label class="block text-[9px] font-semibold text-slate-600">Cx. Sobrepor</label><input type="number" id="bloco-cx-sobrepor-${idx}" value="${b.cxSobrepor}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                    <div><label class="block text-[9px] font-semibold text-slate-600">Cx. Embutida</label><input type="number" id="bloco-cx-embutida-${idx}" value="${b.cxEmbutida}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                    <div><label class="block text-[9px] font-semibold text-slate-600">Cx. FOSC</label><input type="number" id="bloco-cx-fosc-${idx}" value="${b.cxFosc}" class="w-full text-xs border rounded-lg p-1.5 outline-none"></div>
+                </div>
+            </div>
+
+            <div class="space-y-2 pt-2 border-t border-slate-200">
+                <label class="block text-[11px] font-bold text-slate-800 uppercase">Desfecho ${qtdTotal > 1 ? `deste Bloco` : `da Atividade`}: <span class="text-red-600">*</span></label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" onclick="selecionarDesfechoBloco(${idx}, 'CONCLUIDA')" title="Marcar este bloco como Concluído" class="${btnConcClass} font-bold p-2 rounded-lg text-[11px] transition">CONCLUÍDA</button>
+                    <button type="button" onclick="selecionarDesfechoBloco(${idx}, 'PENDENTE')" title="Marcar este bloco como Pendente" class="${btnPendClass} font-bold p-2 rounded-lg text-[11px] transition">PENDENTE</button>
+                    <button type="button" onclick="selecionarDesfechoBloco(${idx}, 'MALOGRADA')" title="Marcar este bloco como Malogrado" class="${btnMaloClass} font-bold p-2 rounded-lg text-[11px] transition">MALOGRADA</button>
+                </div>
+
+                <div class="${d === 'CONCLUIDA' ? '' : 'hidden'} space-y-2 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
+                    <label class="block text-[11px] font-bold text-emerald-900">Houve Serviço de Obra?</label>
+                    <select id="bloco-servico-obra-${idx}" class="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white outline-none">
+                        <option value="SIM" ${b.servicoObra === 'SIM' ? 'selected' : ''}>SIM</option>
+                        <option value="NÃO" ${b.servicoObra === 'NÃO' ? 'selected' : ''}>NÃO</option>
+                    </select>
+                    <label class="block text-[11px] font-bold text-emerald-900 mt-1">Itens Verificados / Entregues (Marcação Múltipla):</label>
+                    <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-emerald-200">
+                        ${checkboxesConcluidaHtml}
+                    </div>
+                    <label class="block text-[11px] font-semibold text-emerald-900">Informação Complementar (Opcional)</label>
+                    <input type="text" id="bloco-obs-conc-${idx}" value="${b.obsConcluida}" class="w-full text-xs border border-emerald-300 rounded-lg p-2 bg-white" placeholder="Detalhe opcional...">
+                </div>
+
+                <div class="${d === 'PENDENTE' ? '' : 'hidden'} space-y-2 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                    <label class="block text-[11px] font-bold text-amber-900">Selecione a(s) Opção(ões) da Pendência (Marcação Múltipla):*</label>
+                    <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-amber-200 max-h-36 overflow-y-auto">
+                        ${checkboxesPendenciaHtml}
+                    </div>
+                    <label class="block text-[11px] font-bold text-amber-900 mt-1">Descrição / Motivo da Pendência (Obrigatório)*</label>
+                    <textarea id="bloco-obs-pend-${idx}" rows="2" class="w-full text-xs border border-amber-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo...">${b.obsPendente}</textarea>
+                </div>
+
+                <div class="${d === 'MALOGRADA' ? '' : 'hidden'} space-y-2 bg-red-50 p-2.5 rounded-xl border border-red-200">
+                    <label class="block text-[11px] font-bold text-red-900">Selecione o(s) Ofensor(es) / Malogro(s) (Marcação Múltipla):*</label>
+                    <div class="grid grid-cols-1 gap-1 text-[11px] bg-white p-2 rounded-lg border border-red-200 max-h-40 overflow-y-auto">
+                        ${checkboxesMalogroHtml}
+                    </div>
+                    <label class="block text-[11px] font-bold text-red-900 mt-1">Descrição / Motivo do Malogro (Obrigatório)*</label>
+                    <textarea id="bloco-obs-malo-${idx}" rows="2" class="w-full text-xs border border-red-300 rounded-lg p-2 bg-white" placeholder="Descreva o motivo...">${b.obsMalograda}</textarea>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="text-[11px] font-bold text-blue-950 flex items-center gap-1">📷 Fotos do Fechamento (${b.fotos.length}/10)</label>
+                    <label title="Tirar foto pela câmera ou anexar da galeria (comprimida automaticamente para 4G)" class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg cursor-pointer shadow-sm transition">
+                        + Tirar / Anexar Foto
+                        <input type="file" accept="image/*" multiple onchange="aoSelecionarFotosBloco(${idx}, this)" class="hidden">
+                    </label>
+                </div>
+                ${b.fotos.length > 0 ? `<div class="flex flex-wrap gap-2 pt-1">${miniaturasFotosHtml}</div>` : `<p class="text-[10px] text-slate-400">Nenhuma foto anexada neste bloco (Máx. 10 fotos).</p>`}
+            </div>
+
+            <div>
+                <label class="block text-[11px] font-semibold text-slate-600">Observações Gerais ${qtdTotal > 1 ? `(${b.identificacao})` : ''}</label>
+                <textarea id="bloco-observacoes-${idx}" rows="2" class="w-full text-xs border border-slate-300 rounded-lg p-2 outline-none" placeholder="Ocorrências...">${b.observacoes}</textarea>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function salvarRascunhoCampo() {
+    try {
+        const posAberturaVisivel = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
+        if (posAberturaVisivel) {
+            lerDadosBlocosDaTela();
+        }
+        const rascunho = {
+            emAndamento: posAberturaVisivel,
+            idEmAndamento: dadosAtendimento.idEmAndamento,
+            eraReaberta: dadosAtendimento.eraReaberta || false,
+            eraProgramada: dadosAtendimento.eraProgramada || false,
+            emPausa: dadosAtendimento.emPausa || false,
+            inicioPausa: dadosAtendimento.inicioPausa || null,
+            motivoPausaAtual: dadosAtendimento.motivoPausaAtual || "",
+            minutosPausados: dadosAtendimento.minutosPausados || 0,
+            equipe: document.getElementById('sel-equipe')?.value || '',
+            projeto: document.getElementById('sel-projeto')?.value || '',
+            imovel: document.getElementById('inp-imovel')?.value || '',
+            hEntrada: document.getElementById('lbl-h-entrada')?.innerText || '',
+            gpsEntrada: dadosAtendimento.gpsEntrada,
+            endereco: document.getElementById('form-endereco')?.value || '',
+            liberouAcesso: document.getElementById('form-liberou-acesso')?.value || '',
+            responsavel: document.getElementById('form-responsavel')?.value || '',
+            contato: document.getElementById('form-contato')?.value || '',
+            email: document.getElementById('form-email')?.value || '',
+            qtdBlocos: document.getElementById('inp-qtd-blocos')?.value || 1,
+            blocos: dadosAtendimento.blocos
+        };
+        localStorage.setItem('gpd_rascunho_campo_ativo', JSON.stringify(rascunho));
+    } catch (e) {
+        console.warn("Aviso ao salvar rascunho local:", e);
+    }
+}
+
+function atualizarProjetosPermitidosCampo(nomeEquipe, projetoPreSelecionado = null) {
+    const selProj = document.getElementById('sel-projeto');
+    const badgeSetor = document.getElementById('badge-setor-campo');
+    if (!selProj) return;
+
+    if (!nomeEquipe) {
+        selProj.innerHTML = `<option value="">Selecione primeiro o técnico acima...</option>`;
+        if (badgeSetor) {
+            badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600";
+            badgeSetor.innerText = "Selecione o técnico";
+        }
+        return;
+    }
+
+    if (!TODOS_OS_PROJETOS || TODOS_OS_PROJETOS.length === 0) {
+        if (typeof reconstruirMapasDeProjetosDinamicos === "function") {
+            reconstruirMapasDeProjetosDinamicos(false);
+        }
+    }
+
+    const eqObj = (equipesSistema || []).find(e => e.nome === nomeEquipe);
+    const setoresArr = obterArraySetores(eqObj ? eqObj.setor : "Instalador");
+    let listaProjetos = obterProjetosPermitidosParaSetores(setoresArr);
+    if (!listaProjetos || listaProjetos.length === 0) {
+        listaProjetos = TODOS_OS_PROJETOS.length > 0 ? TODOS_OS_PROJETOS : ["VISTORIA", "CONSTRUÇÃO F", "CONSTRUÇÃO ON GOING"];
+    }
+
+    if (badgeSetor) {
+        badgeSetor.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-950 border border-indigo-300";
+        badgeSetor.innerText = `Grupos: ${setoresArr.join(' + ')}`;
+    }
+
+    if (setoresArr.length > 1) {
+        selProj.innerHTML = setoresArr.map(s => {
+            const projs = PROJETOS_POR_SETOR[s] || [];
+            return `<optgroup label="Função: ${s.toUpperCase()}">${projs.map(p => `<option value="${p}">${p} (${obterMacroGrupoProjeto(p)})</option>`).join('')}</optgroup>`;
+        }).join('');
+    } else {
+        selProj.innerHTML = listaProjetos.map(p => `<option value="${p}">${p} (${obterMacroGrupoProjeto(p)})</option>`).join('');
+    }
+
+    const projNorm = projetoPreSelecionado ? normalizarNomeProjeto(projetoPreSelecionado) : null;
+    if (projNorm && listaProjetos.includes(projNorm)) {
+        selProj.value = projNorm;
+    } else if (projNorm) {
+        selProj.innerHTML += `<option value="${projNorm}">${projNorm}</option>`;
+        selProj.value = projNorm;
+    } else if (listaProjetos.length > 0) {
+        selProj.value = listaProjetos[0];
+    }
+    mudarTipoProjeto();
+}
+
+function restaurarRascunhoCampo() {
+    try {
+        renderizarBannerFilaOfflineCampo();
+        const salvo = localStorage.getItem('gpd_rascunho_campo_ativo');
+        if (!salvo) {
+            if (equipeAutenticadaSessao) {
+                const selEq = document.getElementById('sel-equipe');
+                if (selEq) selEq.value = equipeAutenticadaSessao;
+                document.getElementById('current-user-team').innerText = equipeAutenticadaSessao;
+                atualizarProjetosPermitidosCampo(equipeAutenticadaSessao);
+                atualizarBarraSegurancaPinCampo();
+                atualizarBarraExpedienteCampo();
+                renderizarResumoSolicitacoesCampo();
+            }
+            return;
+        }
+        const r = JSON.parse(salvo);
+
+        if (r && r.equipe) {
+            const selEq = document.getElementById('sel-equipe');
+            if (selEq) selEq.value = r.equipe;
+            document.getElementById('current-user-team').innerText = r.equipe;
+            equipeAutenticadaSessao = r.equipe;
+            sessionStorage.setItem('gpd_equipe_autenticada_pin', r.equipe);
+            atualizarProjetosPermitidosCampo(r.equipe, r.projeto);
+            atualizarBarraSegurancaPinCampo();
+            atualizarBarraExpedienteCampo();
+            renderizarResumoSolicitacoesCampo();
+        }
+        if (r && r.imovel) document.getElementById('inp-imovel').value = r.imovel;
+
+        if (r && r.emAndamento) {
+            dadosAtendimento.idEmAndamento = r.idEmAndamento || null;
+            dadosAtendimento.eraReaberta = r.eraReaberta || false;
+            dadosAtendimento.eraProgramada = r.eraProgramada || false;
+            dadosAtendimento.emPausa = r.emPausa || false;
+            dadosAtendimento.inicioPausa = r.inicioPausa || null;
+            dadosAtendimento.motivoPausaAtual = r.motivoPausaAtual || "";
+            dadosAtendimento.minutosPausados = Number(r.minutosPausados) || 0;
+            dadosAtendimento.hEntrada = r.hEntrada;
+            dadosAtendimento.gpsEntrada = r.gpsEntrada;
+            dadosAtendimento.blocos = (Array.isArray(r.blocos) && r.blocos.length > 0) ? r.blocos : [criarObjetoBlocoPadrao(1)];
+
+            const projAberto = document.getElementById('sel-projeto').value || normalizarNomeProjeto(r.projeto);
+            document.getElementById('lbl-imovel-aberto').innerText = `${r.imovel} (${projAberto})`;
+            document.getElementById('lbl-h-entrada').innerText = r.hEntrada || '-';
+            document.getElementById('lbl-gps-entrada').innerText = r.gpsEntrada || '-';
+
+            document.getElementById('form-endereco').value = r.endereco || '';
+            if (document.getElementById('form-liberou-acesso')) {
+                document.getElementById('form-liberou-acesso').value = r.liberouAcesso || '';
+            }
+            document.getElementById('form-responsavel').value = r.responsavel || '';
+            document.getElementById('form-contato').value = r.contato || '';
+            document.getElementById('form-email').value = r.email || '';
+            document.getElementById('inp-qtd-blocos').value = dadosAtendimento.blocos.length;
+
+            document.getElementById('form-campo-container').classList.add('hidden');
+            document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+            mudarTipoProjeto();
+            renderizarBlocosCampo();
+            sincronizarVisualPausaCampo();
+        }
+    } catch (e) {
+        console.warn("Rascunho inválido limpo automaticamente:", e);
+        localStorage.removeItem('gpd_rascunho_campo_ativo');
+    }
+}
+
+async function cancelarCheckinAberto() {
+    if (!confirm("Deseja realmente cancelar a abertura atual e retornar ao seu perfil no Modo Campo?")) return;
+
+    const idAtivo = dadosAtendimento.idEmAndamento;
+    if (idAtivo) {
+        const regNuvem = (registrosSalvos || []).find(r => r.id === idAtivo);
+        const veioDeProgramada = dadosAtendimento.eraProgramada ||
+            (regNuvem && ((regNuvem.motivoDesfecho || '').includes('[ORIGEM:PROGRAMADA]') || (regNuvem.motivoDesfecho || '').includes('programada iniciada')));
+
+        if (dadosAtendimento.eraReaberta) {
+            await supabaseClient.from('registros_producao').update({
+                desfecho: "REABERTA"
+            }).eq('id', idAtivo);
+        } else if (veioDeProgramada) {
+            await supabaseClient.from('registros_producao').update({
+                desfecho: "PROGRAMADA",
+                h_entrada: "Programada",
+                h_saida: "Aguardando",
+                gps_entrada: "Carga Gestor",
+                motivo_desfecho: "Carga Programada (Retornada à fila pelo técnico)"
+            }).eq('id', idAtivo);
+        } else {
+            await supabaseClient.from('registros_producao').delete().eq('id', idAtivo);
+        }
+    }
+
+    resetarFormularioCampo();
+    await carregarRegistrosModoCampoLeve();
+    verificarImprevistoAtivoEquipeCampo();
+    verificarPendenciasReabertasEProgramadasCampo(false);
+    atualizarAbaMinhasAtividadesCampo(false);
+}
+
+function aoSelecionarEquipeCampo() {
+    const selEq = document.getElementById('sel-equipe');
+    const eq = selEq ? selEq.value : "";
+
+    if (!eq) {
+        pararMonitoramentoContinuoGps();
+        equipeAutenticadaSessao = "";
+        sessionStorage.removeItem('gpd_equipe_autenticada_pin');
+        document.getElementById('current-user-team').innerText = "Selecione Equipe";
+        atualizarProjetosPermitidosCampo("");
+        atualizarBarraSegurancaPinCampo();
+        atualizarBarraExpedienteCampo();
+        verificarImprevistoAtivoEquipeCampo();
+        verificarPendenciasReabertasEProgramadasCampo(false);
+        atualizarAbaMinhasAtividadesCampo(false);
+        renderizarResumoSolicitacoesCampo();
+        return;
+    }
+
+    const eqObj = (equipesSistema || []).find(e => e.nome === eq);
+    const pinCorreto = obterPinDaEquipe(eqObj);
+
+    if (equipeAutenticadaSessao !== eq) {
+        const pinDigitado = prompt(`🔒 AUTENTICAÇÃO DO TÉCNICO\n\nOlá, ${eq}!\nDigite o seu PIN de 4 dígitos para acessar suas atividades:\n(Se for seu primeiro acesso, o PIN padrão é 1234)`);
+        
+        if (pinDigitado === null || pinDigitado.trim() !== pinCorreto) {
+            if (pinDigitado !== null) {
+                alert("❌ PIN incorreto! Acesso negado às atividades deste técnico.");
+            }
+            selEq.value = "";
+            equipeAutenticadaSessao = "";
+            sessionStorage.removeItem('gpd_equipe_autenticada_pin');
+            document.getElementById('current-user-team').innerText = "Selecione Equipe";
+            atualizarProjetosPermitidosCampo("");
+            atualizarBarraSegurancaPinCampo();
+            atualizarBarraExpedienteCampo();
+            verificarImprevistoAtivoEquipeCampo();
+            verificarPendenciasReabertasEProgramadasCampo(false);
+            atualizarAbaMinhasAtividadesCampo(false);
+            renderizarResumoSolicitacoesCampo();
+            return;
+        }
+
+        equipeAutenticadaSessao = eq;
+        sessionStorage.setItem('gpd_equipe_autenticada_pin', eq);
+    }
+
+    document.getElementById('current-user-team').innerText = eq;
+    atualizarProjetosPermitidosCampo(eq);
+    atualizarBarraSegurancaPinCampo();
+    atualizarBarraExpedienteCampo();
+    salvarRascunhoCampo();
+    verificarImprevistoAtivoEquipeCampo();
+    verificarPendenciasReabertasEProgramadasCampo(true);
+    atualizarAbaMinhasAtividadesCampo(false);
+    renderizarResumoSolicitacoesCampo();
+}
+
+function desbloquearTrocaEquipeCampo() {
+    const posAberturaVisivel = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
+    if (posAberturaVisivel) {
+        alert("⚠️ Você possui um atendimento aberto na tela. Finalize ou cancele o atendimento antes de trocar de técnico.");
+        return;
+    }
+    if (!confirm("Deseja encerrar sua sessão atual e liberar a seleção para outro técnico?")) return;
+
+    pararMonitoramentoContinuoGps();
+    equipeAutenticadaSessao = "";
+    sessionStorage.removeItem('gpd_equipe_autenticada_pin');
+    localStorage.removeItem('gpd_rascunho_campo_ativo');
+    const selEq = document.getElementById('sel-equipe');
+    if (selEq) {
+        selEq.disabled = false;
+        selEq.value = "";
+    }
+    document.getElementById('current-user-team').innerText = "Selecione Equipe";
+    atualizarProjetosPermitidosCampo("");
+    atualizarBarraSegurancaPinCampo();
+    atualizarBarraExpedienteCampo();
+    verificarImprevistoAtivoEquipeCampo();
+    verificarPendenciasReabertasEProgramadasCampo(false);
+    atualizarAbaMinhasAtividadesCampo(false);
+    renderizarResumoSolicitacoesCampo();
+}
+
+async function alterarPinPeloTecnicoCampo() {
+    const nomeEq = document.getElementById('sel-equipe')?.value;
+    if (!nomeEq) return;
+
+    const eqObj = (equipesSistema || []).find(e => e.nome === nomeEq);
+    if (!eqObj) return;
+
+    const pinAtualCorreto = obterPinDaEquipe(eqObj);
+    const pinAtualInformado = prompt(`🔑 ALTERAR MEU PIN (${nomeEq})\n\nDigite o seu PIN ATUAL:`);
+    if (pinAtualInformado === null) return;
+
+    if (pinAtualInformado.trim() !== pinAtualCorreto) {
+        alert("❌ O PIN atual informado está incorreto.");
+        return;
+    }
+
+    const novoPin = prompt("🔑 Digite o NOVO PIN desejado (Exatamente 4 números, ex: 4580):");
+    if (novoPin === null) return;
+
+    const novoPinLimpo = novoPin.trim();
+    if (!/^\d{4}$/.test(novoPinLimpo)) {
+        alert("⚠️ O novo PIN deve conter exatamente 4 dígitos numéricos (ex: 2580).");
+        return;
+    }
+
+    const confPin = prompt("🔑 Confirme digitando novamente o seu NOVO PIN de 4 dígitos:");
+    if (confPin === null || confPin.trim() !== novoPinLimpo) {
+        alert("❌ A confirmação não coincide com o novo PIN. Operação cancelada.");
+        return;
+    }
+
+    eqObj.pin = novoPinLimpo;
+    await sincronizarEquipesNaNuvem();
+    if (typeof renderizarTabelaEquipes === "function") renderizarTabelaEquipes();
+    alert("✅ Seu novo PIN de 4 dígitos foi salvo e sincronizado na nuvem com sucesso!");
+}
+
+async function resetarPinEquipeGestor(idEquipe) {
+    if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') {
+        alert("⚠️ Apenas Gestores (Master ou Operador) podem resetar o PIN de um técnico.");
+        return;
+    }
+
+    const eqObj = (equipesSistema || []).find(e => e.id === idEquipe);
+    if (!eqObj) return;
+
+    const pinAtual = obterPinDaEquipe(eqObj);
+    const novoPinGestor = prompt(
+        `🔄 RESETAR PIN DO TÉCNICO: ${eqObj.nome}\n\nPIN Atual: ${pinAtual}\n\nDigite o novo PIN de 4 dígitos para este técnico (ou mantenha 1234 para o padrão):`,
+        "1234"
+    );
+    if (novoPinGestor === null) return;
+
+    const pinLimpo = novoPinGestor.trim();
+    if (!/^\d{4}$/.test(pinLimpo)) {
+        alert("⚠️ O PIN deve ter exatamente 4 números (ex: 1234).");
+        return;
+    }
+
+    eqObj.pin = pinLimpo;
+    registrarLogAuditoria("RESET DE PIN (GESTOR)", `Gestor ${usuarioLogado} redefiniu o PIN do técnico ${eqObj.nome} para '${pinLimpo}'.`);
+    await sincronizarEquipesNaNuvem();
+    if (typeof renderizarTabelaEquipes === "function") renderizarTabelaEquipes();
+    alert(`✅ O PIN do técnico ${eqObj.nome} foi redefinido para "${pinLimpo}" com sucesso!`);
+}
+
+function verificarPendenciasReabertasEProgramadasCampo(permitirSom = true) {
+    const equipeSelecionada = document.getElementById('sel-equipe')?.value;
+    const boxReab = document.getElementById('box-reabertas-campo');
+    const listaReab = document.getElementById('lista-reabertas-campo');
+    const boxProg = document.getElementById('box-programadas-campo');
+    const listaProg = document.getElementById('lista-programadas-campo');
+
+    if (!equipeSelecionada) {
+        if (boxReab) boxReab.classList.add('hidden');
+        if (boxProg) boxProg.classList.add('hidden');
+        return;
+    }
+
+    const reabertas = (registrosSalvos || []).filter(r => r.equipe === equipeSelecionada && r.desfecho === 'REABERTA');
+    const programadas = (registrosSalvos || []).filter(r => r.equipe === equipeSelecionada && r.desfecho === 'PROGRAMADA');
+
+    let chegouNova = false;
+    [...reabertas, ...programadas].forEach(item => {
+        const chaveNotif = `${item.id}_${item.desfecho}`;
+        if (!idsNotificadosNoCelular.has(chaveNotif)) {
+            idsNotificadosNoCelular.add(chaveNotif);
+            chegouNova = true;
+        }
+    });
+
+    if (chegouNova && permitirSom) {
+        tocarAlertaSonoroCelular();
+    }
+
+    if (boxReab && listaReab) {
+        if (reabertas.length > 0) {
+            listaReab.innerHTML = reabertas.map(r => `
+                <div class="bg-white p-2.5 rounded-lg border border-purple-300 flex justify-between items-center gap-2">
+                    <div>
+                        <div class="font-bold text-purple-950 text-xs">🏢 ${r.imovel} (${r.projeto})</div>
+                        <div class="text-[10px] text-slate-500">📍 ${r.endereco || 'Sem endereço'} • Data: ${r.dataRegistro}</div>
+                    </div>
+                    <button type="button" onclick="retomarAtividadeReabertaCampo(${r.id})" title="Carregar dados desta atividade reaberta pelo gestor para correção" class="bg-purple-700 hover:bg-purple-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
+                        ✏️ Editar Agora
+                    </button>
+                </div>
+            `).join('');
+            boxReab.classList.remove('hidden');
+        } else {
+            boxReab.classList.add('hidden');
+        }
+    }
+
+    if (boxProg && listaProg) {
+        if (programadas.length > 0) {
+            listaProg.innerHTML = programadas.map(r => {
+                const qtdB = r.qtdBlocosProgramados || 1;
+                return `
+                <div class="bg-white p-2.5 rounded-lg border border-cyan-300 flex justify-between items-center gap-2">
+                    <div>
+                        <div class="font-bold text-cyan-950 text-xs flex items-center gap-1 flex-wrap">
+                            <span>🏢 ${r.imovel}</span>
+                            <span class="bg-cyan-100 text-cyan-900 px-1.5 py-0.5 rounded text-[9px]">${r.projeto}</span>
+                            <span class="bg-blue-900 text-white px-1.5 py-0.5 rounded text-[9px] font-black">${qtdB} Bloco(s)</span>
+                        </div>
+                        <div class="text-[10px] text-slate-600 mt-0.5">📍 ${r.endereco || 'Endereço a confirmar'}</div>
+                        <div class="text-[9px] text-slate-500">Andares: <b>${r.andares || '-'}</b> | HPs: <b>${r.hps || '-'}</b> ${r.responsavel ? `| Resp: <b>${r.responsavel}</b>` : ''}</div>
+                    </div>
+                    <button type="button" onclick="iniciarAtividadeProgramadaCampo(${r.id})" title="Capturar GPS e iniciar esta atividade programada" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg shadow-sm whitespace-nowrap">
+                        🚀 Iniciar
+                    </button>
+                </div>
+            `}).join('');
+            boxProg.classList.remove('hidden');
+        } else {
+            boxProg.classList.add('hidden');
+        }
+    }
+
+    atualizarAbaMinhasAtividadesCampo(false);
+}
+
+async function retomarAtividadeReabertaCampo(idReg) {
+    const r = (registrosSalvos || []).find(item => item.id === idReg);
+    if (!r) return;
+
+    encerrarImprevistosAbertosAoIniciarAtividade(r.equipe, r.gpsEntrada);
+    atualizarProjetosPermitidosCampo(r.equipe, r.projeto);
+    document.getElementById('sel-projeto').value = r.projeto;
+    document.getElementById('inp-imovel').value = r.imovel;
+
+    dadosAtendimento.idEmAndamento = r.id;
+    dadosAtendimento.eraReaberta = true;
+    dadosAtendimento.eraProgramada = false;
+    dadosAtendimento.emPausa = false;
+    dadosAtendimento.inicioPausa = null;
+    dadosAtendimento.motivoPausaAtual = "";
+    dadosAtendimento.minutosPausados = Number(r.tempoPausadoMinutos) || 0;
+    dadosAtendimento.hEntrada = r.hEntrada || new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    dadosAtendimento.gpsEntrada = r.gpsEntrada || "Mantido da abertura";
+
+    let fotosRecuperadas = Array.isArray(r.fotos) ? [...r.fotos] : [];
+    if (fotosRecuperadas.length === 0 && typeof obterFotosSobDemandaDoRegistro === 'function') {
+        fotosRecuperadas = await obterFotosSobDemandaDoRegistro(r.id);
+    }
+
+    const blocoRecuperado = {
+        identificacao: "BLOCO 1",
+        andares: r.andares || 1,
+        hps: r.hps || 1,
+        fusoes: r.fusoes || 0,
+        conectores: r.conectores || 0,
+        caboRL: r.caboRL || 0,
+        caboDrop: r.caboDrop || 0,
+        nap: r.nap || 0,
+        dio: r.dio || 0,
+        cxSobrepor: r.cxSobrepor || 0,
+        cxEmbutida: r.cxEmbutida || 0,
+        cxFosc: r.cxFosc || 0,
+        desfecho: "CONCLUIDA",
+        servicoObra: r.servicoObra || "SIM",
+        concluidasOpcoes: Array.isArray(r.malogros) ? r.malogros : [],
+        obsConcluida: r.motivoDesfecho || "",
+        obsPendente: r.motivoDesfecho || "",
+        pendenciasOpcoes: Array.isArray(r.malogros) ? r.malogros : [],
+        obsMalograda: r.motivoDesfecho || "",
+        malogros: Array.isArray(r.malogros) ? r.malogros : [],
+        observacoes: r.observacoes || "",
+        fotos: fotosRecuperadas
+    };
+
+    dadosAtendimento.blocos = [blocoRecuperado];
+
+    document.getElementById('lbl-status-execucao-campo').innerText = "🔄 Editando Atividade Reaberta pelo Gestor";
+    document.getElementById('lbl-imovel-aberto').innerText = `${r.imovel} (${r.projeto})`;
+    document.getElementById('lbl-h-entrada').innerText = dadosAtendimento.hEntrada;
+    document.getElementById('lbl-gps-entrada').innerText = dadosAtendimento.gpsEntrada;
+
+    document.getElementById('form-endereco').value = r.endereco || '';
+    if (document.getElementById('form-liberou-acesso')) {
+        document.getElementById('form-liberou-acesso').value = r.liberouAcesso || '';
+    }
+    document.getElementById('form-responsavel').value = r.responsavel || '';
+    document.getElementById('form-contato').value = r.contato || '';
+    document.getElementById('form-email').value = r.email || '';
+    document.getElementById('inp-qtd-blocos').value = 1;
+
+    document.getElementById('form-campo-container').classList.add('hidden');
+    document.getElementById('box-reabertas-campo').classList.add('hidden');
+    document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+
+    mudarTipoProjeto();
+    renderizarBlocosCampo();
+    sincronizarVisualPausaCampo();
+    salvarRascunhoCampo();
+}
+
+async function iniciarAtividadeProgramadaCampo(idReg) {
+    const r = (registrosSalvos || []).find(item => item.id === idReg);
+    if (!r) return;
+
+    atualizarProjetosPermitidosCampo(r.equipe, r.projeto);
+    document.getElementById('sel-projeto').value = r.projeto;
+    document.getElementById('inp-imovel').value = r.imovel;
+    verificarHistoricoReincidenciaImovelCampo(r.imovel);
+
+    let coordReal = "Não capturado";
+    try {
+        coordReal = await capturarGpsReal(10000);
+        const partes = coordReal.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            await registrarPontoTelemetriaEquipe(r.equipe, partes[0], partes[1], 'DISPONIVEL');
+            iniciarMonitoramentoContinuoGps(r.equipe);
+        }
+    } catch (err) {
+        alert("❌ Ative o GPS do celular para iniciar a atividade programada.");
+        return;
+    }
+
+    await encerrarImprevistosAbertosAoIniciarAtividade(r.equipe, coordReal);
+
+    const horaEntradaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    const hojeISO = obterDataLocalISO();
+
+    await supabaseClient.from('registros_producao').update({
+        data_registro: hojeISO,
+        h_entrada: horaEntradaAtual,
+        h_saida: "Em Andamento",
+        gps_entrada: coordReal,
+        desfecho: "EM ANDAMENTO",
+        motivo_desfecho: "[ORIGEM:PROGRAMADA] Atividade programada iniciada em campo"
+    }).eq('id', r.id);
+
+    dadosAtendimento.idEmAndamento = r.id;
+    dadosAtendimento.eraReaberta = false;
+    dadosAtendimento.eraProgramada = true;
+    dadosAtendimento.emPausa = false;
+    dadosAtendimento.inicioPausa = null;
+    dadosAtendimento.motivoPausaAtual = "";
+    dadosAtendimento.minutosPausados = 0;
+    dadosAtendimento.hEntrada = horaEntradaAtual;
+    dadosAtendimento.gpsEntrada = coordReal;
+
+    const totalBlocos = Math.max(1, Math.min(20, Number(r.qtdBlocosProgramados) || 1));
+    dadosAtendimento.blocos = [];
+    for (let i = 1; i <= totalBlocos; i++) {
+        const novoBloco = criarObjetoBlocoPadrao(i);
+        if (r.andares) novoBloco.andares = r.andares;
+        if (r.hps) novoBloco.hps = r.hps;
+        if (r.observacoes) novoBloco.observacoes = r.observacoes;
+        dadosAtendimento.blocos.push(novoBloco);
+    }
+
+    document.getElementById('lbl-status-execucao-campo').innerText = `Status: Em Andamento (${totalBlocos} Bloco${totalBlocos > 1 ? 's' : ''})`;
+    document.getElementById('lbl-imovel-aberto').innerText = `${r.imovel} (${r.projeto})`;
+    document.getElementById('lbl-h-entrada').innerText = horaEntradaAtual;
+    document.getElementById('lbl-gps-entrada').innerText = coordReal;
+
+    document.getElementById('form-endereco').value = r.endereco || '';
+    if (document.getElementById('form-liberou-acesso')) {
+        document.getElementById('form-liberou-acesso').value = r.liberouAcesso || '';
+    }
+    document.getElementById('form-responsavel').value = r.responsavel || '';
+    document.getElementById('form-contato').value = r.contato || '';
+    document.getElementById('form-email').value = r.email || '';
+    document.getElementById('inp-qtd-blocos').value = totalBlocos;
+
+    document.getElementById('form-campo-container').classList.add('hidden');
+    document.getElementById('box-programadas-campo').classList.add('hidden');
+    document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+
+    mudarTipoProjeto();
+    renderizarBlocosCampo();
+    sincronizarVisualPausaCampo();
+    salvarRascunhoCampo();
+    await carregarRegistrosModoCampoLeve();
+    verificarImprevistoAtivoEquipeCampo();
+    atualizarAbaMinhasAtividadesCampo(false);
+}
+
+function verificarImprevistoAtivoEquipeCampo() {
+    const equipeSelecionada = document.getElementById('sel-equipe')?.value;
+    const boxImp = document.getElementById('box-imprevisto-ativo-campo');
+    if (!equipeSelecionada || !boxImp) {
+        if (boxImp) boxImp.classList.add('hidden');
+        return;
+    }
+
+    const impAtivo = (registrosSalvos || []).find(r => 
+        r.equipe === equipeSelecionada && 
+        r.desfecho === 'IMPREVISTO'
+    );
+
+    if (impAtivo) {
+        const motivoStr = (impAtivo.malogros && impAtivo.malogros.length > 0) ? impAtivo.malogros.join(' + ') : impAtivo.motivoDesfecho;
+        document.getElementById('lbl-info-imprevisto-ativo').innerText = `${motivoStr} (Iniciado às ${impAtivo.hEntrada})`;
+        boxImp.dataset.idImprevisto = impAtivo.id;
+        boxImp.classList.remove('hidden');
+    } else {
+        boxImp.classList.add('hidden');
+    }
+}
+
+async function finalizarImprevistoCampo() {
+    const boxImp = document.getElementById('box-imprevisto-ativo-campo');
+    const idImp = Number(boxImp?.dataset.idImprevisto);
+    if (!idImp) return;
+
+    const btn = document.getElementById('btn-finalizar-imprevisto-campo');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "⏳ Finalizando imprevisto...";
+    }
+
+    await resolverImprevistoPorId(idImp, false);
+
+    if (btn) {
+        btn.disabled = false;
+        btn.innerText = "✅ Resolver Imprevisto e Ficar Disponível";
+    }
+    boxImp.classList.add('hidden');
+    alert("✅ Imprevisto finalizado! Você já consta como DISPONÍVEL para o painel de gestão.");
+}
+
+async function resolverImprevistoPorId(idImp, chamadoPeloGestor = true) {
+    const reg = (registrosSalvos || []).find(r => r.id === idImp);
+    const horaFim = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    const gpsSaida = reg?.gpsEntrada || "Não capturado";
+
+    const { error } = await supabaseClient
+        .from('registros_producao')
+        .update({
+            desfecho: "IMPREVISTO RESOLVIDO",
+            h_saida: horaFim,
+            gps_saida: gpsSaida
+        })
+        .eq('id', idImp);
+
+    if (error) {
+        alert("Erro ao finalizar imprevisto: " + error.message);
+        return;
+    }
+
+    if (reg) {
+        reg.desfecho = "IMPREVISTO RESOLVIDO";
+        reg.hSaida = horaFim;
+    }
+
+    if (chamadoPeloGestor) {
+        registrarLogAuditoria("IMPREVISTO RESOLVIDO (GESTOR)", `Imprevisto da equipe ${reg?.equipe || ''} encerrado pelo gestor às ${horaFim}.`);
+        if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
+        alert("✅ Imprevisto marcado como RESOLVIDO! O técnico voltou a ficar disponível.");
+    } else {
+        await carregarRegistrosModoCampoLeve();
+    }
+}
+
+async function copiarTextoAreaTransferencia(texto, msgSucesso) {
+    try {
+        await navigator.clipboard.writeText(texto);
+        alert(msgSucesso);
+    } catch (err) {
+        const ta = document.createElement('textarea');
+        ta.value = texto;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        alert(msgSucesso);
+    }
+}
+
+function montarTextoResumoItem(r) {
+    let iconeDesf = "🟢";
+    if (r.desfecho === "PENDENTE" || r.desfecho === "IMPREVISTO") iconeDesf = "🟡";
+    else if (r.desfecho === "MALOGRADA") iconeDesf = "🔴";
+    else if (r.desfecho === "EM ANDAMENTO") iconeDesf = "🔵";
+    else if (r.desfecho === "PARALISADA") iconeDesf = "⏸️";
+    else if (r.desfecho === "REABERTA") iconeDesf = "🔄";
+    else if (r.desfecho === "PROGRAMADA") iconeDesf = "📋";
+
+    let linhas = [
+        `📋 *GPD MDU • PROCISA RJ*`,
+        `📅 *Data:* ${r.dataRegistro}`,
+        `👷 *Equipe:* ${r.equipe}`,
+        `🏢 *Imóvel:* ${r.imovel}`,
+        `📍 *Endereço:* ${r.endereco || '-'}`
     ];
 
-    gruposExport.forEach(grp => {
-        const regsGrp = base.filter(r => r.servicoPlanilha === grp.chave);
-        html += `
-            <tr style="background-color:${grp.cor};color:#ffffff;font-weight:bold;font-size:13px;">
-                <th colspan="15">${grp.titulo} — TOTAL: ${regsGrp.length} REGISTROS</th>
-            </tr>
-            <tr style="background-color:#e2e8f0;font-weight:bold;">
-                <th>BAIRRO</th><th>GRUPO</th><th>PROGRAMADO (1ª VISITA)</th><th>RETORNO</th><th>EXECUTADO PROJETO F</th><th>EXECUTADO ON GOING</th><th>TOTAL EXECUTADO</th><th>N EXECUTADO</th><th>TOTAL ACIONADO</th><th colspan="6">SOMA DE HPs</th>
-            </tr>`;
-
-        const mapaB = {};
-        regsGrp.forEach(d => {
-            const b = d.bairroPlanilha || 'OUTROS';
-            if (!mapaB[b]) mapaB[b] = { bairro: b, prog: 0, ret: 0, execF: 0, execOG: 0, execTot: 0, nExec: 0, total: 0, hps: 0 };
-            mapaB[b].total++;
-            if (d.statusMacroPlanilha === 'RETORNO') mapaB[b].ret++; else mapaB[b].prog++;
-            if (d.desfecho === 'CONCLUIDA') {
-                mapaB[b].execTot++;
-                mapaB[b].hps += Number(d.hps) || 0;
-                if (d.subgrupoFOuOnGoing === 'F') mapaB[b].execF++; else mapaB[b].execOG++;
-            } else mapaB[b].nExec++;
-        });
-
-        Object.values(mapaB).sort((a, b) => b.total - a.total).forEach(b => {
-            html += `<tr><td><b>${b.bairro}</b></td><td>${grp.chave}</td><td>${b.prog}</td><td>${b.ret}</td><td>${b.execF}</td><td>${b.execOG}</td><td><b>${b.execTot}</b></td><td>${b.nExec}</td><td><b>${b.total}</b></td><td colspan="6">${b.hps}</td></tr>`;
-        });
-
-        html += `
-            <tr style="background-color:#dbeafe;font-weight:bold;">
-                <th>SEMANA</th><th>MÊS</th><th>ANO</th><th>DATA</th><th>TÉCNICO / EXECUTOR</th><th>COD. IMOVEL</th><th>BAIRRO</th><th>GRUPO</th><th>SUBGRUPO (F / ON GOING)</th><th>PROJETO</th><th>ENDEREÇO</th><th>HP</th><th>STATUS MACRO (PROG/RETORNO)</th><th>STATUS1 (DETALHE/OFENSOR)</th><th>STATUS</th>
-            </tr>`;
-
-        regsGrp.forEach(r => {
-            const dt = r.dataRegistro || '';
-            const status1 = (Array.isArray(r.malogros) && r.malogros.length > 0) ? r.malogros.join(' + ') : (r.motivoDesfecho || r.desfecho);
-            html += `<tr>
-                <td>${r.semanaPlanilha}</td><td>${parseInt(dt.substring(5, 7) || '1', 10)}</td><td>${dt.substring(0, 4) || '2026'}</td>
-                <td>${dt}</td><td>${r.equipe}</td><td>${r.imovel}</td><td><b>${r.bairroPlanilha}</b></td>
-                <td><b>${r.servicoPlanilha}</b></td><td><b>${r.subgrupoFOuOnGoing}</b></td><td>${r.projeto}</td>
-                <td>${r.endereco || ''}</td><td>${r.hps || 0}</td><td><b>${r.statusMacroPlanilha}</b></td>
-                <td>${status1}</td><td><b>${r.statusBinarioPlanilha}</b></td>
-            </tr>`;
-        });
-        html += `<tr><td colspan="15"></td></tr>`;
-    });
-
-    html += `</table>`;
-    const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `PLANILHA_GRUPOS_PROGRAMADO_RETORNO_BAIRRO_${obterDataLocalISO()}.xls`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    registrarLogAuditoria("EXPORTAÇÃO PROGRAMADO/RETORNO POR GRUPOS", `Exportados ${base.length} registros divididos por Vistoria, Construção (F/ON GOING) e Ativação (F/ON GOING).`);
-}
-
-function montarTabelaHtmlGrupoParaExcel(tituloBloco, corFundoHex, listaRegistros) {
-    let html = `
-        <tr style="background-color:${corFundoHex};color:#ffffff;font-weight:bold;font-size:13px;">
-            <th colspan="22">${tituloBloco} (${listaRegistros.length} REGISTROS)</th>
-        </tr>
-        <tr style="background-color:#f1f5f9;font-weight:bold;">
-            <th>SEMANA</th><th>DATA</th><th>TÉCNICO / EQUIPE</th><th>GRUPO</th><th>SUBGRUPO (F / ON GOING)</th><th>PROJETO</th><th>IMÓVEL / BLOCO</th><th>BAIRRO</th><th>ENDEREÇO</th><th>STATUS MACRO</th><th>STATUS PLANILHA</th><th>DESFECHO</th><th>STATUS1 / OFENSORES</th><th>H. ENTRADA</th><th>H. SAÍDA</th><th>ANDARES</th><th>HPs</th><th>CABO RL (m)</th><th>CABO DROP (m)</th><th>CONECTORES</th><th>FUSÕES</th><th>NAP / DIO</th>
-        </tr>`;
-
-    listaRegistros.forEach(r => {
-        const status1 = (Array.isArray(r.malogros) && r.malogros.length > 0) ? r.malogros.join(' + ') : (r.motivoDesfecho || '');
-        html += `<tr>
-            <td>${r.semanaPlanilha}</td><td>${r.dataRegistro}</td><td><b>${r.equipe}</b></td>
-            <td><b>${r.servicoPlanilha}</b></td><td><b>${r.subgrupoFOuOnGoing}</b></td><td>${r.projeto}</td>
-            <td>${r.imovel}</td><td>${r.bairroPlanilha}</td><td>${r.endereco || ''}</td>
-            <td><b>${r.statusMacroPlanilha}</b></td><td><b>${r.statusBinarioPlanilha}</b></td><td>${r.desfecho}</td>
-            <td>${status1}</td><td>${r.hEntrada}</td><td>${r.hSaida}</td><td>${r.andares || 0}</td><td><b>${r.hps || 0}</b></td>
-            <td>${r.caboRL || 0}</td><td>${r.caboDrop || 0}</td><td>${r.conectores || 0}</td><td>${r.fusoes || 0}</td><td>NAP:${r.nap || 0} / DIO:${r.dio || 0}</td>
-        </tr>`;
-    });
-    html += `<tr><td colspan="22"></td></tr>`;
-    return html;
-}
-
-function exportarExcelGrupoEspecifico(grupoAlvo) {
-    const todos = enriquecerStatusMacroEBairro(dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
-        r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL
-    );
-
-    let html = `<table border="1">`;
-    if (grupoAlvo === 'VISTORIA') {
-        const vist = todos.filter(r => r.servicoPlanilha === 'VISTORIA');
-        html += montarTabelaHtmlGrupoParaExcel('🔍 GRUPO VISTORIA — RESULTADOS DOS VISTORIADORES', '#581c87', vist);
-    } else if (grupoAlvo === 'CONSTRUCAO') {
-        const constF = todos.filter(r => r.servicoPlanilha === 'CONSTRUÇÃO' && r.subgrupoFOuOnGoing === 'F');
-        const constOG = todos.filter(r => r.servicoPlanilha === 'CONSTRUÇÃO' && r.subgrupoFOuOnGoing === 'ON GOING');
-        html += montarTabelaHtmlGrupoParaExcel('🛠️ GRUPO CONSTRUÇÃO — SUBGRUPO PROJETO F (INSTALADORES)', '#312e81', constF);
-        html += montarTabelaHtmlGrupoParaExcel('🛠️ GRUPO CONSTRUÇÃO — SUBGRUPO ON GOING (INSTALADORES)', '#0c4a6e', constOG);
-    } else if (grupoAlvo === 'ATIVACAO') {
-        const ativF = todos.filter(r => r.servicoPlanilha === 'ATIVAÇÃO' && r.subgrupoFOuOnGoing === 'F');
-        const ativOG = todos.filter(r => r.servicoPlanilha === 'ATIVAÇÃO' && r.subgrupoFOuOnGoing === 'ON GOING');
-        html += montarTabelaHtmlGrupoParaExcel('⚡ GRUPO ATIVAÇÃO — SUBGRUPO PROJETO F (ATIVADORES)', '#312e81', ativF);
-        html += montarTabelaHtmlGrupoParaExcel('⚡ GRUPO ATIVAÇÃO — SUBGRUPO ON GOING (ATIVADORES)', '#064e3b', ativOG);
+    if (r.liberouAcesso) {
+        linhas.push(`🔑 *Liberou o Acesso:* ${r.liberouAcesso}`);
     }
-    html += `</table>`;
 
-    const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `PLANILHA_GRUPO_${grupoAlvo}_${obterDataLocalISO()}.xls`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    linhas.push(`🏗️ *Projeto:* ${r.projeto} (${obterMacroGrupoProjeto(r.projeto)})`);
+    linhas.push(`🕒 *Horário:* ${r.hEntrada} às ${r.hSaida}`);
+
+    if (Number(r.tempoPausadoMinutos) > 0) {
+        linhas.push(`⏸️ *Tempo Paralisado:* ${r.tempoPausadoMinutos} min`);
+    }
+
+    linhas.push(`📍 *GPS:* ${r.gpsEntrada}`);
+
+    if (Array.isArray(r.blocosDetalhados) && r.blocosDetalhados.length > 1) {
+        linhas.push(`────────────────────`);
+        linhas.push(`🏢 *DETALHAMENTO POR BLOCO (${r.blocosDetalhados.length} BLOCOS):*`);
+
+        r.blocosDetalhados.forEach((b, idx) => {
+            let iconeB = "🟢";
+            if (b.desfecho === "PENDENTE") iconeB = "🟡";
+            else if (b.desfecho === "MALOGRADA") iconeB = "🔴";
+
+            const nomeBloco = (b.identificacao || `BLOCO ${idx + 1}`).toUpperCase().trim();
+            linhas.push(`\n🔹 *${nomeBloco}*`);
+            linhas.push(`   • *Andares:* ${b.andares || 0} | *HPs:* ${b.hps || 0}`);
+            linhas.push(`   • *Desfecho:* ${iconeB} ${b.desfecho}`);
+            linhas.push(`   • *Materiais (${nomeBloco}):* RL: ${Number(b.caboRL) || 0}m | Drop: ${Number(b.caboDrop) || 0}m | Conect: ${Number(b.conectores) || 0} | Fusões: ${Number(b.fusoes) || 0} | NAP: ${Number(b.nap) || 0} | DIO: ${Number(b.dio) || 0}`);
+            
+            const cxS = Number(b.cxSobrepor) || 0;
+            const cxE = Number(b.cxEmbutida) || 0;
+            const cxF = Number(b.cxFosc) || 0;
+            if (cxS > 0 || cxE > 0 || cxF > 0) {
+                linhas.push(`   • *Caixas (${nomeBloco}):* Sobrepor: ${cxS} | Embutida: ${cxE} | FOSC: ${cxF}`);
+            }
+            if (Array.isArray(b.opcoesMarcadas) && b.opcoesMarcadas.length > 0) {
+                linhas.push(`   • *Opções:* ${b.opcoesMarcadas.join(', ')}`);
+            }
+            if (b.motivoDesfecho) {
+                linhas.push(`   • *Detalhe:* ${b.motivoDesfecho}`);
+            }
+            if (b.observacoes) {
+                linhas.push(`   • *Obs:* ${b.observacoes}`);
+            }
+            if (Array.isArray(b.fotos) && b.fotos.length > 0) {
+                linhas.push(`   • *Fotos:* ${b.fotos.length} anexada(s)`);
+            }
+        });
+
+        linhas.push(`────────────────────`);
+        linhas.push(`📊 *TOTAL GERAL CONSOLIDADO:*`);
+        linhas.push(`🏢 *Andares Totais:* ${r.andares || 0} | *HPs Totais:* ${r.hps || 0}`);
+        linhas.push(`📦 *Soma Materiais:* RL: ${r.caboRL}m | Drop: ${r.caboDrop}m | Conect: ${r.conectores} | Fusões: ${r.fusoes} | NAP: ${r.nap} | DIO: ${r.dio}`);
+        if (r.fotos && r.fotos.length > 0) {
+            linhas.push(`📷 *Total de Fotos:* ${r.fotos.length} foto(s) no sistema`);
+        }
+    } else {
+        linhas.push(`🏢 *Andares:* ${r.andares || 0} | *HPs:* ${r.hps || 0}`);
+        linhas.push(`${iconeDesf} *Status/Desfecho:* ${r.desfecho}`);
+
+        if (r.projeto !== "IMPREVISTO / ATRASO") {
+            linhas.push(`📦 *Materiais:* RL: ${r.caboRL}m | Drop: ${r.caboDrop}m | Conect: ${r.conectores} | Fusões: ${r.fusoes} | NAP: ${r.nap} | DIO: ${r.dio}`);
+            const cxS = Number(r.cxSobrepor) || 0;
+            const cxE = Number(r.cxEmbutida) || 0;
+            const cxF = Number(r.cxFosc) || 0;
+            if (cxS > 0 || cxE > 0 || cxF > 0) {
+                linhas.push(`🧰 *Caixas:* Sobrepor: ${cxS} | Embutida: ${cxE} | FOSC: ${cxF}`);
+            }
+        }
+        if (r.malogros && r.malogros.length > 0) {
+            linhas.push(`⚠️ *Opções Marcadas:* ${r.malogros.join(', ')}`);
+        }
+        if (r.motivoDesfecho) {
+            linhas.push(`💬 *Detalhe:* ${r.motivoDesfecho}`);
+        }
+        if (r.observacoes) {
+            linhas.push(`📝 *Obs:* ${r.observacoes}`);
+        }
+        if (r.fotos && r.fotos.length > 0) {
+            linhas.push(`📷 *Fotos Anexadas:* ${r.fotos.length} foto(s) no sistema`);
+        }
+    }
+    return linhas.join('\n');
 }
 
-function exportarExcel() {
-    const todos = enriquecerStatusMacroEBairro(dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
-        r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL
+function copiarUltimoResumoCampoWhatsApp() {
+    if (!ultimoResumoCampoTexto) return;
+    copiarTextoAreaTransferencia(ultimoResumoCampoTexto, "📲 Resumo da atividade copiado! Agora é só colar no WhatsApp.");
+}
+
+function copiarDetalheModalWhatsApp() {
+    if (!itemDetalheAtualModal) return;
+    const texto = montarTextoResumoItem(itemDetalheAtualModal);
+    copiarTextoAreaTransferencia(texto, "📲 Detalhes do registro copiados para o WhatsApp!");
+}
+
+function copiarBoletimGestorWhatsApp() {
+    const emAndamento = dadosFiltradosAtuais.filter(i => i.desfecho === 'EM ANDAMENTO').length;
+    const paralisadas = dadosFiltradosAtuais.filter(i => i.desfecho === 'PARALISADA').length;
+    const programadas = dadosFiltradosAtuais.filter(i => i.desfecho === 'PROGRAMADA').length;
+    const finalizadas = dadosFiltradosAtuais.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
+    const totalObras = finalizadas.length;
+    const conc = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
+    const pend = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
+    const malo = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
+    const impr = listaImprevistosAtuais.length;
+    const efic = totalObras > 0 ? ((conc / totalObras) * 100).toFixed(1) : "0.0";
+
+    const resumoGrupos = (GRUPOS_PROJETO_SISTEMA || []).map(grp => {
+        const qtdGrp = finalizadas.filter(i => obterMacroGrupoProjeto(i.projeto) === grp).length;
+        return `📂 *Grupo ${grp}:* ${qtdGrp} ativ.`;
+    }).join('\n');
+
+    const dIni = document.getElementById('gestor-filtro-data-inicio').value;
+    const dFim = document.getElementById('gestor-filtro-data-fim').value;
+    const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Período Geral';
+
+    const tmaStr = document.getElementById('ind-tempo-medio')?.innerText || '--';
+    const pausaStr = document.getElementById('ind-tempo-paralisado')?.innerText || '0 min';
+    const medTotal = document.getElementById('fin-total-geral')?.innerText || 'R$ 0,00';
+
+    const textoBoletim = [
+        `📊 *BOLETIM OPERACIONAL GPD • MDU PROCISA RJ*`,
+        `📅 *Período:* ${periodoStr}`,
+        `────────────────────`,
+        `📋 *Programadas na Fila:* ${programadas}`,
+        `🔵 *Em Andamento Agora:* ${emAndamento}`,
+        `⏸️ *Paralisadas no Momento:* ${paralisadas}`,
+        `🏗️ *Total Finalizadas:* ${totalObras}`,
+        `🟢 *Concluídas:* ${conc} (${efic}%)`,
+        `🟡 *Pendentes:* ${pend}`,
+        `🔴 *Malogradas:* ${malo}`,
+        `⚠️ *Imprevistos Reportados:* ${impr}`,
+        `────────────────────`,
+        resumoGrupos,
+        `────────────────────`,
+        `⏱️ *TMA Líquido:* ${tmaStr}`,
+        `⏸️ *Tempo Paralisado:* ${pausaStr}`,
+        `💰 *Medição Estimada:* ${medTotal}`
+    ].join('\n');
+
+    copiarTextoAreaTransferencia(textoBoletim, "📲 Boletim Operacional copiado! Pronto para colar no WhatsApp da diretoria/supervisão.");
+}
+
+function mudarTipoProjeto() {
+    const projeto = document.getElementById('sel-projeto')?.value;
+    const titulo = document.getElementById('titulo-form-dinamico');
+    if (!titulo) return;
+    if (!projeto) {
+        titulo.innerText = "1. Dados Gerais do Condomínio / Imóvel";
+    } else {
+        titulo.innerText = `1. Dados Gerais do Imóvel (${projeto} • ${obterMacroGrupoProjeto(projeto)})`;
+    }
+}
+
+function capturarGpsReal(tempoLimite = 12000) {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject("Geolocalização não suportada pelo navegador.");
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude.toFixed(6);
+                const lng = pos.coords.longitude.toFixed(6);
+                resolve(`${lat}, ${lng}`);
+            },
+            (err) => {
+                reject(err);
+            },
+            { enableHighAccuracy: true, timeout: tempoLimite, maximumAge: 0 }
+        );
+    });
+}
+
+async function fazerCheckIn() {
+    const equipe = document.getElementById('sel-equipe')?.value;
+    const projeto = document.getElementById('sel-projeto')?.value;
+    const imovel = document.getElementById('inp-imovel')?.value.trim();
+    if (!equipe || !projeto || !imovel) { alert("⚠️ Selecione a Equipe, o Projeto e informe o Cód. Imóvel."); return; }
+
+    const regReincidente = verificarHistoricoReincidenciaImovelCampo(imovel);
+    if (regReincidente && (regReincidente.desfecho === 'PENDENTE' || regReincidente.desfecho === 'MALOGRADA')) {
+        const ofensorAnt = (regReincidente.malogros && regReincidente.malogros.length > 0) ? regReincidente.malogros.join(' + ') : 'Não especificado';
+        const continuarReinc = confirm(
+            `⚠️ ALERTA DE HISTÓRICO DO IMÓVEL (${imovel}):\n\n` +
+            `Este imóvel teve status "${regReincidente.desfecho}" em ${regReincidente.dataRegistro} (${regReincidente.projeto} - Equipe: ${regReincidente.equipe}).\n` +
+            `• Ofensor/Motivo: ${ofensorAnt}\n` +
+            `• Detalhe: ${regReincidente.motivoDesfecho || regReincidente.observacoes || '-'}\n\n` +
+            `Deseja confirmar a abertura do atendimento para este imóvel?`
+        );
+        if (!continuarReinc) return;
+    }
+
+    const hojeISO = obterDataLocalISO();
+    const duplicadoHoje = (registrosSalvos || []).find(r => 
+        r.dataRegistro === hojeISO && 
+        r.imovel.toUpperCase().trim().startsWith(imovel.toUpperCase()) &&
+        r.projeto === projeto &&
+        !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(r.desfecho)
     );
-    if (todos.length === 0) { alert("Nenhum registro para exportar no filtro atual."); return; }
 
-    const vist = todos.filter(r => r.servicoPlanilha === 'VISTORIA');
-    const constF = todos.filter(r => r.servicoPlanilha === 'CONSTRUÇÃO' && r.subgrupoFOuOnGoing === 'F');
-    const constOG = todos.filter(r => r.servicoPlanilha === 'CONSTRUÇÃO' && r.subgrupoFOuOnGoing === 'ON GOING');
-    const ativF = todos.filter(r => r.servicoPlanilha === 'ATIVAÇÃO' && r.subgrupoFOuOnGoing === 'F');
-    const ativOG = todos.filter(r => r.servicoPlanilha === 'ATIVAÇÃO' && r.subgrupoFOuOnGoing === 'ON GOING');
+    if (duplicadoHoje) {
+        const confirmarDup = confirm(`⚠️ ATENÇÃO: O imóvel "${imovel}" já possui um registro de "${projeto}" lançado hoje (${duplicadoHoje.desfecho} por ${duplicadoHoje.equipe}).\n\nDeseja abrir um novo atendimento para este mesmo imóvel?`);
+        if (!confirmarDup) return;
+    }
 
-    let html = `<table border="1">`;
-    html += montarTabelaHtmlGrupoParaExcel('1. GRUPO VISTORIA — RESULTADOS DOS VISTORIADORES', '#581c87', vist);
-    html += montarTabelaHtmlGrupoParaExcel('2A. GRUPO CONSTRUÇÃO — SUBGRUPO PROJETO F (INSTALADORES)', '#312e81', constF);
-    html += montarTabelaHtmlGrupoParaExcel('2B. GRUPO CONSTRUÇÃO — SUBGRUPO ON GOING (INSTALADORES)', '#1e3a8a', constOG);
-    html += montarTabelaHtmlGrupoParaExcel('3A. GRUPO ATIVAÇÃO — SUBGRUPO PROJETO F (ATIVADORES)', '#065f46', ativF);
-    html += montarTabelaHtmlGrupoParaExcel('3B. GRUPO ATIVAÇÃO — SUBGRUPO ON GOING (ATIVADORES)', '#0f766e', ativOG);
-    html += `</table>`;
+    document.getElementById('box-ultimo-resumo-whats').classList.add('hidden');
 
-    let blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
-    let url = URL.createObjectURL(blob);
-    let a = document.createElement('a');
-    a.href = url; a.download = `RELATORIO_POR_GRUPOS_GPD_PROCISA_${obterDataLocalISO()}.xls`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    registrarLogAuditoria("EXPORTAÇÃO DE RELATÓRIO POR GRUPOS", `Baixado relatório Excel separado por Vistoria, Construção (F/ON GOING) e Ativação (F/ON GOING).`);
+    const btnCheckin = document.getElementById('btn-checkin');
+    if (btnCheckin) {
+        btnCheckin.disabled = true;
+        btnCheckin.innerText = "📍 Obtendo GPS e iniciando no painel...";
+    }
+
+    let coordReal = "Não capturado";
+    try {
+        coordReal = await capturarGpsReal(12000);
+        dadosAtendimento.gpsEntrada = coordReal;
+        document.getElementById('lbl-gps-entrada').innerText = coordReal;
+
+        const partes = coordReal.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            await registrarPontoTelemetriaEquipe(equipe, partes[0], partes[1], 'DISPONIVEL');
+            iniciarMonitoramentoContinuoGps(equipe);
+        }
+    } catch (err) {
+        alert("❌ Não foi possível capturar o GPS. Verifique se a Localização do celular está ativada e se o navegador tem permissão.");
+        if (btnCheckin) {
+            btnCheckin.disabled = false;
+            btnCheckin.innerText = "🚀 Iniciar Atividade no Imóvel (Status: Em Andamento)";
+        }
+        return;
+    }
+
+    await encerrarImprevistosAbertosAoIniciarAtividade(equipe, coordReal);
+
+    const horaEntradaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    const idTemp = Date.now();
+
+    const registroEmAndamentoDB = {
+        id: idTemp,
+        data_registro: hojeISO,
+        equipe: equipe,
+        membros: equipe,
+        projeto: projeto,
+        imovel: imovel,
+        h_entrada: horaEntradaAtual,
+        h_saida: "Em Andamento",
+        gps_entrada: coordReal,
+        gps_saida: "Em Campo",
+        desfecho: "EM ANDAMENTO",
+        motivo_desfecho: "Atividade iniciada em campo (Em execução)",
+        malogros: [],
+        responsavel: '',
+        contato: '',
+        email: '',
+        agendamento: null,
+        andares: 0,
+        hps: 0,
+        servico_obra: "SIM",
+        observacoes: "Em andamento"
+    };
+
+    try {
+        const { error } = await supabaseClient.from('registros_producao').insert([registroEmAndamentoDB]);
+        if (!error) {
+            dadosAtendimento.idEmAndamento = idTemp;
+        }
+    } catch (e) {
+        console.warn("Abertura salva em rascunho local (oscilação de rede).");
+    }
+
+    dadosAtendimento.eraReaberta = false;
+    dadosAtendimento.eraProgramada = false;
+    dadosAtendimento.emPausa = false;
+    dadosAtendimento.inicioPausa = null;
+    dadosAtendimento.motivoPausaAtual = "";
+    dadosAtendimento.minutosPausados = 0;
+
+    if (btnCheckin) {
+        btnCheckin.disabled = false;
+        btnCheckin.innerText = "🚀 Iniciar Atividade no Imóvel (Status: Em Andamento)";
+    }
+
+    dadosAtendimento.blocos = [criarObjetoBlocoPadrao(1)];
+    document.getElementById('inp-qtd-blocos').value = 1;
+
+    if (regReincidente && regReincidente.endereco && !document.getElementById('form-endereco').value) {
+        document.getElementById('form-endereco').value = regReincidente.endereco;
+    }
+
+    document.getElementById('lbl-status-execucao-campo').innerText = "Status: Em Andamento no Painel";
+    document.getElementById('form-campo-container').classList.add('hidden');
+    document.getElementById('bloco-pos-abertura').classList.remove('hidden');
+    document.getElementById('lbl-imovel-aberto').innerText = `${imovel} (${projeto})`;
+    document.getElementById('lbl-h-entrada').innerText = horaEntradaAtual;
+    mudarTipoProjeto();
+    renderizarBlocosCampo();
+    sincronizarVisualPausaCampo();
+    salvarRascunhoCampo();
+    await carregarRegistrosModoCampoLeve();
+    verificarImprevistoAtivoEquipeCampo();
+    atualizarAbaMinhasAtividadesCampo(false);
 }
 
-function renderizarOfensoresMalogro(dados) {
-    const tbody = document.getElementById('tabela-ofensores-malogro-corpo');
-    const badgeTotal = document.getElementById('badge-total-ocorrencias-malogro');
-    if (!tbody) return;
-    tbody.innerHTML = "";
+function abrirModalImprevisto() {
+    const equipe = document.getElementById('sel-equipe')?.value;
+    if (!equipe) {
+        alert("⚠️ Selecione primeiro a sua Equipe / Técnico antes de informar um imprevisto.");
+        return;
+    }
+    document.getElementById('inp-detalhe-imprevisto').value = '';
+    popularSelectImprevistos();
+    document.getElementById('modal-imprevisto').classList.remove('hidden');
+}
 
-    const contagemOfensores = {};
-    OPCOES_MALOGRO_PADRAO.forEach(o => contagemOfensores[o] = { total: 0, vist: 0, const: 0, ativ: 0 });
-    let totalOcorrenciasMalogro = 0;
+function fecharModalImprevisto() {
+    document.getElementById('modal-imprevisto').classList.add('hidden');
+}
 
-    dados.forEach(d => {
-        if ((d.desfecho === 'MALOGRADA' || d.desfecho === 'PENDENTE') && Array.isArray(d.malogros)) {
-            d.malogros.forEach(m => {
-                const chave = m.trim().toUpperCase();
-                if (!contagemOfensores[chave]) contagemOfensores[chave] = { total: 0, vist: 0, const: 0, ativ: 0 };
-                contagemOfensores[chave].total++;
-                if (d.servicoPlanilha === 'VISTORIA') contagemOfensores[chave].vist++;
-                else if (d.servicoPlanilha === 'CONSTRUÇÃO') contagemOfensores[chave].const++;
-                else contagemOfensores[chave].ativ++;
-                totalOcorrenciasMalogro++;
+function fecharAlertaImprevistos() {
+    const alerta = document.getElementById('alerta-imprevistos-supervisao');
+    if (alerta) {
+        alerta.classList.add('hidden');
+        alerta.dataset.fechadoPeloGestor = "true";
+    }
+}
+
+async function enviarImprevisto() {
+    const equipe = document.getElementById('sel-equipe')?.value;
+    const checksImp = document.querySelectorAll('input[name="chk-motivo-imprevisto"]:checked');
+    let motivosSelecionados = Array.from(checksImp).map(c => c.value);
+
+    if (motivosSelecionados.length === 0) {
+        const fallbackSel = document.getElementById('sel-motivo-imprevisto')?.value;
+        if (fallbackSel) motivosSelecionados = [fallbackSel];
+    }
+
+    if (motivosSelecionados.length === 0) {
+        alert("⚠️ Selecione pelo menos um motivo de imprevisto.");
+        return;
+    }
+
+    const motivoStr = motivosSelecionados.join(" + ");
+    const detalhe = document.getElementById('inp-detalhe-imprevisto').value.trim();
+
+    if (!equipe) {
+        alert("⚠️ Equipe não selecionada.");
+        return;
+    }
+
+    const btnEnviar = document.getElementById('btn-enviar-imprevisto');
+    if (btnEnviar) {
+        btnEnviar.disabled = true;
+        btnEnviar.innerText = "⏳ Capturando GPS...";
+    }
+
+    let gpsCapturado = "Não capturado";
+    try {
+        gpsCapturado = await capturarGpsReal(8000);
+        const partes = gpsCapturado.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            await registrarPontoTelemetriaEquipe(equipe, partes[0], partes[1]);
+        }
+    } catch (e) {
+        console.warn("Imprevisto enviado sem sinal exato de GPS.");
+    }
+
+    const dataLocalCorreta = obterDataLocalISO();
+    const horaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+
+    const registroImprevistoDB = {
+        id: Date.now(),
+        data_registro: dataLocalCorreta,
+        equipe: equipe,
+        membros: equipe,
+        projeto: "IMPREVISTO / ATRASO",
+        imovel: "SEM ATIVIDADE (Imprevisto)",
+        h_entrada: horaAtual,
+        h_saida: "Em Aberto",
+        gps_entrada: gpsCapturado,
+        gps_saida: gpsCapturado,
+        desfecho: "IMPREVISTO",
+        motivo_desfecho: detalhe ? `${motivoStr}: ${detalhe}` : motivoStr,
+        malogros: motivosSelecionados,
+        responsavel: '',
+        contato: '',
+        email: '',
+        agendamento: null,
+        andares: 0,
+        hps: 0,
+        servico_obra: "NÃO",
+        observacoes: detalhe,
+        fusoes: 0,
+        conectores: 0,
+        cabo_rl: 0,
+        cabo_drop: 0,
+        nap: 0,
+        dio: 0,
+        cx_sobrepor: 0,
+        cx_embutida: 0,
+        cx_fosc: 0
+    };
+
+    const { error } = await supabaseClient.from('registros_producao').insert([registroImprevistoDB]);
+
+    if (btnEnviar) {
+        btnEnviar.disabled = false;
+        btnEnviar.innerText = "📍 Capturar GPS e Iniciar Imprevisto";
+    }
+
+    if (error) {
+        alert("❌ Erro ao registrar imprevisto: " + error.message);
+        return;
+    }
+
+    alert("⚠️ Imprevisto registrado! Assim que você iniciar qualquer atividade em campo (ou clicar no botão verde 'Resolver Imprevisto'), ele será finalizado automaticamente.");
+    fecharModalImprevisto();
+    await carregarRegistrosModoCampoLeve();
+    verificarImprevistoAtivoEquipeCampo();
+}
+
+function resetarFormularioCampo() {
+    const equipeAtual = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '';
+    dadosAtendimento.idEmAndamento = null;
+    dadosAtendimento.eraReaberta = false;
+    dadosAtendimento.eraProgramada = false;
+    dadosAtendimento.emPausa = false;
+    dadosAtendimento.inicioPausa = null;
+    dadosAtendimento.motivoPausaAtual = "";
+    dadosAtendimento.minutosPausados = 0;
+    dadosAtendimento.gpsEntrada = null;
+    dadosAtendimento.gpsSaida = null;
+    dadosAtendimento.blocos = [];
+    document.getElementById('inp-imovel').value = '';
+    const boxReinc = document.getElementById('box-alerta-reincidencia-imovel');
+    if (boxReinc) boxReinc.classList.add('hidden');
+    document.getElementById('form-endereco').value = '';
+    if (document.getElementById('form-liberou-acesso')) {
+        document.getElementById('form-liberou-acesso').value = '';
+    }
+    document.getElementById('form-responsavel').value = '';
+    document.getElementById('form-contato').value = '';
+    document.getElementById('form-email').value = '';
+    document.getElementById('inp-qtd-blocos').value = '1';
+    document.getElementById('container-blocos-dinamicos').innerHTML = '';
+    document.getElementById('lbl-gps-entrada').innerText = '-';
+    document.getElementById('lbl-imovel-aberto').innerText = '-';
+    if (document.getElementById('lbl-tempo-pausado-acumulado')) {
+        document.getElementById('lbl-tempo-pausado-acumulado').innerText = '';
+    }
+    
+    document.getElementById('bloco-pos-abertura').classList.add('hidden');
+    document.getElementById('form-campo-container').classList.remove('hidden');
+    sincronizarVisualPausaCampo();
+    localStorage.removeItem('gpd_rascunho_campo_ativo');
+
+    if (equipeAtual) {
+        const selEq = document.getElementById('sel-equipe');
+        if (selEq) selEq.value = equipeAtual;
+        document.getElementById('current-user-team').innerText = equipeAtual;
+        atualizarProjetosPermitidosCampo(equipeAtual);
+        atualizarBarraSegurancaPinCampo();
+        atualizarBarraExpedienteCampo();
+        renderizarResumoSolicitacoesCampo();
+    }
+}
+
+async function salvarRegistro() {
+    if (dadosAtendimento.emPausa) {
+        alert("⚠️ A atividade encontra-se PARALISADA. Clique no botão verde '▶️ Retomar Atividade Agora' antes de finalizar o atendimento.");
+        return;
+    }
+
+    lerDadosBlocosDaTela();
+
+    const enderecoGeral = document.getElementById('form-endereco').value.trim();
+    if (!enderecoGeral) {
+        alert("⚠️ O preenchimento do ENDEREÇO DO ATENDIMENTO é obrigatório.");
+        document.getElementById('form-endereco').focus();
+        return;
+    }
+
+    const liberouAcessoGeral = document.getElementById('form-liberou-acesso') ? document.getElementById('form-liberou-acesso').value.trim() : '';
+    if (!liberouAcessoGeral) {
+        alert("⚠️ O preenchimento do campo 'LIBEROU O ACESSO' é obrigatório.");
+        document.getElementById('form-liberou-acesso')?.focus();
+        return;
+    }
+
+    const qtdBlocos = dadosAtendimento.blocos.length;
+
+    for (let i = 0; i < qtdBlocos; i++) {
+        const b = dadosAtendimento.blocos[i];
+        const nomeBloco = qtdBlocos > 1 ? `(${b.identificacao || 'Bloco ' + (i+1)})` : '';
+
+        const numAndares = Number(b.andares);
+        const numHps = Number(b.hps);
+
+        if (!b.andares || isNaN(numAndares) || numAndares <= 0) {
+            alert(`⚠️ Informe obrigatoriamente a quantidade de ANDARES ${nomeBloco}.`);
+            document.getElementById(`bloco-andares-${i}`)?.focus();
+            return;
+        }
+        if (!b.hps || isNaN(numHps) || numHps <= 0) {
+            alert(`⚠️ Informe obrigatoriamente o Nº DE HPs ${nomeBloco}.`);
+            document.getElementById(`bloco-hps-${i}`)?.focus();
+            return;
+        }
+        if (!b.desfecho) {
+            alert(`⚠️ Selecione o DESFECHO da atividade ${nomeBloco} (CONCLUÍDA, PENDENTE ou MALOGRADA).`);
+            return;
+        }
+        if (b.desfecho === 'PENDENTE' && (!b.obsPendente.trim() || !b.pendenciasOpcoes || b.pendenciasOpcoes.length === 0)) {
+            alert(`⚠️ Para atividade PENDENTE ${nomeBloco}, selecione pelo menos uma opção (ex: Rede Corretiva) e descreva o motivo.`);
+            return;
+        }
+        if (b.desfecho === 'MALOGRADA' && (!b.obsMalograda.trim() || !b.malogros || b.malogros.length === 0)) {
+            alert(`⚠️ Informe o motivo e selecione pelo menos um ofensor de malogro ${nomeBloco}.`);
+            return;
+        }
+    }
+
+    const btnSalvar = document.getElementById('btn-salvar-final');
+    if (btnSalvar) {
+        btnSalvar.disabled = true;
+        btnSalvar.innerText = "⏳ Capturando GPS de saída e salvando fotos...";
+    }
+
+    const equipeNome = document.getElementById('sel-equipe').value;
+    let gpsSaidaFinal = dadosAtendimento.gpsEntrada || "Não capturado";
+    try {
+        gpsSaidaFinal = await capturarGpsReal(4000);
+        const partes = gpsSaidaFinal.split(',').map(s => parseFloat(s.trim()));
+        if (partes.length === 2 && !isNaN(partes[0])) {
+            await registrarPontoTelemetriaEquipe(equipeNome, partes[0], partes[1]);
+        }
+    } catch (e) {
+        console.warn("Sinal interno fraco na saída, mantendo coordenada real da entrada.");
+    }
+
+    const projetoNome = document.getElementById('sel-projeto').value;
+    const imovelBase = document.getElementById('inp-imovel').value.trim();
+    const responsavelGeral = document.getElementById('form-responsavel').value.trim();
+    const contatoGeral = document.getElementById('form-contato').value.trim();
+    const emailGeral = document.getElementById('form-email').value.trim();
+    const dataLocalCorreta = obterDataLocalISO();
+    const horaEntradaOriginal = document.getElementById('lbl-h-entrada').innerText || "08:30";
+    const horaSaidaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    const minutosPausaTotal = Number(dadosAtendimento.minutosPausados) || 0;
+
+    const listaRegistrosParaInserir = dadosAtendimento.blocos.map((b, idx) => {
+        let motivoDesfecho = "";
+        let opcoesMarcadas = [];
+
+        if (b.desfecho === 'CONCLUIDA') {
+            motivoDesfecho = b.obsConcluida.trim();
+            opcoesMarcadas = b.concluidasOpcoes || [];
+        } else if (b.desfecho === 'PENDENTE') {
+            motivoDesfecho = b.obsPendente.trim();
+            opcoesMarcadas = b.pendenciasOpcoes || [];
+        } else if (b.desfecho === 'MALOGRADA') {
+            motivoDesfecho = b.obsMalograda.trim();
+            opcoesMarcadas = b.malogros || [];
+        }
+
+        const codigoImovelFinal = qtdBlocos > 1 
+            ? `${imovelBase} - ${(b.identificacao || 'BLOCO ' + (idx + 1)).toUpperCase().trim()}`
+            : imovelBase;
+
+        const tagLiberou = `[LIBEROU_ACESSO: ${liberouAcessoGeral}] `;
+        const tagPausa = (minutosPausaTotal > 0 && idx === 0) ? `[PAUSA_TOTAL: ${minutosPausaTotal}] ` : '';
+        const sufixoFotos = (b.fotos && b.fotos.length > 0) ? ` [FOTOS:${JSON.stringify(b.fotos)}]` : '';
+        const obsFinal = `[END: ${enderecoGeral}] ${tagLiberou}${tagPausa}${b.observacoes || ''}${sufixoFotos}`.trim();
+
+        return {
+            id: Date.now() + idx,
+            data_registro: dataLocalCorreta,
+            equipe: equipeNome,
+            membros: equipeNome,
+            projeto: projetoNome,
+            imovel: codigoImovelFinal,
+            h_entrada: horaEntradaOriginal,
+            h_saida: horaSaidaAtual,
+            gps_entrada: dadosAtendimento.gpsEntrada || gpsSaidaFinal,
+            gps_saida: gpsSaidaFinal,
+            desfecho: b.desfecho,
+            motivo_desfecho: motivoDesfecho,
+            malogros: opcoesMarcadas,
+            responsavel: responsavelGeral,
+            contato: contatoGeral,
+            email: emailGeral,
+            agendamento: null,
+            andares: Number(b.andares) || 0,
+            hps: Number(b.hps) || 0,
+            servico_obra: b.servicoObra || "SIM",
+            observacoes: obsFinal,
+            fusoes: Number(b.fusoes) || 0,
+            conectores: Number(b.conectores) || 0,
+            cabo_rl: Number(b.caboRL) || 0,
+            cabo_drop: Number(b.caboDrop) || 0,
+            nap: Number(b.nap) || 0,
+            dio: Number(b.dio) || 0,
+            cx_sobrepor: Number(b.cxSobrepor) || 0,
+            cx_embutida: Number(b.cxEmbutida) || 0,
+            cx_fosc: Number(b.cxFosc) || 0
+        };
+    });
+
+    const primeiroReg = listaRegistrosParaInserir[0];
+    const todasFotos = dadosAtendimento.blocos.flatMap(b => b.fotos || []);
+
+    const blocosParaWhats = dadosAtendimento.blocos.map((b, idx) => ({
+        identificacao: b.identificacao || `BLOCO ${idx + 1}`,
+        andares: Number(b.andares) || 0,
+        hps: Number(b.hps) || 0,
+        desfecho: b.desfecho,
+        fusoes: Number(b.fusoes) || 0,
+        conectores: Number(b.conectores) || 0,
+        caboRL: Number(b.caboRL) || 0,
+        caboDrop: Number(b.caboDrop) || 0,
+        nap: Number(b.nap) || 0,
+        dio: Number(b.dio) || 0,
+        cxSobrepor: Number(b.cxSobrepor) || 0,
+        cxEmbutida: Number(b.cxEmbutida) || 0,
+        cxFosc: Number(b.cxFosc) || 0,
+        opcoesMarcadas: b.desfecho === 'CONCLUIDA' ? b.concluidasOpcoes : (b.desfecho === 'PENDENTE' ? b.pendenciasOpcoes : b.malogros),
+        motivoDesfecho: b.desfecho === 'CONCLUIDA' ? b.obsConcluida : (b.desfecho === 'PENDENTE' ? b.obsPendente : b.obsMalograda),
+        observacoes: (b.observacoes || '').trim(),
+        fotos: b.fotos || []
+    }));
+    
+    const resumoMontado = montarTextoResumoItem({
+        dataRegistro: dataLocalCorreta,
+        equipe: equipeNome,
+        imovel: qtdBlocos > 1 ? `${imovelBase} (${qtdBlocos} Blocos)` : imovelBase,
+        endereco: enderecoGeral,
+        liberouAcesso: liberouAcessoGeral,
+        tempoPausadoMinutos: minutosPausaTotal,
+        projeto: projetoNome,
+        andares: listaRegistrosParaInserir.reduce((acc, r) => acc + r.andares, 0),
+        hps: listaRegistrosParaInserir.reduce((acc, r) => acc + r.hps, 0),
+        desfecho: listaRegistrosParaInserir.map(r => r.desfecho).join(' / '),
+        hEntrada: horaEntradaOriginal,
+        hSaida: horaSaidaAtual,
+        gpsEntrada: primeiroReg.gps_entrada,
+        caboRL: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cabo_rl, 0),
+        caboDrop: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cabo_drop, 0),
+        conectores: listaRegistrosParaInserir.reduce((acc, r) => acc + r.conectores, 0),
+        fusoes: listaRegistrosParaInserir.reduce((acc, r) => acc + r.fusoes, 0),
+        nap: listaRegistrosParaInserir.reduce((acc, r) => acc + r.nap, 0),
+        dio: listaRegistrosParaInserir.reduce((acc, r) => acc + r.dio, 0),
+        cxSobrepor: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cx_sobrepor, 0),
+        cxEmbutida: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cx_embutida, 0),
+        cxFosc: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cx_fosc, 0),
+        malogros: primeiroReg.malogros,
+        motivoDesfecho: primeiroReg.motivo_desfecho,
+        observacoes: (dadosAtendimento.blocos[0]?.observacoes || '').trim(),
+        fotos: todasFotos,
+        blocosDetalhados: blocosParaWhats
+    });
+
+    try {
+        if (!navigator.onLine) {
+            throw new Error("Sem conexão 4G no momento");
+        }
+        if (dadosAtendimento.idEmAndamento) {
+            await supabaseClient.from('registros_producao').delete().eq('id', dadosAtendimento.idEmAndamento);
+        }
+        const { error } = await supabaseClient.from('registros_producao').insert(listaRegistrosParaInserir);
+        if (error) throw error;
+
+        if (btnSalvar) {
+            btnSalvar.disabled = false;
+            btnSalvar.innerText = "💾 Finalizar e Salvar Atendimento";
+        }
+
+        ultimoResumoCampoTexto = resumoMontado;
+        document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
+
+        alert(`✅ Atendimento finalizado (${qtdBlocos} bloco(s) e ${todasFotos.length} foto(s)) e sincronizado com sucesso!`);
+        resetarFormularioCampo();
+        await carregarRegistrosModoCampoLeve();
+        verificarPendenciasReabertasEProgramadasCampo(false);
+        atualizarAbaMinhasAtividadesCampo(false);
+    } catch (errOffline) {
+        if (btnSalvar) {
+            btnSalvar.disabled = false;
+            btnSalvar.innerText = "💾 Finalizar e Salvar Atendimento";
+        }
+
+        salvarNaFilaOfflineCampo(listaRegistrosParaInserir, resumoMontado);
+        ultimoResumoCampoTexto = resumoMontado;
+        document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
+
+        resetarFormularioCampo();
+        alert(`📡 SINAL 4G INDISPONÍVEL NO LOCAL!\n\nSeu atendimento (${imovelBase}) e todas as fotos foram GUARDADOS COM SEGURANÇA na Fila Offline do aparelho.\n\nVocê já pode copiar o resumo para o WhatsApp e seguir para o próximo prédio. Assim que o sinal voltar, basta clicar em "Sincronizar Fila Offline"!`);
+    }
+}
+// ================= MÓDULO DE APOIO CONJUNTO COM VALIDAÇÃO DO TITULAR & TURBO GPS (CAMPO.JS) =================
+let ultimoDisparoGpsCampoTs = 0;
+
+function extrairListaApoiosDoMembros(strMembros, nomeTitular) {
+    if (!strMembros || typeof strMembros !== 'string') return [];
+    const limpo = strMembros.trim();
+    if (!limpo || limpo === '__CONFIG_SISTEMA__' || limpo.toUpperCase() === (nomeTitular || '').toUpperCase().trim()) return [];
+    const partes = limpo.split('|').map(p => p.trim());
+    const validados = [];
+    partes.forEach(p => {
+        if (p.toUpperCase().startsWith('APOIO_PENDENTE:')) return;
+        const sub = p.replace(/^APOIO:/i, '').trim();
+        sub.split(',').forEach(n => {
+            const nome = n.trim().toUpperCase();
+            if (nome && nome !== (nomeTitular || '').toUpperCase().trim() && !validados.includes(nome)) {
+                validados.push(nome);
+            }
+        });
+    });
+    return validados;
+}
+
+function extrairListaApoiosPendentesDoMembros(strMembros, nomeTitular) {
+    if (!strMembros || typeof strMembros !== 'string') return [];
+    const limpo = strMembros.trim();
+    if (!limpo || limpo === '__CONFIG_SISTEMA__') return [];
+    const partes = limpo.split('|').map(p => p.trim());
+    const pendentes = [];
+    partes.forEach(p => {
+        if (p.toUpperCase().startsWith('APOIO_PENDENTE:')) {
+            const sub = p.replace(/^APOIO_PENDENTE:/i, '').trim();
+            sub.split(',').forEach(n => {
+                const nome = n.trim().toUpperCase();
+                if (nome && nome !== (nomeTitular || '').toUpperCase().trim() && !pendentes.includes(nome)) {
+                    pendentes.push(nome);
+                }
             });
         }
     });
-
-    if (badgeTotal) badgeTotal.innerText = `${totalOcorrenciasMalogro} ocorrência(s)`;
-    const ordenados = Object.entries(contagemOfensores).sort((a, b) => b[1].total - a[1].total);
-
-    ordenados.forEach(([ofensor, obj], idx) => {
-        const perc = totalOcorrenciasMalogro > 0 ? ((obj.total / totalOcorrenciasMalogro) * 100).toFixed(1) : "0.0";
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-red-50/60 border-b cursor-pointer transition";
-        tr.onclick = () => dispararExplosaoGrafico('ofensor', ofensor);
-        tr.innerHTML = `<td class="py-2 font-bold text-slate-400">${idx + 1}º</td><td class="py-2 font-bold text-red-900 underline decoration-dotted">${ofensor}</td><td class="py-2 text-center text-[10px] font-semibold"><span class="text-purple-800">${obj.vist}V</span> / <span class="text-blue-800">${obj.const}C</span> / <span class="text-emerald-800">${obj.ativ}A</span></td><td class="py-2 text-center font-black text-slate-800">${obj.total}</td><td class="py-2 text-right font-bold text-slate-600">${perc}%</td>`;
-        tbody.appendChild(tr);
-    });
-
-    const ctxOfensores = document.getElementById('graficoOfensoresMalogro')?.getContext('2d');
-    if (ctxOfensores) {
-        if (graficoOfensoresMalogroInstancia) graficoOfensoresMalogroInstancia.destroy();
-        const labelsOfensores = ordenados.map(item => item[0]);
-        graficoOfensoresMalogroInstancia = new Chart(ctxOfensores, {
-            type: 'bar',
-            data: { labels: labelsOfensores, datasets: [{ label: 'Ocorrências de Não Execução', data: ordenados.map(item => item[1].total), backgroundColor: '#dc2626', borderRadius: 6 }] },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }, onClick: (event, elements) => { if (elements.length > 0) dispararExplosaoGrafico('ofensor', labelsOfensores[elements[0].index]); } }
-        });
-    }
+    return pendentes;
 }
 
-function renderizarTabelaConsolidada(dados) {
-    const corpo = document.getElementById('tabela-consolidada-corpo');
-    if (!corpo) return;
-    corpo.innerHTML = "";
-    if (dados.length === 0) {
-        corpo.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum dado consolidado no período.</td></tr>`;
-        return;
-    }
+function formatarStringMembrosApoio(nomeTitular, arrayValidados, arrayPendentes = []) {
+    const titularLimpo = (nomeTitular || '').toUpperCase().trim();
+    const valUnicos = [...new Set((arrayValidados || []).map(a => String(a || '').trim().toUpperCase()).filter(a => a && a !== titularLimpo))];
+    const pendUnicos = [...new Set((arrayPendentes || []).map(a => String(a || '').trim().toUpperCase()).filter(a => a && a !== titularLimpo && !valUnicos.includes(a)))];
 
-    const grupos = [
-        { chave: 'VISTORIA', titulo: '🔍 GRUPO 1: VISTORIA (Vistoriadores)', cor: 'bg-purple-900 text-white' },
-        { chave: 'CONSTRUÇÃO', titulo: '🛠️ GRUPO 2: CONSTRUÇÃO — Instaladores (F & ON GOING)', cor: 'bg-blue-900 text-white' },
-        { chave: 'ATIVAÇÃO', titulo: '⚡ GRUPO 3: ATIVAÇÃO — Ativadores (F & ON GOING)', cor: 'bg-emerald-900 text-white' }
-    ];
+    const blocos = [];
+    if (valUnicos.length > 0) blocos.push(`APOIO:${valUnicos.join(', ')}`);
+    if (pendUnicos.length > 0) blocos.push(`APOIO_PENDENTE:${pendUnicos.join(', ')}`);
+    return blocos.length > 0 ? blocos.join(' | ') : (nomeTitular || '');
+}
 
-    grupos.forEach(g => {
-        const dGrp = dados.filter(d => d.servicoPlanilha === g.chave);
-        if (dGrp.length === 0) return;
-
-        corpo.innerHTML += `<tr class="${g.cor} font-black text-xs"><td colspan="4" class="p-2.5 uppercase">${g.titulo} (Total: ${dGrp.length})</td></tr>`;
-        const cats = {};
-        dGrp.forEach(d => {
-            const st = d.desfecho === 'CONCLUIDA' ? '🟢 EXECUTADO (Concluída)' : `🟠 N EXECUTADO (${d.desfecho})`;
-            const chave = g.chave === 'VISTORIA' ? `VISTORIA — ${st}` : `[Subgrupo ${d.subgrupoFOuOnGoing}] ${d.projeto} — ${st}`;
-            if (!cats[chave]) cats[chave] = { qtd: 0, hps: 0 };
-            cats[chave].qtd++;
-            cats[chave].hps += Number(d.hps) || 0;
-        });
-
-        Object.entries(cats).forEach(([cat, info]) => {
-            const perc = ((info.qtd / dGrp.length) * 100).toFixed(1);
-            corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="p-3 font-semibold text-slate-800">${cat}</td><td class="p-3 text-center font-bold text-blue-900">${info.qtd}</td><td class="p-3 text-center font-bold text-indigo-800">${info.hps}</td><td class="p-3 text-center font-bold text-slate-600">${perc}%</td></tr>`;
-        });
+function capturarCoordenadaGpsFrescaCampo(timeoutMs = 8000) {
+    return new Promise((resolve) => {
+        if (!navigator.geolocation) { resolve(null); return; }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+            () => {
+                navigator.geolocation.getCurrentPosition(
+                    (pos2) => resolve({ lat: pos2.coords.latitude, lng: pos2.coords.longitude }),
+                    () => resolve(null),
+                    { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
+                );
+            },
+            { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 }
+        );
     });
 }
 
-function lerCheckboxesAtuaisModalEdicao() {
-    const checks = document.querySelectorAll('input[name="chk-opcao-modal-edicao"]:checked');
-    if (checks.length > 0) opcoesMarcadasEdicaoTemporarias = Array.from(checks).map(c => c.value);
-}
-
-function aoMudarDesfechoModalEdicao() {
-    lerCheckboxesAtuaisModalEdicao();
-    renderizarOpcoesCheckboxesModalEdicao(document.getElementById('edit-reg-desfecho')?.value || 'CONCLUIDA', opcoesMarcadasEdicaoTemporarias);
-}
-
-function renderizarOpcoesCheckboxesModalEdicao(desfechoAlvo, selecionadas = []) {
-    const container = document.getElementById('container-checkboxes-edicao');
-    if (!container) return;
-    let opcoesBase = desfechoAlvo === 'PENDENTE' ? [...OPCOES_PENDENCIA_PADRAO] : (desfechoAlvo === 'MALOGRADA' ? [...OPCOES_MALOGRO_PADRAO] : ((desfechoAlvo === 'IMPREVISTO' || desfechoAlvo === 'IMPREVISTO RESOLVIDO') ? [...OPCOES_IMPREVISTO_PADRAO] : [...OPCOES_CONCLUIDA_PADRAO]));
-    (selecionadas || []).forEach(op => { const limpo = String(op).trim().toUpperCase(); if (limpo && !opcoesBase.includes(limpo)) opcoesBase.push(limpo); });
-    const setSelecionadas = new Set((selecionadas || []).map(s => String(s).trim().toUpperCase()));
-    container.innerHTML = opcoesBase.map(op => `<label class="flex items-center gap-1.5 font-semibold text-slate-700 hover:bg-amber-50 p-1 rounded cursor-pointer"><input type="checkbox" name="chk-opcao-modal-edicao" value="${op}" ${setSelecionadas.has(op.toUpperCase()) ? 'checked' : ''} class="w-4 h-4 accent-blue-900 rounded"><span class="text-[11px]">${op}</span></label>`).join('');
-}
-
-async function incluirOpcaoCustomizadaNoModalEdicao() {
-    const inp = document.getElementById('inp-nova-opcao-rapida-edicao');
-    if (!inp || !inp.value.trim()) return;
-    const novaOp = inp.value.trim().toUpperCase();
-    const checksAtuais = document.querySelectorAll('input[name="chk-opcao-modal-edicao"]:checked');
-    opcoesMarcadasEdicaoTemporarias = Array.from(checksAtuais).map(c => c.value);
-    if (!opcoesMarcadasEdicaoTemporarias.includes(novaOp)) opcoesMarcadasEdicaoTemporarias.push(novaOp);
-    inp.value = "";
-    renderizarOpcoesCheckboxesModalEdicao(document.getElementById('edit-reg-desfecho')?.value || 'CONCLUIDA', opcoesMarcadasEdicaoTemporarias);
-}
-
-function renderizarFotosModalEdicao() {
-    const container = document.getElementById('container-fotos-modal-edicao');
-    const lblQtd = document.getElementById('lbl-qtd-fotos-edicao');
-    if (!container) return;
-    if (lblQtd) lblQtd.innerText = fotosEdicaoTemporarias.length;
-    if (fotosEdicaoTemporarias.length === 0) { container.innerHTML = `<span class="text-[11px] text-slate-400 italic">Nenhuma foto anexada.</span>`; return; }
-    container.innerHTML = fotosEdicaoTemporarias.map((fSrc, idx) => `<div class="relative border border-slate-300 rounded-lg overflow-hidden w-16 h-16 bg-white shadow-sm"><img src="${fSrc}" onclick="abrirZoomFoto('${fSrc}', 'Foto_${idx + 1}.jpg')" class="w-full h-full object-cover cursor-pointer"><button type="button" onclick="removerFotoModalEdicao(${idx})" class="absolute top-0.5 right-0.5 bg-red-600 text-white text-[9px] font-bold w-4 h-4 rounded-full">✕</button></div>`).join('');
-}
-
-async function adicionarFotosNoModalEdicao(inputEl) {
-    const arquivos = Array.from(inputEl.files || []);
-    if (fotosEdicaoTemporarias.length + arquivos.length > 10) { alert("⚠️ Máximo de 10 fotos."); return; }
-    for (const arq of arquivos) { try { fotosEdicaoTemporarias.push(await comprimirImagemBase64(arq, 780, 0.60)); } catch (e) {} }
-    inputEl.value = "";
-    renderizarFotosModalEdicao();
-}
-
-function removerFotoModalEdicao(idx) { fotosEdicaoTemporarias.splice(idx, 1); renderizarFotosModalEdicao(); }
-
-async function abrirModalEdicao(id) {
-    if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') return;
-    let reg = registrosSalvos.find(r => r.id === id);
-    if (!reg) return;
-    popularSelectProjetosGlobal();
-
-    snapshotStatusEdicaoOriginal = { id: reg.id, desfecho: reg.desfecho, hSaida: reg.hSaida, equipe: reg.equipe };
-    document.getElementById('edit-reg-id').value = reg.id;
-    document.getElementById('edit-reg-data').value = reg.dataRegistro || obterDataLocalISO();
-
-    const selEqEdit = document.getElementById('edit-reg-equipe');
-    if (selEqEdit) {
-        const nomesEquipes = equipesSistema.map(e => e.nome);
-        if (reg.equipe && !nomesEquipes.includes(reg.equipe)) nomesEquipes.unshift(reg.equipe);
-        selEqEdit.innerHTML = nomesEquipes.map(nome => `<option value="${nome}">${nome}</option>`).join('');
-        selEqEdit.value = reg.equipe || "";
-    }
-
-    document.getElementById('edit-reg-imovel').value = reg.imovel || '';
-    document.getElementById('edit-reg-endereco').value = reg.endereco || '';
-    document.getElementById('edit-reg-liberou-acesso').value = reg.liberouAcesso || '';
-    document.getElementById('edit-reg-responsavel').value = reg.responsavel || '';
-    document.getElementById('edit-reg-contato').value = reg.contato || '';
-    document.getElementById('edit-reg-email').value = reg.email || '';
-    document.getElementById('edit-reg-projeto').value = reg.projeto || 'CONSTRUÇÃO ON GOING';
-    document.getElementById('edit-reg-desfecho').value = reg.desfecho || 'CONCLUIDA';
-    document.getElementById('edit-reg-h-entrada').value = reg.hEntrada || '';
-    document.getElementById('edit-reg-h-saida').value = reg.hSaida || '';
-    document.getElementById('edit-reg-pausa').value = Number(reg.tempoPausadoMinutos) || 0;
-    document.getElementById('edit-reg-gps-entrada').value = reg.gpsEntrada || '';
-    document.getElementById('edit-reg-gps-saida').value = reg.gpsSaida || '';
-    document.getElementById('edit-reg-servico-obra').value = reg.servicoObra || 'SIM';
-    document.getElementById('edit-reg-andares').value = reg.andares || 0;
-    document.getElementById('edit-reg-hps').value = reg.hps || 0;
-    document.getElementById('edit-reg-cabo-rl').value = reg.caboRL || 0;
-    document.getElementById('edit-reg-conectores').value = reg.conectores || 0;
-    document.getElementById('edit-reg-cabo-drop').value = reg.caboDrop || 0;
-    document.getElementById('edit-reg-nap').value = reg.nap || 0;
-    document.getElementById('edit-reg-dio').value = reg.dio || 0;
-    document.getElementById('edit-reg-fusoes').value = reg.fusoes || 0;
-    document.getElementById('edit-reg-cx-sobrepor').value = reg.cxSobrepor || 0;
-    document.getElementById('edit-reg-cx-embutida').value = reg.cxEmbutida || 0;
-    document.getElementById('edit-reg-cx-fosc').value = reg.cxFosc || 0;
-    document.getElementById('edit-reg-motivo-desfecho').value = reg.motivoDesfecho || '';
-    document.getElementById('edit-reg-observacoes').value = reg.observacoes || '';
-
-    opcoesMarcadasEdicaoTemporarias = Array.isArray(reg.malogros) ? [...reg.malogros] : [];
-    renderizarOpcoesCheckboxesModalEdicao(reg.desfecho, opcoesMarcadasEdicaoTemporarias);
-    document.getElementById('modal-edicao').classList.remove('hidden');
-
-    let fotosAtuais = Array.isArray(reg.fotos) ? [...reg.fotos] : [];
-    if (fotosAtuais.length === 0 && typeof obterFotosSobDemandaDoRegistro === 'function') {
-        fotosAtuais = await obterFotosSobDemandaDoRegistro(reg.id);
-    }
-    fotosEdicaoTemporarias = [...fotosAtuais];
-    renderizarFotosModalEdicao();
-}
-
-function fecharModalEdicao() { document.getElementById('modal-edicao').classList.add('hidden'); }
-
-async function salvarEdicaoRegistro() {
-    let id = Number(document.getElementById('edit-reg-id').value);
-    let regOriginal = registrosSalvos.find(r => r.id === id);
-
-    const btnSalvar = document.getElementById('btn-salvar-modal-edicao');
-    if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.innerText = "🛡️ Verificando conflitos e salvando..."; }
-
+// CORREÇÃO ITEM 03: Só envia pulso de GPS se o técnico JÁ tiver iniciado o expediente manualmente hoje!
+async function forcarPulsoGpsTempoRealCampo(origem = 'auto') {
     try {
-        const { data: versaoNuvem } = await supabaseClient.from('registros_producao').select('desfecho, h_saida, equipe').eq('id', id).maybeSingle();
-        if (versaoNuvem && snapshotStatusEdicaoOriginal && snapshotStatusEdicaoOriginal.id === id && (versaoNuvem.desfecho !== snapshotStatusEdicaoOriginal.desfecho || versaoNuvem.h_saida !== snapshotStatusEdicaoOriginal.hSaida)) {
-            if (!confirm(`🛡️ TRAVA ANTI-CONFLITO!\n\nEste registro foi atualizado na nuvem enquanto a janela estava aberta (${versaoNuvem.desfecho}). Deseja sobrescrever mesmo assim?`)) {
-                if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerText = "💾 Salvar Todas as Alterações"; }
-                fecharModalEdicao();
-                await recarregarDadosGestor(false);
-                return;
+        const selEq = document.getElementById('sel-equipe');
+        const nomeTec = (selEq?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
+        if (!nomeTec || equipeAutenticadaSessao !== nomeTec) return;
+
+        const agora = Date.now();
+        if (origem === 'auto' && (agora - ultimoDisparoGpsCampoTs) < 15000) return;
+
+        const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+        const telAtual = (typeof telemetriaEquipes !== 'undefined' && telemetriaEquipes && telemetriaEquipes[nomeTec]) ? telemetriaEquipes[nomeTec] : null;
+
+        // TRAVA ESTRITA: Nunca inicia o expediente automaticamente ao logar.
+        // Só atualiza a posição se o técnico já clicou manualmente em "Iniciar Expediente" hoje (statusTurno === 'DISPONIVEL').
+        const turnoAtivoManualmenteHoje = telAtual && telAtual.data === hojeISO && telAtual.statusTurno === 'DISPONIVEL';
+        if (!turnoAtivoManualmenteHoje) return;
+
+        const coord = await capturarCoordenadaGpsFrescaCampo(7000);
+        if (!coord || isNaN(coord.lat) || isNaN(coord.lng)) return;
+
+        ultimoDisparoGpsCampoTs = Date.now();
+        ultimaCoordRastreioCache = { lat: Number(coord.lat.toFixed(6)), lng: Number(coord.lng.toFixed(6)) };
+
+        if (typeof registrarPontoTelemetriaEquipe === 'function') {
+            await registrarPontoTelemetriaEquipe(nomeTec, coord.lat, coord.lng, 'DISPONIVEL');
+        }
+    } catch (e) { console.warn("Aviso no pulso GPS:", e); }
+}
+
+function iniciarMonitoramentoGpsAntiCongelamento() {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            forcarPulsoGpsTempoRealCampo('retorno_tela');
+            verificarSolicitacoesApoioParaTitularCampo();
+        }
+    });
+    window.addEventListener('focus', () => {
+        forcarPulsoGpsTempoRealCampo('foco');
+        verificarSolicitacoesApoioParaTitularCampo();
+    });
+    window.addEventListener('pageshow', () => forcarPulsoGpsTempoRealCampo('pageshow'));
+    window.addEventListener('online', () => forcarPulsoGpsTempoRealCampo('reconexao'));
+
+    setInterval(() => {
+        if (document.visibilityState === 'visible') {
+            forcarPulsoGpsTempoRealCampo('auto');
+            verificarSolicitacoesApoioParaTitularCampo();
+        }
+    }, 30000);
+}
+
+// ================= CAIXA DE VALIDAÇÃO DE PRESENÇA DE APOIO PELO TÉCNICO TITULAR =================
+async function verificarSolicitacoesApoioParaTitularCampo() {
+    try {
+        const titular = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
+        let boxValidacao = document.getElementById('box-validacao-apoio-titular-campo');
+
+        const containerLancamento = document.getElementById('subview-campo-lancamento');
+        if (containerLancamento && !boxValidacao) {
+            boxValidacao = document.createElement('div');
+            boxValidacao.id = 'box-validacao-apoio-titular-campo';
+            boxValidacao.className = 'w-full box-border bg-amber-50 border-2 border-amber-500 p-3 rounded-xl space-y-2.5 hidden shadow-md mb-3';
+            containerLancamento.insertBefore(boxValidacao, containerLancamento.firstChild);
+        }
+        if (!boxValidacao) return;
+
+        if (!titular || equipeAutenticadaSessao !== titular) {
+            boxValidacao.classList.add('hidden');
+            return;
+        }
+
+        const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+        const { data: minhasAtividadesHoje } = await supabaseClient
+            .from('registros_producao')
+            .select('id, imovel, projeto, equipe, membros, desfecho')
+            .eq('data_registro', hojeISO)
+            .eq('equipe', titular);
+
+        const atividadesComPendentes = (minhasAtividadesHoje || []).filter(r =>
+            extrairListaApoiosPendentesDoMembros(r.membros, r.equipe).length > 0
+        );
+
+        const ativAbertaAtual = (minhasAtividadesHoje || []).find(r => r.id === dadosAtendimento.idEmAndamento) || (minhasAtividadesHoje || [])[0];
+        if (ativAbertaAtual) {
+            const jaValidados = extrairListaApoiosDoMembros(ativAbertaAtual.membros, ativAbertaAtual.equipe);
+            const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
+            if (lblBadge) {
+                lblBadge.innerText = jaValidados.length > 0 ? `✅ Validado: ${jaValidados.join(', ')}` : 'Individual';
             }
         }
-    } catch (e) {}
 
-    let data_registro = document.getElementById('edit-reg-data').value || obterDataLocalISO();
-    let equipe = document.getElementById('edit-reg-equipe').value || '';
-    let imovel = document.getElementById('edit-reg-imovel').value.trim();
-    let endereco = document.getElementById('edit-reg-endereco').value.trim();
-    let liberouAcesso = document.getElementById('edit-reg-liberou-acesso').value.trim();
-    let responsavel = document.getElementById('edit-reg-responsavel').value.trim();
-    let contato = document.getElementById('edit-reg-contato').value.trim();
-    let email = document.getElementById('edit-reg-email').value.trim();
-    let projeto = document.getElementById('edit-reg-projeto').value;
-    let desfecho = document.getElementById('edit-reg-desfecho').value;
-    let h_entrada = document.getElementById('edit-reg-h-entrada').value.trim();
-    let h_saida = document.getElementById('edit-reg-h-saida').value.trim();
-    let pausaMin = Number(document.getElementById('edit-reg-pausa').value) || 0;
-    let gps_entrada = document.getElementById('edit-reg-gps-entrada').value.trim();
-    let gps_saida = document.getElementById('edit-reg-gps-saida').value.trim();
-    let servico_obra = document.getElementById('edit-reg-servico-obra').value || 'SIM';
-    let andares = Number(document.getElementById('edit-reg-andares').value) || 0;
-    let hps = Number(document.getElementById('edit-reg-hps').value) || 0;
-    let cabo_rl = Number(document.getElementById('edit-reg-cabo-rl').value) || 0;
-    let conectores = Number(document.getElementById('edit-reg-conectores').value) || 0;
-    let cabo_drop = Number(document.getElementById('edit-reg-cabo-drop').value) || 0;
-    let nap = Number(document.getElementById('edit-reg-nap').value) || 0;
-    let dio = Number(document.getElementById('edit-reg-dio').value) || 0;
-    let fusoes = Number(document.getElementById('edit-reg-fusoes').value) || 0;
-    let cx_sobrepor = Number(document.getElementById('edit-reg-cx-sobrepor').value) || 0;
-    let cx_embutida = Number(document.getElementById('edit-reg-cx-embutida').value) || 0;
-    let cx_fosc = Number(document.getElementById('edit-reg-cx-fosc').value) || 0;
-    let motivo_desfecho = document.getElementById('edit-reg-motivo-desfecho').value.trim();
-    let obsLimpa = document.getElementById('edit-reg-observacoes').value.trim();
-
-    const listaMalogrosOpcoes = Array.from(document.querySelectorAll('input[name="chk-opcao-modal-edicao"]:checked')).map(c => c.value);
-    let obsComTagsEFotos = `${endereco ? `[END: ${endereco}] ` : ''}${liberouAcesso ? `[LIBEROU_ACESSO: ${liberouAcesso}] ` : ''}${pausaMin > 0 ? `[PAUSA_TOTAL: ${pausaMin}] ` : ''}${obsLimpa}${(fotosEdicaoTemporarias && fotosEdicaoTemporarias.length > 0) ? ` [FOTOS:${JSON.stringify(fotosEdicaoTemporarias)}]` : ''}`.trim();
-
-    const { error } = await supabaseClient.from('registros_producao').update({
-        data_registro, equipe, membros: equipe, imovel, projeto, desfecho, h_entrada, h_saida,
-        gps_entrada, gps_saida, responsavel, contato, email, servico_obra, motivo_desfecho,
-        malogros: listaMalogrosOpcoes, andares, hps, observacoes: obsComTagsEFotos,
-        cabo_rl, conectores, cabo_drop, nap, dio, fusoes, cx_sobrepor, cx_embutida, cx_fosc
-    }).eq('id', id);
-
-    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerText = "💾 Salvar Todas as Alterações"; }
-    if (error) { alert("Erro: " + error.message); return; }
-    if (regOriginal) {
-        Object.assign(regOriginal, {
-            dataRegistro: data_registro, equipe, membros: equipe, imovel, endereco, liberouAcesso, responsavel,
-            contato, email, projeto, desfecho, hEntrada: h_entrada, hSaida: h_saida, tempoPausadoMinutos: pausaMin,
-            gpsEntrada: gps_entrada, gpsSaida: gps_saida, servicoObra: servico_obra, motivoDesfecho: motivo_desfecho,
-            malogros: listaMalogrosOpcoes, andares, hps, observacoes: obsLimpa, fotos: [...fotosEdicaoTemporarias],
-            qtdFotos: fotosEdicaoTemporarias.length, caboRL: cabo_rl, conectores, caboDrop: cabo_drop, nap, dio,
-            fusoes, cxSobrepor: cx_sobrepor, cxEmbutida: cx_embutida, cxFosc: cx_fosc
-        });
-    }
-    fecharModalEdicao();
-    atualizarDashboardGestor();
-    registrarLogAuditoria("EDIÇÃO DE REGISTRO", `Imóvel ${imovel} atualizado.`);
-}
-
-async function excluirRegistro(id, imovelCod) {
-    if (nivelUsuarioLogado !== 'Master' && nivelUsuarioLogado !== 'Operador') return;
-    if (confirm(`Deseja excluir o registro "${imovelCod}"?`)) {
-        const { error } = await supabaseClient.from('registros_producao').delete().eq('id', id);
-        if (!error) {
-            if (typeof cacheFotosSobDemanda !== 'undefined') cacheFotosSobDemanda.delete(id);
-            if (typeof reciclarContagemBytesFotos === 'function') reciclarContagemBytesFotos();
-            registrosSalvos = registrosSalvos.filter(r => r.id !== id);
-            atualizarDashboardGestor();
-            registrarLogAuditoria("EXCLUSÃO DE REGISTRO", `Registro ${imovelCod} (ID: ${id}) excluído.`);
+        if (atividadesComPendentes.length === 0) {
+            boxValidacao.classList.add('hidden');
+            return;
         }
-    }
-}
 
-function renderizarTabelaFinanceiro(totais) {
-    const corpo = document.getElementById('tabela-financeiro-corpo');
-    const spanTotalGeral = document.getElementById('fin-total-geral');
-    if (!corpo) return;
-    corpo.innerHTML = "";
-    let itensMedicao = [
-        { chave: "VISTORIA", qtd: totais.vistorias }, { chave: "CABO RL", qtd: totais.caboRL },
-        { chave: "CONECTORES", qtd: totais.conectores }, { chave: "FUSÕES", qtd: totais.fusoes },
-        { chave: "CABO DROP", qtd: totais.caboDrop }, { chave: "NAP", qtd: totais.nap },
-        { chave: "DIO", qtd: totais.dio }, { chave: "CX SOBREPOR", qtd: totais.cxSobrepor },
-        { chave: "CX EMBUTIDA", qtd: totais.cxEmbutida }
-    ];
-    let valorGeralAcumulado = 0;
-    itensMedicao.forEach(item => {
-        let cfg = TABELA_PRECOS[item.chave];
-        let totalItem = item.qtd * cfg.valor;
-        valorGeralAcumulado += totalItem;
-        corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="p-3 font-mono font-bold text-slate-700">${cfg.codigo}</td><td class="p-3 font-semibold text-slate-800">${cfg.desc}</td><td class="p-3 text-slate-600">${cfg.unidade}</td><td class="p-3 text-center font-bold text-blue-900">${item.qtd.toLocaleString('pt-BR')}</td><td class="p-3 text-right text-slate-600">R$ ${cfg.valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td><td class="p-3 text-right font-black text-emerald-700">R$ ${totalItem.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>`;
-    });
-    if (spanTotalGeral) spanTotalGeral.innerText = `R$ ${valorGeralAcumulado.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-}
+        let htmlCards = `
+            <div class="flex items-start gap-2">
+                <span class="text-lg animate-bounce">🤝</span>
+                <div>
+                    <h4 class="text-xs font-black text-amber-950 uppercase">Validação de Presença de Equipe de Apoio!</h4>
+                    <p class="text-[11px] text-amber-900">Confirme abaixo se o(s) técnico(s) realmente compareceram para apoiar você nesta atividade:</p>
+                </div>
+            </div>
+        `;
 
-function renderizarTabelaUsuariosPermissao() {
-    const corpo = document.getElementById('tabela-usuarios-corpo');
-    if (!corpo) return;
-    corpo.innerHTML = "";
-    const nivelNorm = String(nivelUsuarioLogado || '').trim().toLowerCase();
-    let listaVisivel = (nivelNorm === 'visualizador' || nivelNorm === 'operador')
-        ? usuariosSistema.filter(u => u.email.toLowerCase() === (usuarioLogado || '').toLowerCase())
-        : usuariosSistema;
-    listaVisivel.forEach(u => {
-        let acoesHtml = `<button onclick="abrirModalUsuario(${u.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Alterar Senha</button>`;
-        if (nivelNorm === 'master') acoesHtml += ` <button onclick="excluirUsuario(${u.id}, '${u.email}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>`;
-        corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="p-3"><div class="font-bold">${u.nome}</div><div class="text-[10px] text-slate-400">${u.email}</div></td><td class="p-3"><span class="bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded text-[10px]">${u.nivel}</span></td><td class="p-3"><span class="text-emerald-600 font-semibold">${u.status}</span></td><td class="p-3">${acoesHtml}</td></tr>`;
-    });
-}
-
-// ================= ITEM 01, 02 e 03: MODAL DE DETALHES COMPLETO (MATERIAIS POR BLOCO, LINKS GPS MAPS E WHATSAPP MULTI-BLOCO) =================
-async function abrirDetalhesAtividade(item) {
-    if (!item) return;
-    const modal = document.getElementById('modal-detalhes');
-    const conteudo = document.getElementById('modal-detalhes-conteudo');
-
-    const codBase = obterCodigoBaseImovel(item.imovel);
-    const ehObraNormal = item.projeto !== 'IMPREVISTO / ATRASO' &&
-                         item.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
-                         item.projeto !== PROJETO_SOLIC_MATERIAL;
-
-    let blocosIrmaos = [item];
-    if (ehObraNormal && codBase) {
-        const encontrados = (registrosSalvos || []).filter(r =>
-            r.dataRegistro === item.dataRegistro &&
-            r.equipe === item.equipe &&
-            r.projeto === item.projeto &&
-            obterCodigoBaseImovel(r.imovel) === codBase
-        ).sort((a, b) => (a.imovel || '').localeCompare(b.imovel || ''));
-        if (encontrados.length > 0) blocosIrmaos = encontrados;
-    }
-
-    const temMultiplosBlocos = blocosIrmaos.length > 1;
-    document.getElementById('modal-detalhes-titulo').innerText = temMultiplosBlocos
-        ? `Detalhes do Imóvel: ${codBase} (${blocosIrmaos.length} Blocos)`
-        : `Detalhes do Registro: ${item.imovel}`;
-
-    let todasFotosAcumuladas = [];
-    const blocosDetalhadosParaWhats = [];
-
-    for (let idx = 0; idx < blocosIrmaos.length; idx++) {
-        const b = blocosIrmaos[idx];
-        let fBloco = Array.isArray(b.fotos) ? [...b.fotos] : [];
-        if (fBloco.length === 0 && typeof obterFotosSobDemandaDoRegistro === 'function' && Number(b.qtdFotos) > 0) {
-            fBloco = await obterFotosSobDemandaDoRegistro(b.id);
-        }
-        b._fotosCarregadas = fBloco;
-        todasFotosAcumuladas.push(...fBloco);
-
-        let identNome = b.imovel || `BLOCO ${idx + 1}`;
-        const posTraco = identNome.toUpperCase().lastIndexOf(' - ');
-        if (posTraco !== -1) identNome = identNome.substring(posTraco + 3).trim();
-
-        blocosDetalhadosParaWhats.push({
-            identificacao: identNome,
-            andares: Number(b.andares) || 0,
-            hps: Number(b.hps) || 0,
-            desfecho: b.desfecho,
-            fusoes: Number(b.fusoes) || 0,
-            conectores: Number(b.conectores) || 0,
-            caboRL: Number(b.caboRL) || 0,
-            caboDrop: Number(b.caboDrop) || 0,
-            nap: Number(b.nap) || 0,
-            dio: Number(b.dio) || 0,
-            cxSobrepor: Number(b.cxSobrepor) || 0,
-            cxEmbutida: Number(b.cxEmbutida) || 0,
-            cxFosc: Number(b.cxFosc) || 0,
-            opcoesMarcadas: Array.isArray(b.malogros) ? b.malogros : [],
-            motivoDesfecho: b.motivoDesfecho || '',
-            observacoes: b.observacoes || '',
-            fotos: fBloco
-        });
-    }
-
-    const somaAndares = blocosIrmaos.reduce((acc, b) => acc + (Number(b.andares) || 0), 0);
-    const somaHps = blocosIrmaos.reduce((acc, b) => acc + (Number(b.hps) || 0), 0);
-    const somaRL = blocosIrmaos.reduce((acc, b) => acc + (Number(b.caboRL) || 0), 0);
-    const somaDrop = blocosIrmaos.reduce((acc, b) => acc + (Number(b.caboDrop) || 0), 0);
-    const somaConect = blocosIrmaos.reduce((acc, b) => acc + (Number(b.conectores) || 0), 0);
-    const somaFusoes = blocosIrmaos.reduce((acc, b) => acc + (Number(b.fusoes) || 0), 0);
-    const somaNap = blocosIrmaos.reduce((acc, b) => acc + (Number(b.nap) || 0), 0);
-    const somaDio = blocosIrmaos.reduce((acc, b) => acc + (Number(b.dio) || 0), 0);
-    const somaSobrepor = blocosIrmaos.reduce((acc, b) => acc + (Number(b.cxSobrepor) || 0), 0);
-    const somaEmbutida = blocosIrmaos.reduce((acc, b) => acc + (Number(b.cxEmbutida) || 0), 0);
-    const somaFosc = blocosIrmaos.reduce((acc, b) => acc + (Number(b.cxFosc) || 0), 0);
-    const pausaMin = blocosIrmaos.reduce((acc, b) => acc + (Number(b.tempoPausadoMinutos) || 0), 0);
-
-    itemDetalheAtualModal = {
-        ...item,
-        imovel: temMultiplosBlocos ? `${codBase} (${blocosIrmaos.length} Blocos)` : item.imovel,
-        andares: somaAndares,
-        hps: somaHps,
-        tempoPausadoMinutos: pausaMin,
-        caboRL: somaRL,
-        caboDrop: somaDrop,
-        conectores: somaConect,
-        fusoes: somaFusoes,
-        nap: somaNap,
-        dio: somaDio,
-        cxSobrepor: somaSobrepor,
-        cxEmbutida: somaEmbutida,
-        cxFosc: somaFosc,
-        fotos: todasFotosAcumuladas,
-        blocosDetalhados: temMultiplosBlocos ? blocosDetalhadosParaWhats : []
-    };
-
-    const linkGpsEntrada = (item.gpsEntrada && item.gpsEntrada.includes(','))
-        ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsEntrada)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsEntrada} (Abrir no Maps)</a>`
-        : (item.gpsEntrada || '-');
-
-    const linkGpsSaida = (item.gpsSaida && item.gpsSaida.includes(','))
-        ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.gpsSaida)}" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">🗺️ ${item.gpsSaida} (Abrir no Maps)</a>`
-        : (item.gpsSaida || '-');
-
-    const minIn = converterHorarioParaMinutos(item.hEntrada);
-    const minOut = converterHorarioParaMinutos(item.hSaida);
-    const duracaoStr = (minIn !== null && minOut !== null && minOut >= minIn)
-        ? formatarDuracaoTexto(Math.max(0, (minOut - minIn) - pausaMin))
-        : "-";
-
-    const classeCorDesfecho = obterClasseCorDesfecho(item.desfecho);
-
-    let infoTratativaHtml = '';
-    if (item.tratadoPor) {
-        infoTratativaHtml = `
-            <div class="bg-emerald-50 border border-emerald-300 p-3 rounded-lg text-xs text-emerald-950 space-y-1">
-                <div><strong>✅ Tratado Por:</strong> ${item.tratadoPor}</div>
-                <div><strong>🕒 Data/Hora da Tratativa:</strong> ${item.tratadoDataHora || item.hSaida}</div>
-                <div class="text-[10px] text-orange-800 font-bold">⏳ ${calcularTempoRestante48h(item.tratadoTimestamp)}</div>
-            </div>`;
-    }
-
-    let secaoMateriaisEBlocosHtml = '';
-    if (ehObraNormal) {
-        if (temMultiplosBlocos) {
-            const cardsCadaBloco = blocosDetalhadosParaWhats.map(b => {
-                const corB = obterClasseCorDesfecho(b.desfecho);
-                const opcoesB = (b.opcoesMarcadas && b.opcoesMarcadas.length > 0) ? b.opcoesMarcadas.join(' + ') : 'Nenhuma';
-                return `
-                    <div class="bg-white p-3 rounded-xl border-2 border-blue-200 shadow-sm space-y-2">
-                        <div class="flex justify-between items-center border-b border-slate-200 pb-1.5">
-                            <span class="font-black text-blue-950 text-xs uppercase">🏢 ${b.identificacao}</span>
-                            <span class="font-bold px-2 py-0.5 rounded text-[10px] ${corB}">${b.desfecho}</span>
+        atividadesComPendentes.forEach(at => {
+            const pendentes = extrairListaApoiosPendentesDoMembros(at.membros, at.equipe);
+            pendentes.forEach(nomeAp => {
+                htmlCards += `
+                    <div class="bg-white p-2.5 rounded-xl border-2 border-amber-300 shadow-sm space-y-2 w-full box-border">
+                        <div class="text-[11px] text-slate-800 break-words">
+                            👷 Técnico de Apoio: <b class="text-purple-950 text-xs">${nomeAp}</b><br>
+                            🏢 Atividade / Imóvel: <b>${at.imovel}</b> (${at.projeto})
                         </div>
-                        <div class="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 p-2 rounded border border-slate-200">
-                            <div><strong>Andares:</strong> <b class="text-blue-900">${b.andares}</b></div>
-                            <div><strong>HPs:</strong> <b class="text-blue-900">${b.hps}</b></div>
-                        </div>
-                        <div class="bg-emerald-50/70 p-2.5 rounded-lg border border-emerald-200">
-                            <div class="font-black text-emerald-950 text-[10px] uppercase mb-1.5">📦 Materiais e Caixas (${b.identificacao})</div>
-                            <div class="grid grid-cols-3 gap-1.5 text-[11px]">
-                                <div>Cabo RL: <b>${b.caboRL} m</b></div>
-                                <div>Cabo Drop: <b>${b.caboDrop} m</b></div>
-                                <div>Conectores: <b>${b.conectores}</b></div>
-                                <div>Fusões: <b>${b.fusoes}</b></div>
-                                <div>NAP: <b>${b.nap}</b></div>
-                                <div>DIO: <b>${b.dio}</b></div>
-                                <div>Cx. Sobrepor: <b>${b.cxSobrepor}</b></div>
-                                <div>Cx. Embutida: <b>${b.cxEmbutida}</b></div>
-                                <div>Cx. FOSC: <b>${b.cxFosc}</b></div>
-                            </div>
-                        </div>
-                        ${b.opcoesMarcadas.length > 0 ? `<div class="text-[11px] bg-amber-50 p-2 rounded border border-amber-200"><strong>Opções Marcadas:</strong> <b class="text-amber-950">${opcoesB}</b></div>` : ''}
-                        ${b.motivoDesfecho ? `<div class="text-[11px] bg-slate-50 p-2 rounded border"><strong>Detalhe/Motivo:</strong> ${b.motivoDesfecho}</div>` : ''}
-                        ${b.observacoes ? `<div class="text-[11px] bg-slate-50 p-2 rounded border"><strong>Observações:</strong> ${b.observacoes}</div>` : ''}
-                    </div>`;
-            }).join('');
-
-            secaoMateriaisEBlocosHtml = `
-                <div class="bg-blue-50/50 p-3.5 rounded-xl border-2 border-blue-200 space-y-3">
-                    <h4 class="font-black text-blue-950 text-xs uppercase">🏢 Detalhamento Separado por Bloco (${blocosIrmaos.length} Blocos)</h4>
-                    <div class="grid grid-cols-1 gap-3">${cardsCadaBloco}</div>
-                    <div class="bg-slate-900 text-white p-3 rounded-xl space-y-1.5">
-                        <div class="font-black text-cyan-300 text-[11px] uppercase border-b border-slate-700 pb-1">📊 Soma Total Consolidada dos ${blocosIrmaos.length} Blocos</div>
-                        <div class="grid grid-cols-3 sm:grid-cols-5 gap-2 text-[11px] pt-1">
-                            <div>Andares: <b>${somaAndares}</b></div>
-                            <div>HPs: <b>${somaHps}</b></div>
-                            <div>Cabo RL: <b>${somaRL} m</b></div>
-                            <div>Cabo Drop: <b>${somaDrop} m</b></div>
-                            <div>Conectores: <b>${somaConect}</b></div>
-                            <div>Fusões: <b>${somaFusoes}</b></div>
-                            <div>NAP: <b>${somaNap}</b></div>
-                            <div>DIO: <b>${somaDio}</b></div>
-                            <div>Sobrepor: <b>${somaSobrepor}</b></div>
-                            <div>Embutida: <b>${somaEmbutida}</b></div>
-                            <div>Cx. FOSC: <b>${somaFosc}</b></div>
+                        <div class="grid grid-cols-2 gap-2 w-full">
+                            <button type="button" onclick="responderValidacaoApoioTitularCampo(${at.id}, '${nomeAp}', true)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 px-2 rounded-lg text-[11px] shadow-sm transition text-center">
+                                ✅ Validar Presença
+                            </button>
+                            <button type="button" onclick="responderValidacaoApoioTitularCampo(${at.id}, '${nomeAp}', false)" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-2 rounded-lg text-[11px] shadow-sm transition text-center">
+                                ❌ Recusar Apoio
+                            </button>
                         </div>
                     </div>
-                </div>`;
-        } else {
-            secaoMateriaisEBlocosHtml = `
-                <div class="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200 space-y-2">
-                    <h4 class="font-black text-emerald-950 text-xs uppercase">📦 Materiais e Caixas Utilizados</h4>
-                    <div class="grid grid-cols-3 gap-2 text-xs">
-                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Cabo RL:</strong> <b class="text-blue-950">${somaRL} m</b></div>
-                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Cabo Drop:</strong> <b class="text-blue-950">${somaDrop} m</b></div>
-                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Conectores:</strong> <b class="text-blue-950">${somaConect}</b></div>
-                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Fusões:</strong> <b class="text-blue-950">${somaFusoes}</b></div>
-                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>NAP:</strong> <b class="text-blue-950">${somaNap}</b></div>
-                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>DIO:</strong> <b class="text-blue-950">${somaDio}</b></div>
-                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Cx. Sobrepor:</strong> <b class="text-blue-950">${somaSobrepor}</b></div>
-                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Cx. Embutida:</strong> <b class="text-blue-950">${somaEmbutida}</b></div>
-                        <div class="bg-white p-2 rounded border border-emerald-100"><strong>Cx. FOSC:</strong> <b class="text-blue-950">${somaFosc}</b></div>
-                    </div>
-                </div>`;
-        }
-    }
-
-    const codigoLimpo = (codBase || 'imovel').replace(/[^a-zA-Z0-9_-]/g, '_');
-    let galeriaFotosHtml = `<div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-slate-400 text-[11px]">📷 Nenhuma foto anexada neste registro.</div>`;
-    if (todasFotosAcumuladas.length > 0) {
-        const cardsFotos = todasFotosAcumuladas.map((fSrc, idx) => {
-            const nomeArq = `${codigoLimpo}_foto_${idx + 1}.jpg`;
-            const legendaSlot = (item.projeto === PROJETO_SOLIC_COMBUSTIVEL && Array.isArray(item.malogros) && item.malogros[idx])
-                ? `<div class="text-[9px] font-black text-orange-900 uppercase">${item.malogros[idx]}</div>`
-                : '';
-            return `<div class="bg-white p-2 rounded-xl border border-indigo-200 shadow-sm flex flex-col items-center gap-1.5">${legendaSlot}<img src="${fSrc}" onclick="abrirZoomFoto('${fSrc}', '${nomeArq}')" class="w-full h-28 object-cover rounded-lg cursor-pointer hover:opacity-90 transition border"><div class="flex gap-1 w-full"><button type="button" onclick="abrirZoomFoto('${fSrc}', '${nomeArq}')" class="flex-1 bg-indigo-50 text-indigo-900 font-bold text-[10px] py-1 rounded">🔍 Ampliar</button><button type="button" onclick="baixarFotoDireto('${fSrc}', '${nomeArq}')" class="flex-1 bg-emerald-600 text-white font-bold text-[10px] py-1 rounded">⬇️ Baixar</button></div></div>`;
-        }).join('');
-        galeriaFotosHtml = `<div class="bg-indigo-50/70 p-3 rounded-lg border border-indigo-200 space-y-2"><h4 class="font-bold text-indigo-950 text-xs uppercase">📷 Fotos Anexadas (${todasFotosAcumuladas.length})</h4><div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">${cardsFotos}</div></div>`;
-    }
-
-    const malogrosStr = (item.malogros && item.malogros.length > 0) ? item.malogros.join(' + ') : '';
-
-    conteudo.innerHTML = `
-        ${infoTratativaHtml}
-        <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-            <div class="col-span-2"><strong>📍 Endereço do Atendimento:</strong> <span class="font-bold text-blue-950">${item.endereco || item.imovel || 'Não informado'}</span></div>
-            ${item.liberouAcesso ? `<div class="col-span-2 bg-amber-50 p-2 rounded border border-amber-200"><strong>🔑 Liberou o Acesso:</strong> <span class="font-black text-amber-950">${item.liberouAcesso}</span></div>` : ''}
-            <div><strong>Data do Registro:</strong> ${item.dataRegistro}</div>
-            <div><strong>Técnico / Equipe:</strong> <b class="text-blue-900">${item.equipe}</b></div>
-            <div><strong>Projeto / Atividade:</strong> <b>${item.projeto}</b></div>
-            <div><strong>Status / Desfecho:</strong> <span class="font-bold px-2 py-0.5 rounded text-[10px] ${classeCorDesfecho}">${item.desfecho}</span></div>
-            <div><strong>Total de Andares:</strong> <b>${somaAndares}</b></div>
-            <div><strong>Total de HPs:</strong> <b>${somaHps}</b></div>
-            <div><strong>Responsável Local:</strong> ${item.responsavel || '-'}</div>
-            <div><strong>Contato / Tel:</strong> ${item.contato || '-'}</div>
-            ${item.email ? `<div class="col-span-2"><strong>E-mail:</strong> ${item.email}</div>` : ''}
-        </div>
-
-        <div class="bg-blue-50 p-3.5 rounded-xl border border-blue-200 space-y-1.5">
-            <h4 class="font-black text-blue-950 text-xs uppercase">🕒 Horários de Entrada / Saída e Links GPS</h4>
-            <div><strong>🟢 Horário Entrada:</strong> <b>${item.hEntrada || '-'}</b></div>
-            <div><strong>📍 GPS Entrada:</strong> ${linkGpsEntrada}</div>
-            <div class="pt-1"><strong>🔴 Horário Saída:</strong> <b>${item.hSaida || '-'}</b></div>
-            <div><strong>📍 GPS Saída:</strong> ${linkGpsSaida}</div>
-            ${pausaMin > 0 ? `<div class="pt-1 text-orange-700 font-bold"><strong>⏸️ Tempo Paralisado:</strong> ${pausaMin} min</div>` : ''}
-            <div class="pt-1 text-emerald-800 font-bold"><strong>⏱️ Duração Líquida:</strong> ${duracaoStr}</div>
-        </div>
-
-        ${secaoMateriaisEBlocosHtml}
-        ${galeriaFotosHtml}
-
-        ${(!temMultiplosBlocos && malogrosStr) ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Opções Marcadas:</strong> <span class="font-bold text-amber-950">${malogrosStr}</span></div>` : ''}
-        ${(!temMultiplosBlocos && item.motivoDesfecho) ? `<div class="bg-slate-50 p-3 rounded-lg border border-slate-200"><strong>Detalhamento / Motivo:</strong> ${item.motivoDesfecho}</div>` : ''}
-        ${(!temMultiplosBlocos && item.observacoes) ? `<div class="bg-slate-50 p-3 rounded-lg border border-slate-200"><strong>Observações Gerais:</strong> ${item.observacoes}</div>` : ''}
-    `;
-    modal.classList.remove('hidden');
-}
-
-function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
-
-// ITEM 03: Boletim Executivo WhatsApp com agrupamento limpo de blocos
-copiarBoletimGestorWhatsApp = function() {
-    const lista = dadosFiltradosAtuais.length > 0
-        ? dadosFiltradosAtuais
-        : registrosSalvos.filter(r => r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL && r.equipe !== "__CONFIG_SISTEMA__" && r.projeto !== "__CONFIG_AUDITORIA__");
-
-    if (lista.length === 0 && listaImprevistosAtuais.length === 0) {
-        alert("⚠️ Nenhum registro encontrado no filtro atual para gerar o Boletim.");
-        return;
-    }
-
-    const dIni = document.getElementById('gestor-filtro-data-inicio')?.value;
-    const dFim = document.getElementById('gestor-filtro-data-fim')?.value;
-    const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Todo o Histórico';
-
-    const andamento = lista.filter(i => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(i.desfecho)).length;
-    const finalizadas = lista.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
-    const concluidas = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
-    const pendentes = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
-    const malogradas = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
-
-    let sumRL = 0, sumDrop = 0, sumConect = 0, sumNap = 0, sumDio = 0, sumFusoes = 0, sumSobre = 0, sumEmb = 0, sumFosc = 0;
-    finalizadas.forEach(i => {
-        sumRL += Number(i.caboRL) || 0;
-        sumDrop += Number(i.caboDrop) || 0;
-        sumConect += Number(i.conectores) || 0;
-        sumNap += Number(i.nap) || 0;
-        sumDio += Number(i.dio) || 0;
-        sumFusoes += Number(i.fusoes) || 0;
-        sumSobre += Number(i.cxSobrepor) || 0;
-        sumEmb += Number(i.cxEmbutida) || 0;
-        sumFosc += Number(i.cxFosc) || 0;
-    });
-
-    const gruposImoveis = {};
-    finalizadas.slice(0, 40).forEach(r => {
-        const codBase = obterCodigoBaseImovel(r.imovel);
-        const chave = `${r.dataRegistro}_${r.equipe}_${codBase}_${r.projeto}`;
-        if (!gruposImoveis[chave]) {
-            gruposImoveis[chave] = { codBase, equipe: r.equipe, projeto: r.projeto, endereco: r.endereco, liberouAcesso: r.liberouAcesso, blocos: [] };
-        }
-        gruposImoveis[chave].blocos.push(r);
-    });
-
-    const linhasImoveisFormatadas = Object.values(gruposImoveis).slice(0, 15).map(g => {
-        if (g.blocos.length === 1) {
-            const u = g.blocos[0];
-            return `• *${u.imovel}* (${u.projeto}) - ${u.equipe}: *${u.desfecho}* | Andares: ${u.andares || 0} | HPs: ${u.hps || 0}${u.endereco ? `\n  📍 End: ${u.endereco}` : ''}${u.liberouAcesso ? ` | 🔑 Liberou: ${u.liberouAcesso}` : ''}`;
-        } else {
-            const subBlocos = g.blocos.map(b => {
-                let nomeB = b.imovel || 'Bloco';
-                const idx = nomeB.toUpperCase().lastIndexOf(' - ');
-                if (idx !== -1) nomeB = nomeB.substring(idx + 3).trim();
-                return `   ↳ *${nomeB}*: *${b.desfecho}* (And: ${b.andares || 0} | HPs: ${b.hps || 0} | RL: ${b.caboRL || 0}m | Drop: ${b.caboDrop || 0}m | Conect: ${b.conectores || 0} | Fus: ${b.fusoes || 0} | NAP: ${b.nap || 0} | DIO: ${b.dio || 0})`;
-            }).join('\n');
-            return `• *${g.codBase} (${g.blocos.length} Blocos)* (${g.projeto}) - ${g.equipe}${g.endereco ? `\n  📍 End: ${g.endereco}` : ''}${g.liberouAcesso ? ` | 🔑 Liberou: ${g.liberouAcesso}` : ''}\n${subBlocos}`;
-        }
-    }).join('\n');
-
-    const texto = [
-        `📊 *BOLETIM GPD - CONSTRUÇÃO MDU PROCISA RJ*`,
-        `📅 *Período:* ${periodoStr}`,
-        `──────────────────────`,
-        `🔵 *Ativas / Em Execução Agora:* ${andamento}`,
-        `📈 *Total Finalizadas:* ${finalizadas.length}`,
-        `🟢 *Concluídas:* ${concluidas}`,
-        `🟡 *Pendentes:* ${pendentes}`,
-        `🔴 *Malogradas:* ${malogradas}`,
-        `⚠️ *Imprevistos Reportados:* ${listaImprevistosAtuais.length}`,
-        `──────────────────────`,
-        `📦 *CONSUMO DE MATERIAIS & CAIXAS:*`,
-        `• Cabo RL: *${sumRL} m* | Cabo Drop: *${sumDrop} m*`,
-        `• Conectores: *${sumConect}* | Fusões: *${sumFusoes}*`,
-        `• NAP: *${sumNap}* | DIO: *${sumDio}*`,
-        `• Cx Sobrepor: *${sumSobre}* | Cx Embutida: *${sumEmb}* | Cx FOSC: *${sumFosc}*`,
-        `──────────────────────`,
-        `🏢 *ÚLTIMAS ATIVIDADES:*`,
-        linhasImoveisFormatadas || 'Nenhuma atividade finalizada no filtro.'
-    ].join('\n');
-
-    copiarParaAreaTransferencia(texto, "✅ Boletim Executivo (com blocos organizados) copiado para o WhatsApp!");
-};
-
-function dispararExplosaoGrafico(filtroTipo, filtroValor) {
-    const modal = document.getElementById('modal-explosao');
-    const corpo = document.getElementById('tabela-explosao-corpo');
-    document.getElementById('modal-explosao-titulo').innerText = `Modo Explosão Executivo: ${filtroTipo.toUpperCase()} -> ${filtroValor}`;
-    corpo.innerHTML = "";
-
-    let subset = dadosFiltradosAtuais.filter(item => {
-        if (filtroTipo === 'projeto') return item.projeto === filtroValor;
-        if (filtroTipo === 'macro_servico') return item.servicoPlanilha === filtroValor;
-        if (filtroTipo === 'equipe_servico') {
-            const [eq, serv] = filtroValor.split('|');
-            return item.equipe === eq && item.servicoPlanilha === serv;
-        }
-        if (filtroTipo === 'grupo_subgrupo') {
-            const [serv, sub] = filtroValor.split('|');
-            return item.servicoPlanilha === serv && (sub === 'TODOS' || item.subgrupoFOuOnGoing === sub);
-        }
-        if (filtroTipo === 'semana') return item.semanaPlanilha === filtroValor;
-        if (filtroTipo === 'data') return item.dataRegistro === filtroValor;
-        if (filtroTipo === 'bairro') return item.bairroPlanilha === filtroValor;
-        if (filtroTipo === 'desfecho') return item.desfecho === filtroValor;
-        if (filtroTipo === 'equipe') return item.equipe === filtroValor;
-        if (filtroTipo === 'ofensor') return (item.desfecho === 'MALOGRADA' || item.desfecho === 'PENDENTE') && Array.isArray(item.malogros) && item.malogros.map(m => m.trim().toUpperCase()).includes(filtroValor.toUpperCase());
-        return false;
-    });
-
-    if (subset.length === 0) {
-        corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
-    } else {
-        subset.forEach(item => {
-            let detalheInfo = item.malogros && item.malogros.length > 0 ? `STATUS1: ${item.malogros.join(' + ')}` : (item.motivoDesfecho || 'Concluído');
-            corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); fecharModalGraficoExpandido(); fecharModalTabelaExpandida(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))"><td class="p-2.5 font-mono font-bold">${item.dataRegistro}<div class="text-[9px] text-indigo-700">${item.semanaPlanilha}</div></td><td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'} (<b>${item.bairroPlanilha}</b>)</div></td><td class="p-2.5 font-semibold text-blue-900">${item.equipe}</td><td class="p-2.5"><b>${item.servicoPlanilha} (${item.subgrupoFOuOnGoing})</b><div class="text-[9px] text-slate-500">${item.projeto} • ${item.statusMacroPlanilha}</div></td><td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] ${obterClasseCorDesfecho(item.desfecho)}">${item.desfecho}</span><div class="text-[9px] mt-0.5">HPs: <b>${item.hps || 0}</b></div></td><td class="p-2.5 text-slate-500">${detalheInfo}</td></tr>`;
+                `;
+            });
         });
-    }
-    modal.classList.remove('hidden');
-}
 
-function fecharModalExplosao() { document.getElementById('modal-explosao').classList.add('hidden'); }
-
-function renderizarGraficos(dados, todosFiltrados = []) {
-    let projetosCount = {};
-    TODOS_OS_PROJETOS.forEach(p => projetosCount[p] = 0);
-    let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
-    let totalMinutosPausaPeriodo = 0, qtdAtividadesComPausa = 0;
-
-    const basePausas = (Array.isArray(todosFiltrados) && todosFiltrados.length > 0) ? todosFiltrados : dados;
-    basePausas.forEach(item => {
-        const pMin = Number(item.tempoPausadoMinutos) || 0;
-        if (pMin > 0 || item.desfecho === 'PARALISADA') { totalMinutosPausaPeriodo += pMin; qtdAtividadesComPausa++; }
-    });
-
-    const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-    setEl('ind-tempo-paralisado', totalMinutosPausaPeriodo > 0 ? formatarDuracaoTexto(totalMinutosPausaPeriodo) : "0 min");
-    setEl('ind-detalhe-paralisado', `${qtdAtividadesComPausa} atividade(s) com pausa`);
-
-    let listaMinutosEntrada = [], listaMinutosSaida = [], listaDuracoes = [];
-    let aberturasPorHora = new Array(24).fill(0), fechamentosPorHora = new Array(24).fill(0);
-    let duracaoPorProjeto = {};
-    TODOS_OS_PROJETOS.forEach(k => duracaoPorProjeto[k] = []);
-
-    dados.forEach(d => {
-        projetosCount[d.projeto] = (projetosCount[d.projeto] || 0) + 1;
-        if (desfechosCount[d.desfecho] !== undefined) desfechosCount[d.desfecho]++;
-
-        const minIn = converterHorarioParaMinutos(d.hEntrada), minOut = converterHorarioParaMinutos(d.hSaida);
-        const pausaItem = Number(d.tempoPausadoMinutos) || 0;
-        if (minIn !== null) { listaMinutosEntrada.push(minIn); const hIn = Math.floor(minIn / 60); if (hIn >= 0 && hIn < 24) aberturasPorHora[hIn]++; }
-        if (minOut !== null) { listaMinutosSaida.push(minOut); const hOut = Math.floor(minOut / 60); if (hOut >= 0 && hOut < 24) fechamentosPorHora[hOut]++; }
-        if (minIn !== null && minOut !== null && minOut >= minIn) {
-            const durLiquida = Math.max(0, (minOut - minIn) - pausaItem);
-            if (durLiquida > 0 && durLiquida <= 840) {
-                listaDuracoes.push(durLiquida);
-                if (!duracaoPorProjeto[d.projeto]) duracaoPorProjeto[d.projeto] = [];
-                duracaoPorProjeto[d.projeto].push(durLiquida);
-            }
-        }
-    });
-
-    setEl('ind-media-abertura', listaMinutosEntrada.length > 0 ? formatarMinutosParaHHMM(listaMinutosEntrada.reduce((a, b) => a + b, 0) / listaMinutosEntrada.length) : "--:--");
-    setEl('ind-media-fechamento', listaMinutosSaida.length > 0 ? formatarMinutosParaHHMM(listaMinutosSaida.reduce((a, b) => a + b, 0) / listaMinutosSaida.length) : "--:--");
-    setEl('ind-tempo-medio', listaDuracoes.length > 0 ? formatarDuracaoTexto(listaDuracoes.reduce((a, b) => a + b, 0) / listaDuracoes.length) : "--h --m");
-
-    let maxAtivHora = 0, horaPico = null;
-    for (let h = 0; h < 24; h++) { if (aberturasPorHora[h] > maxAtivHora) { maxAtivHora = aberturasPorHora[h]; horaPico = h; } }
-    setEl('ind-horario-pico', (horaPico !== null && maxAtivHora > 0) ? `${String(horaPico).padStart(2, '0')}h às ${String(horaPico + 1).padStart(2, '0')}h` : "--:--");
-    setEl('ind-detalhe-pico', (horaPico !== null && maxAtivHora > 0) ? `${maxAtivHora} atividade(s) na faixa` : "Sem picos");
-
-    const ctxProj = document.getElementById('graficoProjetos')?.getContext('2d');
-    if (ctxProj) {
-        if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
-        const labelsP = Object.keys(projetosCount);
-        graficoProjetosInstancia = new Chart(ctxProj, {
-            type: 'bar',
-            data: {
-                labels: labelsP,
-                datasets: [
-                    { label: '🟢 Executado', data: labelsP.map(p => dados.filter(d => d.projeto === p && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#059669', borderRadius: 5 },
-                    { label: '🟠 Não Executado', data: labelsP.map(p => dados.filter(d => d.projeto === p && d.desfecho !== 'CONCLUIDA').length), backgroundColor: '#f59e0b', borderRadius: 5 }
-                ]
-            },
-            options: { responsive: true, maintainAspectRatio: false, onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('projeto', labelsP[el[0].index]); } }
-        });
-    }
-
-    const ctxDesf = document.getElementById('graficoDesfechos')?.getContext('2d');
-    if (ctxDesf) {
-        if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
-        graficoDesfechosInstancia = new Chart(ctxDesf, {
-            type: 'doughnut',
-            data: {
-                labels: ['EXECUTADO (Concluída)', 'N EXECUTADO (Pendente)', 'N EXECUTADO (Malograda)'],
-                datasets: [{ data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']], backgroundColor: ['#059669', '#d97706', '#dc2626'] }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('desfecho', ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'][el[0].index]); } }
-        });
-    }
-
-    // GRÁFICO DE HORÁRIOS DE PICO (MANTIDO 100% INALTERADO)
-    const ctxHoras = document.getElementById('graficoHorasPico')?.getContext('2d');
-    if (ctxHoras) {
-        if (graficoHorasPicoInstancia) graficoHorasPicoInstancia.destroy();
-        const labelsHoras = [], dadosAberturaSlice = [], dadosFechamentoSlice = [];
-        for (let h = 6; h <= 20; h++) {
-            labelsHoras.push(`${String(h).padStart(2, '0')}h`);
-            dadosAberturaSlice.push(aberturasPorHora[h]);
-            dadosFechamentoSlice.push(fechamentosPorHora[h]);
-        }
-        graficoHorasPicoInstancia = new Chart(ctxHoras, {
-            type: 'line',
-            data: {
-                labels: labelsHoras,
-                datasets: [
-                    { label: '🟢 Aberturas (Check-in)', data: dadosAberturaSlice, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.15)', fill: true, tension: 0.35 },
-                    { label: '🔴 Fechamentos (Check-out)', data: dadosFechamentoSlice, borderColor: '#059669', backgroundColor: 'rgba(5, 150, 105, 0.12)', fill: true, tension: 0.35 }
-                ]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-        });
-    }
-
-    const ctxTempoProj = document.getElementById('graficoTempoProjeto')?.getContext('2d');
-    if (ctxTempoProj) {
-        if (graficoTempoProjetoInstancia) graficoTempoProjetoInstancia.destroy();
-        const labelsProj = Object.keys(projetosCount);
-        const mediasMinutosProj = labelsProj.map(proj => {
-            const arr = duracaoPorProjeto[proj] || [];
-            return arr.length === 0 ? 0 : Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
-        });
-        graficoTempoProjetoInstancia = new Chart(ctxTempoProj, {
-            type: 'bar',
-            data: { labels: labelsProj, datasets: [{ label: 'Tempo Médio Líquido (Minutos)', data: mediasMinutosProj, backgroundColor: '#0d9488', borderRadius: 6 }] },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
-        });
-    }
-}
-
-function exportarExcelFinanceiro() {
-    if (!totaisFinanceirosAtuais) return;
-    let itensMedicao = [
-        { chave: "VISTORIA", qtd: totaisFinanceirosAtuais.vistorias }, { chave: "CABO RL", qtd: totaisFinanceirosAtuais.caboRL },
-        { chave: "CONECTORES", qtd: totaisFinanceirosAtuais.conectores }, { chave: "FUSÕES", qtd: totaisFinanceirosAtuais.fusoes },
-        { chave: "CABO DROP", qtd: totaisFinanceirosAtuais.caboDrop }, { chave: "NAP", qtd: totaisFinanceirosAtuais.nap },
-        { chave: "DIO", qtd: totaisFinanceirosAtuais.dio }, { chave: "CX SOBREPOR", qtd: totaisFinanceirosAtuais.cxSobrepor },
-        { chave: "CX EMBUTIDA", qtd: totaisFinanceirosAtuais.cxEmbutida }
-    ];
-    let valorGeral = 0;
-    let tabelaHTML = `<table border="1"><thead><tr><th>Código</th><th>Descrição do Item</th><th>Unidade</th><th>Qtd. Produzida</th><th>Valor Unitário (R$)</th><th>Total (R$)</th></tr></thead><tbody>`;
-    itensMedicao.forEach(item => {
-        let cfg = TABELA_PRECOS[item.chave];
-        let totalItem = item.qtd * cfg.valor;
-        valorGeral += totalItem;
-        tabelaHTML += `<tr><td>${cfg.codigo}</td><td>${cfg.desc}</td><td>${cfg.unidade}</td><td>${item.qtd}</td><td>R$ ${cfg.valor.toFixed(2).replace('.', ',')}</td><td>R$ ${totalItem.toFixed(2).replace('.', ',')}</td></tr>`;
-    });
-    tabelaHTML += `<tr><td colspan="5"><b>VALOR TOTAL DA MEDIÇÃO</b></td><td><b>R$ ${valorGeral.toFixed(2).replace('.', ',')}</b></td></tr></tbody></table>`;
-
-    let blob = new Blob(['\ufeff' + tabelaHTML], { type: 'application/vnd.ms-excel' });
-    let url = URL.createObjectURL(blob);
-    let a = document.createElement('a');
-    a.href = url; a.download = `medicao_financeira_mdu_${obterDataLocalISO()}.xls`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-}
-
-// ================= EQUIPES, USUÁRIOS, AUDITORIA E NAVEGAÇÃO (CORRIGIDA PARA MOBILE E VISUALIZADOR) =================
-function alternarChaveSetorEquipe(setorEscolhido) {
-    let inputHidden = document.getElementById('inp-setor-equipe');
-    let atuais = obterArraySetores(inputHidden.value);
-    if (atuais.includes(setorEscolhido)) {
-        if (atuais.length > 1) atuais = atuais.filter(s => s !== setorEscolhido);
-        else return;
-    } else atuais.push(setorEscolhido);
-    inputHidden.value = formatarSetoresString(atuais);
-    const aplicarEstilo = (btn, ativo, corBg) => {
-        if (btn) btn.className = ativo ? `py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 ${corBg} text-white shadow-sm` : "py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600 bg-slate-100";
-    };
-    aplicarEstilo(document.getElementById('btn-chave-vistoriador'), atuais.includes('Vistoriador'), 'bg-purple-800');
-    aplicarEstilo(document.getElementById('btn-chave-instalador'), atuais.includes('Instalador'), 'bg-blue-900');
-    aplicarEstilo(document.getElementById('btn-chave-ativador'), atuais.includes('Ativador'), 'bg-emerald-700');
-}
-
-function abrirModalEquipe(id = null) {
-    if (String(nivelUsuarioLogado || '').trim().toLowerCase() === 'visualizador') return;
-    document.getElementById('modal-equipe').classList.remove('hidden');
-    if (id) {
-        let eq = equipesSistema.find(e => e.id === id);
-        if (eq) {
-            document.getElementById('edit-equipe-id').value = eq.id;
-            document.getElementById('inp-nome-equipe').value = eq.nome;
-            document.getElementById('sel-status-equipe').value = eq.status;
-            document.getElementById('inp-setor-equipe').value = formatarSetoresString(eq.setor);
-        }
-    } else {
-        document.getElementById('edit-equipe-id').value = "";
-        document.getElementById('inp-nome-equipe').value = "";
-        document.getElementById('sel-status-equipe').value = "Ativo";
-        document.getElementById('inp-setor-equipe').value = "Instalador";
-    }
-}
-
-function fecharModalEquipe() { document.getElementById('modal-equipe').classList.add('hidden'); }
-
-async function salvarOuAtualizarEquipe() {
-    if (String(nivelUsuarioLogado || '').trim().toLowerCase() === 'visualizador') return;
-    const editId = document.getElementById('edit-equipe-id').value;
-    const nome = document.getElementById('inp-nome-equipe').value.trim().toUpperCase();
-    const setor = formatarSetoresString(document.getElementById('inp-setor-equipe').value || "Instalador");
-    const status = document.getElementById('sel-status-equipe').value;
-    if (!nome) return;
-
-    if (editId) {
-        let eq = equipesSistema.find(e => e.id == editId);
-        if (eq) { eq.nome = nome; eq.setor = setor; eq.status = status; if (!eq.pin) eq.pin = "1234"; }
-    } else {
-        equipesSistema.push({ id: Date.now(), nome, setor, status, pin: "1234" });
-    }
-    await sincronizarEquipesNaNuvem();
-    fecharModalEquipe();
-    popularSelectEquipes();
-    renderizarTabelaEquipes();
-    renderizarPainelDisponibilidade();
-}
-
-async function alternarSetorDiretoNaTabela(idEquipe, setorAlvo) {
-    if (String(nivelUsuarioLogado || '').trim().toLowerCase() === 'visualizador') return;
-    const eq = equipesSistema.find(e => e.id === idEquipe);
-    if (!eq) return;
-    let setoresAtuais = obterArraySetores(eq.setor);
-    if (setoresAtuais.includes(setorAlvo)) {
-        if (setoresAtuais.length > 1) setoresAtuais = setoresAtuais.filter(s => s !== setorAlvo);
-        else return;
-    } else setoresAtuais.push(setorAlvo);
-    eq.setor = formatarSetoresString(setoresAtuais);
-    await sincronizarEquipesNaNuvem();
-    popularSelectEquipes();
-    renderizarTabelaEquipes();
-}
-
-function renderizarTabelaEquipes() {
-    const corpo = document.getElementById('tabela-equipes-corpo');
-    if (!corpo) return;
-    corpo.innerHTML = "";
-    const nivelNorm = String(nivelUsuarioLogado || '').trim().toLowerCase();
-    equipesSistema.forEach(eq => {
-        const setoresAtuais = obterArraySetores(eq.setor);
-        const pinAtual = obterPinDaEquipe(eq);
-        const chaveSetorHtml = `<div class="inline-flex bg-slate-100 p-0.5 rounded-lg border border-slate-300 gap-1"><button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Vistoriador')" class="px-2 py-1 rounded-md text-[10px] font-bold ${setoresAtuais.includes('Vistoriador') ? 'bg-purple-800 text-white' : 'text-slate-500 bg-white'}">🔍 Vistoriador</button><button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Instalador')" class="px-2 py-1 rounded-md text-[10px] font-bold ${setoresAtuais.includes('Instalador') ? 'bg-blue-900 text-white' : 'text-slate-500 bg-white'}">🛠️ Instalador</button><button onclick="alternarSetorDiretoNaTabela(${eq.id}, 'Ativador')" class="px-2 py-1 rounded-md text-[10px] font-bold ${setoresAtuais.includes('Ativador') ? 'bg-emerald-700 text-white' : 'text-slate-500 bg-white'}">⚡ Ativador</button></div>`;
-        const projsHabilitados = obterProjetosPermitidosParaSetores(setoresAtuais).map(p => `<span class="bg-slate-100 border border-slate-300 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded">${p}</span>`).join(' ');
-        const badgePin = (nivelNorm === 'master' || nivelNorm === 'operador') ? `<div class="mt-1"><span class="bg-amber-50 text-amber-900 border border-amber-300 font-mono font-bold text-[10px] px-2 py-0.5 rounded">🔑 PIN: ${pinAtual}</span></div>` : '';
-        let acoesEq = (nivelNorm === 'master' || nivelNorm === 'operador')
-            ? `<button onclick="resetarPinEquipeGestor(${eq.id})" class="bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10px] px-2.5 py-1 rounded">🔄 Resetar PIN</button> <button onclick="abrirModalEquipe(${eq.id})" class="bg-blue-50 text-blue-700 font-bold text-[10px] px-2.5 py-1 rounded">✏️ Editar</button>`
-            : `<span class="text-slate-400 text-[10px]">Leitura</span>`;
-        if (nivelNorm === 'master') acoesEq += ` <button onclick="excluirEquipe(${eq.id}, '${eq.nome}')" class="bg-red-50 text-red-600 font-bold text-[10px] px-2.5 py-1 rounded">🗑️ Excluir</button>`;
-        corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="p-3"><div class="font-bold text-slate-800">${eq.nome}</div>${badgePin}</td><td class="p-3">${chaveSetorHtml}</td><td class="p-3"><div class="flex flex-wrap gap-1">${projsHabilitados}</div></td><td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${eq.status === 'Ativo' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">${eq.status}</span></td><td class="p-3 space-x-1 whitespace-nowrap">${acoesEq}</td></tr>`;
-    });
-}
-
-async function excluirEquipe(id, nome) {
-    if (String(nivelUsuarioLogado || '').trim().toLowerCase() !== 'master') return;
-    if (confirm(`Deseja excluir a equipe ${nome}?`)) {
-        equipesSistema = equipesSistema.filter(e => e.id !== id);
-        await sincronizarEquipesNaNuvem();
-        popularSelectEquipes();
-        renderizarTabelaEquipes();
-    }
-}
-
-function abrirModalUsuario(id = null) {
-    document.getElementById('modal-usuario').classList.remove('hidden');
-    if (id) {
-        let u = usuariosSistema.find(user => user.id === id);
-        if (u) {
-            document.getElementById('edit-user-id').value = u.id;
-            document.getElementById('novo-user-nome').value = u.nome;
-            document.getElementById('novo-user-email').value = u.email;
-            document.getElementById('novo-user-senha').value = u.senha;
-            document.getElementById('novo-user-nivel').value = u.nivel;
-        }
-    } else {
-        document.getElementById('edit-user-id').value = "";
-        document.getElementById('novo-user-nome').value = "";
-        document.getElementById('novo-user-email').value = "";
-        document.getElementById('novo-user-senha').value = "";
-        document.getElementById('novo-user-nivel').value = "Visualizador";
-    }
-}
-
-function fecharModalUsuario() { document.getElementById('modal-usuario').classList.add('hidden'); }
-
-async function salvarOuAtualizarUsuario() {
-    const editId = document.getElementById('edit-user-id').value;
-    const nome = document.getElementById('novo-user-nome').value.trim();
-    const email = document.getElementById('novo-user-email').value.trim().toLowerCase();
-    const senha = document.getElementById('novo-user-senha').value.trim();
-    const nivel = document.getElementById('novo-user-nivel').value;
-    if (!nome || !email || !senha) return;
-
-    const nivelNorm = String(nivelUsuarioLogado || '').trim().toLowerCase();
-    if (editId) {
-        let u = usuariosSistema.find(user => user.id == editId);
-        if (u) { if (nivelNorm === 'master') { u.nome = nome; u.email = email; u.senha = senha; u.nivel = nivel; } else u.senha = senha; }
-    } else {
-        if (nivelNorm !== 'master') return;
-        usuariosSistema.push({ id: Date.now(), nome, email, senha, nivel, status: "Ativo" });
-    }
-    await sincronizarUsuariosNaNuvem();
-    fecharModalUsuario();
-    renderizarTabelaUsuariosPermissao();
-}
-
-async function excluirUsuario(id, email) {
-    if (String(nivelUsuarioLogado || '').trim().toLowerCase() !== 'master' || email.toLowerCase() === "lsimoes@procisa.com.br") return;
-    if (confirm(`Remover acesso de ${email}?`)) {
-        usuariosSistema = usuariosSistema.filter(u => u.id !== id);
-        await sincronizarUsuariosNaNuvem();
-        renderizarTabelaUsuariosPermissao();
-    }
-}
-
-async function renderizarTabelaAuditoria() {
-    renderizarPainelCapacidadeNuvem();
-    await carregarAuditoriaDaNuvem();
-    const corpo = document.getElementById('tabela-auditoria-corpo');
-    if (!corpo) return;
-    corpo.innerHTML = "";
-    const emailsGestores = new Set((usuariosSistema || []).map(u => (u.email || '').toLowerCase()));
-    const logsSomenteGestao = (trilhaAuditoria || []).filter(log => {
-        const usr = (log.usuario || '').toLowerCase();
-        return usr.includes('@') || emailsGestores.has(usr);
-    });
-    if (logsSomenteGestao.length === 0) {
-        corpo.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400">Nenhum registo de auditoria.</td></tr>`;
-        return;
-    }
-    logsSomenteGestao.forEach(log => {
-        corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b text-xs"><td class="p-3 font-mono text-slate-500">${log.dataHora}</td><td class="p-3 font-bold text-blue-900">${log.usuario}</td><td class="p-3"><span class="bg-purple-100 text-purple-900 font-bold px-2 py-0.5 rounded text-[10px]">${log.acao}</span></td><td class="p-3 text-slate-600">${log.detalhes}</td></tr>`;
-    });
-}
-
-async function limparLogsAuditoria() {
-    if (String(nivelUsuarioLogado || '').trim().toLowerCase() !== 'master') return;
-    if (confirm("Limpar o histórico de auditoria?")) {
-        trilhaAuditoria = [];
-        localStorage.removeItem('gpd_trilha_auditoria');
-        await sincronizarAuditoriaNaNuvem();
-        renderizarTabelaAuditoria();
-    }
-}
-
-// Sobrescreve recarregarDadosGestor para garantir que o botão Atualizar funcione perfeitamente para Visualizador no Smartphone
-recarregarDadosGestor = async function(silencioso = false) {
-    try {
-        if (!modoConsultaBackupAtivo && typeof carregarRegistrosDaNuvem === "function") {
-            await carregarRegistrosDaNuvem(true);
-            cargaInicialGestorConcluida = true;
-        }
-        await atualizarDashboardGestor(false);
-        const lblSync = document.getElementById('txt-hora-sync');
-        if (lblSync) lblSync.innerText = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        boxValidacao.innerHTML = htmlCards;
+        boxValidacao.classList.remove('hidden');
     } catch (e) {
-        console.warn("Erro ao recarregar dados gestor:", e);
+        console.warn("Aviso ao checar validações de apoio:", e);
+    }
+}
+
+async function responderValidacaoApoioTitularCampo(idAtividade, nomeApoiador, aprovar) {
+    try {
+        const { data: regBanco, error } = await supabaseClient
+            .from('registros_producao')
+            .select('*')
+            .eq('id', idAtividade)
+            .maybeSingle();
+
+        if (error || !regBanco) {
+            alert("⚠️ Registro não localizado na nuvem.");
+            return;
+        }
+
+        let validados = extrairListaApoiosDoMembros(regBanco.membros, regBanco.equipe);
+        let pendentes = extrairListaApoiosPendentesDoMembros(regBanco.membros, regBanco.equipe).filter(n => n !== nomeApoiador);
+
+        const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        let obsAtual = regBanco.observacoes || '';
+
+        if (aprovar) {
+            if (!validados.includes(nomeApoiador)) validados.push(nomeApoiador);
+            obsAtual = `${obsAtual} [APOIO_VALIDADO: Presença de ${nomeApoiador} validada pelo titular ${regBanco.equipe} às ${horaAgora}]`.trim();
+        } else {
+            obsAtual = `${obsAtual} [APOIO_RECUSADO: Solicitação de ${nomeApoiador} recusada pelo titular ${regBanco.equipe} às ${horaAgora}]`.trim();
+        }
+
+        const novoMembros = formatarStringMembrosApoio(regBanco.equipe, validados, pendentes);
+
+        const { error: errUpd } = await supabaseClient
+            .from('registros_producao')
+            .update({ membros: novoMembros, observacoes: obsAtual })
+            .eq('id', idAtividade);
+
+        if (errUpd) throw errUpd;
+
+        const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
+        if (lblBadge) {
+            lblBadge.innerText = validados.length > 0 ? `✅ Validado: ${validados.join(', ')}` : 'Individual';
+        }
+
+        await carregarRegistrosModoCampoLeve();
+        await verificarSolicitacoesApoioParaTitularCampo();
+
+        if (aprovar) {
+            alert(`✅ PRESENÇA VALIDADA!\n\nVocê confirmou a presença de ${nomeApoiador} atuando em conjunto na atividade do imóvel ${regBanco.imovel}.`);
+        } else {
+            alert(`❌ Solicitação de apoio de ${nomeApoiador} foi recusada e removida da atividade.`);
+        }
+    } catch (e) {
+        alert("❌ Erro ao validar apoio: " + e.message);
+    }
+}
+
+// CORREÇÃO ITEM 01 e 02: Layout 100% responsivo/centralizado para smartphone e termos trocados de "Obra" para "Atividade"
+function inicializarInterfaceApoioConjuntoCampo() {
+    const formContainer = document.getElementById('form-campo-container');
+    const btnCheckin = document.getElementById('btn-checkin');
+
+    if (formContainer && !document.getElementById('box-campo-apoio-conjunto')) {
+        const divApoio = document.createElement('div');
+        divApoio.id = 'box-campo-apoio-conjunto';
+        divApoio.className = 'w-full box-border bg-purple-50/90 border-2 border-purple-300 rounded-xl p-3 space-y-2.5 my-2 shadow-sm';
+        divApoio.innerHTML = `
+            <div class="flex flex-wrap justify-between items-center gap-1">
+                <label class="block text-[11px] font-black text-purple-950 uppercase">🤝 Atuação Conjunta / Equipe de Apoio</label>
+                <span class="text-[9px] bg-purple-200 text-purple-900 font-bold px-2 py-0.5 rounded">Validado pelo Titular</span>
+            </div>
+            <select id="sel-equipe-apoio-campo" onchange="popularOpcoesParceiroApoioCampo(true)" class="w-full box-border text-xs border border-purple-300 rounded-lg p-2.5 bg-white outline-none font-bold text-purple-950">
+                <option value="">Sem apoio (Atuação individual)</option>
+            </select>
+            <button type="button" onclick="abrirModalEntrarEmApoioObraAtivaCampo()" class="w-full box-border bg-purple-700 hover:bg-purple-800 text-white font-black py-2.5 px-3 rounded-lg text-[11px] transition shadow-sm flex items-center justify-center gap-1.5 text-center">
+                🤝 Solicitar Entrada em Apoio (Atividade em Andamento)
+            </button>
+        `;
+        if (btnCheckin && btnCheckin.parentNode === formContainer) {
+            formContainer.insertBefore(divApoio, btnCheckin);
+        } else {
+            formContainer.appendChild(divApoio);
+        }
+    }
+
+    const blocoPosAbertura = document.getElementById('bloco-pos-abertura');
+    if (blocoPosAbertura && !document.getElementById('barra-apoio-obra-aberta-campo')) {
+        const divAberta = document.createElement('div');
+        divAberta.id = 'barra-apoio-obra-aberta-campo';
+        divAberta.className = 'w-full box-border bg-purple-50 border-2 border-purple-300 p-3 rounded-xl text-xs space-y-2 mb-3 shadow-sm';
+        divAberta.innerHTML = `
+            <div class="flex flex-wrap justify-between items-center gap-1">
+                <span class="font-black text-purple-950 text-[11px] uppercase">🤝 Validar / Incluir Apoio nesta Atividade:</span>
+                <span id="lbl-parceiro-apoio-atual-campo" class="text-[10px] font-bold bg-purple-200 text-purple-950 px-2 py-0.5 rounded">Individual</span>
+            </div>
+            <div class="flex flex-col gap-2 w-full">
+                <select id="sel-adicionar-apoio-em-andamento" class="w-full box-border text-xs border border-purple-300 rounded-lg p-2.5 bg-white font-bold text-purple-950 outline-none">
+                    <option value="">+ Selecionar equipe de apoio para validar...</option>
+                </select>
+                <button type="button" onclick="vincularColegaApoioNaObraAbertaCampo()" class="w-full box-border bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs py-2.5 px-3 rounded-lg shadow-sm transition text-center">
+                    ✅ Validar Presença da Equipe de Apoio
+                </button>
+            </div>
+        `;
+        blocoPosAbertura.insertBefore(divAberta, blocoPosAbertura.firstChild);
+    }
+
+    if (!document.getElementById('modal-entrar-apoio-campo')) {
+        const modal = document.createElement('div');
+        modal.id = 'modal-entrar-apoio-campo';
+        modal.className = 'fixed inset-0 bg-black/65 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[82]';
+        modal.innerHTML = `
+            <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-purple-300 flex flex-col max-h-[90vh]">
+                <div class="bg-purple-900 text-white p-4 flex justify-between items-center border-b-4 border-purple-400">
+                    <div>
+                        <span class="bg-purple-300 text-purple-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Atuação Conjunta • Sujeita à Validação</span>
+                        <h3 class="font-bold text-sm mt-0.5">🤝 Solicitar Entrada em Apoio em Atividade</h3>
+                    </div>
+                    <button type="button" onclick="fecharModalEntrarEmApoioObraAtivaCampo()" class="text-white font-bold text-lg">✕</button>
+                </div>
+                <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
+                    <div class="bg-purple-50 p-2.5 rounded-xl border border-purple-200 text-[11px] text-purple-950">
+                        👷 <b>Técnico Solicitante do Apoio:</b> <span id="lbl-meu-nome-apoio-modal" class="font-black">-</span>
+                    </div>
+                    <p class="text-[11px] text-slate-600">
+                        Selecione a atividade em andamento abaixo. Seu <b>Horário e GPS de chegada</b> serão enviados e o <b>Técnico Titular receberá um alerta na tela dele para validar sua presença</b>:
+                    </p>
+                    <div id="lista-obras-ativas-para-apoio-campo" class="space-y-2 max-h-64 overflow-y-auto"></div>
+                </div>
+                <div class="bg-slate-100 p-3 border-t flex justify-end">
+                    <button type="button" onclick="fecharModalEntrarEmApoioObraAtivaCampo()" class="bg-slate-400 text-white text-xs px-4 py-2 rounded-xl font-bold">Fechar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    popularOpcoesParceiroApoioCampo();
+}
+
+function popularOpcoesParceiroApoioCampo(apenasSincronizar = false) {
+    const selTitular = document.getElementById('sel-equipe');
+    const titular = (selTitular?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
+    const selApoio1 = document.getElementById('sel-equipe-apoio-campo');
+    const selApoio2 = document.getElementById('sel-adicionar-apoio-em-andamento');
+
+    if (apenasSincronizar && selApoio1 && selApoio2) {
+        selApoio2.value = selApoio1.value;
+        return;
+    }
+
+    const equipesAtivas = (typeof equipesSistema !== 'undefined' && Array.isArray(equipesSistema))
+        ? equipesSistema.filter(e => e.status === 'Ativo' && e.nome !== titular)
+        : [];
+
+    const opcoesHtml = `<option value="">Sem apoio (Atuação individual)</option>` +
+        equipesAtivas.map(eq => `<option value="${eq.nome}">🤝 Em conjunto com: ${eq.nome}</option>`).join('');
+
+    if (selApoio1) {
+        const valAnt = selApoio1.value;
+        selApoio1.innerHTML = opcoesHtml;
+        if (valAnt && valAnt !== titular) selApoio1.value = valAnt;
+    }
+    if (selApoio2) {
+        const valAnt2 = selApoio2.value;
+        selApoio2.innerHTML = `<option value="">+ Selecionar equipe de apoio para validar...</option>` +
+            equipesAtivas.map(eq => `<option value="${eq.nome}">🤝 ${eq.nome}</option>`).join('');
+        if (valAnt2 && valAnt2 !== titular) selApoio2.value = valAnt2;
+    }
+}
+
+async function abrirModalEntrarEmApoioObraAtivaCampo() {
+    const meuNome = validarTecnicoSelecionadoParaSolicitacao();
+    if (!meuNome) return;
+
+    document.getElementById('lbl-meu-nome-apoio-modal').innerText = meuNome;
+    const container = document.getElementById('lista-obras-ativas-para-apoio-campo');
+    container.innerHTML = `<div class="p-4 text-center text-purple-900 font-bold animate-pulse">☁️ Buscando atividades em andamento hoje...</div>`;
+    document.getElementById('modal-entrar-apoio-campo').classList.remove('hidden');
+
+    try {
+        const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+        const { data, error } = await supabaseClient
+            .from('registros_producao')
+            .select('id, data_registro, equipe, membros, projeto, imovel, h_entrada, desfecho, observacoes')
+            .eq('data_registro', hojeISO)
+            .in('desfecho', ['EM ANDAMENTO', 'PARALISADA', 'REABERTA']);
+
+        if (error) throw error;
+
+        const atividadesDosColegas = (data || []).filter(r =>
+            r.equipe !== '__CONFIG_SISTEMA__' &&
+            r.equipe !== meuNome &&
+            r.projeto !== 'IMPREVISTO / ATRASO'
+        );
+
+        if (atividadesDosColegas.length === 0) {
+            container.innerHTML = `<div class="p-4 bg-slate-50 rounded-xl border text-center text-slate-500">Nenhuma atividade de outro técnico está com status "EM ANDAMENTO" hoje neste momento.</div>`;
+            return;
+        }
+
+        container.innerHTML = atividadesDosColegas.map(at => {
+            const validados = extrairListaApoiosDoMembros(at.membros, at.equipe);
+            const pendentes = extrairListaApoiosPendentesDoMembros(at.membros, at.equipe);
+            const jaValidado = validados.includes(meuNome);
+            const jaPendente = pendentes.includes(meuNome);
+
+            let botaoStatusHtml = `<button type="button" onclick="confirmarEntradaApoioObraCampo(${at.id})" class="w-full mt-1 bg-purple-700 hover:bg-purple-800 text-white font-black py-2 rounded-lg text-[11px] shadow-sm transition">🤝 Solicitar Meu Apoio nesta Atividade</button>`;
+            if (jaValidado) {
+                botaoStatusHtml = `<div class="text-[10px] font-black text-emerald-800 bg-emerald-100 p-1.5 rounded text-center mt-1">✅ Presença já VALIDADA pelo titular ${at.equipe}!</div>`;
+            } else if (jaPendente) {
+                botaoStatusHtml = `<div class="text-[10px] font-black text-amber-900 bg-amber-100 p-1.5 rounded text-center mt-1 animate-pulse">⏳ Aguardando ${at.equipe} validar sua presença na tela dele...</div>`;
+            }
+
+            return `
+                <div class="p-3 rounded-xl border-2 ${jaValidado ? 'border-emerald-400 bg-emerald-50/60' : (jaPendente ? 'border-amber-400 bg-amber-50/60' : 'border-purple-200 bg-white')} shadow-sm space-y-1.5">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="font-black text-blue-950 text-xs">🏢 Imóvel: ${at.imovel}</span>
+                            <span class="block text-[10px] font-bold text-purple-900">👷 Titular (Validador): ${at.equipe}</span>
+                        </div>
+                        <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[9px]">${at.projeto}</span>
+                    </div>
+                    <div class="text-[10px] text-slate-500">🟢 Iniciada às: <b>${at.h_entrada}</b></div>
+                    ${botaoStatusHtml}
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        container.innerHTML = `<div class="p-3 bg-red-50 text-red-700 rounded-xl">Erro ao buscar atividades: ${e.message}</div>`;
+    }
+}
+
+function fecharModalEntrarEmApoioObraAtivaCampo() {
+    document.getElementById('modal-entrar-apoio-campo')?.classList.add('hidden');
+}
+
+async function confirmarEntradaApoioObraCampo(idAtividadeAlvo) {
+    const meuNome = validarTecnicoSelecionadoParaSolicitacao();
+    if (!meuNome) return;
+
+    const coord = await capturarCoordenadaGpsFrescaCampo(7000);
+    const gpsStr = coord ? `${coord.lat.toFixed(6)}, ${coord.lng.toFixed(6)}` : 'GPS Apoio';
+    const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    const { data: regBanco, error: errBusca } = await supabaseClient
+        .from('registros_producao')
+        .select('*')
+        .eq('id', idAtividadeAlvo)
+        .maybeSingle();
+
+    if (errBusca || !regBanco) {
+        alert("❌ Não foi possível localizar a atividade na nuvem.");
+        return;
+    }
+
+    const validados = extrairListaApoiosDoMembros(regBanco.membros, regBanco.equipe);
+    const pendentes = extrairListaApoiosPendentesDoMembros(regBanco.membros, regBanco.equipe);
+    if (!validados.includes(meuNome) && !pendentes.includes(meuNome)) {
+        pendentes.push(meuNome);
+    }
+
+    const novoMembros = formatarStringMembrosApoio(regBanco.equipe, validados, pendentes);
+    const notaApoio = `[APOIO_CONJUNTO: ${meuNome} entrou em apoio às ${horaAgora} (GPS: ${gpsStr})]`;
+    const obsAtual = regBanco.observacoes || '';
+    const novaObs = obsAtual.includes(notaApoio) ? obsAtual : `${notaApoio} ${obsAtual}`.trim();
+
+    const { error: errUpd } = await supabaseClient
+        .from('registros_producao')
+        .update({ membros: novoMembros, observacoes: novaObs })
+        .eq('id', idAtividadeAlvo);
+
+    if (errUpd) {
+        alert("❌ Erro ao enviar solicitação de apoio: " + errUpd.message);
+        return;
+    }
+
+    // Só atualiza coordenada se o técnico já estiver com expediente ativo
+    const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+    const telMeu = (typeof telemetriaEquipes !== 'undefined' && telemetriaEquipes) ? telemetriaEquipes[meuNome] : null;
+    if (coord && telMeu && telMeu.data === hojeISO && telMeu.statusTurno === 'DISPONIVEL' && typeof registrarPontoTelemetriaEquipe === 'function') {
+        await registrarPontoTelemetriaEquipe(meuNome, coord.lat, coord.lng, 'DISPONIVEL');
+    }
+
+    if (typeof carregarRegistrosModoCampoLeve === 'function') await carregarRegistrosModoCampoLeve();
+    fecharModalEntrarEmApoioObraAtivaCampo();
+    atualizarAbaMinhasAtividadesCampo(false);
+    alert(`⏳ SOLICITAÇÃO DE APOIO ENVIADA!\n\nSua chegada na atividade às ${horaAgora} foi registrada.\nPeça ao técnico titular (${regBanco.equipe}) para clicar em "✅ Validar Presença" na tela dele!`);
+}
+
+async function vincularColegaApoioNaObraAbertaCampo() {
+    const selColega = document.getElementById('sel-adicionar-apoio-em-andamento');
+    const nomeColega = selColega ? selColega.value.trim().toUpperCase() : '';
+    if (!nomeColega) {
+        alert("⚠️ Selecione o nome da equipe/técnico cuja presença você deseja validar nesta atividade.");
+        return;
+    }
+
+    const selApoio1 = document.getElementById('sel-equipe-apoio-campo');
+    if (selApoio1) selApoio1.value = nomeColega;
+
+    try {
+        if (dadosAtendimento.idEmAndamento) {
+            const { data: regAtual } = await supabaseClient
+                .from('registros_producao')
+                .select('id, equipe, membros, observacoes')
+                .eq('id', dadosAtendimento.idEmAndamento)
+                .maybeSingle();
+
+            if (regAtual) {
+                const listaVal = extrairListaApoiosDoMembros(regAtual.membros, regAtual.equipe);
+                const listaPend = extrairListaApoiosPendentesDoMembros(regAtual.membros, regAtual.equipe).filter(n => n !== nomeColega);
+                if (!listaVal.includes(nomeColega)) listaVal.push(nomeColega);
+                const novoMemb = formatarStringMembrosApoio(regAtual.equipe, listaVal, listaPend);
+                const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                const obsNova = `${regAtual.observacoes || ''} [APOIO_VALIDADO: Presença de ${nomeColega} validada pelo titular ${regAtual.equipe} às ${horaAgora}]`.trim();
+
+                await supabaseClient.from('registros_producao').update({ membros: novoMemb, observacoes: obsNova }).eq('id', regAtual.id);
+
+                const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
+                if (lblBadge) lblBadge.innerText = `✅ Validado: ${listaVal.join(', ')}`;
+            }
+        }
+        await verificarSolicitacoesApoioParaTitularCampo();
+        alert(`✅ Presença da equipe de apoio (${nomeColega}) VALIDADA em conjunto nesta atividade!`);
+    } catch (e) {
+        console.warn("Aviso ao validar apoio em andamento:", e);
+    }
+}
+
+function instalarInterceptadoresApoioCampo() {
+    // CORREÇÃO ITEM 03: Ao selecionar/logar na equipe, apenas atualiza as listas de apoio e checa pendências, SEM iniciar o expediente automaticamente!
+    if (typeof window.aoSelecionarEquipeCampo === 'function' && !window._apoioHookEquipe) {
+        const origEq = window.aoSelecionarEquipeCampo;
+        window.aoSelecionarEquipeCampo = function(...args) {
+            const res = origEq.apply(this, args);
+            popularOpcoesParceiroApoioCampo();
+            verificarSolicitacoesApoioParaTitularCampo();
+            return res;
+        };
+        window._apoioHookEquipe = true;
+    }
+
+    if (typeof window.fazerCheckIn === 'function' && !window._apoioHookCheckIn) {
+        const origCheckIn = window.fazerCheckIn;
+        window.fazerCheckIn = async function(...args) {
+            const parceiroEscolhido = document.getElementById('sel-equipe-apoio-campo')?.value?.trim().toUpperCase() || '';
+            const res = await origCheckIn.apply(this, args);
+
+            const lblBadge = document.getElementById('lbl-parceiro-apoio-atual-campo');
+            if (parceiroEscolhido) {
+                if (lblBadge) lblBadge.innerText = `✅ Validado: ${parceiroEscolhido}`;
+                const selTitular = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
+                const novoMembros = formatarStringMembrosApoio(selTitular, [parceiroEscolhido], []);
+                if (dadosAtendimento.idEmAndamento) {
+                    await supabaseClient.from('registros_producao').update({ membros: novoMembros }).eq('id', dadosAtendimento.idEmAndamento);
+                }
+            } else if (lblBadge) {
+                lblBadge.innerText = 'Individual';
+            }
+            return res;
+        };
+        window._apoioHookCheckIn = true;
+    }
+
+    if (typeof window.salvarRegistro === 'function' && !window._apoioHookSalvar) {
+        const origSalvar = window.salvarRegistro;
+        window.salvarRegistro = async function(...args) {
+            let validadosNuvem = [];
+            if (dadosAtendimento.idEmAndamento) {
+                try {
+                    const { data: regNuvem } = await supabaseClient
+                        .from('registros_producao')
+                        .select('id, equipe, membros')
+                        .eq('id', dadosAtendimento.idEmAndamento)
+                        .maybeSingle();
+
+                    if (regNuvem) {
+                        validadosNuvem = extrairListaApoiosDoMembros(regNuvem.membros, regNuvem.equipe);
+                        const pendentesNuvem = extrairListaApoiosPendentesDoMembros(regNuvem.membros, regNuvem.equipe);
+                        for (const nomePend of pendentesNuvem) {
+                            const confirmaPresenca = confirm(
+                                `🤝 VALIDAÇÃO DE PRESENÇA DE EQUIPE DE APOIO\n\n` +
+                                `O técnico "${nomePend}" registrou entrada de apoio nesta atividade.\n\n` +
+                                `Você VALIDA e confirma que "${nomePend}" esteve presente apoiando você nesta atividade?\n` +
+                                `(Clique em OK para Validar a presença ou Cancelar para Recusar)`
+                            );
+                            if (confirmaPresenca && !validadosNuvem.includes(nomePend)) {
+                                validadosNuvem.push(nomePend);
+                            }
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            const parceiro1 = document.getElementById('sel-equipe-apoio-campo')?.value?.trim().toUpperCase() || '';
+            const parceiro2 = document.getElementById('sel-adicionar-apoio-em-andamento')?.value?.trim().toUpperCase() || '';
+            if (parceiro1 && !validadosNuvem.includes(parceiro1)) validadosNuvem.push(parceiro1);
+            if (parceiro2 && !validadosNuvem.includes(parceiro2)) validadosNuvem.push(parceiro2);
+
+            const titular = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
+            const imovelBase = document.getElementById('inp-imovel')?.value?.trim() || '';
+
+            const res = await origSalvar.apply(this, args);
+
+            if (validadosNuvem.length > 0 && titular) {
+                if (typeof ultimoResumoCampoTexto === 'string' && ultimoResumoCampoTexto && !ultimoResumoCampoTexto.includes('Apoio Validado')) {
+                    ultimoResumoCampoTexto = ultimoResumoCampoTexto.replace(
+                        `👷 *Equipe:* ${titular}`,
+                        `👷 *Equipe Titular:* ${titular}\n🤝 *Apoio Validado:* ${validadosNuvem.join(', ')}`
+                    );
+                }
+
+                const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+                const novoMembros = formatarStringMembrosApoio(titular, validadosNuvem, []);
+                const { data: recemSalvos } = await supabaseClient
+                    .from('registros_producao')
+                    .select('id, imovel, membros')
+                    .eq('data_registro', hojeISO)
+                    .eq('equipe', titular);
+
+                for (const r of (recemSalvos || [])) {
+                    if (!imovelBase || (r.imovel && r.imovel.toUpperCase().startsWith(imovelBase.toUpperCase()))) {
+                        await supabaseClient.from('registros_producao').update({ membros: novoMembros }).eq('id', r.id);
+                    }
+                }
+                const selApoio1 = document.getElementById('sel-equipe-apoio-campo');
+                const selApoio2 = document.getElementById('sel-adicionar-apoio-em-andamento');
+                if (selApoio1) selApoio1.value = '';
+                if (selApoio2) selApoio2.value = '';
+            }
+            await verificarSolicitacoesApoioParaTitularCampo();
+            return res;
+        };
+        window._apoioHookSalvar = true;
+    }
+}
+
+setTimeout(() => {
+    inicializarInterfaceApoioConjuntoCampo();
+    instalarInterceptadoresApoioCampo();
+    iniciarMonitoramentoGpsAntiCongelamento();
+    verificarSolicitacoesApoioParaTitularCampo();
+}, 450);
+// ================= CORREÇÃO DEFINITIVA: ENCERRAMENTO INSTANTÂNEO DE EXPEDIENTE (1 CLIQUE) =================
+let encerrandoExpedienteEmCurso = false;
+
+encerrarExpedienteRastreioCampo = async function() {
+    if (encerrandoExpedienteEmCurso) return;
+
+    const nomeEq = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || "").trim().toUpperCase();
+    if (!nomeEq) return;
+
+    // 1. Verifica na hora (sem rede) se há atendimento aberto na tela
+    const posAberturaVisivel = !document.getElementById('bloco-pos-abertura')?.classList.contains('hidden');
+    if (posAberturaVisivel) {
+        alert("🚫 NÃO É PERMITIDO ENCERRAR O EXPEDIENTE!\n\nVocê possui uma atividade aberta na sua tela neste momento. Finalize e salve o atendimento (ou cancele a abertura) antes de encerrar o turno.");
+        return;
+    }
+
+    // 2. Verifica primeiro na memória local se há pendências (instantâneo)
+    const checarPendenciasLocais = () => (registrosSalvos || []).filter(r =>
+        r.equipe === nomeEq &&
+        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+        r.projeto !== PROJETO_SOLIC_MATERIAL &&
+        ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'IMPREVISTO'].includes(r.desfecho)
+    );
+
+    let pendentes = checarPendenciasLocais();
+    if (pendentes.length > 0) {
+        const resumo = pendentes.map(p => `• ${p.imovel} (${p.desfecho})`).join('\n');
+        alert(`🚫 ENCERRAMENTO DE EXPEDIENTE BLOQUEADO!\n\nVocê ainda possui ${pendentes.length} atividade(s) ou imprevisto(s) em aberto:\n\n${resumo}\n\nFinalize todas antes de encerrar o seu turno.`);
+        return;
+    }
+
+    // 3. ABRE O CONFIRM IMEDIATAMENTE NO PRIMEIRO TOQUE (antes de qualquer await para o celular nunca bloquear!)
+    if (!confirm(`🔴 ENCERRAR EXPEDIENTE DO DIA\n\nConfirmar o encerramento do turno de hoje para ${nomeEq}?\nO compartilhamento de GPS em rota será desligado imediatamente.`)) {
+        return;
+    }
+
+    encerrandoExpedienteEmCurso = true;
+    // Trava qualquer pulso automático de GPS pelos próximos 60 segundos para evitar reabertura acidental
+    if (typeof ultimoDisparoGpsCampoTs !== 'undefined') {
+        ultimoDisparoGpsCampoTs = Date.now() + 60000;
+    }
+
+    // Desliga imediatamente os relógios de GPS do celular
+    if (typeof pararMonitoramentoContinuoGps === 'function') {
+        pararMonitoramentoContinuoGps();
+    }
+
+    const btnEnc = document.getElementById('btn-encerrar-expediente-campo');
+    if (btnEnc) {
+        btnEnc.disabled = true;
+        btnEnc.innerText = "🔴 Encerrando turno...";
+    }
+
+    try {
+        // 4. Faz uma checagem rápida na nuvem (máx 2,5 segundos) apenas por segurança
+        if (typeof carregarRegistrosModoCampoLeve === 'function') {
+            await Promise.race([
+                carregarRegistrosModoCampoLeve(),
+                new Promise(res => setTimeout(res, 2500))
+            ]);
+        }
+
+        pendentes = checarPendenciasLocais();
+        if (pendentes.length > 0) {
+            const resumo = pendentes.map(p => `• ${p.imovel} (${p.desfecho})`).join('\n');
+            alert(`🚫 ENCERRAMENTO BLOQUEADO!\n\nConsta(m) ${pendentes.length} atividade(s) em aberto na nuvem:\n\n${resumo}`);
+            return;
+        }
+
+        // 5. Usa imediatamente a última coordenada conhecida (ou tenta GPS rápido de no máximo 1,5s sem travar)
+        let latFim = ultimaCoordRastreioCache?.lat || telemetriaEquipes[nomeEq]?.lat || null;
+        let lngFim = ultimaCoordRastreioCache?.lng || telemetriaEquipes[nomeEq]?.lng || null;
+
+        if (!latFim && typeof capturarCoordenadaGpsFrescaCampo === 'function') {
+            const coordRapida = await Promise.race([
+                capturarCoordenadaGpsFrescaCampo(1500),
+                new Promise(res => setTimeout(() => res(null), 1500))
+            ]);
+            if (coordRapida) {
+                latFim = coordRapida.lat;
+                lngFim = coordRapida.lng;
+            }
+        }
+
+        // 6. Atualiza a interface visual na mesma hora e grava ENCERRADO na nuvem
+        const hojeISO = obterDataLocalISO();
+        const horaFim = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const anterior = (telemetriaEquipes[nomeEq] && telemetriaEquipes[nomeEq].data === hojeISO) ? telemetriaEquipes[nomeEq] : {};
+
+        const dadosEncerramento = {
+            equipe: nomeEq,
+            data: hojeISO,
+            statusTurno: 'ENCERRADO',
+            horaInicio: anterior.horaInicio || horaFim,
+            horaFim: horaFim,
+            lat: latFim !== null ? Number(Number(latFim).toFixed(6)) : (anterior.lat || null),
+            lng: lngFim !== null ? Number(Number(lngFim).toFixed(6)) : (anterior.lng || null),
+            horaUltimoSinal: horaFim,
+            timestampUltimoSinal: Date.now()
+        };
+
+        telemetriaEquipes[nomeEq] = dadosEncerramento;
+        atualizarBarraExpedienteCampo();
+
+        await sincronizarTelemetriaNaNuvem(nomeEq, dadosEncerramento);
+        atualizarBarraExpedienteCampo();
+
+        alert(`🔴 Expediente encerrado com sucesso às ${horaFim}! Bom descanso.`);
+    } catch (e) {
+        console.warn("Aviso ao encerrar expediente:", e);
+        atualizarBarraExpedienteCampo();
+    } finally {
+        encerrandoExpedienteEmCurso = false;
+        if (btnEnc) {
+            btnEnc.disabled = false;
+            btnEnc.innerText = "🔴 Encerrar Expediente do Dia";
+        }
     }
 };
-
-function mudarSubAbaGestor(aba) {
-    inicializarMelhoriasVisuaisGestor();
-
-    const nivelNorm = String(nivelUsuarioLogado || '').trim().toLowerCase();
-    const ehVisualizador = (nivelNorm === 'visualizador');
-
-    if (ehVisualizador && !['atividades', 'graficos', 'materiais'].includes(aba)) {
-        aba = 'atividades';
-    }
-
-    // Garante que a barra superior de filtros e atualização esteja visível no Smartphone
-    document.getElementById('header-gestor-acoes')?.classList.remove('hidden');
-    document.getElementById('header-gestor-subbarra')?.classList.remove('hidden');
-
-    const btnImportar = document.getElementById('btn-importar-planilha');
-    if (btnImportar) btnImportar.classList.toggle('hidden', ehVisualizador);
-
-    const subs = ['atividades', 'disponibilidade', 'mapa', 'combustivel', 'solicitacao_material', 'graficos', 'imprevistos', 'materiais', 'financeiro', 'equipes', 'opcoes', 'usuarios', 'bonificacao', 'auditoria'];
-    subs.forEach(s => {
-        document.getElementById(`subview-${s}`)?.classList.add('hidden');
-        const btn = document.getElementById(`subtab-btn-${s}`);
-        if (btn) {
-            const ocultoVisualizador = (ehVisualizador && !['atividades', 'graficos', 'materiais'].includes(s));
-            btn.className = `px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1 ${ocultoVisualizador ? 'hidden' : ''}`;
-        }
-    });
-
-    document.getElementById(`subview-${aba}`)?.classList.remove('hidden');
-    const targetBtn = document.getElementById(`subtab-btn-${aba}`);
-    if (targetBtn) targetBtn.className = "px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1";
-
-    const divBotoesDisp = document.getElementById('botoes-atalho-exclusivos-disponibilidade');
-    if (divBotoesDisp) {
-        if (aba === 'disponibilidade') divBotoesDisp.classList.remove('hidden');
-        else divBotoesDisp.classList.add('hidden');
-    }
-
-    const boxBackupMaster = document.getElementById('central-master-backup-nuvem');
-    if (boxBackupMaster) {
-        if (nivelNorm === 'master') boxBackupMaster.classList.remove('hidden');
-        else boxBackupMaster.classList.add('hidden');
-    }
-
-    if (aba === 'usuarios') renderizarTabelaUsuariosPermissao();
-    if (aba === 'equipes') renderizarTabelaEquipes();
-    if (aba === 'opcoes') { renderizarPainelOpcoesSistema(); atualizarEstimativaPesoNuvem(); }
-    if (aba === 'auditoria') renderizarTabelaAuditoria();
-    if (aba === 'disponibilidade') renderizarPainelDisponibilidade();
-    if (['combustivel', 'solicitacao_material', 'graficos', 'bonificacao', 'financeiro', 'materiais', 'atividades', 'imprevistos'].includes(aba)) {
-        atualizarDashboardGestor();
-    }
-    if (aba === 'mapa') {
-        renderizarPainelDisponibilidade();
-        setTimeout(() => {
-            if (mapaRastreioInstancia) {
-                mapaRastreioInstancia.invalidateSize();
-                if (coordenadasPinosAtuais.length > 0) mapaRastreioInstancia.fitBounds(L.latLngBounds(coordenadasPinosAtuais), { padding: [45, 45], maxZoom: 16 });
-            }
-        }, 220);
-    }
-}
-
-function aplicarAtalhoPeriodo(tipo) {
-    const inpInicio = document.getElementById('gestor-filtro-data-inicio');
-    const inpFim = document.getElementById('gestor-filtro-data-fim');
-    const hoje = new Date();
-    if (tipo === 'hoje') { const s = obterDataLocalISO(hoje); inpInicio.value = s; inpFim.value = s; }
-    else if (tipo === 'ontem') { const o = new Date(hoje); o.setDate(hoje.getDate() - 1); const s = obterDataLocalISO(o); inpInicio.value = s; inpFim.value = s; }
-    else if (tipo === '7dias') { const d = new Date(hoje); d.setDate(hoje.getDate() - 6); inpInicio.value = obterDataLocalISO(d); inpFim.value = obterDataLocalISO(hoje); }
-    else if (tipo === 'mes') { const m = new Date(hoje.getFullYear(), hoje.getMonth(), 1); inpInicio.value = obterDataLocalISO(m); inpFim.value = obterDataLocalISO(hoje); }
-    else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
-    atualizarDashboardGestor();
-}
