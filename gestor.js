@@ -3500,9 +3500,11 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
-// ================= COMPLEMENTO ITEM 01 E ITEM 02: VALIDAÇÃO DE APOIO E FILTRO ESTRITO DE ATIVOS NO MAPA =================
+// ================= COMPLEMENTO DEFINITIVO: VALIDAÇÃO DE APOIO + AUTO-EXPIRAÇÃO E LIMPEZA DE TÉCNICOS TRAVADOS NO MAPA =================
 
-// Extrai apenas os apoios VALIDADOS pelo titular ou pela gestão (usado nos gráficos, tabelas e planilhas)
+const TEMPO_MAXIMO_SINAL_MAPA_MINUTOS = 45; // Remove do mapa quem está sem transmitir GPS há mais de 45 min
+
+// Extrai apenas os apoios VALIDADOS pelo titular ou pela gestão
 extrairApoiosDoRegistro = function(reg) {
     if (!reg) return [];
     const titular = (reg.equipe || '').toUpperCase().trim();
@@ -3543,11 +3545,112 @@ function extrairApoiosPendentesDoRegistro(reg) {
     return pendentes;
 }
 
-// Sobrescreve renderizarPainelDisponibilidade para:
-// 1. Exibir se o apoio está VALIDADO ou AGUARDANDO VALIDAÇÃO DO TITULAR
-// 2. ITEM 02: Remover da aba MAPA todos os nomes/pinos de técnicos que encerraram expediente ou estão inativos!
+// Calcula quantos minutos se passaram desde o último horário (HH:MM) ou timestamp do técnico hoje
+function calcularMinutosInatividadeSinalHoje(melhorSinal, tel) {
+    const agora = new Date();
+    const minAgora = (agora.getHours() * 60) + agora.getMinutes();
+
+    let minDiffPorHora = null;
+    if (melhorSinal && melhorSinal.minDia !== undefined && melhorSinal.minDia >= 0) {
+        minDiffPorHora = minAgora - melhorSinal.minDia;
+        if (minDiffPorHora < 0) minDiffPorHora = 0;
+    }
+
+    let minDiffPorTs = null;
+    const tsRef = Number(tel?.timestampUltimoSinal) || 0;
+    if (tsRef > 1700000000000) {
+        minDiffPorTs = Math.max(0, Math.round((Date.now() - tsRef) / 60000));
+    }
+
+    if (minDiffPorHora !== null && minDiffPorTs !== null) {
+        return Math.min(minDiffPorHora, minDiffPorTs);
+    }
+    if (minDiffPorHora !== null) return minDiffPorHora;
+    if (minDiffPorTs !== null) return minDiffPorTs;
+    return 999;
+}
+
+// Permite ao Gestor encerrar manualmente o turno de um técnico que esqueceu o expediente aberto
+async function encerrarTurnoTecnicoPeloGestor(nomeEq) {
+    const nivelNorm = String(nivelUsuarioLogado || '').trim().toLowerCase();
+    if (nivelNorm !== 'master' && nivelNorm !== 'operador') {
+        alert("⚠️ Apenas usuários Master ou Operador podem encerrar turnos.");
+        return;
+    }
+    if (!confirm(`🔴 ENCERRAR TURNO NO MAPA\n\nDeseja encerrar o expediente ativo de "${nomeEq}" para removê-lo do mapa em tempo real?`)) return;
+
+    const hojeISO = obterDataLocalISO();
+    const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const anterior = (telemetriaEquipes && telemetriaEquipes[nomeEq]) ? telemetriaEquipes[nomeEq] : {};
+
+    const objEncerrado = {
+        ...anterior,
+        equipe: nomeEq,
+        data: hojeISO,
+        statusTurno: 'ENCERRADO',
+        horaFim: horaAgora,
+        timestampUltimoSinal: Date.now()
+    };
+
+    telemetriaEquipes[nomeEq] = objEncerrado;
+    if (typeof sincronizarTelemetriaNaNuvem === 'function') {
+        await sincronizarTelemetriaNaNuvem(nomeEq, objEncerrado);
+    }
+    renderizarPainelDisponibilidade();
+}
+
+// Limpa de uma só vez do Mapa todos os técnicos com sinal travado/antigo ou sem atividade aberta
+async function limparSinaisAntigosDoMapaGestor() {
+    const nivelNorm = String(nivelUsuarioLogado || '').trim().toLowerCase();
+    if (nivelNorm !== 'master' && nivelNorm !== 'operador') {
+        alert("⚠️ Apenas usuários Master ou Operador podem resetar sinais do mapa.");
+        return;
+    }
+
+    if (!confirm(`🧹 LIMPAR SINAIS TRAVADOS DO MAPA\n\nDeseja encerrar os turnos antigos/inativos na nuvem e manter no mapa apenas quem está em atendimento ativo agora?`)) return;
+
+    const hojeISO = obterDataLocalISO();
+    const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    const emAtendimentoAgora = new Set(
+        (registrosSalvos || [])
+            .filter(r => r.dataRegistro === hojeISO && ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'IMPREVISTO'].includes(r.desfecho))
+            .flatMap(r => [r.equipe, ...extrairApoiosDoRegistro(r)])
+    );
+
+    let qtdLimpos = 0;
+    for (const nomeEq of Object.keys(telemetriaEquipes || {})) {
+        if (!emAtendimentoAgora.has(nomeEq) && telemetriaEquipes[nomeEq]?.statusTurno === 'DISPONIVEL') {
+            telemetriaEquipes[nomeEq].statusTurno = 'ENCERRADO';
+            telemetriaEquipes[nomeEq].horaFim = horaAgora;
+            qtdLimpos++;
+            if (typeof sincronizarTelemetriaNaNuvem === 'function') {
+                await sincronizarTelemetriaNaNuvem(nomeEq, telemetriaEquipes[nomeEq]);
+            }
+        }
+    }
+
+    renderizarPainelDisponibilidade();
+    alert(`✅ Mapa atualizado! ${qtdLimpos} turno(s) travado(s)/inativo(s) foram encerrados na nuvem.`);
+}
+
+// Injeta o botão de "Limpar Sinais Travados" no topo da aba Mapa
+function injetarBotaoLimparMapa() {
+    const lblCont = document.getElementById('lbl-contador-pinos-mapa');
+    if (lblCont && lblCont.parentNode && !document.getElementById('btn-limpar-sinais-mapa')) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'btn-limpar-sinais-mapa';
+        btn.onclick = limparSinaisAntigosDoMapaGestor;
+        btn.className = 'bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm transition';
+        btn.innerHTML = '🧹 Limpar Sinais Travados';
+        lblCont.parentNode.appendChild(btn);
+    }
+}
+
 renderizarPainelDisponibilidade = function() {
     try {
+        injetarBotaoLimparMapa();
         const tbody = document.getElementById('tabela-disponibilidade-corpo');
         if (!tbody) return;
         tbody.innerHTML = "";
@@ -3582,20 +3685,27 @@ renderizarPainelDisponibilidade = function() {
             const turnoIniciado = tel && tel.statusTurno === 'DISPONIVEL';
             const turnoEncerrado = tel && tel.statusTurno === 'ENCERRADO';
 
-            let turnoHtml = `<span class="bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">⚪ Não iniciado hoje</span>`;
-            let turnoTextoPuro = "Não iniciado hoje";
-            if (turnoIniciado) {
-                turnoHtml = `<span class="bg-emerald-50 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold">🟢 Ativo desde ${tel.horaInicio || '--:--'}</span>`;
-                turnoTextoPuro = `Ativo desde ${tel.horaInicio || '--:--'}`;
-            } else if (turnoEncerrado) {
-                turnoHtml = `<span class="bg-slate-200 text-slate-800 border border-slate-300 px-2 py-0.5 rounded text-[10px] font-bold">🔴 Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})</span>`;
-                turnoTextoPuro = `Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})`;
-            }
-
             const melhorSinal = extrairCoordenadaMaisRecenteDoTecnicoHoje(eq.nome, regsHoje, [...obrasEmApoioValidadoHoje, ...obrasEmApoioPendenteHoje], tel);
             const latFinal = melhorSinal.lat;
             const lngFinal = melhorSinal.lng;
             const horaSinal = melhorSinal.hora;
+            const minutosSemSinal = calcularMinutosInatividadeSinalHoje(melhorSinal, tel);
+
+            // Se o técnico iniciou o turno cedo, não tem obra aberta e o sinal de GPS travou há mais de 45 min, considera SINAL EXPIRADO!
+            const sinalTravadoExpirado = minutosSemSinal > TEMPO_MAXIMO_SINAL_MAPA_MINUTOS;
+
+            let turnoHtml = `<span class="bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">⚪ Não iniciado hoje</span>`;
+            let turnoTextoPuro = "Não iniciado hoje";
+            if (turnoIniciado && !sinalTravadoExpirado) {
+                turnoHtml = `<span class="bg-emerald-50 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold">🟢 Ativo desde ${tel.horaInicio || '--:--'}</span>`;
+                turnoTextoPuro = `Ativo desde ${tel.horaInicio || '--:--'}`;
+            } else if (turnoIniciado && sinalTravadoExpirado) {
+                turnoHtml = `<span class="bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold">⏸️ Sem sinal há ${minutosSemSinal} min (Início: ${tel.horaInicio || '--:--'})</span>`;
+                turnoTextoPuro = `Sinal inativo há ${minutosSemSinal} min`;
+            } else if (turnoEncerrado) {
+                turnoHtml = `<span class="bg-slate-200 text-slate-800 border border-slate-300 px-2 py-0.5 rounded text-[10px] font-bold">🔴 Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})</span>`;
+                turnoTextoPuro = `Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})`;
+            }
 
             let statusBadge = "", detalheTexto = "", ocupacaoLimpa = "", acaoHtml = "-";
             let corPinoHex = "#64748b", iconeEmojiPino = "⚪", statusTextoPuro = "OFFLINE";
@@ -3603,20 +3713,21 @@ renderizarPainelDisponibilidade = function() {
 
             if (impAberto) {
                 countIndisp++; corPinoHex = "#dc2626"; iconeEmojiPino = "🔴"; statusTextoPuro = "INDISPONÍVEL (IMPREVISTO)";
-                deveAparecerNoMapa = true;
+                deveAparecerNoMapa = !sinalTravadoExpirado;
                 statusBadge = `<span class="bg-red-100 text-red-800 border border-red-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🔴 INDISPONÍVEL</span>`;
                 const mot = (impAberto.malogros && impAberto.malogros.length > 0) ? impAberto.malogros.join(' + ') : impAberto.motivoDesfecho;
                 detalheTexto = `<span class="font-bold text-red-900">${mot}</span>`;
                 ocupacaoLimpa = `Imprevisto: ${mot}`;
             } else if (obraParalisada) {
                 countAtend++; corPinoHex = "#ea580c"; iconeEmojiPino = "⏸️"; statusTextoPuro = "ATIVIDADE PARALISADA";
-                deveAparecerNoMapa = true;
+                deveAparecerNoMapa = !sinalTravadoExpirado;
                 statusBadge = `<span class="bg-orange-500 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block">⏸️ PARALISADA</span>`;
                 detalheTexto = `Imóvel: <b>${obraParalisada.imovel}</b> (${obraParalisada.projeto})`;
                 ocupacaoLimpa = `Pausa no imóvel ${obraParalisada.imovel}`;
             } else if (obraAndamento) {
                 countAtend++; corPinoHex = "#2563eb"; iconeEmojiPino = "🔵"; statusTextoPuro = "EM ATENDIMENTO";
-                deveAparecerNoMapa = true;
+                // Se a atividade foi iniciada hoje e está dentro da janela ativa (ou teve sinal recente), mostra no mapa
+                deveAparecerNoMapa = (minutosSemSinal <= 120);
                 const apVal = extrairApoiosDoRegistro(obraAndamento);
                 const apPend = extrairApoiosPendentesDoRegistro(obraAndamento);
                 const txtAp = apVal.length > 0 ? ` • <span class="text-purple-800 font-black">🤝 Validado c/ ${apVal.join(', ')}</span>` : '';
@@ -3626,38 +3737,36 @@ renderizarPainelDisponibilidade = function() {
                 ocupacaoLimpa = `Atendendo ${obraAndamento.imovel}${apVal.length > 0 ? ` (Conjunta c/ ${apVal.join(', ')})` : ''}`;
             } else if (apoioValidadoAndamento) {
                 countAtend++; corPinoHex = "#7c3aed"; iconeEmojiPino = "🤝"; statusTextoPuro = "EM APOIO (VALIDADO)";
-                deveAparecerNoMapa = true;
+                deveAparecerNoMapa = (minutosSemSinal <= 120);
                 statusBadge = `<span class="bg-purple-700 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🤝 EM APOIO (VALIDADO)</span>`;
                 detalheTexto = `Apoiando <b>${apoioValidadoAndamento.equipe}</b> no Imóvel <b>${apoioValidadoAndamento.imovel}</b> (Presença Validada ✅)`;
                 ocupacaoLimpa = `Em apoio validado a ${apoioValidadoAndamento.equipe} (Imóvel ${apoioValidadoAndamento.imovel})`;
             } else if (apoioPendenteAndamento) {
                 countAtend++; corPinoHex = "#d97706"; iconeEmojiPino = "⏳"; statusTextoPuro = "APOIO AGUARDANDO VALIDAÇÃO";
-                deveAparecerNoMapa = true;
+                deveAparecerNoMapa = (minutosSemSinal <= 120);
                 statusBadge = `<span class="bg-amber-500 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block animate-pulse">⏳ APOIO PENDENTE VALIDAÇÃO</span>`;
                 detalheTexto = `Aguardando <b>${apoioPendenteAndamento.equipe}</b> validar presença no Imóvel <b>${apoioPendenteAndamento.imovel}</b>`;
                 ocupacaoLimpa = `Aguardando ${apoioPendenteAndamento.equipe} validar apoio (${apoioPendenteAndamento.imovel})`;
             } else if (turnoEncerrado) {
                 countOffline++; corPinoHex = "#475569"; iconeEmojiPino = "🏁"; statusTextoPuro = "EXPEDIENTE ENCERRADO";
-                // ITEM 02: Se o técnico encerrou o expediente, NÃO aparece ativo na aba Mapa!
                 deveAparecerNoMapa = false;
                 statusBadge = `<span class="bg-slate-200 text-slate-700 border border-slate-300 font-bold px-2.5 py-1 rounded-md text-[10px] inline-block">🏁 ENCERRADO</span>`;
                 detalheTexto = `Turno finalizado (${concluidasHoje} concluída(s)${apoiosConcluidosHoje > 0 ? ` + ${apoiosConcluidosHoje} apoio(s)` : ''})`;
                 ocupacaoLimpa = `Turno encerrado`;
-            } else if (turnoIniciado) {
+            } else if (turnoIniciado && !sinalTravadoExpirado) {
                 countDisp++; corPinoHex = "#059669"; iconeEmojiPino = "🟢"; statusTextoPuro = "EM ROTA / DISPONÍVEL";
-                // ITEM 02: Só aparece no mapa como Disponível se realmente estiver com o Turno Iniciado ('DISPONIVEL') hoje
                 deveAparecerNoMapa = true;
                 statusBadge = `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🟢 DISPONÍVEL</span>`;
                 detalheTexto = `Em deslocamento / Livre (${concluidasHoje} concluída(s)${apoiosConcluidosHoje > 0 ? ` + <b>${apoiosConcluidosHoje} apoio(s)</b>` : ''} hoje)`;
                 ocupacaoLimpa = `Disponível em rota`;
             } else {
-                countOffline++; corPinoHex = "#94a3b8"; iconeEmojiPino = "⚪"; statusTextoPuro = "OFFLINE / SEM TURNO ATIVO";
+                countOffline++; corPinoHex = "#94a3b8"; iconeEmojiPino = "⚪"; statusTextoPuro = "SINAL INATIVO / FORA DO MAPA";
                 deveAparecerNoMapa = false;
-                statusBadge = `<span class="bg-slate-100 text-slate-500 border border-slate-200 font-bold px-2.5 py-1 rounded-md text-[10px] inline-block">⚪ SEM TURNO ATIVO</span>`;
-                detalheTexto = concluidasHoje > 0
-                    ? `<span class="text-slate-500">${concluidasHoje} concluída(s) hoje (Sem expediente ativo no momento)</span>`
-                    : `Sem check-in hoje (${programadasHoje} na fila)`;
-                ocupacaoLimpa = "Sem expediente ativo no momento";
+                statusBadge = `<span class="bg-slate-100 text-slate-500 border border-slate-200 font-bold px-2.5 py-1 rounded-md text-[10px] inline-block">⚪ FORA DO MAPA</span>`;
+                detalheTexto = sinalTravadoExpirado && horaSinal
+                    ? `<span class="text-amber-800 font-semibold">⏸️ Sinal travado desde ${horaSinal} (Ocultado do mapa por inatividade)</span>`
+                    : `Sem turno ativo no momento (${concluidasHoje} concluída(s) hoje)`;
+                ocupacaoLimpa = "Fora do mapa por inatividade de sinal";
             }
 
             let gpsStr = `<span class="text-slate-400 text-[10px]">Sem sinal hoje</span>`;
@@ -3665,17 +3774,17 @@ renderizarPainelDisponibilidade = function() {
             if (latFinal !== null && lngFinal !== null && !isNaN(latFinal) && !isNaN(lngFinal)) {
                 const coordFormatada = `${latFinal.toFixed(5)}, ${lngFinal.toFixed(5)}`;
                 sinalTextoPuro = `${horaSinal || '--:--'} (${melhorSinal.origem || 'GPS'})`;
-                gpsStr = `<div class="space-y-0.5"><div class="text-[9px] font-bold text-emerald-800">🕒 Às ${horaSinal || '--:--'} • ${melhorSinal.origem}</div><a href="https://www.google.com/maps/search/?api=1&query=${latFinal},${lngFinal}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${coordFormatada}</a></div>`;
+                gpsStr = `<div class="space-y-0.5"><div class="text-[9px] font-bold ${deveAparecerNoMapa ? 'text-emerald-800' : 'text-slate-500'}">🕒 Às ${horaSinal || '--:--'} • ${melhorSinal.origem}</div><a href="https://www.google.com/maps/search/?api=1&query=${latFinal},${lngFinal}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${coordFormatada}</a></div>`;
 
                 if (deveAparecerNoMapa) {
-                    acaoHtml = `<button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded">🎯 Ver no Mapa</button>`;
+                    acaoHtml = `<div class="flex items-center gap-1"><button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded">🎯 Mapa</button><button type="button" onclick="encerrarTurnoTecnicoPeloGestor('${eq.nome}')" title="Encerrar turno deste técnico e removê-lo do mapa" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-[10px] px-2 py-1 rounded">🔴 Baixar</button></div>`;
                     listaPinosParaMapa.push({
                         nome: eq.nome, lat: latFinal, lng: lngFinal, corHex: corPinoHex,
                         iconeEmoji: iconeEmojiPino, statusTexto: statusTextoPuro, turnoTexto: turnoTextoPuro,
                         ocupacaoLimpa, sinalTexto: sinalTextoPuro, horaCurta: horaSinal
                     });
                 } else {
-                    acaoHtml = `<span class="text-[10px] text-slate-400 font-semibold">Fora do mapa (Turno inativo)</span>`;
+                    acaoHtml = `<span class="text-[10px] text-slate-400 font-semibold">Oculto no mapa (Inativo)</span>`;
                 }
             }
 
