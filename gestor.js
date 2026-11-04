@@ -3500,3 +3500,194 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
+// ================= COMPLEMENTO ITEM 01 E ITEM 02: VALIDAÇÃO DE APOIO E FILTRO ESTRITO DE ATIVOS NO MAPA =================
+
+// Extrai apenas os apoios VALIDADOS pelo titular ou pela gestão (usado nos gráficos, tabelas e planilhas)
+extrairApoiosDoRegistro = function(reg) {
+    if (!reg) return [];
+    const titular = (reg.equipe || '').toUpperCase().trim();
+    const validados = [];
+    const mStr = (reg.membros || '').trim();
+    if (mStr && mStr !== '__CONFIG_SISTEMA__' && mStr.toUpperCase() !== titular) {
+        const partes = mStr.split('|').map(p => p.trim());
+        partes.forEach(p => {
+            if (p.toUpperCase().startsWith('APOIO_PENDENTE:')) return;
+            const sub = p.replace(/^APOIO:/i, '').trim();
+            sub.split(',').forEach(nome => {
+                const n = nome.trim().toUpperCase();
+                if (n && n !== titular && !validados.includes(n)) validados.push(n);
+            });
+        });
+    }
+    return validados;
+};
+
+// Extrai solicitações de apoio que ainda aguardam validação do técnico titular
+function extrairApoiosPendentesDoRegistro(reg) {
+    if (!reg) return [];
+    const titular = (reg.equipe || '').toUpperCase().trim();
+    const pendentes = [];
+    const mStr = (reg.membros || '').trim();
+    if (mStr && mStr !== '__CONFIG_SISTEMA__') {
+        const partes = mStr.split('|').map(p => p.trim());
+        partes.forEach(p => {
+            if (p.toUpperCase().startsWith('APOIO_PENDENTE:')) {
+                const sub = p.replace(/^APOIO_PENDENTE:/i, '').trim();
+                sub.split(',').forEach(nome => {
+                    const n = nome.trim().toUpperCase();
+                    if (n && n !== titular && !pendentes.includes(n)) pendentes.push(n);
+                });
+            }
+        });
+    }
+    return pendentes;
+}
+
+// Sobrescreve renderizarPainelDisponibilidade para:
+// 1. Exibir se o apoio está VALIDADO ou AGUARDANDO VALIDAÇÃO DO TITULAR
+// 2. ITEM 02: Remover da aba MAPA todos os nomes/pinos de técnicos que encerraram expediente ou estão inativos!
+renderizarPainelDisponibilidade = function() {
+    try {
+        const tbody = document.getElementById('tabela-disponibilidade-corpo');
+        if (!tbody) return;
+        tbody.innerHTML = "";
+        const hojeISO = obterDataLocalISO();
+        const equipesAtivas = equipesSistema.filter(e => e.status === 'Ativo');
+        let countDisp = 0, countAtend = 0, countIndisp = 0, countOffline = 0;
+        const listaPinosParaMapa = [];
+
+        const todosRegsHoje = (registrosSalvos || []).filter(r =>
+            r.dataRegistro === hojeISO &&
+            r.equipe !== '__CONFIG_SISTEMA__' &&
+            r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+            r.projeto !== PROJETO_SOLIC_MATERIAL
+        );
+
+        equipesAtivas.forEach(eq => {
+            const regsHoje = todosRegsHoje.filter(r => r.equipe === eq.nome);
+            const obrasEmApoioValidadoHoje = todosRegsHoje.filter(r => r.equipe !== eq.nome && extrairApoiosDoRegistro(r).includes(eq.nome));
+            const obrasEmApoioPendenteHoje = todosRegsHoje.filter(r => r.equipe !== eq.nome && extrairApoiosPendentesDoRegistro(r).includes(eq.nome));
+
+            const impAberto = regsHoje.find(r => r.desfecho === 'IMPREVISTO');
+            const obraParalisada = regsHoje.find(r => r.desfecho === 'PARALISADA');
+            const obraAndamento = regsHoje.find(r => r.desfecho === 'EM ANDAMENTO' || r.desfecho === 'REABERTA');
+            const apoioValidadoAndamento = obrasEmApoioValidadoHoje.find(r => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(r.desfecho));
+            const apoioPendenteAndamento = obrasEmApoioPendenteHoje.find(r => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(r.desfecho));
+
+            const programadasHoje = (registrosSalvos || []).filter(r => r.equipe === eq.nome && r.desfecho === 'PROGRAMADA').length;
+            const concluidasHoje = regsHoje.filter(r => r.desfecho === 'CONCLUIDA').length;
+            const apoiosConcluidosHoje = obrasEmApoioValidadoHoje.filter(r => r.desfecho === 'CONCLUIDA').length;
+
+            const tel = (telemetriaEquipes && telemetriaEquipes[eq.nome] && telemetriaEquipes[eq.nome].data === hojeISO) ? telemetriaEquipes[eq.nome] : null;
+            const turnoIniciado = tel && tel.statusTurno === 'DISPONIVEL';
+            const turnoEncerrado = tel && tel.statusTurno === 'ENCERRADO';
+
+            let turnoHtml = `<span class="bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">⚪ Não iniciado hoje</span>`;
+            let turnoTextoPuro = "Não iniciado hoje";
+            if (turnoIniciado) {
+                turnoHtml = `<span class="bg-emerald-50 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold">🟢 Ativo desde ${tel.horaInicio || '--:--'}</span>`;
+                turnoTextoPuro = `Ativo desde ${tel.horaInicio || '--:--'}`;
+            } else if (turnoEncerrado) {
+                turnoHtml = `<span class="bg-slate-200 text-slate-800 border border-slate-300 px-2 py-0.5 rounded text-[10px] font-bold">🔴 Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})</span>`;
+                turnoTextoPuro = `Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})`;
+            }
+
+            const melhorSinal = extrairCoordenadaMaisRecenteDoTecnicoHoje(eq.nome, regsHoje, [...obrasEmApoioValidadoHoje, ...obrasEmApoioPendenteHoje], tel);
+            const latFinal = melhorSinal.lat;
+            const lngFinal = melhorSinal.lng;
+            const horaSinal = melhorSinal.hora;
+
+            let statusBadge = "", detalheTexto = "", ocupacaoLimpa = "", acaoHtml = "-";
+            let corPinoHex = "#64748b", iconeEmojiPino = "⚪", statusTextoPuro = "OFFLINE";
+            let deveAparecerNoMapa = false;
+
+            if (impAberto) {
+                countIndisp++; corPinoHex = "#dc2626"; iconeEmojiPino = "🔴"; statusTextoPuro = "INDISPONÍVEL (IMPREVISTO)";
+                deveAparecerNoMapa = true;
+                statusBadge = `<span class="bg-red-100 text-red-800 border border-red-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🔴 INDISPONÍVEL</span>`;
+                const mot = (impAberto.malogros && impAberto.malogros.length > 0) ? impAberto.malogros.join(' + ') : impAberto.motivoDesfecho;
+                detalheTexto = `<span class="font-bold text-red-900">${mot}</span>`;
+                ocupacaoLimpa = `Imprevisto: ${mot}`;
+            } else if (obraParalisada) {
+                countAtend++; corPinoHex = "#ea580c"; iconeEmojiPino = "⏸️"; statusTextoPuro = "ATIVIDADE PARALISADA";
+                deveAparecerNoMapa = true;
+                statusBadge = `<span class="bg-orange-500 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block">⏸️ PARALISADA</span>`;
+                detalheTexto = `Imóvel: <b>${obraParalisada.imovel}</b> (${obraParalisada.projeto})`;
+                ocupacaoLimpa = `Pausa no imóvel ${obraParalisada.imovel}`;
+            } else if (obraAndamento) {
+                countAtend++; corPinoHex = "#2563eb"; iconeEmojiPino = "🔵"; statusTextoPuro = "EM ATENDIMENTO";
+                deveAparecerNoMapa = true;
+                const apVal = extrairApoiosDoRegistro(obraAndamento);
+                const apPend = extrairApoiosPendentesDoRegistro(obraAndamento);
+                const txtAp = apVal.length > 0 ? ` • <span class="text-purple-800 font-black">🤝 Validado c/ ${apVal.join(', ')}</span>` : '';
+                const txtPend = apPend.length > 0 ? ` • <span class="text-amber-800 font-black animate-pulse">⏳ Validar: ${apPend.join(', ')}</span>` : '';
+                statusBadge = `<span class="bg-blue-600 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🔵 EM ATENDIMENTO</span>`;
+                detalheTexto = `Imóvel: <b>${obraAndamento.imovel}</b> (${obraAndamento.projeto})${txtAp}${txtPend}`;
+                ocupacaoLimpa = `Atendendo ${obraAndamento.imovel}${apVal.length > 0 ? ` (Conjunta c/ ${apVal.join(', ')})` : ''}`;
+            } else if (apoioValidadoAndamento) {
+                countAtend++; corPinoHex = "#7c3aed"; iconeEmojiPino = "🤝"; statusTextoPuro = "EM APOIO (VALIDADO)";
+                deveAparecerNoMapa = true;
+                statusBadge = `<span class="bg-purple-700 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🤝 EM APOIO (VALIDADO)</span>`;
+                detalheTexto = `Apoiando <b>${apoioValidadoAndamento.equipe}</b> no Imóvel <b>${apoioValidadoAndamento.imovel}</b> (Presença Validada ✅)`;
+                ocupacaoLimpa = `Em apoio validado a ${apoioValidadoAndamento.equipe} (Imóvel ${apoioValidadoAndamento.imovel})`;
+            } else if (apoioPendenteAndamento) {
+                countAtend++; corPinoHex = "#d97706"; iconeEmojiPino = "⏳"; statusTextoPuro = "APOIO AGUARDANDO VALIDAÇÃO";
+                deveAparecerNoMapa = true;
+                statusBadge = `<span class="bg-amber-500 text-white font-black px-2.5 py-1 rounded-md text-[10px] inline-block animate-pulse">⏳ APOIO PENDENTE VALIDAÇÃO</span>`;
+                detalheTexto = `Aguardando <b>${apoioPendenteAndamento.equipe}</b> validar presença no Imóvel <b>${apoioPendenteAndamento.imovel}</b>`;
+                ocupacaoLimpa = `Aguardando ${apoioPendenteAndamento.equipe} validar apoio (${apoioPendenteAndamento.imovel})`;
+            } else if (turnoEncerrado) {
+                countOffline++; corPinoHex = "#475569"; iconeEmojiPino = "🏁"; statusTextoPuro = "EXPEDIENTE ENCERRADO";
+                // ITEM 02: Se o técnico encerrou o expediente, NÃO aparece ativo na aba Mapa!
+                deveAparecerNoMapa = false;
+                statusBadge = `<span class="bg-slate-200 text-slate-700 border border-slate-300 font-bold px-2.5 py-1 rounded-md text-[10px] inline-block">🏁 ENCERRADO</span>`;
+                detalheTexto = `Turno finalizado (${concluidasHoje} concluída(s)${apoiosConcluidosHoje > 0 ? ` + ${apoiosConcluidosHoje} apoio(s)` : ''})`;
+                ocupacaoLimpa = `Turno encerrado`;
+            } else if (turnoIniciado) {
+                countDisp++; corPinoHex = "#059669"; iconeEmojiPino = "🟢"; statusTextoPuro = "EM ROTA / DISPONÍVEL";
+                // ITEM 02: Só aparece no mapa como Disponível se realmente estiver com o Turno Iniciado ('DISPONIVEL') hoje
+                deveAparecerNoMapa = true;
+                statusBadge = `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🟢 DISPONÍVEL</span>`;
+                detalheTexto = `Em deslocamento / Livre (${concluidasHoje} concluída(s)${apoiosConcluidosHoje > 0 ? ` + <b>${apoiosConcluidosHoje} apoio(s)</b>` : ''} hoje)`;
+                ocupacaoLimpa = `Disponível em rota`;
+            } else {
+                countOffline++; corPinoHex = "#94a3b8"; iconeEmojiPino = "⚪"; statusTextoPuro = "OFFLINE / SEM TURNO ATIVO";
+                deveAparecerNoMapa = false;
+                statusBadge = `<span class="bg-slate-100 text-slate-500 border border-slate-200 font-bold px-2.5 py-1 rounded-md text-[10px] inline-block">⚪ SEM TURNO ATIVO</span>`;
+                detalheTexto = concluidasHoje > 0
+                    ? `<span class="text-slate-500">${concluidasHoje} concluída(s) hoje (Sem expediente ativo no momento)</span>`
+                    : `Sem check-in hoje (${programadasHoje} na fila)`;
+                ocupacaoLimpa = "Sem expediente ativo no momento";
+            }
+
+            let gpsStr = `<span class="text-slate-400 text-[10px]">Sem sinal hoje</span>`;
+            let sinalTextoPuro = "Sem sinal hoje";
+            if (latFinal !== null && lngFinal !== null && !isNaN(latFinal) && !isNaN(lngFinal)) {
+                const coordFormatada = `${latFinal.toFixed(5)}, ${lngFinal.toFixed(5)}`;
+                sinalTextoPuro = `${horaSinal || '--:--'} (${melhorSinal.origem || 'GPS'})`;
+                gpsStr = `<div class="space-y-0.5"><div class="text-[9px] font-bold text-emerald-800">🕒 Às ${horaSinal || '--:--'} • ${melhorSinal.origem}</div><a href="https://www.google.com/maps/search/?api=1&query=${latFinal},${lngFinal}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${coordFormatada}</a></div>`;
+
+                if (deveAparecerNoMapa) {
+                    acaoHtml = `<button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded">🎯 Ver no Mapa</button>`;
+                    listaPinosParaMapa.push({
+                        nome: eq.nome, lat: latFinal, lng: lngFinal, corHex: corPinoHex,
+                        iconeEmoji: iconeEmojiPino, statusTexto: statusTextoPuro, turnoTexto: turnoTextoPuro,
+                        ocupacaoLimpa, sinalTexto: sinalTextoPuro, horaCurta: horaSinal
+                    });
+                } else {
+                    acaoHtml = `<span class="text-[10px] text-slate-400 font-semibold">Fora do mapa (Turno inativo)</span>`;
+                }
+            }
+
+            tbody.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="p-3 font-bold text-slate-800">${eq.nome}</td><td class="p-3">${obterBadgeSetorHtml(eq.setor)}</td><td class="p-3">${turnoHtml}</td><td class="p-3">${statusBadge}</td><td class="p-3">${detalheTexto}</td><td class="p-3">${gpsStr}</td><td class="p-3 whitespace-nowrap">${acaoHtml}</td></tr>`;
+        });
+
+        const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+        setTxt('disp-card-disponiveis', countDisp);
+        setTxt('disp-card-atendimento', countAtend);
+        setTxt('disp-card-indisponiveis', countIndisp);
+        setTxt('disp-card-offline', countOffline);
+        setTxt('badge-aba-indisp', `${countIndisp} indisp.`);
+        inicializarOuAtualizarMapaRastreio(listaPinosParaMapa);
+    } catch (e) { console.warn("Erro disponibilidade:", e); }
+};
