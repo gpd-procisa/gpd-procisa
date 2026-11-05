@@ -2781,7 +2781,6 @@ async function salvarRegistro() {
         }
     }
 
-    // Verifica se há apoios na nuvem aguardando validação antes de finalizar
     let validadosNuvem = [];
     if (dadosAtendimento.idEmAndamento) {
         try {
@@ -3116,8 +3115,6 @@ function iniciarMonitoramentoGpsAntiCongelamento() {
     }, 30000);
 }
 
-// ITEM 01, 03 e 04: Oculta todos os botões de Combustível, Material, Imprevisto e Apoio da tela principal e coloca o botão SUPORTE na parte baixa da tela!
-function organizarTelaPrincipalEBotaoSuporteRodape() {
 // Oculta definitivamente o card "SOLICITAÇÕES RÁPIDAS À GESTÃO (24H)" e botões antigos da tela principal, mantendo-os apenas na Central de Suporte
 function organizarTelaPrincipalEBotaoSuporteRodape() {
     // 1. Injeta CSS global de bloqueio para esconder os botões antigos em qualquer ponto do #view-campo (fora do modal de suporte)
@@ -3154,7 +3151,6 @@ function organizarTelaPrincipalEBotaoSuporteRodape() {
         let ancestral = btn.parentElement;
         while (ancestral && ancestral !== viewCampo && ancestral.id !== 'subview-campo-lancamento' && ancestral.id !== 'form-campo-container' && ancestral.id !== 'bloco-pos-abertura') {
             const textoBloco = (ancestral.innerText || '').toUpperCase();
-            // Verifica se este bloco é exclusivamente o card de solicitações rápidas ou a grade dos botões
             const naoTemCamposPrincipais = !ancestral.querySelector('#sel-equipe, #sel-projeto, #inp-imovel, #btn-checkin, #btn-iniciar-expediente-campo');
             if (naoTemCamposPrincipais && (textoBloco.includes('SOLICITAÇÕES RÁPIDAS') || textoBloco.includes('SOLICITACOES RAPIDAS') || ancestral.tagName === 'DIV')) {
                 ancestral.style.setProperty('display', 'none', 'important');
@@ -3170,7 +3166,6 @@ function organizarTelaPrincipalEBotaoSuporteRodape() {
         if (div.id === 'view-campo' || div.id === 'subview-campo-lancamento' || div.id === 'form-campo-container' || div.id === 'bloco-pos-abertura') return;
         const txt = (div.innerText || '').toUpperCase();
         if ((txt.includes('SOLICITAÇÕES RÁPIDAS À GESTÃO') || txt.includes('EXCLUSÃO AUTO. 48H')) && !div.querySelector('#sel-equipe, #inp-imovel, #btn-checkin')) {
-            // Mantém visível apenas o resumo de status caso exista separado
             if (div.id !== 'box-status-solicitacoes-campo') {
                 div.style.setProperty('display', 'none', 'important');
                 div.classList.add('hidden');
@@ -3197,35 +3192,6 @@ function organizarTelaPrincipalEBotaoSuporteRodape() {
         viewLancamento.appendChild(containerRodape);
     } else if (viewLancamento.lastElementChild !== containerRodape) {
         viewLancamento.appendChild(containerRodape);
-    }
-
-    atualizarIndicadorParceiroRodape();
-}
-                }
-            }
-        }
-    });
-
-    // 3. ITEM 04: Insere o botão SUPORTE na PARTE BAIXA (rodapé) da tela principal do Modo Campo
-    let btnSuporteRodape = document.getElementById('btn-central-suporte-rodape');
-    if (!btnSuporteRodape) {
-        btnSuporteRodape = document.createElement('div');
-        btnSuporteRodape.id = 'container-botao-suporte-rodape';
-        btnSuporteRodape.className = 'w-full pt-4 mt-4 border-t-2 border-slate-200';
-        btnSuporteRodape.innerHTML = `
-            <button type="button" id="btn-central-suporte-rodape" onclick="abrirModalCentralSuporteCampo()" class="w-full box-border bg-slate-900 hover:bg-slate-950 text-white font-black py-3.5 px-4 rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 border-2 border-amber-400">
-                <span class="text-base">🛠️</span>
-                <span class=" tracking-wide uppercase">SUPORTE (Combustível • Material • Imprevisto • Apoio)</span>
-            </button>
-            <div id="lbl-resumo-apoio-selecionado-rodape" class="text-[10px] text-center font-bold text-purple-800 mt-1 hidden"></div>
-        `;
-        viewLancamento.appendChild(btnSuporteRodape);
-    } else {
-        // Garante que fique sempre no final (parte baixa) da viewLancamento
-        const containerRodape = document.getElementById('container-botao-suporte-rodape');
-        if (containerRodape && viewLancamento.lastElementChild !== containerRodape) {
-            viewLancamento.appendChild(containerRodape);
-        }
     }
 
     atualizarIndicadorParceiroRodape();
@@ -3361,7 +3327,6 @@ async function confirmarVinculoParceiroPeloSuporte() {
         return;
     }
 
-    // Se já houver atividade em andamento aberta na tela, já grava na nuvem imediatamente!
     if (dadosAtendimento.idEmAndamento) {
         const selAberta = document.getElementById('sel-adicionar-apoio-em-andamento');
         if (selAberta) selAberta.value = nomeColega;
