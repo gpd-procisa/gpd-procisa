@@ -3118,39 +3118,89 @@ function iniciarMonitoramentoGpsAntiCongelamento() {
 
 // ITEM 01, 03 e 04: Oculta todos os botões de Combustível, Material, Imprevisto e Apoio da tela principal e coloca o botão SUPORTE na parte baixa da tela!
 function organizarTelaPrincipalEBotaoSuporteRodape() {
-    const viewLancamento = document.getElementById('subview-campo-lancamento');
+// Oculta definitivamente o card "SOLICITAÇÕES RÁPIDAS À GESTÃO (24H)" e botões antigos da tela principal, mantendo-os apenas na Central de Suporte
+function organizarTelaPrincipalEBotaoSuporteRodape() {
+    // 1. Injeta CSS global de bloqueio para esconder os botões antigos em qualquer ponto do #view-campo (fora do modal de suporte)
+    if (!document.getElementById('estilo-ocultar-botoes-suporte-antigos')) {
+        const style = document.createElement('style');
+        style.id = 'estilo-ocultar-botoes-suporte-antigos';
+        style.innerHTML = `
+            #view-campo button[onclick*="abrirModalSolicitacaoCombustivelCampo"],
+            #view-campo button[onclick*="abrirModalSolicitacaoMaterialCampo"],
+            #view-campo button[onclick*="abrirModalImprevisto"],
+            #view-campo #box-campo-apoio-conjunto {
+                display: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const viewCampo = document.getElementById('view-campo') || document.body;
+    const modalSuporte = document.getElementById('modal-central-suporte-campo');
+
+    // 2. Localiza e oculta o card branco "SOLICITAÇÕES RÁPIDAS À GESTÃO (24H)" inteiro
+    const botoesAntigos = viewCampo.querySelectorAll(
+        'button[onclick*="abrirModalSolicitacaoCombustivelCampo"], ' +
+        'button[onclick*="abrirModalSolicitacaoMaterialCampo"], ' +
+        'button[onclick*="abrirModalImprevisto"]'
+    );
+
+    botoesAntigos.forEach(btn => {
+        if (modalSuporte && modalSuporte.contains(btn)) return; // Não oculta os botões de dentro do modal de Suporte!
+
+        btn.style.setProperty('display', 'none', 'important');
+
+        // Sobe na árvore para ocultar também o card pai que tem o título "SOLICITAÇÕES RÁPIDAS À GESTÃO (24H):"
+        let ancestral = btn.parentElement;
+        while (ancestral && ancestral !== viewCampo && ancestral.id !== 'subview-campo-lancamento' && ancestral.id !== 'form-campo-container' && ancestral.id !== 'bloco-pos-abertura') {
+            const textoBloco = (ancestral.innerText || '').toUpperCase();
+            // Verifica se este bloco é exclusivamente o card de solicitações rápidas ou a grade dos botões
+            const naoTemCamposPrincipais = !ancestral.querySelector('#sel-equipe, #sel-projeto, #inp-imovel, #btn-checkin, #btn-iniciar-expediente-campo');
+            if (naoTemCamposPrincipais && (textoBloco.includes('SOLICITAÇÕES RÁPIDAS') || textoBloco.includes('SOLICITACOES RAPIDAS') || ancestral.tagName === 'DIV')) {
+                ancestral.style.setProperty('display', 'none', 'important');
+                ancestral.classList.add('hidden');
+            }
+            ancestral = ancestral.parentElement;
+        }
+    });
+
+    // 3. Caso a frase "SOLICITAÇÕES RÁPIDAS À GESTÃO (24H)" esteja num elemento irmão, garante que o card pai fique oculto
+    viewCampo.querySelectorAll('div, section').forEach(div => {
+        if (modalSuporte && modalSuporte.contains(div)) return;
+        if (div.id === 'view-campo' || div.id === 'subview-campo-lancamento' || div.id === 'form-campo-container' || div.id === 'bloco-pos-abertura') return;
+        const txt = (div.innerText || '').toUpperCase();
+        if ((txt.includes('SOLICITAÇÕES RÁPIDAS À GESTÃO') || txt.includes('EXCLUSÃO AUTO. 48H')) && !div.querySelector('#sel-equipe, #inp-imovel, #btn-checkin')) {
+            // Mantém visível apenas o resumo de status caso exista separado
+            if (div.id !== 'box-status-solicitacoes-campo') {
+                div.style.setProperty('display', 'none', 'important');
+                div.classList.add('hidden');
+            }
+        }
+    });
+
+    // 4. Garante que o botão SUPORTE fique sempre na PARTE BAIXA (rodapé) da tela principal
+    const viewLancamento = document.getElementById('subview-campo-lancamento') || document.getElementById('view-campo');
     if (!viewLancamento) return;
 
-    // 1. Remove qualquer caixa antiga de apoio da tela principal
-    const boxAntigaApoio = document.getElementById('box-campo-apoio-conjunto');
-    if (boxAntigaApoio) boxAntigaApoio.remove();
+    let containerRodape = document.getElementById('container-botao-suporte-rodape');
+    if (!containerRodape) {
+        containerRodape = document.createElement('div');
+        containerRodape.id = 'container-botao-suporte-rodape';
+        containerRodape.className = 'w-full pt-4 mt-4 border-t-2 border-slate-200';
+        containerRodape.innerHTML = `
+            <button type="button" id="btn-central-suporte-rodape" onclick="abrirModalCentralSuporteCampo()" class="w-full box-border bg-slate-900 hover:bg-slate-950 text-white font-black py-3.5 px-4 rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2 border-2 border-amber-400">
+                <span class="text-base">🛠️</span>
+                <span class="tracking-wide uppercase">SUPORTE (Combustível • Material • Imprevisto • Apoio)</span>
+            </button>
+            <div id="lbl-resumo-apoio-selecionado-rodape" class="text-[10px] text-center font-bold text-purple-800 mt-1 hidden"></div>
+        `;
+        viewLancamento.appendChild(containerRodape);
+    } else if (viewLancamento.lastElementChild !== containerRodape) {
+        viewLancamento.appendChild(containerRodape);
+    }
 
-    // 2. Oculta todos os botões nativos de Combustível, Material e Imprevisto da tela principal (deixando-os APENAS dentro da Central de Suporte)
-    const botoesTelaPrincipal = viewLancamento.querySelectorAll('button');
-    botoesTelaPrincipal.forEach(btn => {
-        if (btn.id === 'btn-central-suporte-rodape') return;
-        const attrOnclick = (btn.getAttribute('onclick') || '');
-        const txt = (btn.innerText || '').toUpperCase();
-
-        const ehBotaoSuporteAntigo =
-            attrOnclick.includes('abrirModalSolicitacaoCombustivelCampo') ||
-            attrOnclick.includes('abrirModalSolicitacaoMaterialCampo') ||
-            attrOnclick.includes('abrirModalImprevisto') ||
-            attrOnclick.includes('abrirModalEntrarEmApoioObraAtivaCampo') ||
-            txt.includes('SOLICITAR COMBUSTÍVEL') ||
-            txt.includes('SOLICITAR MATERIAL') ||
-            txt.includes('INFORMAR IMPREVISTO');
-
-        if (ehBotaoSuporteAntigo) {
-            btn.classList.add('hidden');
-            btn.style.display = 'none';
-            // Se o container pai era uma grade exclusiva desses botões (ex: grid com Combustível + Material), oculta a grade vazia também
-            const pai = btn.parentElement;
-            if (pai && pai !== viewLancamento && pai.id !== 'form-campo-container' && pai.id !== 'bloco-pos-abertura') {
-                const irmaosVisiveis = Array.from(pai.children).filter(el => el.style.display !== 'none' && !el.classList.contains('hidden'));
-                if (irmaosVisiveis.length === 0) {
-                    pai.classList.add('hidden');
-                    pai.style.display = 'none';
+    atualizarIndicadorParceiroRodape();
+}
                 }
             }
         }
