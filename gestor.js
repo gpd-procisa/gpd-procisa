@@ -1,4 +1,4 @@
-// ================= VARIÁVEIS GLOBAIS DO MODO GESTOR (UNIFICADO E ESTÁVEL) =================
+// ================= VARIÁVEIS GLOBAIS DO MODO GESTOR (UNIFICADO, PAGINADO E ESTÁVEL) =================
 let mapaRastreioInstancia = null;
 let camadaMarcadoresRastreio = null;
 let coordenadasPinosAtuais = [];
@@ -8,6 +8,7 @@ let snapshotStatusEdicaoOriginal = null;
 let modoConsultaBackupAtivo = false;
 let cacheRegistrosNuvemOriginal = null;
 let sincronizandoRegistrosMobileEmCurso = false;
+let historicoCompletoGestorJaBaixado = false;
 
 let graficoExecutoresVistoriaInstancia = null;
 let graficoExecutoresConstrucaoInstancia = null;
@@ -70,7 +71,6 @@ function garantirPermissaoOperadorEBaptista() {
     try {
         const emailAtual = String(usuarioLogado || "").toLowerCase().trim();
 
-        // Garante na lista de usuários que e.baptista@procisa.com.br seja sempre Operador e Ativo
         if (Array.isArray(usuariosSistema)) {
             const uBaptista = usuariosSistema.find(u => String(u.email || "").toLowerCase().trim() === "e.baptista@procisa.com.br");
             if (uBaptista && uBaptista.nivel !== "Operador") {
@@ -79,7 +79,6 @@ function garantirPermissaoOperadorEBaptista() {
             }
         }
 
-        // Se e.baptista estiver logada agora, força nível Operador na sessão ativa
         if (emailAtual === "e.baptista@procisa.com.br") {
             nivelUsuarioLogado = "Operador";
             sessionStorage.setItem("gpd_nivel_logado", "Operador");
@@ -88,7 +87,6 @@ function garantirPermissaoOperadorEBaptista() {
             if (badgeNivel) badgeNivel.innerText = "Operador";
         }
 
-        // Preenche em memória o vínculo padrão de fiscais nas equipes que ainda não tiverem fiscal salvo
         if (Array.isArray(equipesSistema)) {
             equipesSistema.forEach(eq => {
                 if (!eq.fiscalEmail) {
@@ -155,14 +153,13 @@ function obterNomeFiscalDaEquipe(eqObjOuNome) {
 function obterFiscalLogadoRestrito() {
     const emailLogado = String(usuarioLogado || "").toLowerCase().trim();
     if (!emailLogado) return null;
-    // Master e Operador (incluindo e.baptista@procisa.com.br) NUNCA têm visão restrita de fiscal
     if (usuarioPodeEditarGestor()) return null;
     return CATALOGO_FISCAIS_MDU.find(f => f.email.toLowerCase() === emailLogado) || null;
 }
 
 function obterSetEquipesDoFiscalLogado() {
     const fiscalRestrito = obterFiscalLogadoRestrito();
-    if (!fiscalRestrito) return null; // null = Visão Global (Todos os técnicos)
+    if (!fiscalRestrito) return null;
 
     const emailFiscal = fiscalRestrito.email.toLowerCase().trim();
     const permitidas = new Set();
@@ -546,7 +543,6 @@ function inicializarMelhoriasVisuaisGestor() {
         selDesf.parentNode.appendChild(btnMulti);
     }
 
-    // Campo de Técnico em Apoio dentro do Modal de Edição de Atividade
     const selEqModalEdit = document.getElementById('edit-reg-equipe');
     if (selEqModalEdit && !document.getElementById('edit-reg-apoio-conjunto')) {
         const divPai = selEqModalEdit.parentNode;
@@ -559,7 +555,6 @@ function inicializarMelhoriasVisuaisGestor() {
         divPai.appendChild(divApoioEdit);
     }
 
-    // Campo de Fiscal Responsável dentro do Modal de Editar Equipe
     const selStatusEq = document.getElementById('sel-status-equipe');
     if (selStatusEq && !document.getElementById('sel-fiscal-equipe')) {
         const divFiscal = document.createElement('div');
@@ -577,7 +572,6 @@ function inicializarMelhoriasVisuaisGestor() {
         selStatusEq.parentNode.appendChild(divFiscal);
     }
 
-    // Painel de Cobertura de Férias na aba Equipes
     const viewEquipes = document.getElementById('subview-equipes');
     if (viewEquipes && !document.getElementById('painel-cobertura-ferias-fiscais')) {
         const divFerias = document.createElement('div');
@@ -1063,7 +1057,7 @@ function gerarRelatorioVisualImpressaoPDF() {
     setTimeout(() => { window.print(); }, 300);
 }
 
-// ================= ITEM 04: MAPA EM TEMPO REAL PRECISO E FIEL À REALIDADE =================
+// ================= MAPA EM TEMPO REAL PRECISO E FIEL À REALIDADE =================
 function converterHorarioParaMinutos(strHora) {
     if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
     const partes = strHora.trim().split(':');
@@ -1084,7 +1078,6 @@ function formatarDuracaoTexto(totalMinutos) {
     return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
 }
 
-// Extrai a coordenada mais recente real do técnico no dia de hoje (priorizando o maior horário do dia HH:MM)
 function extrairCoordenadaMaisRecenteDoTecnicoHoje(nomeTec, regsHoje, obrasEmApoioHoje, tel) {
     let melhorCandidato = { lat: null, lng: null, hora: null, minDia: -1, ts: 0, origem: '' };
 
@@ -1098,7 +1091,6 @@ function extrairCoordenadaMaisRecenteDoTecnicoHoje(nomeTec, regsHoje, obrasEmApo
         const minValido = min !== null ? min : -1;
         const tsVal = Number(timestampMs) || 0;
 
-        // Prioriza sempre o horário (HH:MM) mais recente do dia; se empatar no mesmo minuto, usa o maior timestamp
         if (melhorCandidato.lat === null || minValido > melhorCandidato.minDia || (minValido === melhorCandidato.minDia && tsVal > melhorCandidato.ts)) {
             melhorCandidato = {
                 lat: partes[0],
@@ -1111,12 +1103,10 @@ function extrairCoordenadaMaisRecenteDoTecnicoHoje(nomeTec, regsHoje, obrasEmApo
         }
     };
 
-    // 1. Telemetria em rota de hoje
     if (tel && tel.lat !== null && tel.lng !== null && !isNaN(Number(tel.lat)) && !isNaN(Number(tel.lng))) {
         testarCandidato(`${tel.lat}, ${tel.lng}`, tel.horaUltimoSinal || tel.horaInicio, tel.timestampUltimoSinal, 'Rastreio GPS');
     }
 
-    // 2. Registros onde o técnico é titular hoje (Check-in e Check-out)
     (regsHoje || []).forEach(r => {
         if (r.gpsEntrada && r.gpsEntrada.includes(',')) {
             testarCandidato(r.gpsEntrada, r.hEntrada, r.id, `Entrada (${r.imovel})`);
@@ -1127,7 +1117,6 @@ function extrairCoordenadaMaisRecenteDoTecnicoHoje(nomeTec, regsHoje, obrasEmApo
         }
     });
 
-    // 3. Registros onde o técnico entrou em apoio conjunto hoje
     (obrasEmApoioHoje || []).forEach(r => {
         const obs = (r.observacoes || '');
         const regexGpsApoio = new RegExp(`\\[APOIO_CONJUNTO:\\s*${nomeTec.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+entrou\\s+em\\s+apoio\\s+às\\s+(\\d{2}:\\d{2})\\s*\\(GPS:\\s*([-0-9.,\\s]+)\\)\\]`, 'i');
@@ -1142,7 +1131,6 @@ function extrairCoordenadaMaisRecenteDoTecnicoHoje(nomeTec, regsHoje, obrasEmApo
     return melhorCandidato;
 }
 
-// Calcula a idade real do último sinal em minutos (sem zerar erroneamente)
 function calcularMinutosDesdeUltimoSinal(melhorSinal, tel) {
     const agora = new Date();
     const minAgora = (agora.getHours() * 60) + agora.getMinutes();
@@ -1660,44 +1648,136 @@ function renderizarPainelDisponibilidade() {
         inicializarOuAtualizarMapaRastreio(listaPinosParaMapa);
     } catch (e) { console.warn("Erro disponibilidade:", e); }
 }
-// ================= CARREGAMENTO SEGURO DA NUVEM E BANNER DE VISÃO DE FISCAL =================
+// ================= CARREGAMENTO PAGINADO COMPLETO DE TODO O HISTÓRICO DA NUVEM (SEM LIMITE DE 1.000 LINHAS) =================
+
+function converterLinhaLeveParaObjetoGpd(row) {
+    if (typeof converterLinhaBancoParaObjetoGpd === "function") {
+        const obj = converterLinhaBancoParaObjetoGpd({ ...row, observacoes: row.observacoes || "" });
+        if (!obj.qtdBlocosProgramados) obj.qtdBlocosProgramados = 1;
+        return obj;
+    }
+    return {
+        id: row.id,
+        dataRegistro: row.data_registro || "",
+        equipe: (row.equipe || "").toUpperCase().trim(),
+        membros: row.membros || row.equipe || "",
+        projeto: row.projeto || "CONSTRUÇÃO ON GOING",
+        imovel: row.imovel || "",
+        endereco: "",
+        liberouAcesso: "",
+        tempoPausadoMinutos: 0,
+        qtdBlocosProgramados: 1,
+        fotos: [],
+        qtdFotos: 0,
+        hEntrada: row.h_entrada || "",
+        hSaida: row.h_saida || "",
+        gpsEntrada: row.gps_entrada || "",
+        gpsSaida: row.gps_saida || "",
+        desfecho: row.desfecho || "CONCLUIDA",
+        motivoDesfecho: row.motivo_desfecho || "",
+        malogros: Array.isArray(row.malogros) ? row.malogros : [],
+        responsavel: row.responsavel || "",
+        contato: row.contato || "",
+        email: row.email || "",
+        agendamento: row.agendamento || null,
+        andares: Number(row.andares) || 0,
+        hps: Number(row.hps) || 0,
+        servicoObra: row.servico_obra || "SIM",
+        observacoes: "",
+        fusoes: Number(row.fusoes) || 0,
+        conectores: Number(row.conectores) || 0,
+        caboRL: Number(row.cabo_rl) || 0,
+        caboDrop: Number(row.cabo_drop) || 0,
+        nap: Number(row.nap) || 0,
+        dio: Number(row.dio) || 0,
+        cxSobrepor: Number(row.cx_sobrepor) || 0,
+        cxEmbutida: Number(row.cx_embutida) || 0,
+        cxFosc: Number(row.cx_fosc) || 0
+    };
+}
+
+async function baixarTodoHistoricoPaginadoSupabase() {
+    if (typeof supabaseClient === "undefined") return [];
+
+    const TAMANHO_PAGINA = 800; // Abaixo do limite máximo de 1.000 do Supabase
+    let todasLinhas = [];
+    let pagina = 0;
+    let continuar = true;
+
+    while (continuar && pagina < 25) { // Suporta até 20.000 registros históricos
+        const inicio = pagina * TAMANHO_PAGINA;
+        const fim = inicio + TAMANHO_PAGINA - 1;
+
+        let { data, error } = await supabaseClient
+            .from('registros_producao')
+            .select('id, data_registro, equipe, membros, projeto, imovel, h_entrada, h_saida, gps_entrada, gps_saida, desfecho, motivo_desfecho, malogros, responsavel, contato, email, agendamento, andares, hps, servico_obra, fusoes, conectores, cabo_rl, cabo_drop, nap, dio, cx_sobrepor, cx_embutida, cx_fosc')
+            .neq('equipe', '__CONFIG_SISTEMA__')
+            .neq('projeto', '__CONFIG_AUDITORIA__')
+            .order('data_registro', { ascending: false })
+            .order('id', { ascending: false })
+            .range(inicio, fim);
+
+        if (error) {
+            console.warn(`Aviso na página ${pagina} da busca paginada:`, error.message);
+            break;
+        }
+
+        if (!data || data.length === 0) {
+            continuar = false;
+        } else {
+            todasLinhas.push(...data);
+            if (data.length < TAMANHO_PAGINA) {
+                continuar = false; // Chegou ao primeiro dia da ferramenta!
+            } else {
+                pagina++;
+            }
+        }
+    }
+
+    return todasLinhas.map(converterLinhaLeveParaObjetoGpd);
+}
+
 async function garantirCargaNuvemGestor(forcarRecarga = false) {
     if (modoConsultaBackupAtivo) return;
 
-    const contarRegistrosReais = () => (registrosSalvos || []).filter(r =>
-        r && r.equipe !== "__CONFIG_SISTEMA__" && r.projeto !== "__CONFIG_AUDITORIA__"
-    ).length;
-
-    if ((forcarRecarga || !cargaInicialGestorConcluida || contarRegistrosReais() === 0) && !sincronizandoRegistrosMobileEmCurso) {
+    if ((forcarRecarga || !historicoCompletoGestorJaBaixado || !cargaInicialGestorConcluida) && !sincronizandoRegistrosMobileEmCurso) {
         sincronizandoRegistrosMobileEmCurso = true;
         try {
             const corpoAtivLoading = document.getElementById('tabela-gestor-corpo');
-            if (corpoAtivLoading && contarRegistrosReais() === 0) {
-                corpoAtivLoading.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-blue-900 font-bold animate-pulse">☁️ Sincronizando registros com o banco de dados...</td></tr>`;
+            if (corpoAtivLoading) {
+                corpoAtivLoading.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-blue-900 font-bold animate-pulse">☁️ Carregando todo o histórico de atividades e gráficos desde o início da ferramenta...</td></tr>`;
             }
 
+            // 1. Executa a carga padrão do nuvem.js (que traz metadados de endereço dos registros recentes)
             if (typeof carregarRegistrosDaNuvem === "function") {
-                await carregarRegistrosDaNuvem(true);
+                try { await carregarRegistrosDaNuvem(true); } catch (e) {}
             }
 
-            // Fallback direto no Supabase caso a lista continue vazia na primeira chamada
-            if (contarRegistrosReais() === 0 && typeof supabaseClient !== "undefined") {
-                const { data, error } = await supabaseClient
-                    .from('registros_producao')
-                    .select('id, data_registro, equipe, membros, projeto, imovel, h_entrada, h_saida, gps_entrada, gps_saida, desfecho, motivo_desfecho, malogros, responsavel, contato, email, agendamento, andares, hps, servico_obra, observacoes, fusoes, conectores, cabo_rl, cabo_drop, nap, dio, cx_sobrepor, cx_embutida, cx_fosc')
-                    .order('id', { ascending: false })
-                    .limit(1500);
+            // 2. Executa a varredura paginada completa (sem o teto de 1.000 linhas do Supabase)
+            const listaCompletaPaginada = await baixarTodoHistoricoPaginadoSupabase();
 
-                if (!error && Array.isArray(data) && data.length > 0) {
-                    const reais = data.filter(row => row.equipe !== "__CONFIG_SISTEMA__" && row.projeto !== "__CONFIG_AUDITORIA__");
-                    if (typeof converterLinhaBancoParaObjetoGpd === "function") {
-                        registrosSalvos = reais.map(converterLinhaBancoParaObjetoGpd);
+            if (Array.isArray(listaCompletaPaginada) && listaCompletaPaginada.length > 0) {
+                const mapaExistentes = new Map();
+                (registrosSalvos || []).forEach(r => {
+                    if (r && r.id) mapaExistentes.set(r.id, r);
+                });
+
+                listaCompletaPaginada.forEach(itemPag => {
+                    if (!mapaExistentes.has(itemPag.id)) {
+                        mapaExistentes.set(itemPag.id, itemPag);
                     }
-                }
+                });
+
+                registrosSalvos = Array.from(mapaExistentes.values()).sort((a, b) => {
+                    if (a.dataRegistro !== b.dataRegistro) return (b.dataRegistro || '').localeCompare(a.dataRegistro || '');
+                    return (b.id || 0) - (a.id || 0);
+                });
             }
+
+            historicoCompletoGestorJaBaixado = true;
             cargaInicialGestorConcluida = true;
         } catch (errLoad) {
-            console.warn("Aviso na leitura da nuvem:", errLoad);
+            console.warn("Aviso na leitura completa da nuvem:", errLoad);
         } finally {
             sincronizandoRegistrosMobileEmCurso = false;
         }
@@ -1778,7 +1858,6 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
     let filtradosBase = (registrosSalvos || []).filter(item => {
         if (!item || item.equipe === "__CONFIG_SISTEMA__" || item.projeto === "__CONFIG_AUDITORIA__") return false;
 
-        // Filtro Nativo de Carteira de Fiscal (se for fiscal01, fiscal02 ou fiscal03 logado)
         if (setFiscalRestrito && !registroPertenceAoUsuarioLogado(item, setFiscalRestrito)) {
             return false;
         }
@@ -4056,6 +4135,7 @@ recarregarDadosGestor = async function(silencioso = false) {
     try {
         if (!modoConsultaBackupAtivo) {
             if (typeof carregarTelemetriaDaNuvem === "function") await carregarTelemetriaDaNuvem();
+            historicoCompletoGestorJaBaixado = false;
             await garantirCargaNuvemGestor(true);
         }
         await atualizarDashboardGestor(false);
