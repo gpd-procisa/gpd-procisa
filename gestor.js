@@ -18,7 +18,37 @@ let grupoAtivoAbaGraficos = 'TODOS';
 
 let filtrosMultiplosAtivos = { equipes: [], setores: [], macrogrupos: [], projetos: [], desfechos: [] };
 
-const TEMPO_MAXIMO_SINAL_ROTA_MINUTOS = 120; // Exibe no mapa sinais ativos nas últimas 2h
+const TEMPO_MAXIMO_SINAL_ROTA_MINUTOS = 480; // Janela ampliada (8h) para não remover do mapa nem dar baixa indevida em rota
+
+// ================= CORREÇÃO PROBLEMA 04: FECHO DOS MODAIS DE EXPANSÃO (TELA CHEIA) =================
+function fecharModalGraficoExpandido() {
+    const modal = document.getElementById('modal-expandir-grafico');
+    if (modal) modal.classList.add('hidden');
+    if (typeof estadoModalExpandidoAtual !== 'undefined') {
+        estadoModalExpandidoAtual.ativo = false;
+    }
+    if (typeof graficoExpandidoInstancia !== 'undefined' && graficoExpandidoInstancia) {
+        try { graficoExpandidoInstancia.destroy(); } catch (e) {}
+        graficoExpandidoInstancia = null;
+    }
+}
+window.fecharModalGraficoExpandido = fecharModalGraficoExpandido;
+
+function fecharModalTabelaExpandida() {
+    const modal = document.getElementById('modal-expandir-tabela');
+    if (modal) modal.classList.add('hidden');
+    if (typeof estadoModalExpandidoAtual !== 'undefined') {
+        estadoModalExpandidoAtual.ativo = false;
+    }
+}
+window.fecharModalTabelaExpandida = fecharModalTabelaExpandida;
+
+document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') {
+        fecharModalGraficoExpandido();
+        fecharModalTabelaExpandida();
+    }
+});
 
 // ================= CATÁLOGO OFICIAL DOS 3 FISCAIS E CARTEIRA DE TÉCNICOS =================
 const CATALOGO_FISCAIS_MDU = [
@@ -28,7 +58,6 @@ const CATALOGO_FISCAIS_MDU = [
 ];
 
 const MAPA_PADRAO_EQUIPE_FISCAL = {
-    // JEFFERSON SILVA DE OLIVEIRA (fiscal02@mdu.com.br)
     "BRUNO MARCUS CORREA FERNANDES": "fiscal02@mdu.com.br",
     "MATHEUS FRANCINI ALMEIDA": "fiscal02@mdu.com.br",
     "HEVERTON ALESSANDRO RODRIGUES GUSMAO": "fiscal02@mdu.com.br",
@@ -37,7 +66,6 @@ const MAPA_PADRAO_EQUIPE_FISCAL = {
     "LUCIANO SANTOS FERREIRA": "fiscal02@mdu.com.br",
     "ANDREO FAGUNDES": "fiscal02@mdu.com.br",
 
-    // MARCELO FRANCISCO SOARES (fiscal03@mdu.com.br)
     "FELIPE BAPTISTA FERREIRA": "fiscal03@mdu.com.br",
     "WILSON JOSE DE SOUSA JUNIOR": "fiscal03@mdu.com.br",
     "WEVERTON OTACILIO DA SILVA VERAS": "fiscal03@mdu.com.br",
@@ -45,7 +73,6 @@ const MAPA_PADRAO_EQUIPE_FISCAL = {
     "MARCOS VINICIUS SANTOS DA SILVA": "fiscal03@mdu.com.br",
     "PAULO CESAR FERNANDES JUNIOR": "fiscal03@mdu.com.br",
 
-    // FRANCISCO DE SOUZA MOURA (fiscal01@mdu.com.br)
     "CESAR SALES ROSA": "fiscal01@mdu.com.br",
     "MARCOS VINICIUS CARDOSO DE ARAUJO": "fiscal01@mdu.com.br",
     "BRUNO SOARES DA SILVA": "fiscal01@mdu.com.br",
@@ -66,7 +93,27 @@ function normalizarChaveNome(str) {
         .trim();
 }
 
-// ================= NORMALIZAÇÃO DE PERMISSÕES E CORREÇÃO PARA E.BAPTISTA@PROCISA.COM.BR =================
+// ================= MELHORIA 03: ETIQUETA DISCRETA DE CATEGORIA DO TÉCNICO =================
+function obterCategoriaDiscretaTecnicoHtml(nomeEquipe) {
+    const eqObj = (typeof equipesSistema !== 'undefined' && Array.isArray(equipesSistema))
+        ? equipesSistema.find(e => normalizarChaveNome(e.nome) === normalizarChaveNome(nomeEquipe))
+        : null;
+    const setores = typeof obterArraySetores === 'function'
+        ? obterArraySetores(eqObj ? eqObj.setor : 'Instalador')
+        : ['Instalador'];
+
+    const badges = setores.map(s => {
+        let cor = 'bg-slate-100 text-slate-600 border-slate-200';
+        if (s === 'Vistoriador') cor = 'bg-purple-50 text-purple-700 border-purple-200';
+        else if (s === 'Instalador') cor = 'bg-blue-50 text-blue-700 border-blue-200';
+        else if (s === 'Ativador') cor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        return `<span class="text-[9px] font-semibold px-1.5 py-0.2 rounded border ${cor} leading-none">${s}</span>`;
+    }).join(' ');
+
+    return `<span class="inline-flex flex-wrap items-center gap-1 ml-1.5 align-middle">${badges}</span>`;
+}
+
+// ================= NORMALIZAÇÃO DE PERMISSÕES =================
 function garantirPermissaoOperadorEBaptista() {
     try {
         const emailAtual = String(usuarioLogado || "").toLowerCase().trim();
@@ -297,9 +344,6 @@ async function abrirModalGerirApoioGestor(idReg) {
                         ${checksEquipesHtml || '<span class="text-slate-400">Nenhuma outra equipe ativa cadastrada.</span>'}
                     </div>
                 </div>
-                <p class="text-[10px] text-slate-500">
-                    💡 <b>Regra Opção A:</b> O imóvel conta 1 execução para o titular e o(s) técnico(s) em apoio recebem automaticamente o <b>Dia Trabalhado</b> e a contabilização na coluna <b>🤝 Apoios</b> nos gráficos e planilhas!
-                </p>
             </div>
             <div class="bg-slate-100 p-3 border-t flex justify-end gap-2">
                 <button type="button" onclick="document.getElementById('modal-gerir-apoio-gestor').classList.add('hidden')" class="bg-slate-300 text-slate-800 text-xs px-3 py-2 rounded-xl font-bold">Cancelar</button>
@@ -508,7 +552,7 @@ function aplicarTooltipsExplicativosGlobais() {
 function inicializarMelhoriasVisuaisGestor() {
     garantirPermissaoOperadorEBaptista();
     aplicarTooltipsExplicativosGlobais();
-    otimizarCabecalhoAzulLinhaUnica();
+    if (typeof otimizarCabecalhoAzulLinhaUnica === 'function') otimizarCabecalhoAzulLinhaUnica();
 
     const selDesf = document.getElementById('gestor-filtro-desfecho');
     if (selDesf && !document.getElementById('btn-abrir-filtro-multiplo')) {
@@ -545,7 +589,7 @@ function inicializarMelhoriasVisuaisGestor() {
             <select id="sel-fiscal-equipe" class="w-full text-xs border-2 border-blue-300 rounded-lg p-2.5 bg-blue-50/40 font-bold text-blue-950 outline-none">
                 ${opcoesFiscaisHtml}
             </select>
-            <p class="text-[10px] text-slate-500 mt-1">O fiscal selecionado visualizará este técnico no painel dele. Pode ser alterado a qualquer momento em caso de férias.</p>
+            <p class="text-[10px] text-slate-500 mt-1">O fiscal selecionado visualizará este técnico no painel dele.</p>
         `;
         selStatusEq.parentNode.appendChild(divFiscal);
     }
@@ -698,7 +742,7 @@ function inicializarMelhoriasVisuaisGestor() {
         viewOpcoes.appendChild(divBackup);
     }
 
-    atualizarResumoContagemCarteirasFiscais();
+    if (typeof atualizarResumoContagemCarteirasFiscais === 'function') atualizarResumoContagemCarteirasFiscais();
 }
 
 // ================= SOLICITAÇÕES DE COMBUSTÍVEL E MATERIAL (48H) =================
@@ -898,7 +942,7 @@ function baixarBackupIntegralJSON() {
 
     if (listaExportar.length === 0) { alert("⚠️ Nenhum registo encontrado no período."); return; }
     const pacoteBackup = {
-        sistema: "GPD MDU PROCISA RJ", versaoBackup: "8.0", dataExportacao: new Date().toISOString(), exportadoPor: usuarioLogado,
+        sistema: "GPD MDU PROCISA RJ", versaoBackup: "8.1", dataExportacao: new Date().toISOString(), exportadoPor: usuarioLogado,
         configuracoes: {
             equipes: equipesSistema, usuarios: usuariosSistema, gruposProjeto: GRUPOS_PROJETO_SISTEMA,
             catalogoProjetos: CATALOGO_PROJETOS_SISTEMA, opcoesCombustivel: OPCOES_COMBUSTIVEL_PADRAO,
@@ -1033,7 +1077,7 @@ function gerarRelatorioVisualImpressaoPDF() {
     setTimeout(() => { window.print(); }, 300);
 }
 
-// ================= MAPA EM TEMPO REAL PRECISO E FIEL À REALIDADE =================
+// ================= MAPA EM TEMPO REAL E BLINDAGEM CONTRA ROTA ENCERRADA INDEVIDAMENTE (PROBLEMA 02) =================
 function converterHorarioParaMinutos(strHora) {
     if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
     const partes = strHora.trim().split(':');
@@ -1049,7 +1093,7 @@ function formatarMinutosParaHHMM(totalMinutos) {
 }
 
 function formatarDuracaoTexto(totalMinutos) {
-    if (totalMinutos === null || isNaN(totalMinutos) || totalMinutos <= 0) return "--h --m";
+    if (totalMinutos === null || isNaN(totalMinutos) || totalMinutos <= 0) return "0 min";
     const h = Math.floor(totalMinutos / 60), m = Math.round(totalMinutos % 60);
     return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
 }
@@ -1120,14 +1164,26 @@ function calcularMinutosDesdeUltimoSinal(melhorSinal, tel) {
     if (tsRef > 1700000000000) {
         return Math.max(0, Math.round((Date.now() - tsRef) / 60000));
     }
-    return 999;
+    return 0;
 }
 
+// PROBLEMA 02 CORRIGIDO: Protege o turno do técnico contra encerramentos acidentais pelo painel se houver atividade aberta
 async function encerrarTurnoTecnicoPeloGestor(nomeEq) {
     if (!usuarioPodeEditarGestor()) return;
-    if (!confirm(`🔴 ENCERRAR TURNO NO MAPA\n\nDeseja encerrar o expediente ativo de "${nomeEq}" para removê-lo do mapa em tempo real?`)) return;
-
     const hojeISO = obterDataLocalISO();
+    const temAtiva = (registrosSalvos || []).some(r =>
+        r.dataRegistro === hojeISO &&
+        normalizarChaveNome(r.equipe) === normalizarChaveNome(nomeEq) &&
+        ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'IMPREVISTO'].includes(r.desfecho)
+    );
+    if (temAtiva) {
+        alert(`🚫 BLOQUEADO: O técnico "${nomeEq}" possui atividade ou imprevisto aberto neste momento. Não é permitido encerrar a rota dele.`);
+        return;
+    }
+
+    const confirmacaoDupla = prompt(`⚠️ ATENÇÃO: Esta ação encerrará a rota no celular do técnico "${nomeEq}".\n\nPara confirmar que o técnico realmente já encerrou o dia, digite FIM abaixo:`);
+    if (!confirmacaoDupla || confirmacaoDupla.trim().toUpperCase() !== 'FIM') return;
+
     const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const anterior = (telemetriaEquipes && telemetriaEquipes[nomeEq]) ? telemetriaEquipes[nomeEq] : {};
 
@@ -1144,49 +1200,8 @@ async function encerrarTurnoTecnicoPeloGestor(nomeEq) {
     if (typeof sincronizarTelemetriaNaNuvem === 'function') {
         await sincronizarTelemetriaNaNuvem(nomeEq, objEncerrado);
     }
+    registrarLogAuditoria("BAIXA MANUAL DE ROTA", `Gestor ${usuarioLogado} encerrou manualmente o expediente de ${nomeEq}.`);
     renderizarPainelDisponibilidade();
-}
-
-async function limparSinaisAntigosDoMapaGestor() {
-    if (!usuarioPodeEditarGestor()) return;
-    if (!confirm(`🧹 LIMPAR SINAIS INATIVOS DO MAPA\n\nDeseja encerrar os turnos ociosos na nuvem e manter no mapa apenas quem está em atendimento ativo agora?`)) return;
-
-    const hojeISO = obterDataLocalISO();
-    const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-    const emAtendimentoAgora = new Set(
-        (registrosSalvos || [])
-            .filter(r => r.dataRegistro === hojeISO && ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'IMPREVISTO'].includes(r.desfecho))
-            .flatMap(r => [r.equipe, ...extrairApoiosDoRegistro(r)])
-    );
-
-    let qtdLimpos = 0;
-    for (const nomeEq of Object.keys(telemetriaEquipes || {})) {
-        if (!emAtendimentoAgora.has(nomeEq) && telemetriaEquipes[nomeEq]?.statusTurno === 'DISPONIVEL') {
-            telemetriaEquipes[nomeEq].statusTurno = 'ENCERRADO';
-            telemetriaEquipes[nomeEq].horaFim = horaAgora;
-            qtdLimpos++;
-            if (typeof sincronizarTelemetriaNaNuvem === 'function') {
-                await sincronizarTelemetriaNaNuvem(nomeEq, telemetriaEquipes[nomeEq]);
-            }
-        }
-    }
-
-    renderizarPainelDisponibilidade();
-    alert(`✅ Mapa atualizado! ${qtdLimpos} turno(s) ocioso(s) foram encerrados.`);
-}
-
-function injetarBotaoLimparMapa() {
-    const lblCont = document.getElementById('lbl-contador-pinos-mapa');
-    if (lblCont && lblCont.parentNode && !document.getElementById('btn-limpar-sinais-mapa')) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.id = 'btn-limpar-sinais-mapa';
-        btn.onclick = limparSinaisAntigosDoMapaGestor;
-        btn.className = 'bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm transition';
-        btn.innerHTML = '🧹 Limpar Sinais Inativos';
-        lblCont.parentNode.appendChild(btn);
-    }
 }
 
 function inicializarOuAtualizarMapaRastreio(listaPinos) {
@@ -1278,6 +1293,7 @@ function alternarVisualizacaoBlocosAgrupados(idElemento, btnEl) {
         btnEl.className = "mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition";
     }
 }
+
 // ================= TRANSFERÊNCIA, REABERTURA, IMPORTAÇÃO E PAINEL DE DISPONIBILIDADE =================
 async function autorizarReaberturaCampo(id) {
     if (!usuarioPodeEditarGestor()) { alert("⚠️ Apenas Gestores podem autorizar a reabertura."); return; }
@@ -1408,7 +1424,6 @@ async function processarImportacaoPlanilha() {
 
 function renderizarPainelDisponibilidade() {
     try {
-        injetarBotaoLimparMapa();
         const tbody = document.getElementById('tabela-disponibilidade-corpo');
         if (!tbody) return;
         tbody.innerHTML = "";
@@ -1442,7 +1457,7 @@ function renderizarPainelDisponibilidade() {
 
             const tel = (telemetriaEquipes && telemetriaEquipes[eq.nome] && telemetriaEquipes[eq.nome].data === hojeISO) ? telemetriaEquipes[eq.nome] : null;
             const turnoIniciado = tel && tel.statusTurno === 'DISPONIVEL';
-            const turnoEncerrado = tel && tel.statusTurno === 'ENCERRADO';
+            const turnoEncerrado = tel && tel.statusTurno === 'ENCERRADO' && !obraAndamento && !obraParalisada && !impAberto;
 
             const melhorSinal = extrairCoordenadaMaisRecenteDoTecnicoHoje(eq.nome, regsHoje, [...obrasEmApoioValidadoHoje, ...obrasEmApoioPendenteHoje], tel);
             const latFinal = melhorSinal.lat;
@@ -1453,12 +1468,9 @@ function renderizarPainelDisponibilidade() {
 
             let turnoHtml = `<span class="bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-semibold">⚪ Não iniciado hoje</span>`;
             let turnoTextoPuro = "Não iniciado hoje";
-            if (turnoIniciado && sinalRecenteValido) {
-                turnoHtml = `<span class="bg-emerald-50 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold">🟢 Ativo desde ${tel.horaInicio || '--:--'}</span>`;
+            if (turnoIniciado) {
+                turnoHtml = `<span class="bg-emerald-50 text-emerald-900 border border-emerald-300 px-2 py-0.5 rounded text-[10px] font-bold">🟢 Em Rota desde ${tel.horaInicio || '--:--'}</span>`;
                 turnoTextoPuro = `Ativo desde ${tel.horaInicio || '--:--'}`;
-            } else if (turnoIniciado && !sinalRecenteValido) {
-                turnoHtml = `<span class="bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded text-[10px] font-bold">⏸️ Sem sinal recente (Último às ${horaSinal || '--:--'})</span>`;
-                turnoTextoPuro = `Último sinal às ${horaSinal || '--:--'}`;
             } else if (turnoEncerrado) {
                 turnoHtml = `<span class="bg-slate-200 text-slate-800 border border-slate-300 px-2 py-0.5 rounded text-[10px] font-bold">🔴 Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})</span>`;
                 turnoTextoPuro = `Encerrado (${tel.horaInicio || '--:--'} às ${tel.horaFim || '--:--'})`;
@@ -1512,7 +1524,7 @@ function renderizarPainelDisponibilidade() {
                 statusBadge = `<span class="bg-slate-200 text-slate-700 border border-slate-300 font-bold px-2.5 py-1 rounded-md text-[10px] inline-block">🏁 ENCERRADO</span>`;
                 detalheTexto = `Turno finalizado (${concluidasHoje} concluída(s)${apoiosConcluidosHoje > 0 ? ` + ${apoiosConcluidosHoje} apoio(s)` : ''})`;
                 ocupacaoLimpa = `Turno encerrado`;
-            } else if ((turnoIniciado || regsHoje.length > 0 || obrasEmApoioValidadoHoje.length > 0) && sinalRecenteValido) {
+            } else if (turnoIniciado || ((regsHoje.length > 0 || obrasEmApoioValidadoHoje.length > 0) && sinalRecenteValido)) {
                 countDisp++; corPinoHex = "#059669"; iconeEmojiPino = "🟢"; statusTextoPuro = "EM ROTA / DISPONÍVEL";
                 deveAparecerNoMapa = true;
                 statusBadge = `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 font-black px-2.5 py-1 rounded-md text-[10px] inline-block">🟢 DISPONÍVEL</span>`;
@@ -1534,10 +1546,7 @@ function renderizarPainelDisponibilidade() {
                 gpsStr = `<div class="space-y-0.5"><div class="text-[9px] font-bold ${deveAparecerNoMapa ? 'text-emerald-800' : 'text-slate-500'}">🕒 Às ${horaSinal || '--:--'} • ${melhorSinal.origem}</div><a href="https://www.google.com/maps/search/?api=1&query=${latFinal},${lngFinal}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${coordFormatada}</a></div>`;
 
                 if (deveAparecerNoMapa) {
-                    const btnBaixar = usuarioPodeEditarGestor()
-                        ? `<button type="button" onclick="encerrarTurnoTecnicoPeloGestor('${eq.nome}')" title="Encerrar turno deste técnico e removê-lo do mapa" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-[10px] px-2 py-1 rounded">🔴 Baixar</button>`
-                        : '';
-                    acaoHtml = `<div class="flex items-center gap-1"><button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded">🎯 Mapa</button>${btnBaixar}</div>`;
+                    acaoHtml = `<div class="flex items-center gap-1"><button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2.5 py-1 rounded">🎯 Ver no Mapa</button></div>`;
                     listaPinosParaMapa.push({
                         nome: eq.nome, lat: latFinal, lng: lngFinal, corHex: corPinoHex,
                         iconeEmoji: iconeEmojiPino, statusTexto: statusTextoPuro, turnoTexto: turnoTextoPuro,
@@ -1561,7 +1570,7 @@ function renderizarPainelDisponibilidade() {
     } catch (e) { console.warn("Erro disponibilidade:", e); }
 }
 
-// ================= CARREGAMENTO PAGINADO COMPLETO DE TODO O HISTÓRICO DA NUVEM =================
+// ================= PROBLEMA 03 CORRIGIDO: PAGINAÇÃO TOTAL DE REGISTROS DO SUPABASE (SEM CORTE EM 1000/2000) =================
 function converterLinhaLeveParaObjetoGpd(row) {
     if (typeof converterLinhaBancoParaObjetoGpd === "function") {
         const obj = converterLinhaBancoParaObjetoGpd({ ...row, observacoes: row.observacoes || "" });
@@ -1573,7 +1582,7 @@ function converterLinhaLeveParaObjetoGpd(row) {
         dataRegistro: row.data_registro || "",
         equipe: (row.equipe || "").toUpperCase().trim(),
         membros: row.membros || row.equipe || "",
-        projeto: row.projeto || "CONSTRUÇÃO ON GOING",
+        projeto: normalizarNomeProjeto(row.projeto || "CONSTRUÇÃO ON GOING"),
         imovel: row.imovel || "",
         endereco: "",
         liberouAcesso: "",
@@ -1585,7 +1594,7 @@ function converterLinhaLeveParaObjetoGpd(row) {
         hSaida: row.h_saida || "",
         gpsEntrada: row.gps_entrada || "",
         gpsSaida: row.gps_saida || "",
-        desfecho: row.desfecho || "CONCLUIDA",
+        desfecho: (row.desfecho || "CONCLUIDA").toUpperCase().trim(),
         motivoDesfecho: row.motivo_desfecho || "",
         malogros: Array.isArray(row.malogros) ? row.malogros : [],
         responsavel: row.responsavel || "",
@@ -1611,12 +1620,12 @@ function converterLinhaLeveParaObjetoGpd(row) {
 async function baixarTodoHistoricoPaginadoSupabase() {
     if (typeof supabaseClient === "undefined") return [];
 
-    const TAMANHO_PAGINA = 800;
+    const TAMANHO_PAGINA = 1000;
     let todasLinhas = [];
     let pagina = 0;
     let continuar = true;
 
-    while (continuar && pagina < 25) {
+    while (continuar && pagina < 50) {
         const inicio = pagina * TAMANHO_PAGINA;
         const fim = inicio + TAMANHO_PAGINA - 1;
 
@@ -1656,12 +1665,12 @@ async function garantirCargaNuvemGestor(forcarRecarga = false) {
         sincronizandoRegistrosMobileEmCurso = true;
         try {
             const corpoAtivLoading = document.getElementById('tabela-gestor-corpo');
-            if (corpoAtivLoading) {
-                corpoAtivLoading.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-blue-900 font-bold animate-pulse">☁️ Carregando todo o histórico de atividades e gráficos desde o início da ferramenta...</td></tr>`;
+            if (corpoAtivLoading && (!registrosSalvos || registrosSalvos.length === 0)) {
+                corpoAtivLoading.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-blue-900 font-bold animate-pulse">☁️ Sincronizando 100% dos registros e indicadores na nuvem...</td></tr>`;
             }
 
-            if (typeof carregarRegistrosDaNuvem === "function") {
-                try { await carregarRegistrosDaNuvem(true); } catch (e) {}
+            if (typeof sincronizarDeltaRapidoGestor === "function") {
+                try { await sincronizarDeltaRapidoGestor(); } catch (e) {}
             }
 
             const listaCompletaPaginada = await baixarTodoHistoricoPaginadoSupabase();
@@ -1673,9 +1682,15 @@ async function garantirCargaNuvemGestor(forcarRecarga = false) {
                 });
 
                 listaCompletaPaginada.forEach(itemPag => {
-                    if (!mapaExistentes.has(itemPag.id)) {
-                        mapaExistentes.set(itemPag.id, itemPag);
+                    const existente = mapaExistentes.get(itemPag.id);
+                    if (existente) {
+                        itemPag.endereco = existente.endereco || itemPag.endereco || '';
+                        itemPag.liberouAcesso = existente.liberouAcesso || itemPag.liberouAcesso || '';
+                        itemPag.tempoPausadoMinutos = Math.max(Number(existente.tempoPausadoMinutos) || 0, Number(itemPag.tempoPausadoMinutos) || 0);
+                        itemPag.observacoes = existente.observacoes || itemPag.observacoes || '';
+                        itemPag.qtdFotos = existente.qtdFotos || 0;
                     }
+                    mapaExistentes.set(itemPag.id, itemPag);
                 });
 
                 registrosSalvos = Array.from(mapaExistentes.values()).sort((a, b) => {
@@ -1738,8 +1753,7 @@ function aplicarFiltroSelectEquipesEBannerFiscal() {
         <span class="text-[10px] text-cyan-300 font-mono">${fiscalAtivo.email}</span>
     `;
 }
-
-// ================= ATUALIZAÇÃO CENTRAL DO DASHBOARD =================
+// ================= ATUALIZAÇÃO CENTRAL DO DASHBOARD (CONTABILIZAÇÃO FIEL E SEM CORTES) =================
 async function atualizarDashboardGestor(forcarRecargaMobile = false) {
     inicializarMelhoriasVisuaisGestor();
     await garantirCargaNuvemGestor(forcarRecargaMobile);
@@ -1778,16 +1792,19 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
         else if (dataFim) mData = item.dataRegistro <= dataFim;
 
         const apoiosItem = extrairApoiosDoRegistro(item);
+        const eqNorm = normalizarChaveNome(item.equipe);
         let mEquipe = true;
         if (filtrosMultiplosAtivos.equipes.length > 0) {
-            mEquipe = filtrosMultiplosAtivos.equipes.includes(item.equipe) || apoiosItem.some(ap => filtrosMultiplosAtivos.equipes.includes(ap));
+            mEquipe = filtrosMultiplosAtivos.equipes.some(eq => normalizarChaveNome(eq) === eqNorm) ||
+                      apoiosItem.some(ap => filtrosMultiplosAtivos.equipes.some(eq => normalizarChaveNome(eq) === normalizarChaveNome(ap)));
         } else if (fEquipe) {
-            mEquipe = item.equipe === fEquipe || apoiosItem.includes(fEquipe);
+            const fEqNorm = normalizarChaveNome(fEquipe);
+            mEquipe = eqNorm === fEqNorm || apoiosItem.some(ap => normalizarChaveNome(ap) === fEqNorm);
         }
 
         let mSetor = true;
         if (filtrosMultiplosAtivos.setores.length > 0) {
-            const eqObj = equipesSistema.find(e => e.nome === item.equipe);
+            const eqObj = equipesSistema.find(e => normalizarChaveNome(e.nome) === eqNorm);
             const setoresTec = obterArraySetores(eqObj ? eqObj.setor : obterSetorDoProjeto(item.projeto));
             mSetor = filtrosMultiplosAtivos.setores.some(s => setoresTec.includes(s));
         }
@@ -1814,9 +1831,10 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
 
     let filtrados = filtradosBase.filter(i => {
         if (i.projeto === 'IMPREVISTO / ATRASO' || i.projeto === PROJETO_SOLIC_COMBUSTIVEL || i.projeto === PROJETO_SOLIC_MATERIAL || i.desfecho === 'IMPREVISTO' || i.desfecho === 'IMPREVISTO RESOLVIDO') return false;
+        const desfUpper = String(i.desfecho || '').toUpperCase().trim() === 'CONCLUÍDA' ? 'CONCLUIDA' : String(i.desfecho || '').toUpperCase().trim();
         let mMacro = filtrosMultiplosAtivos.macrogrupos.length > 0 ? filtrosMultiplosAtivos.macrogrupos.includes(obterMacroGrupoProjeto(i.projeto)) : true;
         let mProj = filtrosMultiplosAtivos.projetos.length > 0 ? filtrosMultiplosAtivos.projetos.includes(i.projeto) : (fProjeto ? i.projeto === fProjeto : true);
-        let mDesf = filtrosMultiplosAtivos.desfechos.length > 0 ? filtrosMultiplosAtivos.desfechos.includes(i.desfecho) : (fDesfecho ? i.desfecho === fDesfecho : true);
+        let mDesf = filtrosMultiplosAtivos.desfechos.length > 0 ? filtrosMultiplosAtivos.desfechos.includes(desfUpper) : (fDesfecho ? desfUpper === fDesfecho : true);
         return mMacro && mProj && mDesf;
     });
 
@@ -1860,19 +1878,21 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
         }
     }
 
+    const ehConcluida = (desf) => ['CONCLUIDA', 'CONCLUÍDA'].includes(String(desf || '').toUpperCase().trim());
     const finalizadas = filtrados.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
-    setTxt('kpi-proj-vistoria', finalizadas.filter(i => i.servicoPlanilha === 'VISTORIA' && i.desfecho === 'CONCLUIDA').length);
-    setTxt('kpi-proj-const-f', finalizadas.filter(i => i.servicoPlanilha === 'CONSTRUÇÃO' && i.subgrupoFOuOnGoing === 'F' && i.desfecho === 'CONCLUIDA').length);
-    setTxt('kpi-proj-const-ongoing', finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO ON GOING' && i.desfecho === 'CONCLUIDA').length);
-    setTxt('kpi-proj-const-nap', finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO NAP LOTADA' && i.desfecho === 'CONCLUIDA').length);
-    setTxt('kpi-proj-ativ-f', finalizadas.filter(i => i.servicoPlanilha === 'ATIVAÇÃO' && i.subgrupoFOuOnGoing === 'F' && i.desfecho === 'CONCLUIDA').length);
-    setTxt('kpi-proj-ativ-ongoing', finalizadas.filter(i => i.projeto === 'ATIVAÇÃO ON GOING' && i.desfecho === 'CONCLUIDA').length);
-    setTxt('kpi-proj-ativ-nap', finalizadas.filter(i => i.projeto === 'ATIVAÇÃO NAP LOTADA' && i.desfecho === 'CONCLUIDA').length);
+
+    setTxt('kpi-proj-vistoria', finalizadas.filter(i => i.servicoPlanilha === 'VISTORIA' && ehConcluida(i.desfecho)).length);
+    setTxt('kpi-proj-const-f', finalizadas.filter(i => i.servicoPlanilha === 'CONSTRUÇÃO' && i.subgrupoFOuOnGoing === 'F' && ehConcluida(i.desfecho)).length);
+    setTxt('kpi-proj-const-ongoing', finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO ON GOING' && ehConcluida(i.desfecho)).length);
+    setTxt('kpi-proj-const-nap', finalizadas.filter(i => i.projeto === 'CONSTRUÇÃO NAP LOTADA' && ehConcluida(i.desfecho)).length);
+    setTxt('kpi-proj-ativ-f', finalizadas.filter(i => i.servicoPlanilha === 'ATIVAÇÃO' && i.subgrupoFOuOnGoing === 'F' && ehConcluida(i.desfecho)).length);
+    setTxt('kpi-proj-ativ-ongoing', finalizadas.filter(i => i.projeto === 'ATIVAÇÃO ON GOING' && ehConcluida(i.desfecho)).length);
+    setTxt('kpi-proj-ativ-nap', finalizadas.filter(i => i.projeto === 'ATIVAÇÃO NAP LOTADA' && ehConcluida(i.desfecho)).length);
 
     setTxt('contador-resultados', `${filtrados.length} registros (${qtdEmAndamento} ativas/pausa | ${qtdProgramadas} programadas)`);
     setTxt('contador-materiais', finalizadas.length + " registros finalizados");
 
-    let concluidasCount = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
+    let concluidasCount = finalizadas.filter(i => ehConcluida(i.desfecho)).length;
     let malogradasCount = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
     let pendentesCount = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
 
@@ -1885,7 +1905,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
     let sumSobrepor = 0, sumEmbutida = 0, sumFosc = 0, sumVistorias = 0;
 
     finalizadas.forEach(i => {
-        if (i.servicoPlanilha === 'VISTORIA' && i.desfecho === 'CONCLUIDA') sumVistorias++;
+        if (i.servicoPlanilha === 'VISTORIA' && ehConcluida(i.desfecho)) sumVistorias++;
         sumCaboRL += Number(i.caboRL) || 0;
         sumConectores += Number(i.conectores) || 0;
         sumCaboDrop += Number(i.caboDrop) || 0;
@@ -1932,7 +1952,8 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
             let codigoBase = (item.imovel || "").trim();
             const idxTraco = codigoBase.toUpperCase().lastIndexOf(" - BLOCO");
             if (idxTraco !== -1) codigoBase = codigoBase.substring(0, idxTraco).trim();
-            const chaveAgrupamento = `${item.dataRegistro}_${item.equipe}_${codigoBase.toUpperCase()}_${item.projeto}`;
+            const ehAberta = ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'PROGRAMADA'].includes(item.desfecho);
+            const chaveAgrupamento = `${item.dataRegistro}_${item.equipe}_${codigoBase.toUpperCase()}_${item.projeto}_${ehAberta ? 'ABERTA' : 'FINALIZADA'}`;
             if (!mapaAgrupado[chaveAgrupamento]) {
                 mapaAgrupado[chaveAgrupamento] = {
                     codigoBase, projeto: item.projeto, equipe: item.equipe, dataRegistro: item.dataRegistro,
@@ -1947,7 +1968,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
             if (corpoAtiv) {
                 const qtdBlocosNoGrupo = grupo.itens.length;
                 const itemMaster = grupo.itens[0];
-                const idGrupoUnico = `grupo_bloco_${Math.abs(stringParaHash(grupo.codigoBase + grupo.dataRegistro + grupo.equipe + grupo.projeto))}`;
+                const idGrupoUnico = `grupo_bloco_${Math.abs(stringParaHash(grupo.codigoBase + grupo.dataRegistro + grupo.equipe + grupo.projeto + itemMaster.id))}`;
 
                 let desfechoExibicao = itemMaster.desfecho;
                 if (qtdBlocosNoGrupo > 1) {
@@ -1974,7 +1995,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
 
                 let botoesAcao = `<span class="text-slate-400 text-[10px] font-semibold">👁️ Visualização</span>`;
                 if (podeEditar) {
-                    const podeFinalizadasReabrir = ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(itemMaster.desfecho);
+                    const podeFinalizadasReabrir = ['CONCLUIDA', 'CONCLUÍDA', 'PENDENTE', 'MALOGRADA'].includes(itemMaster.desfecho);
                     const btnReabrir = podeFinalizadasReabrir ? `<button onclick="autorizarReaberturaCampo(${itemMaster.id})" class="text-purple-800 hover:bg-purple-200 font-bold text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded">🔓 Reabrir</button>` : '';
                     const btnMover = !podeFinalizadasReabrir ? `<button onclick="abrirModalTransferirAtividade(${itemMaster.id})" class="text-indigo-900 hover:bg-indigo-200 font-bold text-[10px] bg-indigo-100 border border-indigo-300 px-2 py-1 rounded">🔀 Mover</button>` : '';
                     const btnApoio = `<button onclick="abrirModalGerirApoioGestor(${itemMaster.id})" class="text-purple-950 hover:bg-purple-200 font-black text-[10px] bg-purple-100 border border-purple-300 px-2 py-1 rounded" title="Direcionar ou vincular técnico em apoio conjunto">🤝 Apoio</button>`;
@@ -1993,7 +2014,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
                 const badgePausaLinha = somaTempoPausado > 0 ? `<div class="text-[10px] text-orange-700 font-bold">⏸️ Pausa: ${somaTempoPausado} min</div>` : '';
                 const infoLiberouLinha = grupo.liberouAcesso ? `<div class="text-[10px] text-amber-900 font-semibold truncate max-w-[200px]">🔑 Liberou: ${grupo.liberouAcesso}</div>` : '';
                 const classeCorDesfecho = obterClasseCorDesfecho(desfechoExibicao);
-                const eqObj = equipesSistema.find(e => e.nome === grupo.equipe);
+                const eqObj = equipesSistema.find(e => normalizarChaveNome(e.nome) === normalizarChaveNome(grupo.equipe));
                 const setorStr = eqObj ? eqObj.setor : "Instalador";
                 const macroGrupo = obterMacroGrupoProjeto(grupo.projeto);
                 const badgeGrupoCor = macroGrupo === 'PROJETO F' ? 'bg-indigo-100 text-indigo-900 border border-indigo-300' : 'bg-cyan-50 text-cyan-900 border border-cyan-200';
@@ -2026,7 +2047,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
                     let cardsBlocosHtml = grupo.itens.map(blocoItem => {
                         const corDesfB = obterClasseCorDesfecho(blocoItem.desfecho);
                         const qtdFotosB = Number(blocoItem.qtdFotos) || (Array.isArray(blocoItem.fotos) ? blocoItem.fotos.length : 0);
-                        const acoesIndividuais = podeEditar ? `<div class="flex flex-wrap gap-1 pt-2 border-t border-slate-200 mt-1.5" onclick="event.stopPropagation()"><button onclick="abrirModalGerirApoioGestor(${blocoItem.id})" class="bg-purple-100 text-purple-950 border border-purple-300 font-bold text-[9px] px-2 py-0.5 rounded">🤝 Apoio</button>${['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(blocoItem.desfecho) ? `<button onclick="autorizarReaberturaCampo(${blocoItem.id})" class="bg-purple-100 text-purple-900 border border-purple-300 font-bold text-[9px] px-2 py-0.5 rounded">🔓 Reabrir</button>` : `<button onclick="abrirModalTransferirAtividade(${blocoItem.id})" class="bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold text-[9px] px-2 py-0.5 rounded">🔀 Mover</button>`}<button onclick="abrirModalEdicao(${blocoItem.id})" class="bg-blue-50 text-blue-700 border border-blue-200 font-bold text-[9px] px-2 py-0.5 rounded">✏️ Editar</button><button onclick="excluirRegistro(${blocoItem.id}, '${blocoItem.imovel}')" class="bg-red-50 text-red-600 border border-red-200 font-bold text-[9px] px-2 py-0.5 rounded">🗑️ Excluir</button></div>` : '';
+                        const acoesIndividuais = podeEditar ? `<div class="flex flex-wrap gap-1 pt-2 border-t border-slate-200 mt-1.5" onclick="event.stopPropagation()"><button onclick="abrirModalGerirApoioGestor(${blocoItem.id})" class="bg-purple-100 text-purple-950 border border-purple-300 font-bold text-[9px] px-2 py-0.5 rounded">🤝 Apoio</button>${['CONCLUIDA', 'CONCLUÍDA', 'PENDENTE', 'MALOGRADA'].includes(blocoItem.desfecho) ? `<button onclick="autorizarReaberturaCampo(${blocoItem.id})" class="bg-purple-100 text-purple-900 border border-purple-300 font-bold text-[9px] px-2 py-0.5 rounded">🔓 Reabrir</button>` : `<button onclick="abrirModalTransferirAtividade(${blocoItem.id})" class="bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold text-[9px] px-2 py-0.5 rounded">🔀 Mover</button>`}<button onclick="abrirModalEdicao(${blocoItem.id})" class="bg-blue-50 text-blue-700 border border-blue-200 font-bold text-[9px] px-2 py-0.5 rounded">✏️ Editar</button><button onclick="excluirRegistro(${blocoItem.id}, '${blocoItem.imovel}')" class="bg-red-50 text-red-600 border border-red-200 font-bold text-[9px] px-2 py-0.5 rounded">🗑️ Excluir</button></div>` : '';
                         return `<div class="card-bloco-interno bg-white p-3 rounded-xl border border-blue-200 shadow-sm space-y-1 cursor-pointer hover:border-blue-500 transition" onclick="abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${blocoItem.id}))"><div class="flex justify-between items-center gap-1"><span class="font-black text-blue-950 text-xs">🏢 ${blocoItem.imovel}</span><span class="px-2 py-0.5 rounded text-[9px] font-bold ${corDesfB}">${blocoItem.desfecho}</span></div><div class="text-[10px] text-slate-600 font-semibold">Andares: <b>${blocoItem.andares || 0}</b> | HPs: <b>${blocoItem.hps || 0}</b> ${qtdFotosB > 0 ? `| 📷 <b>${qtdFotosB} foto(s)</b>` : ''}</div><div class="text-[10px] text-slate-500">📦 RL: <b>${blocoItem.caboRL}m</b> | Drop: <b>${blocoItem.caboDrop}m</b> | Conect: <b>${blocoItem.conectores}</b> | Fusões: <b>${blocoItem.fusoes}</b> | NAP: <b>${blocoItem.nap}</b> | DIO: <b>${blocoItem.dio}</b></div>${blocoItem.motivoDesfecho ? `<div class="text-[10px] text-amber-900 bg-amber-50 px-2 py-1 rounded">💬 ${blocoItem.motivoDesfecho}</div>` : ''}${acoesIndividuais}</div>`;
                     }).join('');
 
@@ -2357,7 +2378,7 @@ async function abrirDetalhesAtividade(item) {
     for (let idx = 0; idx < blocosIrmaos.length; idx++) {
         const b = blocosIrmaos[idx];
         let fBloco = Array.isArray(b.fotos) ? [...b.fotos] : [];
-        if (fBloco.length === 0 && typeof obterFotosSobDemandaDoRegistro === 'function' && Number(b.qtdFotos) > 0) {
+        if (fBloco.length === 0 && typeof obterFotosSobDemandaDoRegistro === 'function') {
             fBloco = await obterFotosSobDemandaDoRegistro(b.id);
         }
         b._fotosCarregadas = fBloco;
@@ -2553,8 +2574,10 @@ async function abrirDetalhesAtividade(item) {
     modal.classList.remove('hidden');
 }
 
-function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
-function fecharModalExplosao() { document.getElementById('modal-explosao').classList.add('hidden'); }
+function fecharModalDetalhes() { document.getElementById('modal-detalhes')?.classList.add('hidden'); }
+function fecharModalExplosao() { document.getElementById('modal-explosao')?.classList.add('hidden'); }
+window.fecharModalDetalhes = fecharModalDetalhes;
+window.fecharModalExplosao = fecharModalExplosao;
 
 // ================= EQUIPES, CARTEIRAS DE FISCAIS, FÉRIAS E NAVEGAÇÃO =================
 function atualizarResumoContagemCarteirasFiscais() {
@@ -2888,7 +2911,6 @@ async function limparLogsAuditoria() {
 recarregarDadosGestor = async function(silencioso = false) {
     try {
         if (!modoConsultaBackupAtivo) {
-            if (typeof carregarTelemetriaDaNuvem === "function") await carregarTelemetriaDaNuvem();
             historicoCompletoGestorJaBaixado = false;
             await garantirCargaNuvemGestor(true);
         }
@@ -2972,17 +2994,18 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
-// ================= REESTRUTURAÇÃO COMPLETA DA ABA GRÁFICOS & INDICADORES (V4 - CABEÇALHO ISOLADO DO MODO CAMPO) =================
+// ================= ABA GRÁFICOS & INDICADORES (COM MELHORIAS 01, 02, 03 E CORREÇÃO DOS MODAIS) =================
 
 let filtrosMultiGraficos = {
-    segmentos: ['TODOS'],   // 'TODOS' ou array ex: ['CONSTRUÇÃO MDU', 'EXPANSÃO MDU']
-    categorias: ['TODAS'],  // 'TODAS' ou array ex: ['ATIVAÇÃO', 'CONSTRUÇÃO']
-    semanas: ['TODAS']      // 'TODAS' ou array ex: ['Semana 1', 'Semana 2']
+    segmentos: ['TODOS'],
+    categorias: ['TODAS'],
+    semanas: ['TODAS']
 };
 
 let modoSelecaoMultiplaSemCtrl = false;
 let secoesInibidasGraficos = {
     consolidados: false,
+    ociosidadeImprevistos: false,
     planilhaDinamica: false,
     geralTecnicos: false,
     evolucaoSegmentos: false,
@@ -2994,7 +3017,7 @@ let secoesInibidasGraficos = {
 
 let estadoModalExpandidoAtual = {
     ativo: false,
-    tipo: null, // 'tabela' | 'grafico'
+    tipo: null,
     idOrigem: null,
     titulo: ''
 };
@@ -3005,6 +3028,7 @@ let contadorChaveExplosao = 0;
 let chartEvolucaoSegmentosInst = null;
 let chartHorariosPicoNovoInst = null;
 let chartOfensoresRankingInst = null;
+let chartCausasImprevistosInst = null;
 
 function registrarListaParaExplosao(titulo, lista) {
     contadorChaveExplosao++;
@@ -3019,7 +3043,7 @@ function dispararExplosaoPorChave(chave) {
     abrirExplosaoPersonalizadaGraficos(pacote.titulo, pacote.lista);
 }
 
-// --- 1. CLASSIFICADOR OFICIAL (OCULTA OS NOMES DE PROJETOS DE BASE) ---
+// --- 1. CLASSIFICADOR OFICIAL ---
 function classificarRegistroNovaTaxonomia(reg) {
     const p = String(reg?.projeto || '').toUpperCase().trim();
     const macroOrig = typeof obterMacroGrupoProjeto === 'function' ? String(obterMacroGrupoProjeto(p)).toUpperCase() : '';
@@ -3049,7 +3073,6 @@ function obterNumeroSemanaFormatado(dataISO) {
     return 'Semana 5';
 }
 
-// --- CABEÇALHO 100% ISOLADO DO MODO CAMPO ---
 function otimizarCabecalhoAzulLinhaUnica() {
     try {
         const badgeDuplicado = document.getElementById('badge-usuario-logado-compacto');
@@ -3081,7 +3104,6 @@ function otimizarCabecalhoAzulLinhaUnica() {
     } catch (e) {}
 }
 
-// --- LÓGICA DE SELEÇÃO SIMPLES OU MÚLTIPLA (COM TECLA CTRL OU BOTÃO MULTI) ---
 function alternarFiltroDinamicoComCtrl(grupo, valor, event) {
     const usouCtrl = (event && (event.ctrlKey || event.metaKey || event.shiftKey)) || modoSelecaoMultiplaSemCtrl;
     const valorPadraoTodos = grupo === 'segmentos' ? 'TODOS' : 'TODAS';
@@ -3132,7 +3154,7 @@ function registroPassaNosFiltrosGlobaisGraficos(reg) {
     return okSeg && okCat && okSem;
 }
 
-function obterHtmlBarraSeletoresInterativos(sufixoId = 'principal') {
+function obterHtmlBarraSeletoresInterativos() {
     const segs = filtrosMultiGraficos.segmentos;
     const cats = filtrosMultiGraficos.categorias;
     const sems = filtrosMultiGraficos.semanas;
@@ -3163,7 +3185,7 @@ function obterHtmlBarraSeletoresInterativos(sufixoId = 'principal') {
         <div class="bg-slate-900 text-white p-3 rounded-xl border border-slate-700 space-y-2">
             <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-700 pb-1.5">
                 <span class="text-[10px] font-bold text-slate-300">
-                    💡 Segure <kbd class="bg-slate-700 px-1.5 py-0.5 rounded text-cyan-300 font-mono">CTRL</kbd> ao clicar para marcar múltiplos itens simultaneamente (Todas as tabelas e gráficos respondem ao filtro!)
+                    💡 Segure <kbd class="bg-slate-700 px-1.5 py-0.5 rounded text-cyan-300 font-mono">CTRL</kbd> ao clicar para marcar múltiplos itens simultaneamente
                 </span>
                 <button type="button" onclick="alternarModoMultiToque()" class="px-2.5 py-0.5 rounded text-[10px] font-black transition ${modoSelecaoMultiplaSemCtrl ? 'bg-emerald-400 text-slate-950' : 'bg-slate-800 text-slate-300 border border-slate-600'}">
                     ☑️ Modo Multi S/ Teclado: ${modoSelecaoMultiplaSemCtrl ? 'ATIVO' : 'OFF'}
@@ -3187,7 +3209,6 @@ function obterHtmlBarraSeletoresInterativos(sufixoId = 'principal') {
     `;
 }
 
-// --- OPÇÃO DE INIBIR / MOSTRAR QUALQUER GRÁFICO OU PLANILHA ---
 function alternarInibicaoSecaoGrafico(chaveSecao) {
     secoesInibidasGraficos[chaveSecao] = !secoesInibidasGraficos[chaveSecao];
     aplicarVisibilidadeSecoesInibidas();
@@ -3201,13 +3222,14 @@ function mostrarTodasSecoesGraficos() {
 function aplicarVisibilidadeSecoesInibidas() {
     const mapaNomes = {
         consolidados: '1. Consolidados Topo',
-        planilhaDinamica: '2. Planilha Dinâmica',
-        geralTecnicos: '3. Atendidas por Técnico',
-        evolucaoSegmentos: '4. Gráfico Evolução',
-        picosHorarios: '5. Gráfico Picos Horários',
-        planilhaHorarios: '6. Planilha Horários',
-        rankingOfensores: '7. Ranking Ofensores',
-        ofensoresSegmentos: '8. Malogros Construção x Expansão'
+        ociosidadeImprevistos: '2. Ociosidade & Imprevistos',
+        planilhaDinamica: '3. Planilha Dinâmica',
+        geralTecnicos: '4. Atendidas por Técnico',
+        evolucaoSegmentos: '5. Gráfico Evolução',
+        picosHorarios: '6. Gráfico Picos Horários',
+        planilhaHorarios: '7. Planilha Horários',
+        rankingOfensores: '8. Ranking Ofensores',
+        ofensoresSegmentos: '9. Malogros Construção x Expansão'
     };
 
     Object.entries(secoesInibidasGraficos).forEach(([chave, oculto]) => {
@@ -3234,18 +3256,18 @@ function aplicarVisibilidadeSecoesInibidas() {
 function construirLayoutExclusivoAbaGraficos() {
     otimizarCabecalhoAzulLinhaUnica();
     const containerGraficos = document.getElementById('subview-graficos');
-    if (!containerGraficos || containerGraficos.dataset.layoutReconstruidoV15 === 'true') return;
+    if (!containerGraficos || containerGraficos.dataset.layoutReconstruidoV16 === 'true') return;
 
-    containerGraficos.dataset.layoutReconstruidoV15 = 'true';
+    containerGraficos.dataset.layoutReconstruidoV16 = 'true';
     containerGraficos.className = 'space-y-4 pb-10';
 
     containerGraficos.innerHTML = `
-        <!-- BARRA DE TOPO + CONTROLE DE INIBIÇÃO DE PLANILHAS/GRÁFICOS -->
+        <!-- BARRA DE TOPO -->
         <div class="bg-slate-900 text-white p-3.5 rounded-2xl shadow-lg border-b-4 border-cyan-400 space-y-2.5">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <div>
                     <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Painel Analítico Interativo</span>
-                    <h2 class="text-sm sm:text-base font-black tracking-tight mt-0.5">📊 Indicadores de Produtividade, Segmentos & Ofensores</h2>
+                    <h2 class="text-sm sm:text-base font-black tracking-tight mt-0.5">📊 Indicadores de Produtividade, Ociosidade, Imprevistos & Ofensores</h2>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <button type="button" onclick="mostrarTodasSecoesGraficos()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 font-bold text-[11px] px-3 py-1.5 rounded-xl transition">
@@ -3260,11 +3282,10 @@ function construirLayoutExclusivoAbaGraficos() {
                 </div>
             </div>
 
-            <!-- SELETORES GLOBAIS (SEGMENTO, CATEGORIA, SEMANA COM SUPORTE A CTRL) -->
             <div id="container-seletores-globais-topo"></div>
         </div>
 
-        <!-- BARRA DE BOTÕES PARA INIBIR/EXIBIR QUALQUER GRÁFICO OU PLANILHA -->
+        <!-- BARRA DE BOTÕES PARA INIBIR/EXIBIR -->
         <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-2">
             <span class="text-[10px] font-black text-slate-700 uppercase">👁️ Exibição na Tela (Clique para Inibir / Mostrar):</span>
             <div id="barra-chips-inibicao-secoes" class="flex flex-wrap gap-1.5"></div>
@@ -3279,12 +3300,76 @@ function construirLayoutExclusivoAbaGraficos() {
             <div id="painel-consolidado-topo-segmentos" class="grid grid-cols-1 lg:grid-cols-3 gap-4"></div>
         </div>
 
+        <!-- BLOCO NOVO (MELHORIAS 01 E 02): INDICADORES DE OCIOSIDADE (PARALISAÇÃO) & TEMPO EM IMPREVISTOS -->
+        <div id="secao-bloco-ociosidadeImprevistos" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- MELHORIA 01: INDICADOR DE OCIOSIDADE / TEMPO DE PARALISAÇÃO -->
+            <div class="bg-white rounded-2xl shadow-md border-2 border-orange-200 overflow-hidden flex flex-col">
+                <div class="bg-orange-900 text-white p-3.5 flex justify-between items-center border-b-4 border-orange-400">
+                    <div>
+                        <span class="bg-orange-300 text-orange-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Melhoria 01 • Controle de Pausas</span>
+                        <h3 class="font-black text-xs sm:text-sm mt-0.5">⏸️ Indicador de Ociosidade & Tempo de Paralisação</h3>
+                    </div>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="expandirTabelaModal('tbody-ranking-ociosidade-tecnicos', 'Indicador de Ociosidade e Tempo de Paralisação')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">🔍 Expandir</button>
+                        <button type="button" onclick="alternarInibicaoSecaoGrafico('ociosidadeImprevistos')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2 py-1 rounded">🚫</button>
+                    </div>
+                </div>
+                <div id="kpis-resumo-ociosidade" class="grid grid-cols-3 gap-2 p-3 bg-orange-50/70 border-b border-orange-200 text-center"></div>
+                <div class="overflow-y-auto max-h-[320px] flex-1">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
+                            <tr>
+                                <th class="p-2.5 text-center">#</th>
+                                <th class="p-2.5">Técnico / Categoria</th>
+                                <th class="p-2.5 text-center">Ativ. c/ Pausa</th>
+                                <th class="p-2.5 text-center bg-orange-900 text-orange-100">Tempo Total Paralisado</th>
+                                <th class="p-2.5 text-right">Média / Pausa</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-ranking-ociosidade-tecnicos" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- MELHORIA 02: INDICADOR DE TEMPO EM IMPREVISTOS E MAIORES CAUSAS -->
+            <div class="bg-white rounded-2xl shadow-md border-2 border-amber-300 overflow-hidden flex flex-col">
+                <div class="bg-amber-950 text-white p-3.5 flex justify-between items-center border-b-4 border-amber-400">
+                    <div>
+                        <span class="bg-amber-300 text-amber-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Melhoria 02 • Impacto Operacional</span>
+                        <h3 class="font-black text-xs sm:text-sm mt-0.5">⚠️ Tempo em Imprevistos & Maiores Causas</h3>
+                    </div>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="expandirGraficoModal('canvasCausasImprevistos', 'Gráfico: Maiores Causas de Imprevistos (Tempo & Ocorrências)')" class="bg-amber-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">📊 Gráfico</button>
+                        <button type="button" onclick="expandirTabelaModal('tbody-causas-imprevistos-graficos', 'Indicador de Tempo em Imprevistos e Maiores Causas')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">🔍 Planilha</button>
+                    </div>
+                </div>
+                <div id="kpis-resumo-imprevistos-tempo" class="grid grid-cols-3 gap-2 p-3 bg-amber-50/70 border-b border-amber-200 text-center"></div>
+                <div class="p-2.5 h-44 border-b border-slate-200">
+                    <canvas id="canvasCausasImprevistos"></canvas>
+                </div>
+                <div class="overflow-y-auto max-h-[210px] flex-1">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
+                            <tr>
+                                <th class="p-2 text-center">#</th>
+                                <th class="p-2">Causa / Motivo do Imprevisto</th>
+                                <th class="p-2 text-center">Ocorrências</th>
+                                <th class="p-2 text-center bg-amber-900 text-amber-100">Tempo Perdido</th>
+                                <th class="p-2 text-right">% do Tempo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-causas-imprevistos-graficos" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- BLOCO 2: PLANILHA DINÂMICA DE PRODUTIVIDADE -->
         <div id="secao-bloco-planilhaDinamica" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
             <div class="bg-slate-900 text-white p-3.5 flex flex-wrap justify-between items-center gap-2">
                 <div>
-                    <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 01 • Apenas Atividades Concluídas</span>
-                    <h3 class="font-black text-sm sm:text-base mt-0.5">📋 Planilha Dinâmica de Executados, Dias Trabalhados, Produtividade e HPs</h3>
+                    <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Apenas Atividades Concluídas</span>
+                    <h3 class="font-black text-sm sm:text-base mt-0.5">📋 Planilha Dinâmica de Executados, Dias Trabalhados, Produtividade, HPs e Ociosidade</h3>
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="expandirTabelaModal('tbody-planilha-dinamica-oficial', 'Planilha Dinâmica de Produtividade')" class="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow">
@@ -3301,12 +3386,13 @@ function construirLayoutExclusivoAbaGraficos() {
                     <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
                         <tr>
                             <th class="p-3 text-center">#</th>
-                            <th class="p-3">Técnico / Equipe</th>
+                            <th class="p-3">Técnico / Categoria</th>
                             <th class="p-3 text-center bg-emerald-900 text-emerald-100">Nº Atividades Executadas</th>
                             <th class="p-3 text-center">Dias Trabalhados</th>
                             <th class="p-3 text-center bg-blue-900 text-cyan-200 font-black">Produtividade (Exec / Dia)</th>
                             <th class="p-3 text-center bg-indigo-900 text-indigo-100">Quantidade de HP</th>
                             <th class="p-3 text-center bg-purple-900 text-purple-100 font-black">HP / DIA</th>
+                            <th class="p-3 text-center bg-orange-900 text-orange-100">⏸️ Paralisação</th>
                         </tr>
                     </thead>
                     <tbody id="tbody-planilha-dinamica-oficial" class="divide-y divide-slate-200"></tbody>
@@ -3318,8 +3404,8 @@ function construirLayoutExclusivoAbaGraficos() {
         <div id="secao-bloco-geralTecnicos" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
             <div class="bg-blue-950 text-white p-3.5 flex flex-wrap justify-between items-center gap-2">
                 <div>
-                    <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 03 • Resultado Geral por Técnico</span>
-                    <h3 class="font-black text-sm sm:text-base mt-0.5">👷 Quantidade de Atividades Atendidas (Concluídas, Malogros e Apoios)</h3>
+                    <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Resultado Geral por Técnico</span>
+                    <h3 class="font-black text-sm sm:text-base mt-0.5">👷 Quantidade de Atividades Atendidas (Concluídas, Malogros, Apoios e Pausas)</h3>
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="expandirTabelaModal('tbody-geral-atendidas-tecnico', 'Atividades Atendidas por Técnico')" class="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow">
@@ -3335,13 +3421,14 @@ function construirLayoutExclusivoAbaGraficos() {
                     <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
                         <tr>
                             <th class="p-2.5 text-center">#</th>
-                            <th class="p-2.5">Técnico / Equipe</th>
+                            <th class="p-2.5">Técnico / Categoria</th>
                             <th class="p-2.5 text-center bg-blue-900/80">Construção MDU<br><span class="text-[9px] font-normal text-blue-200">(Ativ / Const / Vist)</span></th>
                             <th class="p-2.5 text-center bg-indigo-900/80">Expansão MDU<br><span class="text-[9px] font-normal text-indigo-200">(Ativ / Const)</span></th>
                             <th class="p-2.5 text-center bg-purple-900/80">Mailing<br><span class="text-[9px] font-normal text-purple-200">(Ativ / Const)</span></th>
                             <th class="p-2.5 text-center bg-emerald-800 text-white font-black">🟢 Concluídas</th>
                             <th class="p-2.5 text-center bg-red-800 text-white font-black">🔴 Malogros</th>
                             <th class="p-2.5 text-center bg-fuchsia-800 text-white font-black">🤝 Apoios</th>
+                            <th class="p-2.5 text-center bg-orange-800 text-orange-100 font-bold">⏸️ Pausa</th>
                             <th class="p-2.5 text-center bg-slate-950 text-cyan-300 font-black">Total Atendidas</th>
                         </tr>
                     </thead>
@@ -3354,7 +3441,7 @@ function construirLayoutExclusivoAbaGraficos() {
         <div id="secao-bloco-evolucaoSegmentos" class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3">
             <div class="flex flex-wrap justify-between items-center gap-2 border-b pb-2.5">
                 <div>
-                    <span class="bg-emerald-100 text-emerald-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 07 • Evolução dos Segmentos</span>
+                    <span class="bg-emerald-100 text-emerald-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Evolução dos Segmentos</span>
                     <h3 class="font-black text-slate-800 text-sm sm:text-base mt-0.5">📈 Evolução das Atividades Executadas por Segmento</h3>
                 </div>
                 <div class="flex items-center gap-2">
@@ -3377,7 +3464,7 @@ function construirLayoutExclusivoAbaGraficos() {
                 <div>
                     <div class="flex justify-between items-center border-b pb-2">
                         <div>
-                            <span class="bg-blue-100 text-blue-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Picos e Extremos</span>
+                            <span class="bg-blue-100 text-blue-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Picos e Extremos</span>
                             <h3 class="font-black text-slate-800 text-sm mt-0.5">🕒 Gráfico de Picos de Horários</h3>
                         </div>
                         <div class="flex gap-1">
@@ -3395,7 +3482,7 @@ function construirLayoutExclusivoAbaGraficos() {
             <div id="secao-bloco-planilhaHorarios" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
                 <div class="bg-slate-900 text-white p-3.5 flex justify-between items-center">
                     <div>
-                        <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Volume Real por Faixa</span>
+                        <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Volume Real por Faixa</span>
                         <h3 class="font-bold text-xs sm:text-sm mt-0.5">⏰ Horários com Mais Atividades Abertas e Fechadas</h3>
                     </div>
                     <div class="flex gap-1">
@@ -3424,7 +3511,7 @@ function construirLayoutExclusivoAbaGraficos() {
             <div id="secao-bloco-rankingOfensores" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
                 <div class="bg-red-950 text-white p-3.5 flex justify-between items-center">
                     <div>
-                        <span class="bg-red-300 text-red-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 04 • Ranking Geral</span>
+                        <span class="bg-red-300 text-red-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Ranking Geral</span>
                         <h3 class="font-bold text-xs sm:text-sm mt-0.5">🚨 Maiores Ofensores de Malogros (Números Reais e %)</h3>
                     </div>
                     <div class="flex gap-1">
@@ -3454,7 +3541,7 @@ function construirLayoutExclusivoAbaGraficos() {
             <div id="secao-bloco-ofensoresSegmentos" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
                 <div class="bg-amber-950 text-white p-3.5 flex justify-between items-center">
                     <div>
-                        <span class="bg-amber-300 text-amber-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 05 • Comparativo entre Segmentos</span>
+                        <span class="bg-amber-300 text-amber-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Comparativo entre Segmentos</span>
                         <h3 class="font-bold text-xs sm:text-sm mt-0.5">📊 Volume e % de Malogros: CONSTRUÇÃO MDU x EXPANSÃO MDU</h3>
                     </div>
                     <div class="flex gap-1">
@@ -3487,7 +3574,7 @@ function construirLayoutExclusivoAbaGraficos() {
     aplicarVisibilidadeSecoesInibidas();
 }
 
-// --- MODO EXPLOSÃO HABILITADO EM TODAS AS SEÇÕES E NO MODAL EXPANDIDO ---
+// --- MODO EXPLOSÃO ---
 function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset) {
     const modal = document.getElementById('modal-explosao');
     const corpo = document.getElementById('tabela-explosao-corpo');
@@ -3506,15 +3593,16 @@ function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset
             const sem = obterNumeroSemanaFormatado(item.dataRegistro);
             const apoios = extrairApoiosDoRegistro(item);
             const badgeAp = apoios.length > 0 ? `<div class="text-[9px] font-black text-purple-800">🤝 Apoio: ${apoios.join(', ')}</div>` : '';
+            const badgePausa = Number(item.tempoPausadoMinutos) > 0 ? `<div class="text-[9px] font-bold text-orange-700">⏸️ Paralisado: ${item.tempoPausadoMinutos}m</div>` : '';
             const detalheInfo = (item.malogros && item.malogros.length > 0) ? item.malogros.join(' + ') : (item.motivoDesfecho || 'Concluído');
 
             corpo.innerHTML += `
                 <tr class="hover:bg-blue-50/50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); fecharModalGraficoExpandido(); fecharModalTabelaExpandida(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))">
                     <td class="p-2.5 font-mono font-bold">${item.dataRegistro}<div class="text-[9px] text-indigo-700">${sem}</div></td>
                     <td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'}</div></td>
-                    <td class="p-2.5 font-semibold text-blue-900">${item.equipe}${badgeAp}</td>
+                    <td class="p-2.5 font-semibold text-blue-900">${item.equipe} ${obterCategoriaDiscretaTecnicoHtml(item.equipe)}${badgeAp}</td>
                     <td class="p-2.5"><span class="bg-slate-800 text-cyan-300 font-black px-2 py-0.5 rounded text-[10px]">${tax.segmento}</span><div class="text-[10px] font-bold text-slate-600 mt-0.5">Categoria: ${tax.categoria}</div></td>
-                    <td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] ${obterClasseCorDesfecho(item.desfecho)}">${item.desfecho}</span><div class="text-[9px] mt-0.5">HPs: <b>${item.hps || 0}</b></div></td>
+                    <td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] ${obterClasseCorDesfecho(item.desfecho)}">${item.desfecho}</span><div class="text-[9px] mt-0.5">HPs: <b>${item.hps || 0}</b></div>${badgePausa}</td>
                     <td class="p-2.5 text-slate-600">${detalheInfo}</td>
                 </tr>
             `;
@@ -3523,7 +3611,21 @@ function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset
     modal.classList.remove('hidden');
 }
 
-// --- EXPANDIR TABELAS E GRÁFICOS LEVANDO OS SELETORES PARA A REUNIÃO ---
+// --- EXPANDIR TABELAS E GRÁFICOS COM BOTÃO FECHAR GARANTIDO ---
+function vincularBotoesFecharModaisExpansao() {
+    document.querySelectorAll('#modal-expandir-grafico button, #modal-expandir-tabela button').forEach(btn => {
+        const txt = (btn.innerText || '').toUpperCase();
+        const onclk = (btn.getAttribute('onclick') || '');
+        if (txt.includes('FECHAR') || txt.includes('✕') || onclk.includes('fecharModal')) {
+            if (btn.closest('#modal-expandir-grafico')) {
+                btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); fecharModalGraficoExpandido(); };
+            } else if (btn.closest('#modal-expandir-tabela')) {
+                btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); fecharModalTabelaExpandida(); };
+            }
+        }
+    });
+}
+
 function expandirTabelaModal(idTbodyOrigem, tituloJanela) {
     const modal = document.getElementById('modal-expandir-tabela');
     const titulo = document.getElementById('modal-tabela-expandida-titulo');
@@ -3541,7 +3643,7 @@ function expandirTabelaModal(idTbodyOrigem, tituloJanela) {
         boxSeletoresModal.className = 'px-4 pt-3 pb-1 bg-slate-100 border-b border-slate-300';
         container.parentNode.insertBefore(boxSeletoresModal, container);
     }
-    boxSeletoresModal.innerHTML = obterHtmlBarraSeletoresInterativos('modal_tabela');
+    boxSeletoresModal.innerHTML = obterHtmlBarraSeletoresInterativos();
 
     const tabelaOriginal = tbodyOrigem.closest('table');
     if (!tabelaOriginal) return;
@@ -3563,6 +3665,7 @@ function expandirTabelaModal(idTbodyOrigem, tituloJanela) {
 
     container.appendChild(tabelaClone);
     modal.classList.remove('hidden');
+    vincularBotoesFecharModaisExpansao();
 }
 
 function expandirGraficoModal(idCanvasOrigem, tituloJanela) {
@@ -3585,14 +3688,15 @@ function expandirGraficoModal(idCanvasOrigem, tituloJanela) {
             wrapperCanvas.parentNode.insertBefore(boxSeletoresGraf, wrapperCanvas);
         }
     }
-    boxSeletoresGraf.innerHTML = obterHtmlBarraSeletoresInterativos('modal_grafico');
+    boxSeletoresGraf.innerHTML = obterHtmlBarraSeletoresInterativos();
 
     modal.classList.remove('hidden');
+    vincularBotoesFecharModaisExpansao();
 
     const chartOriginal = Chart.getChart(canvasOrigem);
     if (!chartOriginal) return;
     if (typeof graficoExpandidoInstancia !== 'undefined' && graficoExpandidoInstancia) {
-        graficoExpandidoInstancia.destroy();
+        try { graficoExpandidoInstancia.destroy(); } catch (e) {}
     }
 
     graficoExpandidoInstancia = new Chart(canvasAlvo, {
@@ -3621,6 +3725,24 @@ function atualizarConteudoModalExpandidoAoVivo() {
     }
 }
 
+// --- CÁLCULO DE DURAÇÃO DE IMPREVISTO EM MINUTOS ---
+function calcularDuracaoImprevistoMinutos(imp) {
+    const minIn = converterHorarioParaMinutos(imp.hEntrada);
+    let minOut = converterHorarioParaMinutos(imp.hSaida);
+    if (minIn === null) return 0;
+    if (minOut === null) {
+        const hojeISO = obterDataLocalISO();
+        if (imp.dataRegistro === hojeISO && imp.desfecho === 'IMPREVISTO') {
+            const agora = new Date();
+            minOut = (agora.getHours() * 60) + agora.getMinutes();
+        } else {
+            return 0;
+        }
+    }
+    const diff = minOut - minIn;
+    return (diff > 0 && diff <= 720) ? diff : 0;
+}
+
 // --- RENDERIZADOR PRINCIPAL DA ABA GRÁFICOS ---
 function renderizarAbaGraficosCompletaOficial() {
     otimizarCabecalhoAzulLinhaUnica();
@@ -3630,25 +3752,44 @@ function renderizarAbaGraficosCompletaOficial() {
 
     const containerSeletoresTopo = document.getElementById('container-seletores-globais-topo');
     if (containerSeletoresTopo) {
-        containerSeletoresTopo.innerHTML = obterHtmlBarraSeletoresInterativos('topo');
+        containerSeletoresTopo.innerHTML = obterHtmlBarraSeletoresInterativos();
     }
 
-    const basePeriodoBruta = (dadosFiltradosAtuais || []).filter(r =>
+    const ehDesfechoConcluido = (d) => ['CONCLUIDA', 'CONCLUÍDA'].includes(String(d || '').toUpperCase().trim());
+
+    // Base completa sem perdas de registos
+    const fonteBase = (Array.isArray(dadosFiltradosAtuais) && dadosFiltradosAtuais.length > 0) ? dadosFiltradosAtuais : [];
+    const basePeriodoBruta = fonteBase.filter(r =>
         r &&
         r.equipe !== '__CONFIG_SISTEMA__' &&
         r.projeto !== '__CONFIG_AUDITORIA__' &&
         r.projeto !== 'IMPREVISTO / ATRASO' &&
         r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
         r.projeto !== PROJETO_SOLIC_MATERIAL &&
-        !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(r.desfecho)
+        !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(String(r.desfecho || '').toUpperCase().trim())
     ).map(r => ({
         ...r,
+        desfecho: ehDesfechoConcluido(r.desfecho) ? 'CONCLUIDA' : String(r.desfecho || '').toUpperCase().trim(),
         _tax: classificarRegistroNovaTaxonomia(r),
         _semana: obterNumeroSemanaFormatado(r.dataRegistro)
     }));
 
     const baseFiltradaSelecao = basePeriodoBruta.filter(registroPassaNosFiltrosGlobaisGraficos);
     const concluidasFiltradasSelecao = baseFiltradaSelecao.filter(r => r.desfecho === 'CONCLUIDA');
+
+    // Todas as atividades do filtro (incluindo as atualmente PARALISADAS/EM ANDAMENTO que já acumularam tempo de pausa)
+    const todasAtividadesParaPausa = fonteBase.filter(r =>
+        r &&
+        r.equipe !== '__CONFIG_SISTEMA__' &&
+        r.projeto !== '__CONFIG_AUDITORIA__' &&
+        r.projeto !== 'IMPREVISTO / ATRASO' &&
+        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+        r.projeto !== PROJETO_SOLIC_MATERIAL
+    ).map(r => ({
+        ...r,
+        _tax: classificarRegistroNovaTaxonomia(r),
+        _semana: obterNumeroSemanaFormatado(r.dataRegistro)
+    })).filter(registroPassaNosFiltrosGlobaisGraficos);
 
     // 1. CONSOLIDADOS SUPERIORES
     const painelTopo = document.getElementById('painel-consolidado-topo-segmentos');
@@ -3714,7 +3855,191 @@ function renderizarAbaGraficosCompletaOficial() {
         }).join('');
     }
 
-    // 2. PLANILHA DINÂMICA DE PRODUTIVIDADE (APENAS CONCLUÍDAS)
+    // ================= MELHORIA 01: RENDERIZAÇÃO DO INDICADOR DE OCIOSIDADE (TEMPO DE PARALISAÇÃO) =================
+    const mapaPausaPorTec = {};
+    let totalMinutosParalisadosGeral = 0;
+    let totalAtividadesComPausaGeral = 0;
+    const listaRegistrosComPausa = [];
+
+    todasAtividadesParaPausa.forEach(r => {
+        const minPausa = Number(r.tempoPausadoMinutos) || 0;
+        if (minPausa > 0 || r.desfecho === 'PARALISADA') {
+            const nome = r.equipe || 'NÃO IDENTIFICADO';
+            if (!mapaPausaPorTec[nome]) {
+                mapaPausaPorTec[nome] = { nome, qtdPausas: 0, minutosTotal: 0, registros: [] };
+            }
+            mapaPausaPorTec[nome].qtdPausas++;
+            mapaPausaPorTec[nome].minutosTotal += minPausa;
+            mapaPausaPorTec[nome].registros.push(r);
+
+            totalMinutosParalisadosGeral += minPausa;
+            totalAtividadesComPausaGeral++;
+            listaRegistrosComPausa.push(r);
+        }
+    });
+
+    const boxKpiOciosidade = document.getElementById('kpis-resumo-ociosidade');
+    if (boxKpiOciosidade) {
+        const mediaPorPausa = totalAtividadesComPausaGeral > 0 ? Math.round(totalMinutosParalisadosGeral / totalAtividadesComPausaGeral) : 0;
+        const chExpOciosidade = registrarListaParaExplosao('Atividades com Tempo de Paralisação / Ociosidade', listaRegistrosComPausa);
+
+        boxKpiOciosidade.innerHTML = `
+            <div onclick="dispararExplosaoPorChave('${chExpOciosidade}')" class="bg-white p-2 rounded-xl border border-orange-200 cursor-pointer hover:border-orange-500">
+                <span class="text-[9px] font-black text-orange-900 uppercase block">⏸️ Tempo Total Parado</span>
+                <span class="text-base font-black text-orange-700">${formatarDuracaoTexto(totalMinutosParalisadosGeral)}</span>
+            </div>
+            <div onclick="dispararExplosaoPorChave('${chExpOciosidade}')" class="bg-white p-2 rounded-xl border border-orange-200 cursor-pointer hover:border-orange-500">
+                <span class="text-[9px] font-black text-slate-600 uppercase block">📋 Ativ. Paralisadas</span>
+                <span class="text-base font-black text-slate-800">${totalAtividadesComPausaGeral} ativ.</span>
+            </div>
+            <div class="bg-white p-2 rounded-xl border border-orange-200">
+                <span class="text-[9px] font-black text-amber-800 uppercase block">⏱️ Média por Pausa</span>
+                <span class="text-base font-black text-amber-700">${formatarDuracaoTexto(mediaPorPausa)}</span>
+            </div>
+        `;
+    }
+
+    const tbodyOciosidade = document.getElementById('tbody-ranking-ociosidade-tecnicos');
+    if (tbodyOciosidade) {
+        tbodyOciosidade.innerHTML = "";
+        const listaOciosidadeOrd = Object.values(mapaPausaPorTec).sort((a, b) => b.minutosTotal - a.minutosTotal || b.qtdPausas - a.qtdPausas);
+
+        if (listaOciosidadeOrd.length === 0) {
+            tbodyOciosidade.innerHTML = `<tr><td colspan="5" class="p-5 text-center text-slate-400">Nenhuma atividade com tempo de paralisação registrada no período.</td></tr>`;
+        } else {
+            listaOciosidadeOrd.forEach((item, idx) => {
+                const mediaTec = item.qtdPausas > 0 ? Math.round(item.minutosTotal / item.qtdPausas) : 0;
+                const chExpTecPausa = registrarListaParaExplosao(`Paralisações de ${item.nome}`, item.registros);
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-orange-50/60 cursor-pointer transition";
+                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chExpTecPausa}')`);
+                tr.innerHTML = `
+                    <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
+                    <td class="p-2.5 font-black text-slate-800 underline decoration-dotted">${item.nome} ${obterCategoriaDiscretaTecnicoHtml(item.nome)}</td>
+                    <td class="p-2.5 text-center font-bold text-slate-700">${item.qtdPausas}</td>
+                    <td class="p-2.5 text-center font-black text-orange-800 bg-orange-50/70">${formatarDuracaoTexto(item.minutosTotal)}</td>
+                    <td class="p-2.5 text-right font-mono font-bold text-slate-600">${formatarDuracaoTexto(mediaTec)}</td>
+                `;
+                tbodyOciosidade.appendChild(tr);
+            });
+        }
+    }
+
+    // ================= MELHORIA 02: RENDERIZAÇÃO DO TEMPO EM IMPREVISTOS & MAIORES CAUSAS =================
+    const semsFiltro = filtrosMultiGraficos.semanas;
+    const imprevistosFiltrados = (listaImprevistosAtuais || []).filter(imp => {
+        const semImp = obterNumeroSemanaFormatado(imp.dataRegistro);
+        return semsFiltro.includes('TODAS') || semsFiltro.includes(semImp);
+    });
+
+    const mapaCausasImp = {};
+    let totalMinutosImprevistos = 0;
+    let totalOcorrenciasImp = imprevistosFiltrados.length;
+
+    imprevistosFiltrados.forEach(imp => {
+        const durMin = calcularDuracaoImprevistoMinutos(imp);
+        totalMinutosImprevistos += durMin;
+
+        const causas = (Array.isArray(imp.malogros) && imp.malogros.length > 0)
+            ? imp.malogros
+            : [imp.motivoDesfecho || 'IMPREVISTO NÃO ESPECIFICADO'];
+
+        causas.forEach(c => {
+            const ch = String(c || 'OUTROS').trim().toUpperCase();
+            if (!mapaCausasImp[ch]) {
+                mapaCausasImp[ch] = { causa: ch, qtd: 0, minutos: 0, registros: [] };
+            }
+            mapaCausasImp[ch].qtd++;
+            mapaCausasImp[ch].minutos += durMin;
+            mapaCausasImp[ch].registros.push(imp);
+        });
+    });
+
+    const listaCausasImpOrd = Object.values(mapaCausasImp).sort((a, b) => b.minutos - a.minutos || b.qtd - a.qtd);
+
+    const boxKpiImp = document.getElementById('kpis-resumo-imprevistos-tempo');
+    if (boxKpiImp) {
+        const maiorCausaNome = listaCausasImpOrd.length > 0 ? listaCausasImpOrd[0].causa : 'Nenhuma';
+        const chExpTodosImp = registrarListaParaExplosao('Todos os Imprevistos do Período', imprevistosFiltrados);
+
+        boxKpiImp.innerHTML = `
+            <div onclick="dispararExplosaoPorChave('${chExpTodosImp}')" class="bg-white p-2 rounded-xl border border-amber-200 cursor-pointer hover:border-amber-500">
+                <span class="text-[9px] font-black text-amber-900 uppercase block">⏳ Tempo em Imprevistos</span>
+                <span class="text-base font-black text-red-700">${formatarDuracaoTexto(totalMinutosImprevistos)}</span>
+            </div>
+            <div onclick="dispararExplosaoPorChave('${chExpTodosImp}')" class="bg-white p-2 rounded-xl border border-amber-200 cursor-pointer hover:border-amber-500">
+                <span class="text-[9px] font-black text-slate-600 uppercase block">⚠️ Total Ocorrências</span>
+                <span class="text-base font-black text-slate-800">${totalOcorrenciasImp} reg.</span>
+            </div>
+            <div class="bg-white p-2 rounded-xl border border-amber-200">
+                <span class="text-[9px] font-black text-amber-900 uppercase block">🚨 Maior Causa</span>
+                <span class="text-[11px] font-black text-amber-950 truncate block mt-0.5" title="${maiorCausaNome}">${maiorCausaNome}</span>
+            </div>
+        `;
+    }
+
+    const ctxImp = document.getElementById('canvasCausasImprevistos')?.getContext('2d');
+    if (ctxImp) {
+        if (chartCausasImprevistosInst) chartCausasImprevistosInst.destroy();
+        const topCausas = listaCausasImpOrd.slice(0, 6);
+        chartCausasImprevistosInst = new Chart(ctxImp, {
+            type: 'bar',
+            data: {
+                labels: topCausas.length > 0 ? topCausas.map(c => c.causa) : ['Sem imprevistos'],
+                datasets: [
+                    {
+                        label: 'Tempo Perdido (Minutos)',
+                        data: topCausas.map(c => c.minutos),
+                        backgroundColor: '#d97706',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Nº Ocorrências',
+                        data: topCausas.map(c => c.qtd),
+                        backgroundColor: '#dc2626',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                onClick: (e, el) => {
+                    if (el.length > 0 && topCausas[el[0].index]) {
+                        const alvo = topCausas[el[0].index];
+                        abrirExplosaoPersonalizadaGraficos(`Imprevisto: ${alvo.causa}`, alvo.registros);
+                    }
+                }
+            }
+        });
+    }
+
+    const tbodyImpCausas = document.getElementById('tbody-causas-imprevistos-graficos');
+    if (tbodyImpCausas) {
+        tbodyImpCausas.innerHTML = "";
+        if (listaCausasImpOrd.length === 0) {
+            tbodyImpCausas.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Nenhum imprevisto reportado no período.</td></tr>`;
+        } else {
+            listaCausasImpOrd.forEach((c, idx) => {
+                const percTempo = totalMinutosImprevistos > 0 ? ((c.minutos / totalMinutosImprevistos) * 100).toFixed(1) : (totalOcorrenciasImp > 0 ? ((c.qtd / totalOcorrenciasImp) * 100).toFixed(1) : '0.0');
+                const chExpCausa = registrarListaParaExplosao(`Causa de Imprevisto: ${c.causa}`, c.registros);
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-amber-50/60 cursor-pointer transition";
+                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chExpCausa}')`);
+                tr.innerHTML = `
+                    <td class="p-2 text-center font-bold text-slate-400">${idx + 1}º</td>
+                    <td class="p-2 font-black text-amber-950 underline decoration-dotted">${c.causa}</td>
+                    <td class="p-2 text-center font-bold text-slate-800">${c.qtd}</td>
+                    <td class="p-2 text-center font-black text-red-700 bg-amber-50/70">${formatarDuracaoTexto(c.minutos)}</td>
+                    <td class="p-2 text-right font-black text-amber-800">${percTempo}%</td>
+                `;
+                tbodyImpCausas.appendChild(tr);
+            });
+        }
+    }
+
+    // ================= 2. PLANILHA DINÂMICA DE PRODUTIVIDADE (COM CATEGORIA DISCRETA E PARALISAÇÃO) =================
     const barraPercCat = document.getElementById('barra-porcentagem-categorias-din');
     if (barraPercCat) {
         const totDin = concluidasFiltradasSelecao.length;
@@ -3740,16 +4065,23 @@ function renderizarAbaGraficosCompletaOficial() {
     const equipesVisiveis = typeof obterEquipesVisiveisUsuarioAtual === 'function' ? obterEquipesVisiveisUsuarioAtual(true) : (equipesSistema || []).filter(e => e.status === 'Ativo');
     const mapaDin = {};
     equipesVisiveis.forEach(eq => {
-        mapaDin[eq.nome] = { nome: eq.nome, executados: 0, hps: 0, diasSet: new Set(), registros: [] };
+        mapaDin[eq.nome] = { nome: eq.nome, executados: 0, hps: 0, pausaMin: 0, diasSet: new Set(), registros: [] };
     });
 
     concluidasFiltradasSelecao.forEach(r => {
         const nome = r.equipe || 'NÃO IDENTIFICADO';
-        if (!mapaDin[nome]) mapaDin[nome] = { nome, executados: 0, hps: 0, diasSet: new Set(), registros: [] };
+        if (!mapaDin[nome]) mapaDin[nome] = { nome, executados: 0, hps: 0, pausaMin: 0, diasSet: new Set(), registros: [] };
         mapaDin[nome].executados++;
         mapaDin[nome].hps += Number(r.hps) || 0;
         if (r.dataRegistro) mapaDin[nome].diasSet.add(r.dataRegistro);
         mapaDin[nome].registros.push(r);
+    });
+
+    todasAtividadesParaPausa.forEach(r => {
+        const nome = r.equipe || 'NÃO IDENTIFICADO';
+        if (mapaDin[nome]) {
+            mapaDin[nome].pausaMin += Number(r.tempoPausadoMinutos) || 0;
+        }
     });
 
     const listaDinamica = Object.values(mapaDin).map(item => {
@@ -3765,12 +4097,13 @@ function renderizarAbaGraficosCompletaOficial() {
     const tbodyDin = document.getElementById('tbody-planilha-dinamica-oficial');
     if (tbodyDin) {
         tbodyDin.innerHTML = "";
-        let somaExec = 0, somaHps = 0;
+        let somaExec = 0, somaHps = 0, somaPausa = 0;
         const diasGlobaisSet = new Set();
 
         listaDinamica.forEach((t, idx) => {
             somaExec += t.executados;
             somaHps += t.hps;
+            somaPausa += t.pausaMin;
             t.diasSet.forEach(d => diasGlobaisSet.add(d));
             const chaveExp = registrarListaParaExplosao(`Executadas por ${t.nome}`, t.registros);
 
@@ -3779,12 +4112,13 @@ function renderizarAbaGraficosCompletaOficial() {
             tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExp}')`);
             tr.innerHTML = `
                 <td class="p-3 text-center font-bold text-slate-400">${idx + 1}º</td>
-                <td class="p-3 font-black text-blue-950 underline decoration-dotted">${t.nome}</td>
+                <td class="p-3 font-black text-blue-950"><span class="underline decoration-dotted">${t.nome}</span> ${obterCategoriaDiscretaTecnicoHtml(t.nome)}</td>
                 <td class="p-3 text-center font-black text-emerald-700 bg-emerald-50/70 text-sm">${t.executados}</td>
                 <td class="p-3 text-center font-mono font-bold text-slate-700">${t.dias}</td>
                 <td class="p-3 text-center font-black text-blue-950 bg-blue-50/80 text-sm">${t.produtividade.toFixed(2)}</td>
                 <td class="p-3 text-center font-black text-indigo-900 bg-indigo-50/60">${t.hps}</td>
                 <td class="p-3 text-center font-black text-purple-900 bg-purple-50/60">${t.hpDia.toFixed(1)}</td>
+                <td class="p-3 text-center font-bold ${t.pausaMin > 0 ? 'text-orange-700 bg-orange-50/60' : 'text-slate-400'}">${t.pausaMin > 0 ? formatarDuracaoTexto(t.pausaMin) : '-'}</td>
             `;
             tbodyDin.appendChild(tr);
         });
@@ -3802,11 +4136,12 @@ function renderizarAbaGraficosCompletaOficial() {
                 <td class="p-3 text-center text-cyan-300 text-sm">${prodGlobal}</td>
                 <td class="p-3 text-center text-indigo-200">${somaHps}</td>
                 <td class="p-3 text-center text-purple-200">${hpDiaGlobal}</td>
+                <td class="p-3 text-center text-orange-300">${formatarDuracaoTexto(somaPausa)}</td>
             </tr>
         `;
     }
 
-    // 3. PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO
+    // ================= 3. PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO (COM CATEGORIA DISCRETA) =================
     const mapaGeralTec = {};
     equipesVisiveis.forEach(eq => {
         mapaGeralTec[eq.nome] = {
@@ -3814,7 +4149,7 @@ function renderizarAbaGraficosCompletaOficial() {
             cMduAtiv: 0, cMduConst: 0, cMduVist: 0,
             eMduAtiv: 0, eMduConst: 0,
             mailAtiv: 0, mailConst: 0,
-            concluidas: 0, malogros: 0, apoios: 0, totalAtendidas: 0,
+            concluidas: 0, malogros: 0, apoios: 0, pausaMin: 0, totalAtendidas: 0,
             registros: []
         };
     });
@@ -3826,11 +4161,12 @@ function renderizarAbaGraficosCompletaOficial() {
         if (!mapaGeralTec[nome]) {
             mapaGeralTec[nome] = {
                 nome, cMduAtiv: 0, cMduConst: 0, cMduVist: 0, eMduAtiv: 0, eMduConst: 0, mailAtiv: 0, mailConst: 0,
-                concluidas: 0, malogros: 0, apoios: 0, totalAtendidas: 0, registros: []
+                concluidas: 0, malogros: 0, apoios: 0, pausaMin: 0, totalAtendidas: 0, registros: []
             };
         }
         const item = mapaGeralTec[nome];
         item.totalAtendidas++;
+        item.pausaMin += Number(r.tempoPausadoMinutos) || 0;
         item.registros.push(r);
 
         if (r.desfecho === 'CONCLUIDA') item.concluidas++;
@@ -3852,7 +4188,7 @@ function renderizarAbaGraficosCompletaOficial() {
             if (!mapaGeralTec[apNome]) {
                 mapaGeralTec[apNome] = {
                     nome: apNome, cMduAtiv: 0, cMduConst: 0, cMduVist: 0, eMduAtiv: 0, eMduConst: 0, mailAtiv: 0, mailConst: 0,
-                    concluidas: 0, malogros: 0, apoios: 0, totalAtendidas: 0, registros: []
+                    concluidas: 0, malogros: 0, apoios: 0, pausaMin: 0, totalAtendidas: 0, registros: []
                 };
             }
             const chAp = `${r.dataRegistro}_${obterCodigoBaseImovel(r.imovel)}_${apNome}`;
@@ -3867,7 +4203,7 @@ function renderizarAbaGraficosCompletaOficial() {
     const tbodyGeralAtend = document.getElementById('tbody-geral-atendidas-tecnico');
     if (tbodyGeralAtend) {
         tbodyGeralAtend.innerHTML = "";
-        let totConc = 0, totMal = 0, totAp = 0, totAtend = 0;
+        let totConc = 0, totMal = 0, totAp = 0, totPausaG = 0, totAtend = 0;
 
         Object.values(mapaGeralTec)
             .sort((a, b) => b.concluidas - a.concluidas || b.totalAtendidas - a.totalAtendidas || b.apoios - a.apoios)
@@ -3875,6 +4211,7 @@ function renderizarAbaGraficosCompletaOficial() {
                 totConc += t.concluidas;
                 totMal += t.malogros;
                 totAp += t.apoios;
+                totPausaG += t.pausaMin;
                 totAtend += t.totalAtendidas;
                 const chaveExp = registrarListaParaExplosao(`Atendidas por ${t.nome}`, t.registros);
 
@@ -3883,13 +4220,14 @@ function renderizarAbaGraficosCompletaOficial() {
                 tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExp}')`);
                 tr.innerHTML = `
                     <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
-                    <td class="p-2.5 font-black text-slate-800 underline decoration-dotted">${t.nome}</td>
+                    <td class="p-2.5 font-black text-slate-800"><span class="underline decoration-dotted">${t.nome}</span> ${obterCategoriaDiscretaTecnicoHtml(t.nome)}</td>
                     <td class="p-2.5 text-center font-semibold bg-blue-50/40"><span class="text-emerald-700 font-bold">${t.cMduAtiv}</span> / <span class="text-blue-800 font-bold">${t.cMduConst}</span> / <span class="text-purple-800 font-bold">${t.cMduVist}</span></td>
                     <td class="p-2.5 text-center font-semibold bg-indigo-50/40"><span class="text-emerald-700 font-bold">${t.eMduAtiv}</span> / <span class="text-indigo-800 font-bold">${t.eMduConst}</span></td>
                     <td class="p-2.5 text-center font-semibold bg-purple-50/40"><span class="text-emerald-700 font-bold">${t.mailAtiv}</span> / <span class="text-purple-800 font-bold">${t.mailConst}</span></td>
                     <td class="p-2.5 text-center font-black text-emerald-700 bg-emerald-50/80 text-sm">${t.concluidas}</td>
                     <td class="p-2.5 text-center font-black text-red-700 bg-red-50/80 text-sm">${t.malogros}</td>
                     <td class="p-2.5 text-center font-black text-fuchsia-800 bg-fuchsia-50/80">${t.apoios > 0 ? `🤝 ${t.apoios}` : '0'}</td>
+                    <td class="p-2.5 text-center font-bold ${t.pausaMin > 0 ? 'text-orange-700 bg-orange-50/60' : 'text-slate-400'}">${t.pausaMin > 0 ? `${t.pausaMin}m` : '-'}</td>
                     <td class="p-2.5 text-center font-black text-slate-900 bg-slate-100 text-sm">${t.totalAtendidas}</td>
                 `;
                 tbodyGeralAtend.appendChild(tr);
@@ -3902,6 +4240,7 @@ function renderizarAbaGraficosCompletaOficial() {
                 <td class="p-2.5 text-center text-emerald-300">${totConc}</td>
                 <td class="p-2.5 text-center text-red-300">${totMal}</td>
                 <td class="p-2.5 text-center text-fuchsia-300">🤝 ${totAp}</td>
+                <td class="p-2.5 text-center text-orange-300">${formatarDuracaoTexto(totPausaG)}</td>
                 <td class="p-2.5 text-center text-cyan-300">${totAtend}</td>
             </tr>
         `;
@@ -3997,17 +4336,17 @@ function renderizarAbaGraficosCompletaOficial() {
         boxExtremos.innerHTML = `
             <div onclick="${tecMaisCedo.reg ? `abrirDetalhesAtividade(registrosSalvos.find(x => x.id === ${tecMaisCedo.reg.id}))` : ''}" class="bg-blue-50 border border-blue-200 p-2.5 rounded-xl cursor-pointer hover:border-blue-500 transition">
                 <span class="text-[9px] font-black text-blue-800 uppercase block">🌅 Abriu Mais Cedo</span>
-                <div class="font-black text-blue-950 text-xs truncate mt-0.5">${tecMaisCedo.nome}</div>
+                <div class="font-black text-blue-950 text-xs truncate mt-0.5">${tecMaisCedo.nome} ${tecMaisCedo.nome !== '-' ? obterCategoriaDiscretaTecnicoHtml(tecMaisCedo.nome) : ''}</div>
                 <div class="text-[11px] font-mono font-bold text-emerald-700">Às ${tecMaisCedo.hora} ${tecMaisCedo.imovel ? `(${tecMaisCedo.imovel})` : ''}</div>
             </div>
             <div onclick="${tecMaisTarde.reg ? `abrirDetalhesAtividade(registrosSalvos.find(x => x.id === ${tecMaisTarde.reg.id}))` : ''}" class="bg-indigo-50 border border-indigo-200 p-2.5 rounded-xl cursor-pointer hover:border-indigo-500 transition">
                 <span class="text-[9px] font-black text-indigo-800 uppercase block">🌙 Fechou Mais Tarde</span>
-                <div class="font-black text-indigo-950 text-xs truncate mt-0.5">${tecMaisTarde.nome}</div>
+                <div class="font-black text-indigo-950 text-xs truncate mt-0.5">${tecMaisTarde.nome} ${tecMaisTarde.nome !== '-' ? obterCategoriaDiscretaTecnicoHtml(tecMaisTarde.nome) : ''}</div>
                 <div class="text-[11px] font-mono font-bold text-indigo-700">Às ${tecMaisTarde.hora} ${tecMaisTarde.imovel ? `(${tecMaisTarde.imovel})` : ''}</div>
             </div>
             <div onclick="${tecMaisTempo.reg ? `abrirDetalhesAtividade(registrosSalvos.find(x => x.id === ${tecMaisTempo.reg.id}))` : ''}" class="bg-amber-50 border border-amber-200 p-2.5 rounded-xl cursor-pointer hover:border-amber-500 transition">
                 <span class="text-[9px] font-black text-amber-900 uppercase block">⏱️ Maior Tempo na Atividade</span>
-                <div class="font-black text-amber-950 text-xs truncate mt-0.5">${tecMaisTempo.nome}</div>
+                <div class="font-black text-amber-950 text-xs truncate mt-0.5">${tecMaisTempo.nome} ${tecMaisTempo.nome !== '-' ? obterCategoriaDiscretaTecnicoHtml(tecMaisTempo.nome) : ''}</div>
                 <div class="text-[11px] font-mono font-bold text-amber-800">${tecMaisTempo.duracaoTxt} ${tecMaisTempo.imovel ? `(${tecMaisTempo.imovel})` : ''}</div>
             </div>
         `;
@@ -4254,24 +4593,28 @@ function exportarPlanilhaDinamicaOficialExcel() {
 
     let html = `<table border="1">
         <tr style="background-color:#0f172a;color:#ffffff;font-weight:bold;font-size:13px;">
-            <th colspan="10">RELATÓRIO OFICIAL DE INDICADORES GPD — SEGMENTOS & PRODUTIVIDADE (${obterDataLocalISO()})</th>
+            <th colspan="12">RELATÓRIO OFICIAL DE INDICADORES GPD — SEGMENTOS, PRODUTIVIDADE & OCIOSIDADE (${obterDataLocalISO()})</th>
         </tr>
         <tr style="background-color:#cbd5e1;font-weight:bold;">
-            <th>SEMANA</th><th>DATA</th><th>TÉCNICO / EQUIPE</th><th>APOIO CONJUNTO</th><th>SEGMENTO</th><th>CATEGORIA</th><th>IMÓVEL / BLOCO</th><th>ENDEREÇO</th><th>HPs</th><th>RESULTADO</th>
+            <th>SEMANA</th><th>DATA</th><th>TÉCNICO / EQUIPE</th><th>CATEGORIA TÉCNICO</th><th>APOIO CONJUNTO</th><th>SEGMENTO</th><th>CATEGORIA</th><th>IMÓVEL / BLOCO</th><th>ENDEREÇO</th><th>HPs</th><th>PARALISAÇÃO (MIN)</th><th>RESULTADO</th>
         </tr>`;
 
     baseBruta.forEach(r => {
         const ap = extrairApoiosDoRegistro(r).join(', ') || '-';
+        const eqObj = (equipesSistema || []).find(e => normalizarChaveNome(e.nome) === normalizarChaveNome(r.equipe));
+        const catTec = eqObj ? formatarSetoresString(eqObj.setor) : 'Instalador';
         html += `<tr>
             <td>${r._semana}</td>
             <td>${r.dataRegistro}</td>
             <td><b>${r.equipe}</b></td>
+            <td>${catTec}</td>
             <td>${ap}</td>
             <td><b>${r._tax.segmento}</b></td>
             <td><b>${r._tax.categoria}</b></td>
             <td>${r.imovel}</td>
             <td>${r.endereco || '-'}</td>
             <td>${r.hps || 0}</td>
+            <td>${Number(r.tempoPausadoMinutos) || 0}</td>
             <td><b>${r.desfecho}</b></td>
         </tr>`;
     });
@@ -4305,7 +4648,7 @@ copiarBoletimGestorWhatsApp = function() {
 
     const andamento = lista.filter(i => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(i.desfecho)).length;
     const finalizadas = lista.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
-    const concluidas = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
+    const concluidas = finalizadas.filter(i => ['CONCLUIDA', 'CONCLUÍDA'].includes(i.desfecho)).length;
     const pendentes = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
     const malogradas = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
 
@@ -4327,13 +4670,14 @@ setTimeout(() => {
     otimizarCabecalhoAzulLinhaUnica();
     inicializarMelhoriasVisuaisGestor();
     construirLayoutExclusivoAbaGraficos();
+    vincularBotoesFecharModaisExpansao();
     renderizarAbaGraficosCompletaOficial();
 }, 400);
-// ================= PATCH DE ESTABILIDADE E VELOCIDADE EM PRODUÇÃO (GESTOR.JS) =================
+
+// ================= PATCH DE ESTABILIDADE E PRESERVAÇÃO DE CONTAGEM REAL (GESTOR.JS) =================
 (function() {
     let limpezaDuplicadosEmAndamento = false;
 
-    // 1. Impede que a aba Gráficos & Indicadores apareça no final da aba Atividades
     function blindarVisibilidadeSubAbasGestor() {
         const subGraficos = document.getElementById('subview-graficos');
         const btnGraficos = document.getElementById('subtab-btn-graficos');
@@ -4349,16 +4693,14 @@ setTimeout(() => {
         }
     }
 
-    // 2. Remove duplicidades (quando a mesma atividade aparece FECHADA e também ABERTA no mesmo horário/dia, ou clique duplo)
-    async function removerDuplicidadesEAtividadesFantasmas() {
-        if (limpezaDuplicadosEmAndamento || typeof modoConsultaBackupAtivo !== 'undefined' && modoConsultaBackupAtivo) return;
+    // Remove APENAS rascunhos "EM ANDAMENTO" fantasmas quando a mesma atividade já foi concluída, NUNCA apagando blocos concluídos legítimos
+    async function removerApenasAberturasFantasmas() {
+        if (limpezaDuplicadosEmAndamento || (typeof modoConsultaBackupAtivo !== 'undefined' && modoConsultaBackupAtivo)) return;
         if (!Array.isArray(registrosSalvos) || registrosSalvos.length === 0) return;
 
         limpezaDuplicadosEmAndamento = true;
         try {
             const chavesFinalizadasHoje = new Set();
-            const mapaFinalizadosExatos = new Map();
-            const mapaAbertosPorImovel = new Map();
             const idsFantasmasParaApagar = new Set();
 
             const obterBaseCod = (str) => {
@@ -4367,62 +4709,27 @@ setTimeout(() => {
                 return i !== -1 ? c.substring(0, i).trim() : c;
             };
 
-            // Passagem A: Identifica todas as atividades já Concluídas, Pendentes ou Malogradas
             registrosSalvos.forEach(r => {
                 if (!r || r.equipe === '__CONFIG_SISTEMA__' || r.projeto === '__CONFIG_AUDITORIA__') return;
-                if (['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(r.desfecho)) {
+                if (['CONCLUIDA', 'CONCLUÍDA', 'PENDENTE', 'MALOGRADA'].includes(String(r.desfecho || '').toUpperCase().trim())) {
                     const dt = String(r.dataRegistro || '').trim();
                     const eq = String(r.equipe || '').toUpperCase().trim();
                     const codBase = obterBaseCod(r.imovel);
-                    const imovelFull = String(r.imovel || '').toUpperCase().trim();
                     const hIn = String(r.hEntrada || '').trim();
-
                     chavesFinalizadasHoje.add(`${dt}|${eq}|${codBase}|${hIn}`);
-                    chavesFinalizadasHoje.add(`${dt}|${eq}|${codBase}`);
-
-                    // Detecta duplicidade exata gerada por erro de clique duplo no mesmo horário
-                    const chaveDuploClique = `${dt}|${eq}|${imovelFull}|${r.projeto}|${r.desfecho}|${hIn}`;
-                    if (mapaFinalizadosExatos.has(chaveDuploClique)) {
-                        const ant = mapaFinalizadosExatos.get(chaveDuploClique);
-                        if ((r.id || 0) > (ant.id || 0)) {
-                            idsFantasmasParaApagar.add(ant.id);
-                            mapaFinalizadosExatos.set(chaveDuploClique, r);
-                        } else {
-                            idsFantasmasParaApagar.add(r.id);
-                        }
-                    } else {
-                        mapaFinalizadosExatos.set(chaveDuploClique, r);
-                    }
                 }
             });
 
-            // Passagem B: Identifica atividades "EM ANDAMENTO" / "PARALISADA" que já foram fechadas ou que estão duplicadas no mesmo horário
             registrosSalvos.forEach(r => {
-                if (!r || idsFantasmasParaApagar.has(r.id)) return;
+                if (!r) return;
                 if (['EM ANDAMENTO', 'PARALISADA'].includes(r.desfecho)) {
                     const dt = String(r.dataRegistro || '').trim();
                     const eq = String(r.equipe || '').toUpperCase().trim();
                     const codBase = obterBaseCod(r.imovel);
                     const hIn = String(r.hEntrada || '').trim();
 
-                    // Se a mesma atividade (mesma data, equipe, imóvel e hora de entrada) já consta FECHADA, remove a aberta fantasma
-                    if (chavesFinalizadasHoje.has(`${dt}|${eq}|${codBase}|${hIn}`) || chavesFinalizadasHoje.has(`${dt}|${eq}|${codBase}`)) {
+                    if (chavesFinalizadasHoje.has(`${dt}|${eq}|${codBase}|${hIn}`)) {
                         idsFantasmasParaApagar.add(r.id);
-                        return;
-                    }
-
-                    // Se o técnico clicou 2 vezes em Iniciar Atividade e gerou 2 abertas iguais
-                    const chaveAberta = `${dt}|${eq}|${codBase}`;
-                    if (mapaAbertosPorImovel.has(chaveAberta)) {
-                        const ant = mapaAbertosPorImovel.get(chaveAberta);
-                        if ((r.id || 0) > (ant.id || 0)) {
-                            idsFantasmasParaApagar.add(ant.id);
-                            mapaAbertosPorImovel.set(chaveAberta, r);
-                        } else {
-                            idsFantasmasParaApagar.add(r.id);
-                        }
-                    } else {
-                        mapaAbertosPorImovel.set(chaveAberta, r);
                     }
                 }
             });
@@ -4438,88 +4745,13 @@ setTimeout(() => {
         }
     }
 
-    // 3. Acelera o carregamento da nuvem (Evita que o Supabase trave baixando todas as fotos Base64 de uma só vez)
-    if (typeof window.carregarRegistrosDaNuvem === 'function') {
-        const _origCarregarNuvem = window.carregarRegistrosDaNuvem;
-        window.carregarRegistrosDaNuvem = async function(forcarTudo = false) {
-            if (typeof supabaseClient === 'undefined') return _origCarregarNuvem.apply(this, arguments);
-
-            try {
-                // Busca rápida sem a coluna pesada de fotos (observacoes) para destravar a tela em menos de 1 segundo
-                const COLUNAS_RAPIDAS = 'id, data_registro, equipe, membros, projeto, imovel, h_entrada, h_saida, gps_entrada, gps_saida, desfecho, motivo_desfecho, malogros, responsavel, contato, email, agendamento, andares, hps, servico_obra, fusoes, conectores, cabo_rl, cabo_drop, nap, dio';
-
-                const { data: linhasRapidas, error } = await supabaseClient
-                    .from('registros_producao')
-                    .select(COLUNAS_RAPIDAS)
-                    .neq('equipe', '__CONFIG_SISTEMA__')
-                    .neq('projeto', '__CONFIG_AUDITORIA__')
-                    .order('data_registro', { ascending: false })
-                    .order('id', { ascending: false })
-                    .limit(2000);
-
-                if (!error && Array.isArray(linhasRapidas) && linhasRapidas.length > 0) {
-                    const mapaAntigo = new Map((registrosSalvos || []).map(r => [r.id, r]));
-
-                    registrosSalvos = linhasRapidas.map(row => {
-                        const ant = mapaAntigo.get(row.id);
-                        const conv = typeof converterLinhaBancoParaObjetoGpd === 'function'
-                            ? converterLinhaBancoParaObjetoGpd({ ...row, observacoes: '' })
-                            : row;
-                        if (ant) {
-                            conv.endereco = ant.endereco || conv.endereco || '';
-                            conv.liberouAcesso = ant.liberouAcesso || conv.liberouAcesso || '';
-                            conv.observacoes = ant.observacoes || conv.observacoes || '';
-                            conv.qtdFotos = ant.qtdFotos || 0;
-                            conv.fotos = ant.fotos || [];
-                        }
-                        return conv;
-                    });
-
-                    await removerDuplicidadesEAtividadesFantasmas();
-
-                    // Carrega em segundo plano as observações apenas das atividades de hoje/em aberto (lote pequeno que nunca trava)
-                    const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
-                    const idsPrioritarios = registrosSalvos
-                        .filter(r => !r.endereco && (r.dataRegistro === hojeISO || ['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA', 'AGUARDANDO TRATATIVA'].includes(r.desfecho)))
-                        .slice(0, 35)
-                        .map(r => r.id);
-
-                    if (idsPrioritarios.length > 0) {
-                        supabaseClient
-                            .from('registros_producao')
-                            .select('id, observacoes')
-                            .in('id', idsPrioritarios)
-                            .then(({ data: obsRows }) => {
-                                if (Array.isArray(obsRows) && typeof converterLinhaBancoParaObjetoGpd === 'function') {
-                                    obsRows.forEach(orow => {
-                                        const alvo = registrosSalvos.find(x => x.id === orow.id);
-                                        if (alvo && orow.observacoes) {
-                                            const mEnd = orow.observacoes.match(/\[END:\s*([^\]]+)\]/i);
-                                            if (mEnd && mEnd[1]) alvo.endereco = mEnd[1].trim();
-                                            const mLib = orow.observacoes.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
-                                            if (mLib && mLib[1]) alvo.liberouAcesso = mLib[1].trim();
-                                            if (orow.observacoes.includes('[FOTOS:')) alvo.qtdFotos = 1;
-                                        }
-                                    });
-                                }
-                            }).catch(() => {});
-                    }
-                    return;
-                }
-            } catch (e) {}
-
-            // Fallback para a função original caso necessário
-            return _origCarregarNuvem.apply(this, arguments);
-        };
-    }
-
-    // Intercepta atualizarDashboardGestor para sempre limpar duplicados e blindar a aba Gráficos
     if (typeof window.atualizarDashboardGestor === 'function') {
         const _origAtuDash = window.atualizarDashboardGestor;
         window.atualizarDashboardGestor = async function(...args) {
-            await removerDuplicidadesEAtividadesFantasmas();
+            await removerApenasAberturasFantasmas();
             const res = await _origAtuDash.apply(this, args);
             blindarVisibilidadeSubAbasGestor();
+            vincularBotoesFecharModaisExpansao();
             return res;
         };
     }
