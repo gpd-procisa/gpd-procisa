@@ -3343,262 +3343,88 @@ salvarRegistro = async function() {
         }
     }
 };
-// ================= TURBO-CARREGAMENTO DO GESTOR (SEM TRAVAR COM FOTOS BASE64 E EXIBIÇÃO IMEDIATA DE ATIVIDADES ABERTAS) =================
+// ================= CARGA SEGURA E ULTRA-RÁPIDA DE ATIVIDADES (COM FALLBACK AUTOMÁTICO DE COLUNAS) =================
 
-// 1. Extrator ultra-rápido de tags leves (Endereço, Liberou Acesso, Blocos, Tratativa) sem carregar megabytes de fotos na memória inicial
-async function carregarRegistrosModoTurboGestor(forcarCompleta = false) {
-    if (typeof supabaseClient === 'undefined') return;
+async function buscarRegistrosSeguroNoSupabase() {
+    if (typeof supabaseClient === 'undefined') return [];
 
-    const COLUNAS_LEVES = 'id, data_registro, equipe, membros, projeto, imovel, h_entrada, h_saida, gps_entrada, gps_saida, desfecho, motivo_desfecho, malogros, responsavel, contato, email, agendamento, andares, hps, servico_obra, fusoes, conectores, cabo_rl, cabo_drop, nap, dio, cx_sobrepor, cx_embutida, cx_fosc';
-
-    const hojeISO = obterDataLocalISO();
-    const dSeteDias = new Date();
-    dSeteDias.setDate(dSeteDias.getDate() - 7);
-    const seteDiasISO = obterDataLocalISO(dSeteDias);
-
-    // ESTÁGIO 1 (INSTANTÂNEO): Busca tudo que está ABERTO/EM ANDAMENTO/PROGRAMADO (de qualquer data) + últimos 7 dias (sem fotos pesadas)
-    const [resAtivas, resRecentes] = await Promise.all([
-        supabaseClient
-            .from('registros_producao')
-            .select(COLUNAS_LEVES)
-            .neq('equipe', '__CONFIG_SISTEMA__')
-            .neq('projeto', '__CONFIG_AUDITORIA__')
-            .in('desfecho', ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'PROGRAMADA', 'IMPREVISTO', 'AGUARDANDO TRATATIVA'])
-            .order('id', { ascending: false })
-            .limit(500),
-        supabaseClient
-            .from('registros_producao')
-            .select(COLUNAS_LEVES)
-            .neq('equipe', '__CONFIG_SISTEMA__')
-            .neq('projeto', '__CONFIG_AUDITORIA__')
-            .gte('data_registro', seteDiasISO)
-            .order('data_registro', { ascending: false })
-            .order('id', { ascending: false })
-            .limit(1000)
-    ]);
-
-    const mapaUnificado = new Map();
-    // Preserva endereços já conhecidos em memória para não perder tags
-    (registrosSalvos || []).forEach(r => {
-        if (r && r.id) mapaUnificado.set(r.id, r);
-    });
-
-    const mesclarLinhaLeve = (row) => {
-        if (!row || !row.id) return;
-        const antigo = mapaUnificado.get(row.id);
-        const novoObj = converterLinhaLeveParaObjetoGpd(row);
-        if (antigo) {
-            if (!novoObj.endereco && antigo.endereco) novoObj.endereco = antigo.endereco;
-            if (!novoObj.liberouAcesso && antigo.liberouAcesso) novoObj.liberouAcesso = antigo.liberouAcesso;
-            if (!novoObj.observacoes && antigo.observacoes) novoObj.observacoes = antigo.observacoes;
-            if (!novoObj.qtdFotos && antigo.qtdFotos) novoObj.qtdFotos = antigo.qtdFotos;
-            if (!novoObj.tratadoPor && antigo.tratadoPor) {
-                novoObj.tratadoPor = antigo.tratadoPor;
-                novoObj.tratadoDataHora = antigo.tratadoDataHora;
-                novoObj.tratadoTimestamp = antigo.tratadoTimestamp;
+    // 1ª Tentativa: Usa a função nativa original do sistema se ela existir e já estiver mapeada
+    if (typeof carregarRegistrosDaNuvem === 'function') {
+        try {
+            await carregarRegistrosDaNuvem(true);
+            if (Array.isArray(registrosSalvos) && registrosSalvos.length > 0) {
+                return registrosSalvos;
             }
+        } catch (e) {
+            console.warn("Aviso em carregarRegistrosDaNuvem padrão:", e);
         }
-        mapaUnificado.set(row.id, novoObj);
-    };
-
-    (resAtivas.data || []).forEach(mesclarLinhaLeve);
-    (resRecentes.data || []).forEach(mesclarLinhaLeve);
-
-    registrosSalvos = Array.from(mapaUnificado.values()).sort((a, b) => {
-        if (a.dataRegistro !== b.dataRegistro) return (b.dataRegistro || '').localeCompare(a.dataRegistro || '');
-        return (b.id || 0) - (a.id || 0);
-    });
-
-    // ESTÁGIO 2 (SEGUNDO PLANO NÃO-BLOQUEANTE): Carrega o histórico anterior a 7 dias em lotes rápidos sem travar a tela
-    if (forcarCompleta || !historicoCompletoGestorJaBaixado) {
-        historicoCompletoGestorJaBaixado = true;
-        cargaInicialGestorConcluida = true;
-
-        setTimeout(async () => {
-            try {
-                let pagina = 0;
-                const TAM = 1000;
-                while (pagina < 10) {
-                    const { data: hist, error } = await supabaseClient
-                        .from('registros_producao')
-                        .select(COLUNAS_LEVES)
-                        .neq('equipe', '__CONFIG_SISTEMA__')
-                        .neq('projeto', '__CONFIG_AUDITORIA__')
-                        .lt('data_registro', seteDiasISO)
-                        .order('data_registro', { ascending: false })
-                        .range(pagina * TAM, (pagina + 1) * TAM - 1);
-
-                    if (error || !hist || hist.length === 0) break;
-                    hist.forEach(mesclarLinhaLeve);
-                    if (hist.length < TAM) break;
-                    pagina++;
-                }
-
-                registrosSalvos = Array.from(mapaUnificado.values()).sort((a, b) => {
-                    if (a.dataRegistro !== b.dataRegistro) return (b.dataRegistro || '').localeCompare(a.dataRegistro || '');
-                    return (b.id || 0) - (a.id || 0);
-                });
-
-                // Busca apenas as observações curtas (sem fotos) dos registros visíveis do dia para preencher o endereço na tabela
-                carregarEnderecosLevesSobDemanda();
-            } catch (e) {}
-        }, 150);
-    } else {
-        carregarEnderecosLevesSobDemanda();
     }
-}
 
-// Busca os endereços e tags de observações apenas dos registros sem endereço na tela atual (em lote leve)
-let buscandoEnderecosLeves = false;
-async function carregarEnderecosLevesSobDemanda() {
-    if (buscandoEnderecosLeves || typeof supabaseClient === 'undefined') return;
-    const semEndereco = (dadosFiltradosAtuais || []).filter(r => !r.endereco && !r._obsJaVerificada).slice(0, 40);
-    if (semEndereco.length === 0) return;
-
-    buscandoEnderecosLeves = true;
+    // 2ª Tentativa: Busca direta com todas as colunas padrão da tabela registros_producao (usando '*')
     try {
-        const ids = semEndereco.map(r => r.id);
-        semEndereco.forEach(r => { r._obsJaVerificada = true; });
-
-        const { data } = await supabaseClient
+        const { data, error } = await supabaseClient
             .from('registros_producao')
-            .select('id, observacoes')
-            .in('id', ids);
+            .select('*')
+            .neq('equipe', '__CONFIG_SISTEMA__')
+            .neq('projeto', '__CONFIG_AUDITORIA__')
+            .order('id', { ascending: false })
+            .limit(1500);
 
-        if (data && data.length > 0 && typeof converterLinhaBancoParaObjetoGpd === 'function') {
-            let atualizouAlgum = false;
-            data.forEach(row => {
-                const regMem = (registrosSalvos || []).find(r => r.id === row.id);
-                if (regMem && row.observacoes) {
-                    const mEnd = row.observacoes.match(/\[END:\s*([^\]]+)\]/i);
-                    if (mEnd && mEnd[1]) { regMem.endereco = mEnd[1].trim(); atualizouAlgum = true; }
-                    const mLib = row.observacoes.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
-                    if (mLib && mLib[1]) { regMem.liberouAcesso = mLib[1].trim(); }
-                    const mBl = row.observacoes.match(/\[BLOCOS:\s*(\d+)\]/i);
-                    if (mBl && mBl[1]) { regMem.qtdBlocosProgramados = Number(mBl[1]) || 1; }
-                    if (row.observacoes.includes('[FOTOS:')) {
-                        const mFotos = row.observacoes.match(/\[FOTOS:(\[.*?\])\]/);
-                        if (mFotos && mFotos[1]) {
-                            try {
-                                const arrF = JSON.parse(mFotos[1]);
-                                regMem.qtdFotos = Array.isArray(arrF) ? arrF.length : 0;
-                                if (typeof cacheFotosSobDemanda !== 'undefined') cacheFotosSobDemanda.set(regMem.id, arrF);
-                            } catch (e) {}
-                        }
-                    }
-                    const limpoObs = row.observacoes
-                        .replace(/\[END:\s*[^\]]+\]/gi, '')
-                        .replace(/\[LIBEROU_ACESSO:\s*[^\]]+\]/gi, '')
-                        .replace(/\[PAUSA_TOTAL:\s*\d+\]/gi, '')
-                        .replace(/\[PAUSA_INICIO:\s*\d+\]/gi, '')
-                        .replace(/\[BLOCOS:\s*\d+\]/gi, '')
-                        .replace(/\[FOTOS:\[.*?\]\]/g, '')
-                        .trim();
-                    regMem.observacoes = limpoObs;
+        if (!error && Array.isArray(data) && data.length > 0) {
+            const convertidos = data.map(row => {
+                if (typeof converterLinhaBancoParaObjetoGpd === 'function') {
+                    return converterLinhaBancoParaObjetoGpd(row);
                 }
+                return converterLinhaLeveParaObjetoGpd(row);
             });
-            if (atualizouAlgum) {
-                atualizarDashboardGestor(false);
-            }
+            registrosSalvos = convertidos;
+            return convertidos;
         }
-    } catch (e) {} finally {
-        buscandoEnderecosLeves = false;
+    } catch (err) {
+        console.error("Erro na busca direta:", err);
     }
+
+    return registrosSalvos || [];
 }
 
-// 2. Desativa a exclusão automática de registros "EM ANDAMENTO" no saneador para NUNCA apagar uma nova abertura que o técnico acabou de fazer no mesmo prédio!
+// Desativa qualquer exclusão automática para garantir que NENHUM registro suma da tela
 sanearDuplicidadesEOrfaosPainelGestor = async function() {
-    if (saneamentoDuplicidadesEmCurso || modoConsultaBackupAtivo) return;
-    if (!Array.isArray(registrosSalvos) || registrosSalvos.length === 0) return;
-
-    saneamentoDuplicidadesEmCurso = true;
-    try {
-        const idsParaExcluirBanco = new Set();
-        const mapaFinalizadosUnicos = new Map();
-
-        // Remove APENAS duplicidades exatas de clique duplo (mesma data, mesma equipe, mesmo imóvel, mesmo desfecho finalizado e mesmo minuto de entrada e saída)
-        registrosSalvos.forEach(r => {
-            if (!r || r.equipe === '__CONFIG_SISTEMA__' || r.projeto === '__CONFIG_AUDITORIA__') return;
-            if (!['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(r.desfecho)) return;
-
-            const imovelExato = String(r.imovel || '').toUpperCase().trim();
-            const eq = String(r.equipe || '').toUpperCase().trim();
-            const dt = String(r.dataRegistro || '').trim();
-            const hIn = String(r.hEntrada || '').trim();
-            const hOut = String(r.hSaida || '').trim();
-
-            const chaveExata = `${dt}|${eq}|${imovelExato}|${r.projeto}|${r.desfecho}|${hIn}|${hOut}`;
-            if (mapaFinalizadosUnicos.has(chaveExata)) {
-                const existente = mapaFinalizadosUnicos.get(chaveExata);
-                if ((r.id || 0) > (existente.id || 0)) {
-                    idsParaExcluirBanco.add(existente.id);
-                    mapaFinalizadosUnicos.set(chaveExata, r);
-                } else {
-                    idsParaExcluirBanco.add(r.id);
-                }
-            } else {
-                mapaFinalizadosUnicos.set(chaveExata, r);
-            }
-        });
-
-        if (idsParaExcluirBanco.size > 0) {
-            const arrayIds = Array.from(idsParaExcluirBanco);
-            registrosSalvos = registrosSalvos.filter(r => !idsParaExcluirBanco.has(r.id));
-            if (Array.isArray(dadosFiltradosAtuais)) {
-                dadosFiltradosAtuais = dadosFiltradosAtuais.filter(r => !idsParaExcluirBanco.has(r.id));
-            }
-            if (typeof supabaseClient !== 'undefined') {
-                await supabaseClient.from('registros_producao').delete().in('id', arrayIds);
-            }
-        }
-    } catch (e) {} finally {
-        saneamentoDuplicidadesEmCurso = false;
-    }
+    return;
 };
 
-// 3. Substitui a carga antiga pela Carga Turbo Instantânea
+// Substitui garantirCargaNuvemGestor por uma versão direta que nunca trava nem deixa a lista vazia
 garantirCargaNuvemGestor = async function(forcarRecarga = false) {
     if (modoConsultaBackupAtivo) return;
-    if ((forcarRecarga || !historicoCompletoGestorJaBaixado || !cargaInicialGestorConcluida) && !sincronizandoRegistrosMobileEmCurso) {
+
+    if (forcarRecarga || !Array.isArray(registrosSalvos) || registrosSalvos.length === 0 || !cargaInicialGestorConcluida) {
+        if (sincronizandoRegistrosMobileEmCurso) return;
         sincronizandoRegistrosMobileEmCurso = true;
         try {
-            await carregarRegistrosModoTurboGestor(forcarRecarga);
+            await buscarRegistrosSeguroNoSupabase();
+            historicoCompletoGestorJaBaixado = true;
+            cargaInicialGestorConcluida = true;
         } finally {
             sincronizandoRegistrosMobileEmCurso = false;
         }
     }
 };
 
-// 4. Ao abrir os Detalhes de uma atividade, busca sob demanda o texto completo e as fotos daquele registro específico (sem pesar o painel geral)
-const _origAbrirDetalhesTurbo = abrirDetalhesAtividade;
-abrirDetalhesAtividade = async function(item) {
-    if (item && item.id && typeof supabaseClient !== 'undefined') {
-        try {
-            const { data: rowCompleta } = await supabaseClient
-                .from('registros_producao')
-                .select('observacoes')
-                .eq('id', item.id)
-                .maybeSingle();
+// Força o carregamento imediato assim que o script abrir e limpa filtros de data que possam estar ocultando atividades
+setTimeout(async () => {
+    try {
+        await garantirCargaNuvemGestor(true);
+        await atualizarDashboardGestor(false);
 
-            if (rowCompleta && rowCompleta.observacoes) {
-                const obsBruta = rowCompleta.observacoes;
-                const mEnd = obsBruta.match(/\[END:\s*([^\]]+)\]/i);
-                if (mEnd && mEnd[1]) item.endereco = mEnd[1].trim();
-                const mLib = obsBruta.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
-                if (mLib && mLib[1]) item.liberouAcesso = mLib[1].trim();
-                const mFotos = obsBruta.match(/\[FOTOS:(\[.*?\])\]/);
-                if (mFotos && mFotos[1]) {
-                    try {
-                        const arrF = JSON.parse(mFotos[1]);
-                        if (Array.isArray(arrF)) {
-                            item.fotos = arrF;
-                            item.qtdFotos = arrF.length;
-                            if (typeof cacheFotosSobDemanda !== 'undefined') cacheFotosSobDemanda.set(item.id, arrF);
-                        }
-                    } catch (e) {}
-                }
-            }
-        } catch (e) {}
+        // Se o filtro de data de hoje estiver ocultando atividades de outros dias, avisa ou carrega na tabela
+        const corpoAtiv = document.getElementById('tabela-gestor-corpo');
+        if (dadosFiltradosAtuais && dadosFiltradosAtuais.length === 0 && Array.isArray(registrosSalvos) && registrosSalvos.length > 0) {
+            const inpIni = document.getElementById('gestor-filtro-data-inicio');
+            const inpFim = document.getElementById('gestor-filtro-data-fim');
+            if (inpIni) inpIni.value = '';
+            if (inpFim) inpFim.value = '';
+            await atualizarDashboardGestor(false);
+        }
+    } catch (e) {
+        console.warn("Erro ao restaurar visualização das atividades:", e);
     }
-    return _origAbrirDetalhesTurbo.call(this, item);
-};
+}, 300);
