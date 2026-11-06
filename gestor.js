@@ -452,29 +452,6 @@ function enriquecerStatusMacroEBairro(listaRegistros) {
     });
 }
 
-function selecionarGrupoAbaGraficos(grupo) {
-    grupoAtivoAbaGraficos = grupo;
-    const botoes = [
-        { id: 'TODOS', corAtiva: 'bg-cyan-400 text-slate-950 shadow-sm font-black', corInativa: 'bg-slate-800 text-slate-200 hover:bg-slate-700 font-bold' },
-        { id: 'VISTORIA', corAtiva: 'bg-purple-500 text-white shadow-sm font-black', corInativa: 'bg-slate-800 text-purple-200 hover:bg-purple-900 border border-purple-500/40 font-bold' },
-        { id: 'CONSTRUCAO', corAtiva: 'bg-blue-500 text-white shadow-sm font-black', corInativa: 'bg-slate-800 text-blue-200 hover:bg-blue-900 border border-blue-500/40 font-bold' },
-        { id: 'ATIVACAO', corAtiva: 'bg-emerald-500 text-white shadow-sm font-black', corInativa: 'bg-slate-800 text-emerald-200 hover:bg-emerald-900 border border-emerald-500/40 font-bold' }
-    ];
-    botoes.forEach(b => {
-        const el = document.getElementById(`btn-grupo-graf-${b.id}`);
-        if (el) el.className = `py-2 px-3 rounded-lg text-xs transition ${grupo === b.id ? b.corAtiva : b.corInativa}`;
-    });
-
-    const secVist = document.getElementById('secao-grupo-vistoria');
-    const secConst = document.getElementById('secao-grupo-construcao');
-    const secAtiv = document.getElementById('secao-grupo-ativacao');
-    if (secVist) secVist.classList.toggle('hidden', grupo !== 'TODOS' && grupo !== 'VISTORIA');
-    if (secConst) secConst.classList.toggle('hidden', grupo !== 'TODOS' && grupo !== 'CONSTRUCAO');
-    if (secAtiv) secAtiv.classList.toggle('hidden', grupo !== 'TODOS' && grupo !== 'ATIVACAO');
-
-    atualizarDashboardGestor();
-}
-
 // ================= SINCRONIZAÇÃO DE AUDITORIA NA NUVEM =================
 async function sincronizarAuditoriaNaNuvem() {
     try {
@@ -522,7 +499,7 @@ function aplicarTooltipsExplicativosGlobais() {
         'btn-sair-gestor': 'Encerrar a sessão atual do gestor e bloquear o acesso administrativo',
         'btn-importar-planilha': 'Importar planilha CSV ou colar linhas do Excel para distribuir atividades programadas',
         'btn-boletim-whats-gestor': 'Copiar resumo executivo formatado com blocos e apoios organizados para colar no WhatsApp',
-        'btn-baixar-excel-gestor': 'Baixar planilha Excel (.xls) separada nos 3 Grupos com coluna de Apoio Conjunto',
+        'btn-baixar-excel-gestor': 'Baixar planilha Excel (.xls) oficial',
         'btn-atualizar-registros-gestor': 'Buscar imediatamente na nuvem todas as novas atividades, fotos e posições de GPS'
     };
     Object.entries(mapaTooltips).forEach(([id, texto]) => { const el = document.getElementById(id); if (el) el.title = texto; });
@@ -531,6 +508,7 @@ function aplicarTooltipsExplicativosGlobais() {
 function inicializarMelhoriasVisuaisGestor() {
     garantirPermissaoOperadorEBaptista();
     aplicarTooltipsExplicativosGlobais();
+    otimizarCabecalhoAzulLinhaUnica();
 
     const selDesf = document.getElementById('gestor-filtro-desfecho');
     if (selDesf && !document.getElementById('btn-abrir-filtro-multiplo')) {
@@ -722,8 +700,6 @@ function inicializarMelhoriasVisuaisGestor() {
 
     atualizarResumoContagemCarteirasFiscais();
 }
-
-setTimeout(inicializarMelhoriasVisuaisGestor, 350);
 
 // ================= SOLICITAÇÕES DE COMBUSTÍVEL E MATERIAL (48H) =================
 function calcularTempoRestante48h(timestampTratado) {
@@ -1302,68 +1278,7 @@ function alternarVisualizacaoBlocosAgrupados(idElemento, btnEl) {
         btnEl.className = "mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition";
     }
 }
-
-function expandirGraficoModal(idCanvasOrigem, tituloJanela) {
-    const modal = document.getElementById('modal-expandir-grafico');
-    const titulo = document.getElementById('modal-grafico-expandido-titulo');
-    const canvasOrigem = document.getElementById(idCanvasOrigem);
-    const canvasAlvo = document.getElementById('canvasGraficoExpandido');
-    if (!modal || !canvasOrigem || !canvasAlvo) return;
-    if (titulo) titulo.innerText = tituloJanela;
-    modal.classList.remove('hidden');
-
-    const chartOriginal = Chart.getChart(canvasOrigem);
-    if (!chartOriginal) return;
-    if (graficoExpandidoInstancia) graficoExpandidoInstancia.destroy();
-
-    graficoExpandidoInstancia = new Chart(canvasAlvo, {
-        type: chartOriginal.config.type,
-        data: JSON.parse(JSON.stringify(chartOriginal.data)),
-        options: {
-            ...chartOriginal.config.options, responsive: true, maintainAspectRatio: false,
-            plugins: { ...chartOriginal.config.options.plugins, legend: { display: true, position: 'top' } },
-            onClick: (event, elements) => { if (elements.length > 0 && chartOriginal.config.options.onClick) chartOriginal.config.options.onClick(event, elements); }
-        }
-    });
-}
-
-function fecharModalGraficoExpandido() {
-    document.getElementById('modal-expandir-grafico')?.classList.add('hidden');
-    if (graficoExpandidoInstancia) { graficoExpandidoInstancia.destroy(); graficoExpandidoInstancia = null; }
-}
-
-function expandirTabelaModal(idTbodyOrigem, tituloJanela) {
-    const modal = document.getElementById('modal-expandir-tabela');
-    const titulo = document.getElementById('modal-tabela-expandida-titulo');
-    const container = document.getElementById('container-tabela-expandida');
-    const tbodyOrigem = document.getElementById(idTbodyOrigem);
-    if (!modal || !container || !tbodyOrigem) return;
-    const tabelaOriginal = tbodyOrigem.closest('table');
-    if (!tabelaOriginal) return;
-
-    if (titulo) titulo.innerText = tituloJanela;
-    container.innerHTML = "";
-    const tabelaClone = tabelaOriginal.cloneNode(true);
-    tabelaClone.className = "w-full text-left border-collapse text-xs sm:text-sm";
-    tabelaClone.querySelector('thead')?.classList.add('sticky', 'top-0', 'z-10', 'shadow-sm');
-
-    const linhasOriginais = tbodyOrigem.querySelectorAll('tr');
-    const tbodyClone = tabelaClone.querySelector('tbody');
-    if (tbodyClone) {
-        tbodyClone.removeAttribute('id');
-        tbodyClone.querySelectorAll('tr').forEach((trClone, idx) => {
-            const trOrig = linhasOriginais[idx];
-            if (trOrig && typeof trOrig.onclick === 'function') {
-                trClone.onclick = (ev) => { fecharModalTabelaExpandida(); trOrig.onclick(ev); };
-            }
-        });
-    }
-    container.appendChild(tabelaClone);
-    modal.classList.remove('hidden');
-}
-
-function fecharModalTabelaExpandida() { document.getElementById('modal-expandir-tabela')?.classList.add('hidden'); }
-
+// ================= TRANSFERÊNCIA, REABERTURA, IMPORTAÇÃO E PAINEL DE DISPONIBILIDADE =================
 async function autorizarReaberturaCampo(id) {
     if (!usuarioPodeEditarGestor()) { alert("⚠️ Apenas Gestores podem autorizar a reabertura."); return; }
     const reg = registrosSalvos.find(r => r.id === id);
@@ -1491,7 +1406,6 @@ async function processarImportacaoPlanilha() {
     alert(`✅ ${novosRegistros.length} atividade(s) enviadas!`);
 }
 
-// ================= PAINEL DE DISPONIBILIDADE + MAPA FIEL À REALIDADE E FILTRADO POR FISCAL =================
 function renderizarPainelDisponibilidade() {
     try {
         injetarBotaoLimparMapa();
@@ -1615,10 +1529,8 @@ function renderizarPainelDisponibilidade() {
             }
 
             let gpsStr = `<span class="text-slate-400 text-[10px]">Sem sinal hoje</span>`;
-            let sinalTextoPuro = "Sem sinal hoje";
             if (latFinal !== null && lngFinal !== null && !isNaN(latFinal) && !isNaN(lngFinal)) {
                 const coordFormatada = `${latFinal.toFixed(5)}, ${lngFinal.toFixed(5)}`;
-                sinalTextoPuro = `${horaSinal || '--:--'} (${melhorSinal.origem || 'GPS'})`;
                 gpsStr = `<div class="space-y-0.5"><div class="text-[9px] font-bold ${deveAparecerNoMapa ? 'text-emerald-800' : 'text-slate-500'}">🕒 Às ${horaSinal || '--:--'} • ${melhorSinal.origem}</div><a href="https://www.google.com/maps/search/?api=1&query=${latFinal},${lngFinal}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${coordFormatada}</a></div>`;
 
                 if (deveAparecerNoMapa) {
@@ -1629,7 +1541,7 @@ function renderizarPainelDisponibilidade() {
                     listaPinosParaMapa.push({
                         nome: eq.nome, lat: latFinal, lng: lngFinal, corHex: corPinoHex,
                         iconeEmoji: iconeEmojiPino, statusTexto: statusTextoPuro, turnoTexto: turnoTextoPuro,
-                        ocupacaoLimpa, sinalTexto: sinalTextoPuro, horaCurta: horaSinal
+                        ocupacaoLimpa, sinalTexto: `${horaSinal || '--:--'} (${melhorSinal.origem})`, horaCurta: horaSinal
                     });
                 } else {
                     acaoHtml = `<button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="text-[10px] text-slate-500 hover:text-blue-700 underline font-semibold">📍 Ver última pos. (${horaSinal || '--:--'})</button>`;
@@ -1648,8 +1560,8 @@ function renderizarPainelDisponibilidade() {
         inicializarOuAtualizarMapaRastreio(listaPinosParaMapa);
     } catch (e) { console.warn("Erro disponibilidade:", e); }
 }
-// ================= CARREGAMENTO PAGINADO COMPLETO DE TODO O HISTÓRICO DA NUVEM (SEM LIMITE DE 1.000 LINHAS) =================
 
+// ================= CARREGAMENTO PAGINADO COMPLETO DE TODO O HISTÓRICO DA NUVEM =================
 function converterLinhaLeveParaObjetoGpd(row) {
     if (typeof converterLinhaBancoParaObjetoGpd === "function") {
         const obj = converterLinhaBancoParaObjetoGpd({ ...row, observacoes: row.observacoes || "" });
@@ -1699,12 +1611,12 @@ function converterLinhaLeveParaObjetoGpd(row) {
 async function baixarTodoHistoricoPaginadoSupabase() {
     if (typeof supabaseClient === "undefined") return [];
 
-    const TAMANHO_PAGINA = 800; // Abaixo do limite máximo de 1.000 do Supabase
+    const TAMANHO_PAGINA = 800;
     let todasLinhas = [];
     let pagina = 0;
     let continuar = true;
 
-    while (continuar && pagina < 25) { // Suporta até 20.000 registros históricos
+    while (continuar && pagina < 25) {
         const inicio = pagina * TAMANHO_PAGINA;
         const fim = inicio + TAMANHO_PAGINA - 1;
 
@@ -1727,7 +1639,7 @@ async function baixarTodoHistoricoPaginadoSupabase() {
         } else {
             todasLinhas.push(...data);
             if (data.length < TAMANHO_PAGINA) {
-                continuar = false; // Chegou ao primeiro dia da ferramenta!
+                continuar = false;
             } else {
                 pagina++;
             }
@@ -1748,12 +1660,10 @@ async function garantirCargaNuvemGestor(forcarRecarga = false) {
                 corpoAtivLoading.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-blue-900 font-bold animate-pulse">☁️ Carregando todo o histórico de atividades e gráficos desde o início da ferramenta...</td></tr>`;
             }
 
-            // 1. Executa a carga padrão do nuvem.js (que traz metadados de endereço dos registros recentes)
             if (typeof carregarRegistrosDaNuvem === "function") {
                 try { await carregarRegistrosDaNuvem(true); } catch (e) {}
             }
 
-            // 2. Executa a varredura paginada completa (sem o teto de 1.000 linhas do Supabase)
             const listaCompletaPaginada = await baixarTodoHistoricoPaginadoSupabase();
 
             if (Array.isArray(listaCompletaPaginada) && listaCompletaPaginada.length > 0) {
@@ -2137,899 +2047,11 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
         });
     }
 
-    const finalizadasParaGraficosGerais = grupoAtivoAbaGraficos === 'TODOS'
-        ? finalizadas
-        : finalizadas.filter(d => {
-            if (grupoAtivoAbaGraficos === 'VISTORIA') return d.servicoPlanilha === 'VISTORIA';
-            if (grupoAtivoAbaGraficos === 'CONSTRUCAO') return d.servicoPlanilha === 'CONSTRUÇÃO';
-            if (grupoAtivoAbaGraficos === 'ATIVACAO') return d.servicoPlanilha === 'ATIVAÇÃO';
-            return true;
-        });
-
-    const filtradosParaGraficosGerais = grupoAtivoAbaGraficos === 'TODOS'
-        ? filtrados
-        : filtrados.filter(d => {
-            if (grupoAtivoAbaGraficos === 'VISTORIA') return d.servicoPlanilha === 'VISTORIA';
-            if (grupoAtivoAbaGraficos === 'CONSTRUCAO') return d.servicoPlanilha === 'CONSTRUÇÃO';
-            if (grupoAtivoAbaGraficos === 'ATIVACAO') return d.servicoPlanilha === 'ATIVAÇÃO';
-            return true;
-        });
-
-    try { renderizarTresBlocosDeGruposNaAbaGraficos(finalizadas); } catch (e) { console.warn("Erro 3 grupos:", e); }
-    try { renderizarPainelMallingEProjetoF(finalizadasParaGraficosGerais); } catch (e) { console.warn("Erro visões planilha:", e); }
-    try { renderizarPainelProgramadoRetornoEBairro(filtradosParaGraficosGerais); } catch (e) { console.warn("Erro Programado/Retorno:", e); }
-    try { renderizarGraficos(finalizadasParaGraficosGerais, filtradosParaGraficosGerais); } catch (e) { console.warn("Erro graficos:", e); }
-    try { renderizarOfensoresMalogro(finalizadasParaGraficosGerais); } catch (e) { console.warn("Erro ofensores:", e); }
-    try { renderizarTabelaConsolidada(finalizadasParaGraficosGerais); } catch (e) { console.warn("Erro consolidada:", e); }
+    try { renderizarAbaGraficosCompletaOficial(); } catch (e) { console.warn("Erro na aba gráficos:", e); }
     try { renderizarTabelaUsuariosPermissao(); } catch (e) {}
 }
 
-// ================= OS 3 BLOCOS INDEPENDENTES NA ABA GRÁFICOS (COM FILTRO DE CARTEIRA DE FISCAL E APOIO) =================
-function renderizarTresBlocosDeGruposNaAbaGraficos(dadosFinalizados) {
-    const hojeISO = obterDataLocalISO();
-    const setFiscal = obterSetEquipesDoFiscalLogado();
-    const equipesVisiveis = obterEquipesVisiveisUsuarioAtual(true);
-    const datasPresentes = [...new Set(dadosFinalizados.map(d => d.dataRegistro).filter(Boolean))].sort();
-    const dataRefDiaria = datasPresentes.includes(hojeISO) ? hojeISO : (datasPresentes.length > 0 ? datasPresentes[datasPresentes.length - 1] : hojeISO);
-    const lblDataRef = document.getElementById('lbl-data-ref-diaria');
-    if (lblDataRef) lblDataRef.innerText = dataRefDiaria === hojeISO ? `Hoje (${hojeISO})` : dataRefDiaria;
-
-    // 1. BLOCO GRUPO VISTORIA
-    const dadosVistoria = dadosFinalizados.filter(d => d.servicoPlanilha === 'VISTORIA');
-    const mapaVist = {};
-    equipesVisiveis.filter(e => tecnicoPertenceAoSetor(e.setor, 'Vistoriador')).forEach(eq => {
-        mapaVist[eq.nome] = { nome: eq.nome, prodDiaria: 0, exec: 0, apoios: 0, nExec: 0, total: 0, hps: 0, duracoes: [], diasSet: new Set() };
-    });
-
-    dadosVistoria.forEach(d => {
-        const nome = d.equipe || 'NÃO IDENTIFICADO';
-        if (!setFiscal || equipePertenceAoUsuarioLogado(nome, setFiscal)) {
-            if (!mapaVist[nome]) mapaVist[nome] = { nome, prodDiaria: 0, exec: 0, apoios: 0, nExec: 0, total: 0, hps: 0, duracoes: [], diasSet: new Set() };
-            const item = mapaVist[nome];
-            item.total++;
-            if (d.dataRegistro) item.diasSet.add(d.dataRegistro);
-            if (d.desfecho === 'CONCLUIDA') {
-                item.exec++;
-                item.hps += Number(d.hps) || 0;
-                if (d.dataRegistro === dataRefDiaria) item.prodDiaria++;
-            } else item.nExec++;
-            const minIn = converterHorarioParaMinutos(d.hEntrada), minOut = converterHorarioParaMinutos(d.hSaida);
-            if (minIn !== null && minOut !== null && minOut >= minIn) {
-                const dur = Math.max(0, (minOut - minIn) - (Number(d.tempoPausadoMinutos) || 0));
-                if (dur > 0 && dur <= 840) item.duracoes.push(dur);
-            }
-        }
-
-        const apoiosReg = extrairApoiosDoRegistro(d);
-        apoiosReg.forEach(nomeAp => {
-            if (!setFiscal || equipePertenceAoUsuarioLogado(nomeAp, setFiscal)) {
-                if (!mapaVist[nomeAp]) mapaVist[nomeAp] = { nome: nomeAp, prodDiaria: 0, exec: 0, apoios: 0, nExec: 0, total: 0, hps: 0, duracoes: [], diasSet: new Set() };
-                if (d.dataRegistro) mapaVist[nomeAp].diasSet.add(d.dataRegistro);
-                if (d.desfecho === 'CONCLUIDA') mapaVist[nomeAp].apoios++;
-            }
-        });
-    });
-
-    const listaVist = Object.values(mapaVist).map(v => {
-        const dias = v.diasSet.size;
-        return {
-            ...v, dias,
-            produtividade: dias > 0 ? (v.exec / dias) : 0,
-            hpDia: dias > 0 ? (v.hps / dias) : 0,
-            conversao: v.total > 0 ? ((v.exec / v.total) * 100) : 0,
-            tma: v.duracoes.length > 0 ? formatarDuracaoTexto(v.duracoes.reduce((a, b) => a + b, 0) / v.duracoes.length) : '--h --m'
-        };
-    }).sort((a, b) => b.exec - a.exec || b.apoios - a.apoios || b.total - a.total);
-
-    const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-    const vistComProd = listaVist.filter(x => x.total > 0 || x.apoios > 0);
-    setEl('card-vist-qtd-tec', `${listaVist.length} vist. (${vistComProd.length} c/ prod.)`);
-    setEl('card-vist-diaria', listaVist.reduce((a, b) => a + b.prodDiaria, 0));
-    setEl('card-vist-consolidado', listaVist.reduce((a, b) => a + b.exec, 0));
-    setEl('card-vist-media', (vistComProd.length > 0 ? vistComProd.reduce((a, b) => a + b.produtividade, 0) / vistComProd.length : 0).toFixed(2));
-
-    const tbodyVist = document.getElementById('tabela-executores-vistoria-corpo');
-    if (tbodyVist) {
-        const trHeadVist = tbodyVist.closest('table')?.querySelector('thead tr');
-        if (trHeadVist && !trHeadVist.dataset.apoioInjetado) {
-            trHeadVist.dataset.apoioInjetado = "true";
-            trHeadVist.innerHTML = `
-                <th class="p-2.5 text-center">#</th>
-                <th class="p-2.5">Vistoriador / Equipe</th>
-                <th class="p-2.5 text-center bg-emerald-800">Executados</th>
-                <th class="p-2.5 text-center bg-purple-700 text-purple-100">🤝 Apoios</th>
-                <th class="p-2.5 text-center bg-amber-800">N Executado</th>
-                <th class="p-2.5 text-center">Total Geral</th>
-                <th class="p-2.5 text-center">Dias Trab</th>
-                <th class="p-2.5 text-center bg-purple-800 text-purple-200 font-black">Produtividade</th>
-                <th class="p-2.5 text-center bg-cyan-900 text-cyan-200">QNT. HP</th>
-                <th class="p-2.5 text-center">HP / DIA</th>
-                <th class="p-2.5 text-center">TMA Líquido</th>
-                <th class="p-2.5 text-right">% Conversão</th>
-            `;
-        }
-        tbodyVist.innerHTML = "";
-        let sExec = 0, sAp = 0, sNExec = 0, sTot = 0, sHp = 0;
-        listaVist.forEach((v, idx) => {
-            sExec += v.exec; sAp += v.apoios; sNExec += v.nExec; sTot += v.total; sHp += v.hps;
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-purple-50/60 border-b cursor-pointer";
-            tr.onclick = () => dispararExplosaoGrafico('equipe_servico', `${v.nome}|VISTORIA`);
-            tr.innerHTML = `<td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td><td class="p-2.5 font-bold text-purple-950 underline decoration-dotted">${v.nome}</td><td class="p-2.5 text-center font-black text-emerald-700 bg-emerald-50/60 text-sm">${v.exec}</td><td class="p-2.5 text-center font-black text-purple-800 bg-purple-100/60">${v.apoios > 0 ? `🤝 ${v.apoios}` : '0'}</td><td class="p-2.5 text-center font-bold text-amber-800 bg-amber-50/40">${v.nExec}</td><td class="p-2.5 text-center font-black text-slate-800">${v.total}</td><td class="p-2.5 text-center font-mono">${v.dias}</td><td class="p-2.5 text-center font-black text-purple-900 bg-purple-50/80 text-sm">${v.produtividade.toFixed(2)}</td><td class="p-2.5 text-center font-black text-cyan-900 bg-cyan-50/50">${v.hps}</td><td class="p-2.5 text-center font-semibold">${v.hpDia.toFixed(1)}</td><td class="p-2.5 text-center font-bold text-emerald-800">${v.tma}</td><td class="p-2.5 text-right font-bold">${v.conversao.toFixed(1)}%</td>`;
-            tbodyVist.appendChild(tr);
-        });
-        const convGeralVist = sTot > 0 ? ((sExec / sTot) * 100).toFixed(1) : "0.0";
-        tbodyVist.innerHTML += `<tr class="bg-purple-950 text-white font-black text-xs"><td colspan="2" class="p-2.5 text-right uppercase">Total Grupo Vistoria:</td><td class="p-2.5 text-center text-emerald-300">${sExec}</td><td class="p-2.5 text-center text-purple-200">🤝 ${sAp}</td><td class="p-2.5 text-center text-amber-300">${sNExec}</td><td class="p-2.5 text-center">${sTot}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center text-purple-200">-</td><td class="p-2.5 text-center text-cyan-300">${sHp}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-right">${convGeralVist}%</td></tr>`;
-    }
-
-    const ctxVist = document.getElementById('graficoExecutoresVistoria')?.getContext('2d');
-    if (ctxVist) {
-        if (graficoExecutoresVistoriaInstancia) graficoExecutoresVistoriaInstancia.destroy();
-        const grafVist = vistComProd.length > 0 ? vistComProd : listaVist.slice(0, 10);
-        graficoExecutoresVistoriaInstancia = new Chart(ctxVist, {
-            type: 'bar',
-            data: {
-                labels: grafVist.map(v => `${v.nome.split(' ')[0]} ${v.nome.split(' ')[1] ? v.nome.split(' ')[1].charAt(0) + '.' : ''}`),
-                datasets: [
-                    { label: '🟢 Vistorias Executadas', data: grafVist.map(v => v.exec), backgroundColor: '#7c3aed', borderRadius: 5 },
-                    { label: '🤝 Apoios em Conjunto', data: grafVist.map(v => v.apoios), backgroundColor: '#ec4899', borderRadius: 5 },
-                    { label: '🟠 Não Executadas', data: grafVist.map(v => v.nExec), backgroundColor: '#f59e0b', borderRadius: 5 },
-                    { label: '⚡ Produtividade/Dia', data: grafVist.map(v => Number(v.produtividade.toFixed(2))), backgroundColor: '#059669', borderRadius: 5 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('equipe_servico', `${grafVist[el[0].index].nome}|VISTORIA`); }
-            }
-        });
-    }
-
-    // 2 e 3. CONSTRUÇÃO E ATIVAÇÃO
-    const processarGrupoComSubdivisaoFOuOnGoing = (macroServico, setorPadrao, idTbody, idCanvas, prefixoCard, corBarraF, corBarraOG) => {
-        const dadosGrupo = dadosFinalizados.filter(d => d.servicoPlanilha === macroServico);
-        const mapa = {};
-        equipesVisiveis.filter(e => tecnicoPertenceAoSetor(e.setor, setorPadrao)).forEach(eq => {
-            mapa[eq.nome] = {
-                nome: eq.nome, prodDiaria: 0,
-                execF: 0, execOG: 0, execTotal: 0, apoios: 0,
-                nExecF: 0, nExecOG: 0, nExecTotal: 0,
-                totalGeral: 0, hpF: 0, hpOG: 0, hpTotal: 0, diasSet: new Set()
-            };
-        });
-
-        const setApoiosUnicosImovel = new Set();
-
-        dadosGrupo.forEach(d => {
-            const nome = d.equipe || 'NÃO IDENTIFICADO';
-            if (!setFiscal || equipePertenceAoUsuarioLogado(nome, setFiscal)) {
-                if (!mapa[nome]) {
-                    mapa[nome] = {
-                        nome, prodDiaria: 0,
-                        execF: 0, execOG: 0, execTotal: 0, apoios: 0,
-                        nExecF: 0, nExecOG: 0, nExecTotal: 0,
-                        totalGeral: 0, hpF: 0, hpOG: 0, hpTotal: 0, diasSet: new Set()
-                    };
-                }
-                const item = mapa[nome];
-                item.totalGeral++;
-                if (d.dataRegistro) item.diasSet.add(d.dataRegistro);
-                const ehF = d.subgrupoFOuOnGoing === 'F';
-                const hpsVal = Number(d.hps) || 0;
-
-                if (d.desfecho === 'CONCLUIDA') {
-                    item.execTotal++;
-                    item.hpTotal += hpsVal;
-                    if (ehF) { item.execF++; item.hpF += hpsVal; }
-                    else { item.execOG++; item.hpOG += hpsVal; }
-                    if (d.dataRegistro === dataRefDiaria) item.prodDiaria++;
-                } else {
-                    item.nExecTotal++;
-                    if (ehF) item.nExecF++;
-                    else item.nExecOG++;
-                }
-            }
-
-            const apoiosReg = extrairApoiosDoRegistro(d);
-            apoiosReg.forEach(nomeAp => {
-                if (!setFiscal || equipePertenceAoUsuarioLogado(nomeAp, setFiscal)) {
-                    if (!mapa[nomeAp]) {
-                        mapa[nomeAp] = {
-                            nome: nomeAp, prodDiaria: 0,
-                            execF: 0, execOG: 0, execTotal: 0, apoios: 0,
-                            nExecF: 0, nExecOG: 0, nExecTotal: 0,
-                            totalGeral: 0, hpF: 0, hpOG: 0, hpTotal: 0, diasSet: new Set()
-                        };
-                    }
-                    if (d.dataRegistro) mapa[nomeAp].diasSet.add(d.dataRegistro);
-                    const chaveAp = `${d.dataRegistro}_${obterCodigoBaseImovel(d.imovel)}_${nomeAp}`;
-                    if (!setApoiosUnicosImovel.has(chaveAp)) {
-                        setApoiosUnicosImovel.add(chaveAp);
-                        mapa[nomeAp].apoios++;
-                    }
-                }
-            });
-        });
-
-        const lista = Object.values(mapa).map(x => {
-            const dias = x.diasSet.size;
-            return {
-                ...x, dias,
-                produtividade: dias > 0 ? (x.execTotal / dias) : 0,
-                hpDia: dias > 0 ? (x.hpTotal / dias) : 0,
-                conversao: x.totalGeral > 0 ? ((x.execTotal / x.totalGeral) * 100) : 0
-            };
-        }).sort((a, b) => b.execTotal - a.execTotal || b.apoios - a.apoios || b.totalGeral - a.totalGeral);
-
-        const comProd = lista.filter(x => x.totalGeral > 0 || x.apoios > 0);
-        const totExecF = lista.reduce((a, b) => a + b.execF, 0);
-        const totExecOG = lista.reduce((a, b) => a + b.execOG, 0);
-        const totExecGeral = lista.reduce((a, b) => a + b.execTotal, 0);
-
-        setEl(`card-${prefixoCard}-qtd-tec`, `${lista.length} eq. (${comProd.length} c/ prod.)`);
-        setEl(`card-${prefixoCard}-exec-f`, totExecF);
-        setEl(`card-${prefixoCard}-exec-ongoing`, totExecOG);
-        setEl(`card-${prefixoCard}-consolidado`, totExecGeral);
-        setEl(`card-${prefixoCard}-diaria`, lista.reduce((a, b) => a + b.prodDiaria, 0));
-        setEl(`card-${prefixoCard}-media`, (comProd.length > 0 ? comProd.reduce((a, b) => a + b.produtividade, 0) / comProd.length : 0).toFixed(2));
-
-        const tbody = document.getElementById(idTbody);
-        if (tbody) {
-            const trHead = tbody.closest('table')?.querySelector('thead tr');
-            if (trHead && !trHead.dataset.apoioInjetado) {
-                trHead.dataset.apoioInjetado = "true";
-                trHead.innerHTML = `
-                    <th class="p-2.5 text-center">#</th>
-                    <th class="p-2.5">Equipe / Técnico</th>
-                    <th class="p-2.5 text-center bg-indigo-800 text-indigo-100">Exec. F</th>
-                    <th class="p-2.5 text-center bg-cyan-800 text-cyan-100">Exec. ON GOING</th>
-                    <th class="p-2.5 text-center bg-emerald-800 text-white font-black">Total Exec.</th>
-                    <th class="p-2.5 text-center bg-purple-800 text-purple-100">🤝 Apoios</th>
-                    <th class="p-2.5 text-center bg-amber-800/80">N Exec. F</th>
-                    <th class="p-2.5 text-center bg-amber-700/80">N Exec. ON GOING</th>
-                    <th class="p-2.5 text-center bg-amber-900 text-amber-200">Total N Exec.</th>
-                    <th class="p-2.5 text-center">Total Geral</th>
-                    <th class="p-2.5 text-center">Dias Trab</th>
-                    <th class="p-2.5 text-center bg-blue-800 text-cyan-300 font-black">Produtividade</th>
-                    <th class="p-2.5 text-center bg-cyan-950 text-cyan-200">HP (F / ON GOING / Total)</th>
-                    <th class="p-2.5 text-center">HP / DIA</th>
-                    <th class="p-2.5 text-right">% Conv.</th>
-                `;
-            }
-
-            tbody.innerHTML = "";
-            let sEF = 0, sEOG = 0, sET = 0, sAp = 0, sNF = 0, sNOG = 0, sNT = 0, sTG = 0, sHF = 0, sHOG = 0, sHT = 0;
-            lista.forEach((x, idx) => {
-                sEF += x.execF; sEOG += x.execOG; sET += x.execTotal; sAp += x.apoios;
-                sNF += x.nExecF; sNOG += x.nExecOG; sNT += x.nExecTotal;
-                sTG += x.totalGeral; sHF += x.hpF; sHOG += x.hpOG; sHT += x.hpTotal;
-
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-blue-50/60 border-b cursor-pointer";
-                tr.onclick = () => dispararExplosaoGrafico('equipe_servico', `${x.nome}|${macroServico}`);
-                tr.innerHTML = `
-                    <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
-                    <td class="p-2.5 font-bold text-blue-950 underline decoration-dotted">${x.nome}</td>
-                    <td class="p-2.5 text-center font-black text-indigo-800 bg-indigo-50/70">${x.execF}</td>
-                    <td class="p-2.5 text-center font-black text-cyan-800 bg-cyan-50/70">${x.execOG}</td>
-                    <td class="p-2.5 text-center font-black text-emerald-800 bg-emerald-100/70 text-sm">${x.execTotal}</td>
-                    <td class="p-2.5 text-center font-black text-purple-800 bg-purple-100/70">${x.apoios > 0 ? `🤝 ${x.apoios}` : '0'}</td>
-                    <td class="p-2.5 text-center text-amber-800 bg-amber-50/40">${x.nExecF}</td>
-                    <td class="p-2.5 text-center text-amber-800 bg-amber-50/40">${x.nExecOG}</td>
-                    <td class="p-2.5 text-center font-bold text-amber-900 bg-amber-100/50">${x.nExecTotal}</td>
-                    <td class="p-2.5 text-center font-black text-slate-800">${x.totalGeral}</td>
-                    <td class="p-2.5 text-center font-mono">${x.dias}</td>
-                    <td class="p-2.5 text-center font-black text-blue-950 bg-blue-50/80 text-sm">${x.produtividade.toFixed(2)}</td>
-                    <td class="p-2.5 text-center font-semibold text-xs bg-slate-50"><span class="text-indigo-700 font-bold">${x.hpF}</span> / <span class="text-cyan-800 font-bold">${x.hpOG}</span> / <b class="text-slate-900">${x.hpTotal}</b></td>
-                    <td class="p-2.5 text-center font-semibold">${x.hpDia.toFixed(1)}</td>
-                    <td class="p-2.5 text-right font-bold">${x.conversao.toFixed(1)}%</td>`;
-                tbody.appendChild(tr);
-            });
-            const convG = sTG > 0 ? ((sET / sTG) * 100).toFixed(1) : "0.0";
-            tbody.innerHTML += `<tr class="bg-slate-900 text-white font-black text-xs"><td colspan="2" class="p-2.5 text-right uppercase">Total Grupo ${macroServico}:</td><td class="p-2.5 text-center text-indigo-300">${sEF}</td><td class="p-2.5 text-center text-cyan-300">${sEOG}</td><td class="p-2.5 text-center text-emerald-300">${sET}</td><td class="p-2.5 text-center text-purple-300">🤝 ${sAp}</td><td class="p-2.5 text-center text-amber-200">${sNF}</td><td class="p-2.5 text-center text-amber-200">${sNOG}</td><td class="p-2.5 text-center text-amber-300">${sNT}</td><td class="p-2.5 text-center">${sTG}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-center text-cyan-200">${sHF} / ${sHOG} / ${sHT}</td><td class="p-2.5 text-center">-</td><td class="p-2.5 text-right">${convG}%</td></tr>`;
-        }
-
-        const ctx = document.getElementById(idCanvas)?.getContext('2d');
-        if (ctx) {
-            const grafLista = comProd.length > 0 ? comProd : lista.slice(0, 12);
-            const novaInst = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: grafLista.map(x => `${x.nome.split(' ')[0]} ${x.nome.split(' ')[1] ? x.nome.split(' ')[1].charAt(0) + '.' : ''}`),
-                    datasets: [
-                        { label: `🟣 Executado PROJETO F`, data: grafLista.map(x => x.execF), backgroundColor: corBarraF, borderRadius: 4 },
-                        { label: `🔵 Executado ON GOING`, data: grafLista.map(x => x.execOG), backgroundColor: corBarraOG, borderRadius: 4 },
-                        { label: `🤝 Apoios em Conjunto`, data: grafLista.map(x => x.apoios), backgroundColor: '#ec4899', borderRadius: 4 },
-                        { label: `🟠 Não Executado (F + ON GOING)`, data: grafLista.map(x => x.nExecTotal), backgroundColor: '#f59e0b', borderRadius: 4 },
-                        { label: `⚡ Produtividade/Dia`, data: grafLista.map(x => Number(x.produtividade.toFixed(2))), backgroundColor: '#10b981', borderRadius: 4 }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('equipe_servico', `${grafLista[el[0].index].nome}|${macroServico}`); }
-                }
-            });
-            if (macroServico === 'CONSTRUÇÃO') {
-                if (graficoExecutoresConstrucaoInstancia) graficoExecutoresConstrucaoInstancia.destroy();
-                graficoExecutoresConstrucaoInstancia = novaInst;
-            } else {
-                if (graficoExecutoresAtivacaoInstancia) graficoExecutoresAtivacaoInstancia.destroy();
-                graficoExecutoresAtivacaoInstancia = novaInst;
-            }
-        }
-    };
-
-    processarGrupoComSubdivisaoFOuOnGoing('CONSTRUÇÃO', 'Instalador', 'tabela-executores-construcao-corpo', 'graficoExecutoresConstrucao', 'inst', '#4f46e5', '#0284c7');
-    processarGrupoComSubdivisaoFOuOnGoing('ATIVAÇÃO', 'Ativador', 'tabela-executores-ativacao-corpo', 'graficoExecutoresAtivacao', 'ativ', '#6366f1', '#0d9488');
-}
-
-// ================= GRÁFICOS DINÂMICOS E MATRIZES SEPARADAS POR GRUPO NA ABA GRÁFICOS =================
-function renderizarPainelMallingEProjetoF(dados) {
-    const setFiscal = obterSetEquipesDoFiscalLogado();
-    const categorias5 = [
-        { label: '🔍 VISTORIA', filtro: d => d.servicoPlanilha === 'VISTORIA', chaveExp: 'VISTORIA|TODOS' },
-        { label: '🛠️ CONSTRUÇÃO F', filtro: d => d.servicoPlanilha === 'CONSTRUÇÃO' && d.subgrupoFOuOnGoing === 'F', chaveExp: 'CONSTRUÇÃO|F' },
-        { label: '🛠️ CONST. ON GOING', filtro: d => d.servicoPlanilha === 'CONSTRUÇÃO' && d.subgrupoFOuOnGoing === 'ON GOING', chaveExp: 'CONSTRUÇÃO|ON GOING' },
-        { label: '⚡ ATIVAÇÃO F', filtro: d => d.servicoPlanilha === 'ATIVAÇÃO' && d.subgrupoFOuOnGoing === 'F', chaveExp: 'ATIVAÇÃO|F' },
-        { label: '⚡ ATIV. ON GOING', filtro: d => d.servicoPlanilha === 'ATIVAÇÃO' && d.subgrupoFOuOnGoing === 'ON GOING', chaveExp: 'ATIVAÇÃO|ON GOING' }
-    ];
-
-    const badgeTotalServ = document.getElementById('badge-total-malling');
-    if (badgeTotalServ) badgeTotalServ.innerText = `${dados.length} acionamentos`;
-
-    const ctxServ = document.getElementById('graficoGrupoMalling')?.getContext('2d');
-    if (ctxServ) {
-        if (graficoGrupoMallingInstancia) graficoGrupoMallingInstancia.destroy();
-        graficoGrupoMallingInstancia = new Chart(ctxServ, {
-            type: 'bar',
-            data: {
-                labels: categorias5.map(c => c.label),
-                datasets: [
-                    { label: '🟢 EXECUTADO', data: categorias5.map(c => dados.filter(d => c.filtro(d) && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#059669', borderRadius: 5 },
-                    { label: '🤝 Com Apoio Conjunto', data: categorias5.map(c => dados.filter(d => c.filtro(d) && extrairApoiosDoRegistro(d).length > 0).length), backgroundColor: '#9333ea', borderRadius: 5 },
-                    { label: '🟠 N EXECUTADO', data: categorias5.map(c => dados.filter(d => c.filtro(d) && d.desfecho !== 'CONCLUIDA').length), backgroundColor: '#f59e0b', borderRadius: 5 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('grupo_subgrupo', categorias5[el[0].index].chaveExp); }
-            }
-        });
-    }
-
-    const semanas = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4', 'Sem 5'];
-    const badgeSem = document.getElementById('badge-total-projetof');
-    if (badgeSem) badgeSem.innerText = `${dados.filter(d => d.desfecho === 'CONCLUIDA').length} executados`;
-
-    const ctxSem = document.getElementById('graficoGrupoProjetoF')?.getContext('2d');
-    if (ctxSem) {
-        if (graficoGrupoProjetoFInstancia) graficoGrupoProjetoFInstancia.destroy();
-        graficoGrupoProjetoFInstancia = new Chart(ctxSem, {
-            type: 'bar',
-            data: {
-                labels: semanas,
-                datasets: [
-                    { label: '🔍 Vistoria (Exec.)', data: semanas.map(s => dados.filter(d => obterSemanaDoMes(d.dataRegistro) === s && d.servicoPlanilha === 'VISTORIA' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#7c3aed', borderRadius: 4 },
-                    { label: '🛠️ Construção F (Exec.)', data: semanas.map(s => dados.filter(d => obterSemanaDoMes(d.dataRegistro) === s && d.servicoPlanilha === 'CONSTRUÇÃO' && d.subgrupoFOuOnGoing === 'F' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#4f46e5', borderRadius: 4 },
-                    { label: '🛠️ Construção ON GOING (Exec.)', data: semanas.map(s => dados.filter(d => obterSemanaDoMes(d.dataRegistro) === s && d.servicoPlanilha === 'CONSTRUÇÃO' && d.subgrupoFOuOnGoing === 'ON GOING' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#0284c7', borderRadius: 4 },
-                    { label: '⚡ Ativação F + ON GOING (Exec.)', data: semanas.map(s => dados.filter(d => obterSemanaDoMes(d.dataRegistro) === s && d.servicoPlanilha === 'ATIVAÇÃO' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#059669', borderRadius: 4 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('semana', semanas[el[0].index]); }
-            }
-        });
-    }
-
-    const datasOrdenadas = [...new Set(dados.map(d => d.dataRegistro).filter(Boolean))].sort();
-    const ctxDiario = document.getElementById('graficoEvolucaoGrupos')?.getContext('2d');
-    if (ctxDiario) {
-        if (graficoEvolucaoGruposInstancia) graficoEvolucaoGruposInstancia.destroy();
-        graficoEvolucaoGruposInstancia = new Chart(ctxDiario, {
-            type: 'bar',
-            data: {
-                labels: datasOrdenadas.length > 0 ? datasOrdenadas.map(dt => dt.split('-').reverse().slice(0, 2).join('/')) : ['Sem datas'],
-                datasets: [
-                    { label: '🔍 Vistoria (Exec.)', data: datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && d.servicoPlanilha === 'VISTORIA' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#7c3aed', borderRadius: 4 },
-                    { label: '🛠️ Construção (F + ON GOING Exec.)', data: datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && d.servicoPlanilha === 'CONSTRUÇÃO' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#2563eb', borderRadius: 4 },
-                    { label: '⚡ Ativação (F + ON GOING Exec.)', data: datasOrdenadas.map(dt => dados.filter(d => d.dataRegistro === dt && d.servicoPlanilha === 'ATIVAÇÃO' && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#059669', borderRadius: 4 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } },
-                onClick: (e, el) => { if (el.length > 0 && datasOrdenadas[el[0].index]) dispararExplosaoGrafico('data', datasOrdenadas[el[0].index]); }
-            }
-        });
-    }
-
-    renderizarMatrizDiariaPlanilha(dados, datasOrdenadas);
-
-    const theadCruz = document.getElementById('thead-cruzamento-executores');
-    const tbodyCruz = document.getElementById('tabela-cruzamento-executores-corpo');
-    if (!tbodyCruz) return;
-    tbodyCruz.innerHTML = "";
-
-    if (theadCruz) {
-        theadCruz.innerHTML = `
-            <tr class="bg-slate-800 text-white uppercase font-bold text-[9px] border-b">
-                <th class="p-2.5">Executor / Técnico</th>
-                <th class="p-2.5">Grupo Principal</th>
-                <th class="p-2 text-center bg-purple-900">Vistoria (Exec / N Exec)</th>
-                <th class="p-2 text-center bg-indigo-900">Construção F (Exec / N Exec)</th>
-                <th class="p-2 text-center bg-blue-900">Const. ON GOING (Exec / N Exec)</th>
-                <th class="p-2 text-center bg-emerald-900">Ativação F (Exec / N Exec)</th>
-                <th class="p-2 text-center bg-teal-900">Ativ. ON GOING (Exec / N Exec)</th>
-                <th class="p-2 text-center bg-purple-800 text-purple-100">🤝 Apoios</th>
-                <th class="p-2.5 text-center bg-slate-950 text-cyan-300 font-black">Total Executado</th>
-                <th class="p-2.5 text-center bg-slate-900">Total Geral</th>
-            </tr>`;
-    }
-
-    const gruposMacro = [
-        { chave: 'VISTORIA', titulo: '🔍 GRUPO VISTORIA (Vistoriadores)', cor: 'bg-purple-100 text-purple-950' },
-        { chave: 'CONSTRUÇÃO', titulo: '🛠️ GRUPO CONSTRUÇÃO (Instaladores — F & ON GOING)', cor: 'bg-blue-100 text-blue-950' },
-        { chave: 'ATIVAÇÃO', titulo: '⚡ GRUPO ATIVAÇÃO (Ativadores — F & ON GOING)', cor: 'bg-emerald-100 text-emerald-950' }
-    ];
-
-    gruposMacro.forEach(grp => {
-        const dadosDoGrp = dados.filter(d => d.servicoPlanilha === grp.chave);
-        if (dadosDoGrp.length === 0) return;
-
-        tbodyCruz.innerHTML += `<tr class="${grp.cor} font-black text-xs"><td colspan="10" class="p-2 uppercase">${grp.titulo}</td></tr>`;
-        const mapaTec = {};
-        dadosDoGrp.forEach(d => {
-            const n = d.equipe || 'NÃO IDENTIFICADO';
-            if (!setFiscal || equipePertenceAoUsuarioLogado(n, setFiscal)) {
-                if (!mapaTec[n]) mapaTec[n] = { nome: n, vE: 0, vN: 0, cfE: 0, cfN: 0, cogE: 0, cogN: 0, afE: 0, afN: 0, aogE: 0, aogN: 0, ap: 0, totE: 0, totG: 0 };
-                const t = mapaTec[n];
-                t.totG++;
-                const ok = d.desfecho === 'CONCLUIDA';
-                if (ok) t.totE++;
-                if (d.servicoPlanilha === 'VISTORIA') { if (ok) t.vE++; else t.vN++; }
-                else if (d.servicoPlanilha === 'CONSTRUÇÃO') {
-                    if (d.subgrupoFOuOnGoing === 'F') { if (ok) t.cfE++; else t.cfN++; }
-                    else { if (ok) t.cogE++; else t.cogN++; }
-                } else {
-                    if (d.subgrupoFOuOnGoing === 'F') { if (ok) t.afE++; else t.afN++; }
-                    else { if (ok) t.aogE++; else t.aogN++; }
-                }
-            }
-
-            extrairApoiosDoRegistro(d).forEach(apNome => {
-                if (!setFiscal || equipePertenceAoUsuarioLogado(apNome, setFiscal)) {
-                    if (!mapaTec[apNome]) mapaTec[apNome] = { nome: apNome, vE: 0, vN: 0, cfE: 0, cfN: 0, cogE: 0, cogN: 0, afE: 0, afN: 0, aogE: 0, aogN: 0, ap: 0, totE: 0, totG: 0 };
-                    mapaTec[apNome].ap++;
-                }
-            });
-        });
-
-        Object.values(mapaTec).sort((a, b) => b.totE - a.totE || b.ap - a.ap).forEach(t => {
-            const cel = (e, n) => e === 0 && n === 0 ? `<span class="text-slate-300">-</span>` : `<b class="text-emerald-700">${e}</b> <span class="text-slate-400">/</span> <span class="text-amber-700">${n}</span>`;
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-slate-50 border-b cursor-pointer";
-            tr.onclick = () => dispararExplosaoGrafico('equipe_servico', `${t.nome}|${grp.chave}`);
-            tr.innerHTML = `<td class="p-2.5 font-bold text-slate-800">${t.nome}</td><td class="p-2.5 font-bold text-[10px]">${grp.chave}</td><td class="p-2 text-center">${cel(t.vE, t.vN)}</td><td class="p-2 text-center">${cel(t.cfE, t.cfN)}</td><td class="p-2 text-center">${cel(t.cogE, t.cogN)}</td><td class="p-2 text-center">${cel(t.afE, t.afN)}</td><td class="p-2 text-center">${cel(t.aogE, t.aogN)}</td><td class="p-2 text-center font-black text-purple-800 bg-purple-50/60">${t.ap > 0 ? `🤝 ${t.ap}` : '-'}</td><td class="p-2.5 text-center font-black bg-emerald-50 text-emerald-900">${t.totE}</td><td class="p-2.5 text-center font-bold bg-slate-50">${t.totG}</td>`;
-            tbodyCruz.appendChild(tr);
-        });
-    });
-}
-
-function renderizarMatrizDiariaPlanilha(dados, datasOrdenadas) {
-    const thead = document.getElementById('thead-matriz-diaria-equipes');
-    const tbody = document.getElementById('tabela-matriz-diaria-equipes-corpo');
-    if (!thead || !tbody) return;
-    tbody.innerHTML = "";
-    const setFiscal = obterSetEquipesDoFiscalLogado();
-    const datasExibir = datasOrdenadas.length > 0 ? datasOrdenadas : [obterDataLocalISO()];
-
-    let htmlHead = `<tr class="bg-slate-900 text-white uppercase font-bold text-[9px] tracking-wider"><th class="p-2.5 text-center bg-emerald-900 text-cyan-300">Exec. Total</th><th class="p-2.5 text-center bg-purple-900 text-purple-200">🤝 Apoios</th><th class="p-2.5 text-center bg-indigo-950 text-indigo-200">F / ON GOING</th><th class="p-2.5">Equipe / Técnico</th>`;
-    datasExibir.forEach(dt => { htmlHead += `<th class="p-2 text-center font-mono">${dt.split('-').reverse().slice(0, 2).join('/')}</th>`; });
-    htmlHead += `</tr>`;
-    thead.innerHTML = htmlHead;
-
-    const gruposDiario = [
-        { chave: 'VISTORIA', titulo: '🔍 GRUPO VISTORIA (Vistoriadores)', cor: 'bg-purple-900 text-white' },
-        { chave: 'CONSTRUÇÃO', titulo: '🛠️ GRUPO CONSTRUÇÃO — Instaladores (F & ON GOING)', cor: 'bg-blue-900 text-white' },
-        { chave: 'ATIVAÇÃO', titulo: '⚡ GRUPO ATIVAÇÃO — Ativadores (F & ON GOING)', cor: 'bg-emerald-900 text-white' }
-    ];
-
-    gruposDiario.forEach(grp => {
-        const dadosGrp = dados.filter(d => d.servicoPlanilha === grp.chave);
-        if (dadosGrp.length === 0) return;
-
-        tbody.innerHTML += `<tr class="${grp.cor} font-black text-xs"><td colspan="${datasExibir.length + 4}" class="p-2 uppercase">${grp.titulo}</td></tr>`;
-
-        const mapaDiario = {};
-        dadosGrp.forEach(d => {
-            const eq = d.equipe || "NÃO IDENTIFICADO";
-            if (!setFiscal || equipePertenceAoUsuarioLogado(eq, setFiscal)) {
-                if (!mapaDiario[eq]) mapaDiario[eq] = { nome: eq, totalExec: 0, totalAp: 0, execF: 0, execOG: 0, porData: {}, apPorData: {} };
-                if (d.desfecho === 'CONCLUIDA') {
-                    mapaDiario[eq].totalExec++;
-                    if (d.subgrupoFOuOnGoing === 'F') mapaDiario[eq].execF++;
-                    else mapaDiario[eq].execOG++;
-                    mapaDiario[eq].porData[d.dataRegistro] = (mapaDiario[eq].porData[d.dataRegistro] || 0) + 1;
-                }
-            }
-            extrairApoiosDoRegistro(d).forEach(apNome => {
-                if (!setFiscal || equipePertenceAoUsuarioLogado(apNome, setFiscal)) {
-                    if (!mapaDiario[apNome]) mapaDiario[apNome] = { nome: apNome, totalExec: 0, totalAp: 0, execF: 0, execOG: 0, porData: {}, apPorData: {} };
-                    mapaDiario[apNome].totalAp++;
-                    mapaDiario[apNome].apPorData[d.dataRegistro] = (mapaDiario[apNome].apPorData[d.dataRegistro] || 0) + 1;
-                }
-            });
-        });
-
-        const somaDiaGrupo = {};
-        datasExibir.forEach(dt => somaDiaGrupo[dt] = 0);
-        let somaTotGrupo = 0, somaApGrupo = 0, somaFGrupo = 0, somaOGGrupo = 0;
-
-        Object.values(mapaDiario).sort((a, b) => b.totalExec - a.totalExec || b.totalAp - a.totalAp).forEach(item => {
-            somaTotGrupo += item.totalExec; somaApGrupo += item.totalAp; somaFGrupo += item.execF; somaOGGrupo += item.execOG;
-            let colsDias = "";
-            datasExibir.forEach(dt => {
-                const v = item.porData[dt] || 0;
-                const apDia = item.apPorData[dt] || 0;
-                somaDiaGrupo[dt] += v;
-                let txtCel = v > 0 ? `${v}` : (apDia > 0 ? '' : '-');
-                if (apDia > 0) txtCel += `${v > 0 ? ' ' : ''}<span class="text-[9px] text-purple-700 font-bold">(+${apDia}🤝)</span>`;
-                colsDias += `<td class="p-2 text-center ${v > 0 ? 'font-black text-emerald-800 bg-emerald-50/60' : (apDia > 0 ? 'bg-purple-50/50' : 'text-slate-300')}">${txtCel}</td>`;
-            });
-            const subF_OG = grp.chave === 'VISTORIA' ? '-' : `${item.execF} F / ${item.execOG} OG`;
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-slate-50 border-b cursor-pointer";
-            tr.onclick = () => dispararExplosaoGrafico('equipe_servico', `${item.nome}|${grp.chave}`);
-            tr.innerHTML = `<td class="p-2 text-center font-black bg-emerald-50 text-emerald-950">${item.totalExec}</td><td class="p-2 text-center font-black bg-purple-50 text-purple-900">${item.totalAp > 0 ? `🤝 ${item.totalAp}` : '-'}</td><td class="p-2 text-center text-[10px] font-bold text-indigo-900 bg-indigo-50/40 whitespace-nowrap">${subF_OG}</td><td class="p-2 font-bold text-slate-800 whitespace-nowrap">${item.nome}</td>${colsDias}`;
-            tbody.appendChild(tr);
-        });
-
-        let colsSub = "";
-        datasExibir.forEach(dt => { colsSub += `<td class="p-2 text-center font-black">${somaDiaGrupo[dt]}</td>`; });
-        tbody.innerHTML += `<tr class="bg-slate-200 text-slate-900 font-black text-[11px] border-b-2 border-slate-400"><td class="p-2 text-center">${somaTotGrupo}</td><td class="p-2 text-center text-purple-900">🤝 ${somaApGrupo}</td><td class="p-2 text-center text-[10px]">${grp.chave === 'VISTORIA' ? '-' : `${somaFGrupo} F / ${somaOGGrupo} OG`}</td><td class="p-2 uppercase">Subtotal ${grp.chave}</td>${colsSub}</tr>`;
-    });
-}
-
-// ================= SEÇÃO E PLANILHA SEPARADA POR GRUPOS: PROGRAMADO vs. RETORNO & BAIRRO =================
-function renderizarPainelProgramadoRetornoEBairro(dadosEnriquecidos) {
-    const tbody = document.getElementById('tabela-programado-retorno-bairro-corpo');
-    if (!tbody) return;
-    tbody.innerHTML = "";
-
-    const baseValida = dadosEnriquecidos.filter(d => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(d.desfecho));
-    const totalValidos = baseValida.length;
-    const qtdProg = baseValida.filter(d => d.statusMacroPlanilha === 'PROGRAMADO').length;
-    const qtdRet  = baseValida.filter(d => d.statusMacroPlanilha === 'RETORNO').length;
-
-    const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-    setEl('kpi-macro-programado', qtdProg);
-    setEl('kpi-macro-programado-perc', totalValidos > 0 ? `${((qtdProg / totalValidos) * 100).toFixed(1)}% do total` : '0% do total');
-    setEl('kpi-macro-retorno', qtdRet);
-    setEl('kpi-macro-retorno-perc', totalValidos > 0 ? `${((qtdRet / totalValidos) * 100).toFixed(1)}% do total` : '0% do total');
-
-    const mapaBairrosGlobal = {};
-    baseValida.forEach(d => {
-        const b = d.bairroPlanilha || 'OUTROS / VER ENDEREÇO';
-        if (!mapaBairrosGlobal[b]) mapaBairrosGlobal[b] = { bairro: b, programado: 0, retorno: 0, executado: 0, total: 0 };
-        mapaBairrosGlobal[b].total++;
-        if (d.statusMacroPlanilha === 'RETORNO') mapaBairrosGlobal[b].retorno++;
-        else mapaBairrosGlobal[b].programado++;
-        if (d.desfecho === 'CONCLUIDA') mapaBairrosGlobal[b].executado++;
-    });
-
-    const listaBairrosGlobal = Object.values(mapaBairrosGlobal).sort((a, b) => b.total - a.total);
-    setEl('kpi-macro-qtd-bairros', listaBairrosGlobal.length);
-    if (listaBairrosGlobal.length > 0) {
-        setEl('kpi-macro-top-bairro', listaBairrosGlobal[0].bairro);
-        setEl('kpi-macro-top-bairro-qtd', `${listaBairrosGlobal[0].total} acionamentos (${listaBairrosGlobal[0].executado} exec.)`);
-    } else {
-        setEl('kpi-macro-top-bairro', '-');
-        setEl('kpi-macro-top-bairro-qtd', '0 acionamentos');
-    }
-
-    const gruposBairro = [
-        { chave: 'VISTORIA', titulo: '🔍 GRUPO VISTORIA — Por Bairro', cor: 'bg-purple-900 text-white' },
-        { chave: 'CONSTRUÇÃO', titulo: '🛠️ GRUPO CONSTRUÇÃO (F vs. ON GOING) — Por Bairro', cor: 'bg-blue-900 text-white' },
-        { chave: 'ATIVAÇÃO', titulo: '⚡ GRUPO ATIVAÇÃO (F vs. ON GOING) — Por Bairro', cor: 'bg-emerald-900 text-white' }
-    ];
-
-    if (baseValida.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-400">Nenhum registro finalizado no período.</td></tr>`;
-    } else {
-        gruposBairro.forEach(grp => {
-            const itensGrp = baseValida.filter(d => d.servicoPlanilha === grp.chave);
-            if (itensGrp.length === 0) return;
-
-            tbody.innerHTML += `<tr class="${grp.cor} font-black text-[11px]"><td colspan="7" class="p-2 uppercase">${grp.titulo} (${itensGrp.length} reg.)</td></tr>`;
-            const mapaB = {};
-            itensGrp.forEach(d => {
-                const b = d.bairroPlanilha || 'OUTROS / VER ENDEREÇO';
-                if (!mapaB[b]) mapaB[b] = { bairro: b, prog: 0, ret: 0, exec: 0, execF: 0, execOG: 0, nExec: 0, total: 0, hps: 0 };
-                mapaB[b].total++;
-                if (d.statusMacroPlanilha === 'RETORNO') mapaB[b].ret++;
-                else mapaB[b].prog++;
-                if (d.desfecho === 'CONCLUIDA') {
-                    mapaB[b].exec++;
-                    mapaB[b].hps += Number(d.hps) || 0;
-                    if (d.subgrupoFOuOnGoing === 'F') mapaB[b].execF++;
-                    else mapaB[b].execOG++;
-                } else mapaB[b].nExec++;
-            });
-
-            Object.values(mapaB).sort((a, b) => b.total - a.total).forEach(item => {
-                const detExec = grp.chave === 'VISTORIA' ? `${item.exec}` : `${item.exec} <span class="text-[9px] text-slate-500">(${item.execF}F / ${item.execOG}OG)</span>`;
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-amber-50/50 border-b cursor-pointer";
-                tr.onclick = () => dispararExplosaoGrafico('bairro', item.bairro);
-                tr.innerHTML = `<td class="p-2 font-bold text-slate-800">${item.bairro}</td><td class="p-2 text-center font-bold text-blue-800 bg-blue-50/40">${item.prog}</td><td class="p-2 text-center font-bold text-amber-800 bg-amber-50/40">${item.ret}</td><td class="p-2 text-center font-black text-emerald-700 bg-emerald-50/40">${detExec}</td><td class="p-2 text-center text-slate-500">${item.nExec}</td><td class="p-2 text-center font-black">${item.total}</td><td class="p-2 text-right font-bold text-indigo-900">${item.hps}</td>`;
-                tbody.appendChild(tr);
-            });
-        });
-    }
-
-    const topBairrosGraf = listaBairrosGlobal.slice(0, 12);
-    const ctxBairro = document.getElementById('graficoProgramadoRetornoBairro')?.getContext('2d');
-    if (ctxBairro) {
-        if (graficoProgramadoRetornoBairroInstancia) graficoProgramadoRetornoBairroInstancia.destroy();
-        graficoProgramadoRetornoBairroInstancia = new Chart(ctxBairro, {
-            type: 'bar',
-            data: {
-                labels: topBairrosGraf.length > 0 ? topBairrosGraf.map(b => b.bairro) : ['Sem dados'],
-                datasets: [
-                    { label: '📋 PROGRAMADO (1ª Visita)', data: topBairrosGraf.map(b => b.programado), backgroundColor: '#2563eb', borderRadius: 4 },
-                    { label: '🔄 RETORNO (Reincidência)', data: topBairrosGraf.map(b => b.retorno), backgroundColor: '#d97706', borderRadius: 4 },
-                    { label: '🟢 EXECUTADO', data: topBairrosGraf.map(b => b.executado), backgroundColor: '#059669', borderRadius: 4 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                onClick: (e, el) => { if (el.length > 0 && topBairrosGraf[el[0].index]) dispararExplosaoGrafico('bairro', topBairrosGraf[el[0].index].bairro); }
-            }
-        });
-    }
-}
-
-function exportarPlanilhaProgramadoRetornoBairro() {
-    const base = enriquecerStatusMacroEBairro(dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
-        r.projeto !== 'IMPREVISTO / ATRASO' &&
-        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
-        r.projeto !== PROJETO_SOLIC_MATERIAL &&
-        r.equipe !== '__CONFIG_SISTEMA__' &&
-        registroPertenceAoUsuarioLogado(r)
-    );
-
-    if (base.length === 0) { alert("⚠️ Nenhum registro encontrado no período."); return; }
-
-    let html = `<table border="1">`;
-    const gruposExport = [
-        { chave: 'VISTORIA', titulo: 'GRUPO 1: VISTORIA (RESULTADOS DOS VISTORIADORES)', cor: '#581c87' },
-        { chave: 'CONSTRUÇÃO', titulo: 'GRUPO 2: CONSTRUÇÃO — INSTALADORES (SEPARANDO PROJETO F E ON GOING)', cor: '#1e3a8a' },
-        { chave: 'ATIVAÇÃO', titulo: 'GRUPO 3: ATIVAÇÃO — ATIVADORES (SEPARANDO PROJETO F E ON GOING)', cor: '#064e3b' }
-    ];
-
-    gruposExport.forEach(grp => {
-        const regsGrp = base.filter(r => r.servicoPlanilha === grp.chave);
-        html += `
-            <tr style="background-color:${grp.cor};color:#ffffff;font-weight:bold;font-size:13px;">
-                <th colspan="16">${grp.titulo} — TOTAL: ${regsGrp.length} REGISTROS</th>
-            </tr>
-            <tr style="background-color:#e2e8f0;font-weight:bold;">
-                <th>BAIRRO</th><th>GRUPO</th><th>PROGRAMADO (1ª VISITA)</th><th>RETORNO</th><th>EXECUTADO PROJETO F</th><th>EXECUTADO ON GOING</th><th>TOTAL EXECUTADO</th><th>OBRAS EM CONJUNTO (APOIO)</th><th>N EXECUTADO</th><th>TOTAL ACIONADO</th><th colspan="6">SOMA DE HPs</th>
-            </tr>`;
-
-        const mapaB = {};
-        regsGrp.forEach(d => {
-            const b = d.bairroPlanilha || 'OUTROS';
-            if (!mapaB[b]) mapaB[b] = { bairro: b, prog: 0, ret: 0, execF: 0, execOG: 0, execTot: 0, comApoio: 0, nExec: 0, total: 0, hps: 0 };
-            mapaB[b].total++;
-            if (d.statusMacroPlanilha === 'RETORNO') mapaB[b].ret++; else mapaB[b].prog++;
-            if (extrairApoiosDoRegistro(d).length > 0) mapaB[b].comApoio++;
-            if (d.desfecho === 'CONCLUIDA') {
-                mapaB[b].execTot++;
-                mapaB[b].hps += Number(d.hps) || 0;
-                if (d.subgrupoFOuOnGoing === 'F') mapaB[b].execF++; else mapaB[b].execOG++;
-            } else mapaB[b].nExec++;
-        });
-
-        Object.values(mapaB).sort((a, b) => b.total - a.total).forEach(b => {
-            html += `<tr><td><b>${b.bairro}</b></td><td>${grp.chave}</td><td>${b.prog}</td><td>${b.ret}</td><td>${b.execF}</td><td>${b.execOG}</td><td><b>${b.execTot}</b></td><td><b>${b.comApoio}</b></td><td>${b.nExec}</td><td><b>${b.total}</b></td><td colspan="6">${b.hps}</td></tr>`;
-        });
-
-        html += `
-            <tr style="background-color:#dbeafe;font-weight:bold;">
-                <th>SEMANA</th><th>MÊS</th><th>ANO</th><th>DATA</th><th>TÉCNICO TITULAR</th><th>TÉCNICO(S) EM APOIO / CONJUNTA</th><th>COD. IMOVEL</th><th>BAIRRO</th><th>GRUPO</th><th>SUBGRUPO (F / ON GOING)</th><th>PROJETO</th><th>ENDEREÇO</th><th>HP</th><th>STATUS MACRO</th><th>STATUS1 (DETALHE/OFENSOR)</th><th>STATUS</th>
-            </tr>`;
-
-        regsGrp.forEach(r => {
-            const dt = r.dataRegistro || '';
-            const status1 = (Array.isArray(r.malogros) && r.malogros.length > 0) ? r.malogros.join(' + ') : (r.motivoDesfecho || r.desfecho);
-            const apoiosStr = extrairApoiosDoRegistro(r).join(', ');
-            html += `<tr>
-                <td>${r.semanaPlanilha}</td><td>${parseInt(dt.substring(5, 7) || '1', 10)}</td><td>${dt.substring(0, 4) || '2026'}</td>
-                <td>${dt}</td><td><b>${r.equipe}</b></td><td><b>${apoiosStr || '-'}</b></td><td>${r.imovel}</td><td><b>${r.bairroPlanilha}</b></td>
-                <td><b>${r.servicoPlanilha}</b></td><td><b>${r.subgrupoFOuOnGoing}</b></td><td>${r.projeto}</td>
-                <td>${r.endereco || ''}</td><td>${r.hps || 0}</td><td><b>${r.statusMacroPlanilha}</b></td>
-                <td>${status1}</td><td><b>${r.statusBinarioPlanilha}</b></td>
-            </tr>`;
-        });
-        html += `<tr><td colspan="16"></td></tr>`;
-    });
-
-    html += `</table>`;
-    const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `PLANILHA_GRUPOS_PROGRAMADO_RETORNO_BAIRRO_${obterDataLocalISO()}.xls`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    registrarLogAuditoria("EXPORTAÇÃO PROGRAMADO/RETORNO POR GRUPOS", `Exportados ${base.length} registros.`);
-}
-
-function montarTabelaHtmlGrupoParaExcel(tituloBloco, corFundoHex, listaRegistros) {
-    let html = `
-        <tr style="background-color:${corFundoHex};color:#ffffff;font-weight:bold;font-size:13px;">
-            <th colspan="23">${tituloBloco} (${listaRegistros.length} REGISTROS)</th>
-        </tr>
-        <tr style="background-color:#f1f5f9;font-weight:bold;">
-            <th>SEMANA</th><th>DATA</th><th>TÉCNICO TITULAR</th><th>TÉCNICO(S) EM APOIO / CONJUNTA</th><th>GRUPO</th><th>SUBGRUPO (F / ON GOING)</th><th>PROJETO</th><th>IMÓVEL / BLOCO</th><th>BAIRRO</th><th>ENDEREÇO</th><th>STATUS MACRO</th><th>STATUS PLANILHA</th><th>DESFECHO</th><th>STATUS1 / OFENSORES</th><th>H. ENTRADA</th><th>H. SAÍDA</th><th>ANDARES</th><th>HPs</th><th>CABO RL (m)</th><th>CABO DROP (m)</th><th>CONECTORES</th><th>FUSÕES</th><th>NAP / DIO</th>
-        </tr>`;
-
-    listaRegistros.forEach(r => {
-        const status1 = (Array.isArray(r.malogros) && r.malogros.length > 0) ? r.malogros.join(' + ') : (r.motivoDesfecho || '');
-        const apoiosStr = extrairApoiosDoRegistro(r).join(', ');
-        html += `<tr>
-            <td>${r.semanaPlanilha}</td><td>${r.dataRegistro}</td><td><b>${r.equipe}</b></td><td><b>${apoiosStr || '-'}</b></td>
-            <td><b>${r.servicoPlanilha}</b></td><td><b>${r.subgrupoFOuOnGoing}</b></td><td>${r.projeto}</td>
-            <td>${r.imovel}</td><td>${r.bairroPlanilha}</td><td>${r.endereco || ''}</td>
-            <td><b>${r.statusMacroPlanilha}</b></td><td><b>${r.statusBinarioPlanilha}</b></td><td>${r.desfecho}</td>
-            <td>${status1}</td><td>${r.hEntrada}</td><td>${r.hSaida}</td><td>${r.andares || 0}</td><td><b>${r.hps || 0}</b></td>
-            <td>${r.caboRL || 0}</td><td>${r.caboDrop || 0}</td><td>${r.conectores || 0}</td><td>${r.fusoes || 0}</td><td>NAP:${r.nap || 0} / DIO:${r.dio || 0}</td>
-        </tr>`;
-    });
-    html += `<tr><td colspan="23"></td></tr>`;
-    return html;
-}
-
-function exportarExcelGrupoEspecifico(grupoAlvo) {
-    const todos = enriquecerStatusMacroEBairro(dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
-        r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL && r.equipe !== '__CONFIG_SISTEMA__' && registroPertenceAoUsuarioLogado(r)
-    );
-
-    let html = `<table border="1">`;
-    if (grupoAlvo === 'VISTORIA') {
-        const vist = todos.filter(r => r.servicoPlanilha === 'VISTORIA');
-        html += montarTabelaHtmlGrupoParaExcel('🔍 GRUPO VISTORIA — RESULTADOS DOS VISTORIADORES', '#581c87', vist);
-    } else if (grupoAlvo === 'CONSTRUCAO') {
-        const constF = todos.filter(r => r.servicoPlanilha === 'CONSTRUÇÃO' && r.subgrupoFOuOnGoing === 'F');
-        const constOG = todos.filter(r => r.servicoPlanilha === 'CONSTRUÇÃO' && r.subgrupoFOuOnGoing === 'ON GOING');
-        html += montarTabelaHtmlGrupoParaExcel('🛠️ GRUPO CONSTRUÇÃO — SUBGRUPO PROJETO F (INSTALADORES)', '#312e81', constF);
-        html += montarTabelaHtmlGrupoParaExcel('🛠️ GRUPO CONSTRUÇÃO — SUBGRUPO ON GOING (INSTALADORES)', '#0c4a6e', constOG);
-    } else if (grupoAlvo === 'ATIVACAO') {
-        const ativF = todos.filter(r => r.servicoPlanilha === 'ATIVAÇÃO' && r.subgrupoFOuOnGoing === 'F');
-        const ativOG = todos.filter(r => r.servicoPlanilha === 'ATIVAÇÃO' && r.subgrupoFOuOnGoing === 'ON GOING');
-        html += montarTabelaHtmlGrupoParaExcel('⚡ GRUPO ATIVAÇÃO — SUBGRUPO PROJETO F (ATIVADORES)', '#312e81', ativF);
-        html += montarTabelaHtmlGrupoParaExcel('⚡ GRUPO ATIVAÇÃO — SUBGRUPO ON GOING (ATIVADORES)', '#064e3b', ativOG);
-    }
-    html += `</table>`;
-
-    const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `PLANILHA_GRUPO_${grupoAlvo}_${obterDataLocalISO()}.xls`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-}
-
-function exportarExcel() {
-    const todos = enriquecerStatusMacroEBairro(dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
-        r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL && r.equipe !== '__CONFIG_SISTEMA__' && registroPertenceAoUsuarioLogado(r)
-    );
-    if (todos.length === 0) { alert("Nenhum registro para exportar no filtro atual."); return; }
-
-    const vist = todos.filter(r => r.servicoPlanilha === 'VISTORIA');
-    const constF = todos.filter(r => r.servicoPlanilha === 'CONSTRUÇÃO' && r.subgrupoFOuOnGoing === 'F');
-    const constOG = todos.filter(r => r.servicoPlanilha === 'CONSTRUÇÃO' && r.subgrupoFOuOnGoing === 'ON GOING');
-    const ativF = todos.filter(r => r.servicoPlanilha === 'ATIVAÇÃO' && r.subgrupoFOuOnGoing === 'F');
-    const ativOG = todos.filter(r => r.servicoPlanilha === 'ATIVAÇÃO' && r.subgrupoFOuOnGoing === 'ON GOING');
-
-    let html = `<table border="1">`;
-    html += montarTabelaHtmlGrupoParaExcel('1. GRUPO VISTORIA — RESULTADOS DOS VISTORIADORES', '#581c87', vist);
-    html += montarTabelaHtmlGrupoParaExcel('2A. GRUPO CONSTRUÇÃO — SUBGRUPO PROJETO F (INSTALADORES)', '#312e81', constF);
-    html += montarTabelaHtmlGrupoParaExcel('2B. GRUPO CONSTRUÇÃO — SUBGRUPO ON GOING (INSTALADORES)', '#1e3a8a', constOG);
-    html += montarTabelaHtmlGrupoParaExcel('3A. GRUPO ATIVAÇÃO — SUBGRUPO PROJETO F (ATIVADORES)', '#065f46', ativF);
-    html += montarTabelaHtmlGrupoParaExcel('3B. GRUPO ATIVAÇÃO — SUBGRUPO ON GOING (ATIVADORES)', '#0f766e', ativOG);
-    html += `</table>`;
-
-    let blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
-    let url = URL.createObjectURL(blob);
-    let a = document.createElement('a');
-    a.href = url; a.download = `RELATORIO_POR_GRUPOS_GPD_PROCISA_${obterDataLocalISO()}.xls`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    registrarLogAuditoria("EXPORTAÇÃO DE RELATÓRIO POR GRUPOS", `Baixado relatório Excel separado por grupos e apoios.`);
-}
-
-function renderizarOfensoresMalogro(dados) {
-    const tbody = document.getElementById('tabela-ofensores-malogro-corpo');
-    const badgeTotal = document.getElementById('badge-total-ocorrencias-malogro');
-    if (!tbody) return;
-    tbody.innerHTML = "";
-
-    const contagemOfensores = {};
-    OPCOES_MALOGRO_PADRAO.forEach(o => contagemOfensores[o] = { total: 0, vist: 0, const: 0, ativ: 0 });
-    let totalOcorrenciasMalogro = 0;
-
-    dados.forEach(d => {
-        if ((d.desfecho === 'MALOGRADA' || d.desfecho === 'PENDENTE') && Array.isArray(d.malogros)) {
-            d.malogros.forEach(m => {
-                const chave = m.trim().toUpperCase();
-                if (!contagemOfensores[chave]) contagemOfensores[chave] = { total: 0, vist: 0, const: 0, ativ: 0 };
-                contagemOfensores[chave].total++;
-                if (d.servicoPlanilha === 'VISTORIA') contagemOfensores[chave].vist++;
-                else if (d.servicoPlanilha === 'CONSTRUÇÃO') contagemOfensores[chave].const++;
-                else contagemOfensores[chave].ativ++;
-                totalOcorrenciasMalogro++;
-            });
-        }
-    });
-
-    if (badgeTotal) badgeTotal.innerText = `${totalOcorrenciasMalogro} ocorrência(s)`;
-    const ordenados = Object.entries(contagemOfensores).sort((a, b) => b[1].total - a[1].total);
-
-    ordenados.forEach(([ofensor, obj], idx) => {
-        const perc = totalOcorrenciasMalogro > 0 ? ((obj.total / totalOcorrenciasMalogro) * 100).toFixed(1) : "0.0";
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-red-50/60 border-b cursor-pointer transition";
-        tr.onclick = () => dispararExplosaoGrafico('ofensor', ofensor);
-        tr.innerHTML = `<td class="py-2 font-bold text-slate-400">${idx + 1}º</td><td class="py-2 font-bold text-red-900 underline decoration-dotted">${ofensor}</td><td class="py-2 text-center text-[10px] font-semibold"><span class="text-purple-800">${obj.vist}V</span> / <span class="text-blue-800">${obj.const}C</span> / <span class="text-emerald-800">${obj.ativ}A</span></td><td class="py-2 text-center font-black text-slate-800">${obj.total}</td><td class="py-2 text-right font-bold text-slate-600">${perc}%</td>`;
-        tbody.appendChild(tr);
-    });
-
-    const ctxOfensores = document.getElementById('graficoOfensoresMalogro')?.getContext('2d');
-    if (ctxOfensores) {
-        if (graficoOfensoresMalogroInstancia) graficoOfensoresMalogroInstancia.destroy();
-        const labelsOfensores = ordenados.map(item => item[0]);
-        graficoOfensoresMalogroInstancia = new Chart(ctxOfensores, {
-            type: 'bar',
-            data: { labels: labelsOfensores, datasets: [{ label: 'Ocorrências de Não Execução', data: ordenados.map(item => item[1].total), backgroundColor: '#dc2626', borderRadius: 6 }] },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }, onClick: (event, elements) => { if (elements.length > 0) dispararExplosaoGrafico('ofensor', labelsOfensores[elements[0].index]); } }
-        });
-    }
-}
-
-function renderizarTabelaConsolidada(dados) {
-    const corpo = document.getElementById('tabela-consolidada-corpo');
-    if (!corpo) return;
-    corpo.innerHTML = "";
-    if (dados.length === 0) {
-        corpo.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum dado consolidado no período.</td></tr>`;
-        return;
-    }
-
-    const grupos = [
-        { chave: 'VISTORIA', titulo: '🔍 GRUPO 1: VISTORIA (Vistoriadores)', cor: 'bg-purple-900 text-white' },
-        { chave: 'CONSTRUÇÃO', titulo: '🛠️ GRUPO 2: CONSTRUÇÃO — Instaladores (F & ON GOING)', cor: 'bg-blue-900 text-white' },
-        { chave: 'ATIVAÇÃO', titulo: '⚡ GRUPO 3: ATIVAÇÃO — Ativadores (F & ON GOING)', cor: 'bg-emerald-900 text-white' }
-    ];
-
-    grupos.forEach(g => {
-        const dGrp = dados.filter(d => d.servicoPlanilha === g.chave);
-        if (dGrp.length === 0) return;
-
-        corpo.innerHTML += `<tr class="${g.cor} font-black text-xs"><td colspan="4" class="p-2.5 uppercase">${g.titulo} (Total: ${dGrp.length})</td></tr>`;
-        const cats = {};
-        dGrp.forEach(d => {
-            const st = d.desfecho === 'CONCLUIDA' ? '🟢 EXECUTADO (Concluída)' : `🟠 N EXECUTADO (${d.desfecho})`;
-            const chave = g.chave === 'VISTORIA' ? `VISTORIA — ${st}` : `[Subgrupo ${d.subgrupoFOuOnGoing}] ${d.projeto} — ${st}`;
-            if (!cats[chave]) cats[chave] = { qtd: 0, hps: 0 };
-            cats[chave].qtd++;
-            cats[chave].hps += Number(d.hps) || 0;
-        });
-
-        Object.entries(cats).forEach(([cat, info]) => {
-            const perc = ((info.qtd / dGrp.length) * 100).toFixed(1);
-            corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="p-3 font-semibold text-slate-800">${cat}</td><td class="p-3 text-center font-bold text-blue-900">${info.qtd}</td><td class="p-3 text-center font-bold text-indigo-800">${info.hps}</td><td class="p-3 text-center font-bold text-slate-600">${perc}%</td></tr>`;
-        });
-    });
-}
-
+// ================= EDIÇÃO DE REGISTRO, DETALHES, FINANCEIRO, EQUIPES E NAVEGAÇÃO =================
 function lerCheckboxesAtuaisModalEdicao() {
     const checks = document.querySelectorAll('input[name="chk-opcao-modal-edicao"]:checked');
     if (checks.length > 0) opcoesMarcadasEdicaoTemporarias = Array.from(checks).map(c => c.value);
@@ -3261,6 +2283,32 @@ function renderizarTabelaFinanceiro(totais) {
     if (spanTotalGeral) spanTotalGeral.innerText = `R$ ${valorGeralAcumulado.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
 }
 
+function exportarExcelFinanceiro() {
+    if (!totaisFinanceirosAtuais) return;
+    let itensMedicao = [
+        { chave: "VISTORIA", qtd: totaisFinanceirosAtuais.vistorias }, { chave: "CABO RL", qtd: totaisFinanceirosAtuais.caboRL },
+        { chave: "CONECTORES", qtd: totaisFinanceirosAtuais.conectores }, { chave: "FUSÕES", qtd: totaisFinanceirosAtuais.fusoes },
+        { chave: "CABO DROP", qtd: totaisFinanceirosAtuais.caboDrop }, { chave: "NAP", qtd: totaisFinanceirosAtuais.nap },
+        { chave: "DIO", qtd: totaisFinanceirosAtuais.dio }, { chave: "CX SOBREPOR", qtd: totaisFinanceirosAtuais.cxSobrepor },
+        { chave: "CX EMBUTIDA", qtd: totaisFinanceirosAtuais.cxEmbutida }
+    ];
+    let valorGeral = 0;
+    let tabelaHTML = `<table border="1"><thead><tr><th>Código</th><th>Descrição do Item</th><th>Unidade</th><th>Qtd. Produzida</th><th>Valor Unitário (R$)</th><th>Total (R$)</th></tr></thead><tbody>`;
+    itensMedicao.forEach(item => {
+        let cfg = TABELA_PRECOS[item.chave];
+        let totalItem = item.qtd * cfg.valor;
+        valorGeral += totalItem;
+        tabelaHTML += `<tr><td>${cfg.codigo}</td><td>${cfg.desc}</td><td>${cfg.unidade}</td><td>${item.qtd}</td><td>R$ ${cfg.valor.toFixed(2).replace('.', ',')}</td><td>R$ ${totalItem.toFixed(2).replace('.', ',')}</td></tr>`;
+    });
+    tabelaHTML += `<tr><td colspan="5"><b>VALOR TOTAL DA MEDIÇÃO</b></td><td><b>R$ ${valorGeral.toFixed(2).replace('.', ',')}</b></td></tr></tbody></table>`;
+
+    let blob = new Blob(['\ufeff' + tabelaHTML], { type: 'application/vnd.ms-excel' });
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement('a');
+    a.href = url; a.download = `medicao_financeira_mdu_${obterDataLocalISO()}.xls`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
 function renderizarTabelaUsuariosPermissao() {
     garantirPermissaoOperadorEBaptista();
     const corpo = document.getElementById('tabela-usuarios-corpo');
@@ -3277,7 +2325,6 @@ function renderizarTabelaUsuariosPermissao() {
     });
 }
 
-// ================= MODAL DE DETALHES COMPLETO =================
 async function abrirDetalhesAtividade(item) {
     if (!item) return;
     const modal = document.getElementById('modal-detalhes');
@@ -3441,22 +2488,6 @@ async function abrirDetalhesAtividade(item) {
                 <div class="bg-blue-50/50 p-3.5 rounded-xl border-2 border-blue-200 space-y-3">
                     <h4 class="font-black text-blue-950 text-xs uppercase">🏢 Detalhamento Separado por Bloco (${blocosIrmaos.length} Blocos)</h4>
                     <div class="grid grid-cols-1 gap-3">${cardsCadaBloco}</div>
-                    <div class="bg-slate-900 text-white p-3 rounded-xl space-y-1.5">
-                        <div class="font-black text-cyan-300 text-[11px] uppercase border-b border-slate-700 pb-1">📊 Soma Total Consolidada dos ${blocosIrmaos.length} Blocos</div>
-                        <div class="grid grid-cols-3 sm:grid-cols-5 gap-2 text-[11px] pt-1">
-                            <div>Andares: <b>${somaAndares}</b></div>
-                            <div>HPs: <b>${somaHps}</b></div>
-                            <div>Cabo RL: <b>${somaRL} m</b></div>
-                            <div>Cabo Drop: <b>${somaDrop} m</b></div>
-                            <div>Conectores: <b>${somaConect}</b></div>
-                            <div>Fusões: <b>${somaFusoes}</b></div>
-                            <div>NAP: <b>${somaNap}</b></div>
-                            <div>DIO: <b>${somaDio}</b></div>
-                            <div>Sobrepor: <b>${somaSobrepor}</b></div>
-                            <div>Embutida: <b>${somaEmbutida}</b></div>
-                            <div>Cx. FOSC: <b>${somaFosc}</b></div>
-                        </div>
-                    </div>
                 </div>`;
         } else {
             secaoMateriaisEBlocosHtml = `
@@ -3482,10 +2513,7 @@ async function abrirDetalhesAtividade(item) {
     if (todasFotosAcumuladas.length > 0) {
         const cardsFotos = todasFotosAcumuladas.map((fSrc, idx) => {
             const nomeArq = `${codigoLimpo}_foto_${idx + 1}.jpg`;
-            const legendaSlot = (item.projeto === PROJETO_SOLIC_COMBUSTIVEL && Array.isArray(item.malogros) && item.malogros[idx])
-                ? `<div class="text-[9px] font-black text-orange-900 uppercase">${item.malogros[idx]}</div>`
-                : '';
-            return `<div class="bg-white p-2 rounded-xl border border-indigo-200 shadow-sm flex flex-col items-center gap-1.5">${legendaSlot}<img src="${fSrc}" onclick="abrirZoomFoto('${fSrc}', '${nomeArq}')" class="w-full h-28 object-cover rounded-lg cursor-pointer hover:opacity-90 transition border"><div class="flex gap-1 w-full"><button type="button" onclick="abrirZoomFoto('${fSrc}', '${nomeArq}')" class="flex-1 bg-indigo-50 text-indigo-900 font-bold text-[10px] py-1 rounded">🔍 Ampliar</button><button type="button" onclick="baixarFotoDireto('${fSrc}', '${nomeArq}')" class="flex-1 bg-emerald-600 text-white font-bold text-[10px] py-1 rounded">⬇️ Baixar</button></div></div>`;
+            return `<div class="bg-white p-2 rounded-xl border border-indigo-200 shadow-sm flex flex-col items-center gap-1.5"><img src="${fSrc}" onclick="abrirZoomFoto('${fSrc}', '${nomeArq}')" class="w-full h-28 object-cover rounded-lg cursor-pointer hover:opacity-90 transition border"><div class="flex gap-1 w-full"><button type="button" onclick="abrirZoomFoto('${fSrc}', '${nomeArq}')" class="flex-1 bg-indigo-50 text-indigo-900 font-bold text-[10px] py-1 rounded">🔍 Ampliar</button><button type="button" onclick="baixarFotoDireto('${fSrc}', '${nomeArq}')" class="flex-1 bg-emerald-600 text-white font-bold text-[10px] py-1 rounded">⬇️ Baixar</button></div></div>`;
         }).join('');
         galeriaFotosHtml = `<div class="bg-indigo-50/70 p-3 rounded-lg border border-indigo-200 space-y-2"><h4 class="font-bold text-indigo-950 text-xs uppercase">📷 Fotos Anexadas (${todasFotosAcumuladas.length})</h4><div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">${cardsFotos}</div></div>`;
     }
@@ -3506,9 +2534,7 @@ async function abrirDetalhesAtividade(item) {
             <div><strong>Total de HPs:</strong> <b>${somaHps}</b></div>
             <div><strong>Responsável Local:</strong> ${item.responsavel || '-'}</div>
             <div><strong>Contato / Tel:</strong> ${item.contato || '-'}</div>
-            ${item.email ? `<div class="col-span-2"><strong>E-mail:</strong> ${item.email}</div>` : ''}
         </div>
-
         <div class="bg-blue-50 p-3.5 rounded-xl border border-blue-200 space-y-1.5">
             <h4 class="font-black text-blue-950 text-xs uppercase">🕒 Horários de Entrada / Saída e Links GPS</h4>
             <div><strong>🟢 Horário Entrada:</strong> <b>${item.hEntrada || '-'}</b></div>
@@ -3518,10 +2544,8 @@ async function abrirDetalhesAtividade(item) {
             ${pausaMin > 0 ? `<div class="pt-1 text-orange-700 font-bold"><strong>⏸️ Tempo Paralisado:</strong> ${pausaMin} min</div>` : ''}
             <div class="pt-1 text-emerald-800 font-bold"><strong>⏱️ Duração Líquida:</strong> ${duracaoStr}</div>
         </div>
-
         ${secaoMateriaisEBlocosHtml}
         ${galeriaFotosHtml}
-
         ${(!temMultiplosBlocos && malogrosStr) ? `<div class="bg-amber-50 p-3 rounded-lg border border-amber-200"><strong>Opções Marcadas:</strong> <span class="font-bold text-amber-950">${malogrosStr}</span></div>` : ''}
         ${(!temMultiplosBlocos && item.motivoDesfecho) ? `<div class="bg-slate-50 p-3 rounded-lg border border-slate-200"><strong>Detalhamento / Motivo:</strong> ${item.motivoDesfecho}</div>` : ''}
         ${(!temMultiplosBlocos && item.observacoes) ? `<div class="bg-slate-50 p-3 rounded-lg border border-slate-200"><strong>Observações Gerais:</strong> ${item.observacoes}</div>` : ''}
@@ -3530,276 +2554,7 @@ async function abrirDetalhesAtividade(item) {
 }
 
 function fecharModalDetalhes() { document.getElementById('modal-detalhes').classList.add('hidden'); }
-
-copiarBoletimGestorWhatsApp = function() {
-    const lista = dadosFiltradosAtuais.length > 0
-        ? dadosFiltradosAtuais
-        : (registrosSalvos || []).filter(r => r && r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL && r.equipe !== "__CONFIG_SISTEMA__" && r.projeto !== "__CONFIG_AUDITORIA__" && registroPertenceAoUsuarioLogado(r));
-
-    if (lista.length === 0 && listaImprevistosAtuais.length === 0) {
-        alert("⚠️ Nenhum registro encontrado no filtro atual para gerar o Boletim.");
-        return;
-    }
-
-    const dIni = document.getElementById('gestor-filtro-data-inicio')?.value;
-    const dFim = document.getElementById('gestor-filtro-data-fim')?.value;
-    const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Todo o Histórico';
-
-    const andamento = lista.filter(i => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(i.desfecho)).length;
-    const finalizadas = lista.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
-    const concluidas = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
-    const pendentes = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
-    const malogradas = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
-    const totalObrasConjuntas = lista.filter(i => extrairApoiosDoRegistro(i).length > 0).length;
-
-    let sumRL = 0, sumDrop = 0, sumConect = 0, sumNap = 0, sumDio = 0, sumFusoes = 0, sumSobre = 0, sumEmb = 0, sumFosc = 0;
-    finalizadas.forEach(i => {
-        sumRL += Number(i.caboRL) || 0;
-        sumDrop += Number(i.caboDrop) || 0;
-        sumConect += Number(i.conectores) || 0;
-        sumNap += Number(i.nap) || 0;
-        sumDio += Number(i.dio) || 0;
-        sumFusoes += Number(i.fusoes) || 0;
-        sumSobre += Number(i.cxSobrepor) || 0;
-        sumEmb += Number(i.cxEmbutida) || 0;
-        sumFosc += Number(i.cxFosc) || 0;
-    });
-
-    const gruposImoveis = {};
-    finalizadas.slice(0, 40).forEach(r => {
-        const codBase = obterCodigoBaseImovel(r.imovel);
-        const chave = `${r.dataRegistro}_${r.equipe}_${codBase}_${r.projeto}`;
-        if (!gruposImoveis[chave]) {
-            gruposImoveis[chave] = { codBase, equipe: r.equipe, projeto: r.projeto, endereco: r.endereco, liberouAcesso: r.liberouAcesso, blocos: [] };
-        }
-        gruposImoveis[chave].blocos.push(r);
-    });
-
-    const linhasImoveisFormatadas = Object.values(gruposImoveis).slice(0, 15).map(g => {
-        const apoiosGrp = [...new Set(g.blocos.flatMap(b => extrairApoiosDoRegistro(b)))];
-        const txtApoio = apoiosGrp.length > 0 ? ` *(🤝 Conjunta c/ ${apoiosGrp.join(', ')})*` : '';
-        if (g.blocos.length === 1) {
-            const u = g.blocos[0];
-            return `• *${u.imovel}* (${u.projeto}) - ${u.equipe}${txtApoio}: *${u.desfecho}* | Andares: ${u.andares || 0} | HPs: ${u.hps || 0}${u.endereco ? `\n  📍 End: ${u.endereco}` : ''}${u.liberouAcesso ? ` | 🔑 Liberou: ${u.liberouAcesso}` : ''}`;
-        } else {
-            const subBlocos = g.blocos.map(b => {
-                let nomeB = b.imovel || 'Bloco';
-                const idx = nomeB.toUpperCase().lastIndexOf(' - ');
-                if (idx !== -1) nomeB = nomeB.substring(idx + 3).trim();
-                return `   ↳ *${nomeB}*: *${b.desfecho}* (And: ${b.andares || 0} | HPs: ${b.hps || 0} | RL: ${b.caboRL || 0}m | Drop: ${b.caboDrop || 0}m | Conect: ${b.conectores || 0} | Fus: ${b.fusoes || 0} | NAP: ${b.nap || 0} | DIO: ${b.dio || 0})`;
-            }).join('\n');
-            return `• *${g.codBase} (${g.blocos.length} Blocos)* (${g.projeto}) - ${g.equipe}${txtApoio}${g.endereco ? `\n  📍 End: ${g.endereco}` : ''}${g.liberouAcesso ? ` | 🔑 Liberou: ${g.liberouAcesso}` : ''}\n${subBlocos}`;
-        }
-    }).join('\n');
-
-    const texto = [
-        `📊 *BOLETIM GPD - CONSTRUÇÃO MDU PROCISA RJ*`,
-        `📅 *Período:* ${periodoStr}`,
-        `──────────────────────`,
-        `🔵 *Ativas / Em Execução Agora:* ${andamento}`,
-        `📈 *Total Finalizadas:* ${finalizadas.length}`,
-        `🟢 *Concluídas:* ${concluidas}`,
-        `🤝 *Atuações em Conjunto (Apoio):* ${totalObrasConjuntas}`,
-        `🟡 *Pendentes:* ${pendentes}`,
-        `🔴 *Malogradas:* ${malogradas}`,
-        `⚠️ *Imprevistos Reportados:* ${listaImprevistosAtuais.length}`,
-        `──────────────────────`,
-        `📦 *CONSUMO DE MATERIAIS & CAIXAS:*`,
-        `• Cabo RL: *${sumRL} m* | Cabo Drop: *${sumDrop} m*`,
-        `• Conectores: *${sumConect}* | Fusões: *${sumFusoes}*`,
-        `• NAP: *${sumNap}* | DIO: *${sumDio}*`,
-        `• Cx Sobrepor: *${sumSobre}* | Cx Embutida: *${sumEmb}* | Cx FOSC: *${sumFosc}*`,
-        `──────────────────────`,
-        `🏢 *ÚLTIMAS ATIVIDADES:*`,
-        linhasImoveisFormatadas || 'Nenhuma atividade finalizada no filtro.'
-    ].join('\n');
-
-    copiarParaAreaTransferencia(texto, "✅ Boletim Executivo copiado para o WhatsApp!");
-};
-
-function dispararExplosaoGrafico(filtroTipo, filtroValor) {
-    const modal = document.getElementById('modal-explosao');
-    const corpo = document.getElementById('tabela-explosao-corpo');
-    document.getElementById('modal-explosao-titulo').innerText = `Modo Explosão Executivo: ${filtroTipo.toUpperCase()} -> ${filtroValor}`;
-    corpo.innerHTML = "";
-
-    let subset = dadosFiltradosAtuais.filter(item => {
-        const apoios = extrairApoiosDoRegistro(item);
-        if (filtroTipo === 'projeto') return item.projeto === filtroValor;
-        if (filtroTipo === 'macro_servico') return item.servicoPlanilha === filtroValor;
-        if (filtroTipo === 'equipe_servico') {
-            const [eq, serv] = filtroValor.split('|');
-            return (item.equipe === eq || apoios.includes(eq)) && item.servicoPlanilha === serv;
-        }
-        if (filtroTipo === 'grupo_subgrupo') {
-            const [serv, sub] = filtroValor.split('|');
-            return item.servicoPlanilha === serv && (sub === 'TODOS' || item.subgrupoFOuOnGoing === sub);
-        }
-        if (filtroTipo === 'semana') return item.semanaPlanilha === filtroValor;
-        if (filtroTipo === 'data') return item.dataRegistro === filtroValor;
-        if (filtroTipo === 'bairro') return item.bairroPlanilha === filtroValor;
-        if (filtroTipo === 'desfecho') return item.desfecho === filtroValor;
-        if (filtroTipo === 'equipe') return item.equipe === filtroValor || apoios.includes(filtroValor);
-        if (filtroTipo === 'ofensor') return (item.desfecho === 'MALOGRADA' || item.desfecho === 'PENDENTE') && Array.isArray(item.malogros) && item.malogros.map(m => m.trim().toUpperCase()).includes(filtroValor.toUpperCase());
-        return false;
-    });
-
-    if (subset.length === 0) {
-        corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registro encontrado.</td></tr>`;
-    } else {
-        subset.forEach(item => {
-            let detalheInfo = item.malogros && item.malogros.length > 0 ? `STATUS1: ${item.malogros.join(' + ')}` : (item.motivoDesfecho || 'Concluído');
-            const apoios = extrairApoiosDoRegistro(item);
-            const badgeAp = apoios.length > 0 ? `<div class="text-[9px] font-black text-purple-800">🤝 Apoio: ${apoios.join(', ')}</div>` : '';
-            corpo.innerHTML += `<tr class="hover:bg-slate-50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); fecharModalGraficoExpandido(); fecharModalTabelaExpandida(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))"><td class="p-2.5 font-mono font-bold">${item.dataRegistro}<div class="text-[9px] text-indigo-700">${item.semanaPlanilha}</div></td><td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'} (<b>${item.bairroPlanilha}</b>)</div></td><td class="p-2.5 font-semibold text-blue-900">${item.equipe}${badgeAp}</td><td class="p-2.5"><b>${item.servicoPlanilha} (${item.subgrupoFOuOnGoing})</b><div class="text-[9px] text-slate-500">${item.projeto} • ${item.statusMacroPlanilha}</div></td><td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] ${obterClasseCorDesfecho(item.desfecho)}">${item.desfecho}</span><div class="text-[9px] mt-0.5">HPs: <b>${item.hps || 0}</b></div></td><td class="p-2.5 text-slate-500">${detalheInfo}</td></tr>`;
-        });
-    }
-    modal.classList.remove('hidden');
-}
-
 function fecharModalExplosao() { document.getElementById('modal-explosao').classList.add('hidden'); }
-
-function renderizarGraficos(dados, todosFiltrados = []) {
-    let projetosCount = {};
-    TODOS_OS_PROJETOS.forEach(p => projetosCount[p] = 0);
-    let desfechosCount = { 'CONCLUIDA': 0, 'PENDENTE': 0, 'MALOGRADA': 0 };
-    let totalMinutosPausaPeriodo = 0, qtdAtividadesComPausa = 0;
-
-    const basePausas = (Array.isArray(todosFiltrados) && todosFiltrados.length > 0) ? todosFiltrados : dados;
-    basePausas.forEach(item => {
-        const pMin = Number(item.tempoPausadoMinutos) || 0;
-        if (pMin > 0 || item.desfecho === 'PARALISADA') { totalMinutosPausaPeriodo += pMin; qtdAtividadesComPausa++; }
-    });
-
-    const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-    setEl('ind-tempo-paralisado', totalMinutosPausaPeriodo > 0 ? formatarDuracaoTexto(totalMinutosPausaPeriodo) : "0 min");
-    setEl('ind-detalhe-paralisado', `${qtdAtividadesComPausa} atividade(s) com pausa`);
-
-    let listaMinutosEntrada = [], listaMinutosSaida = [], listaDuracoes = [];
-    let aberturasPorHora = new Array(24).fill(0), fechamentosPorHora = new Array(24).fill(0);
-    let duracaoPorProjeto = {};
-    TODOS_OS_PROJETOS.forEach(k => duracaoPorProjeto[k] = []);
-
-    dados.forEach(d => {
-        projetosCount[d.projeto] = (projetosCount[d.projeto] || 0) + 1;
-        if (desfechosCount[d.desfecho] !== undefined) desfechosCount[d.desfecho]++;
-
-        const minIn = converterHorarioParaMinutos(d.hEntrada), minOut = converterHorarioParaMinutos(d.hSaida);
-        const pausaItem = Number(d.tempoPausadoMinutos) || 0;
-        if (minIn !== null) { listaMinutosEntrada.push(minIn); const hIn = Math.floor(minIn / 60); if (hIn >= 0 && hIn < 24) aberturasPorHora[hIn]++; }
-        if (minOut !== null) { listaMinutosSaida.push(minOut); const hOut = Math.floor(minOut / 60); if (hOut >= 0 && hOut < 24) fechamentosPorHora[hOut]++; }
-        if (minIn !== null && minOut !== null && minOut >= minIn) {
-            const durLiquida = Math.max(0, (minOut - minIn) - pausaItem);
-            if (durLiquida > 0 && durLiquida <= 840) {
-                listaDuracoes.push(durLiquida);
-                if (!duracaoPorProjeto[d.projeto]) duracaoPorProjeto[d.projeto] = [];
-                duracaoPorProjeto[d.projeto].push(durLiquida);
-            }
-        }
-    });
-
-    setEl('ind-media-abertura', listaMinutosEntrada.length > 0 ? formatarMinutosParaHHMM(listaMinutosEntrada.reduce((a, b) => a + b, 0) / listaMinutosEntrada.length) : "--:--");
-    setEl('ind-media-fechamento', listaMinutosSaida.length > 0 ? formatarMinutosParaHHMM(listaMinutosSaida.reduce((a, b) => a + b, 0) / listaMinutosSaida.length) : "--:--");
-    setEl('ind-tempo-medio', listaDuracoes.length > 0 ? formatarDuracaoTexto(listaDuracoes.reduce((a, b) => a + b, 0) / listaDuracoes.length) : "--h --m");
-
-    let maxAtivHora = 0, horaPico = null;
-    for (let h = 0; h < 24; h++) { if (aberturasPorHora[h] > maxAtivHora) { maxAtivHora = aberturasPorHora[h]; horaPico = h; } }
-    setEl('ind-horario-pico', (horaPico !== null && maxAtivHora > 0) ? `${String(horaPico).padStart(2, '0')}h às ${String(horaPico + 1).padStart(2, '0')}h` : "--:--");
-    setEl('ind-detalhe-pico', (horaPico !== null && maxAtivHora > 0) ? `${maxAtivHora} atividade(s) na faixa` : "Sem picos");
-
-    const ctxProj = document.getElementById('graficoProjetos')?.getContext('2d');
-    if (ctxProj) {
-        if (graficoProjetosInstancia) graficoProjetosInstancia.destroy();
-        const labelsP = Object.keys(projetosCount);
-        graficoProjetosInstancia = new Chart(ctxProj, {
-            type: 'bar',
-            data: {
-                labels: labelsP,
-                datasets: [
-                    { label: '🟢 Executado', data: labelsP.map(p => dados.filter(d => d.projeto === p && d.desfecho === 'CONCLUIDA').length), backgroundColor: '#059669', borderRadius: 5 },
-                    { label: '🟠 Não Executado', data: labelsP.map(p => dados.filter(d => d.projeto === p && d.desfecho !== 'CONCLUIDA').length), backgroundColor: '#f59e0b', borderRadius: 5 }
-                ]
-            },
-            options: { responsive: true, maintainAspectRatio: false, onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('projeto', labelsP[el[0].index]); } }
-        });
-    }
-
-    const ctxDesf = document.getElementById('graficoDesfechos')?.getContext('2d');
-    if (ctxDesf) {
-        if (graficoDesfechosInstancia) graficoDesfechosInstancia.destroy();
-        graficoDesfechosInstancia = new Chart(ctxDesf, {
-            type: 'doughnut',
-            data: {
-                labels: ['EXECUTADO (Concluída)', 'N EXECUTADO (Pendente)', 'N EXECUTADO (Malograda)'],
-                datasets: [{ data: [desfechosCount['CONCLUIDA'], desfechosCount['PENDENTE'], desfechosCount['MALOGRADA']], backgroundColor: ['#059669', '#d97706', '#dc2626'] }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, onClick: (e, el) => { if (el.length > 0) dispararExplosaoGrafico('desfecho', ['CONCLUIDA', 'PENDENTE', 'MALOGRADA'][el[0].index]); } }
-        });
-    }
-
-    const ctxHoras = document.getElementById('graficoHorasPico')?.getContext('2d');
-    if (ctxHoras) {
-        if (graficoHorasPicoInstancia) graficoHorasPicoInstancia.destroy();
-        const labelsHoras = [], dadosAberturaSlice = [], dadosFechamentoSlice = [];
-        for (let h = 6; h <= 20; h++) {
-            labelsHoras.push(`${String(h).padStart(2, '0')}h`);
-            dadosAberturaSlice.push(aberturasPorHora[h]);
-            dadosFechamentoSlice.push(fechamentosPorHora[h]);
-        }
-        graficoHorasPicoInstancia = new Chart(ctxHoras, {
-            type: 'line',
-            data: {
-                labels: labelsHoras,
-                datasets: [
-                    { label: '🟢 Aberturas (Check-in)', data: dadosAberturaSlice, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.15)', fill: true, tension: 0.35 },
-                    { label: '🔴 Fechamentos (Check-out)', data: dadosFechamentoSlice, borderColor: '#059669', backgroundColor: 'rgba(5, 150, 105, 0.12)', fill: true, tension: 0.35 }
-                ]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-        });
-    }
-
-    const ctxTempoProj = document.getElementById('graficoTempoProjeto')?.getContext('2d');
-    if (ctxTempoProj) {
-        if (graficoTempoProjetoInstancia) graficoTempoProjetoInstancia.destroy();
-        const labelsProj = Object.keys(projetosCount);
-        const mediasMinutosProj = labelsProj.map(proj => {
-            const arr = duracaoPorProjeto[proj] || [];
-            return arr.length === 0 ? 0 : Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
-        });
-        graficoTempoProjetoInstancia = new Chart(ctxTempoProj, {
-            type: 'bar',
-            data: { labels: labelsProj, datasets: [{ label: 'Tempo Médio Líquido (Minutos)', data: mediasMinutosProj, backgroundColor: '#0d9488', borderRadius: 6 }] },
-            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } } }
-        });
-    }
-}
-
-function exportarExcelFinanceiro() {
-    if (!totaisFinanceirosAtuais) return;
-    let itensMedicao = [
-        { chave: "VISTORIA", qtd: totaisFinanceirosAtuais.vistorias }, { chave: "CABO RL", qtd: totaisFinanceirosAtuais.caboRL },
-        { chave: "CONECTORES", qtd: totaisFinanceirosAtuais.conectores }, { chave: "FUSÕES", qtd: totaisFinanceirosAtuais.fusoes },
-        { chave: "CABO DROP", qtd: totaisFinanceirosAtuais.caboDrop }, { chave: "NAP", qtd: totaisFinanceirosAtuais.nap },
-        { chave: "DIO", qtd: totaisFinanceirosAtuais.dio }, { chave: "CX SOBREPOR", qtd: totaisFinanceirosAtuais.cxSobrepor },
-        { chave: "CX EMBUTIDA", qtd: totaisFinanceirosAtuais.cxEmbutida }
-    ];
-    let valorGeral = 0;
-    let tabelaHTML = `<table border="1"><thead><tr><th>Código</th><th>Descrição do Item</th><th>Unidade</th><th>Qtd. Produzida</th><th>Valor Unitário (R$)</th><th>Total (R$)</th></tr></thead><tbody>`;
-    itensMedicao.forEach(item => {
-        let cfg = TABELA_PRECOS[item.chave];
-        let totalItem = item.qtd * cfg.valor;
-        valorGeral += totalItem;
-        tabelaHTML += `<tr><td>${cfg.codigo}</td><td>${cfg.desc}</td><td>${cfg.unidade}</td><td>${item.qtd}</td><td>R$ ${cfg.valor.toFixed(2).replace('.', ',')}</td><td>R$ ${totalItem.toFixed(2).replace('.', ',')}</td></tr>`;
-    });
-    tabelaHTML += `<tr><td colspan="5"><b>VALOR TOTAL DA MEDIÇÃO</b></td><td><b>R$ ${valorGeral.toFixed(2).replace('.', ',')}</b></td></tr></tbody></table>`;
-
-    let blob = new Blob(['\ufeff' + tabelaHTML], { type: 'application/vnd.ms-excel' });
-    let url = URL.createObjectURL(blob);
-    let a = document.createElement('a');
-    a.href = url; a.download = `medicao_financeira_mdu_${obterDataLocalISO()}.xls`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-}
 
 // ================= EQUIPES, CARTEIRAS DE FISCAIS, FÉRIAS E NAVEGAÇÃO =================
 function atualizarResumoContagemCarteirasFiscais() {
@@ -3868,7 +2623,7 @@ async function transferirGrupoFiscalFeriasEmLote() {
     await sincronizarEquipesNaNuvem();
     renderizarTabelaEquipes();
     registrarLogAuditoria("TRANSFERÊNCIA DE GRUPO (FÉRIAS)", `${tecnicosAfetados.length} técnicos transferidos de ${fOrig.nome} para ${fDest.nome}.`);
-    alert(`✅ Grupo transferido com sucesso!\n\nAgora ${fDest.nome} (${fDest.email}) visualiza também os ${tecnicosAfetados.length} técnicos de ${fOrig.nome}.`);
+    alert(`✅ Grupo transferido com sucesso!`);
 }
 
 async function restaurarCarteiraOriginalPadraoFiscais() {
@@ -3887,7 +2642,6 @@ async function restaurarCarteiraOriginalPadraoFiscais() {
 
     await sincronizarEquipesNaNuvem();
     renderizarTabelaEquipes();
-    registrarLogAuditoria("RESTAURAÇÃO DE CARTEIRA DE FISCAIS", "Divisão padrão de técnicos por fiscal restaurada conforme planilha oficial.");
     alert("✅ Divisão original de fiscais restaurada com sucesso!");
 }
 
@@ -4218,15 +2972,52 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
-// ================= REESTRUTURAÇÃO COMPLETA DA ABA GRÁFICOS & INDICADORES (12 ITENS OFICIAIS) =================
+// ================= REESTRUTURAÇÃO COMPLETA DA ABA GRÁFICOS & INDICADORES (V2 - MODO REUNIÃO, MULTI-SELEÇÃO CTRL E CABEÇALHO EM LINHA ÚNICA) =================
 
-let filtroMacroDinamicoGraf = 'TODOS';     // TODOS | CONSTRUÇÃO MDU | EXPANSÃO MDU | MAILING
-let filtroCatDinamicaGraf = 'TODAS';       // TODAS | ATIVAÇÃO | CONSTRUÇÃO | VISTORIA
-let filtroSemanaDinamicaGraf = 'TODAS';    // TODAS | Semana 1 | Semana 2 | Semana 3 | Semana 4 | Semana 5
+let filtrosMultiGraficos = {
+    segmentos: ['TODOS'],   // 'TODOS' ou array ex: ['CONSTRUÇÃO MDU', 'EXPANSÃO MDU']
+    categorias: ['TODAS'],  // 'TODAS' ou array ex: ['ATIVAÇÃO', 'CONSTRUÇÃO']
+    semanas: ['TODAS']      // 'TODAS' ou array ex: ['Semana 1', 'Semana 2']
+};
+
+let modoSelecaoMultiplaSemCtrl = false; // Permite marcar múltiplos também sem teclado físico se ativado
+let secoesInibidasGraficos = {
+    consolidados: false,
+    planilhaDinamica: false,
+    geralTecnicos: false,
+    evolucaoSegmentos: false,
+    picosHorarios: false,
+    planilhaHorarios: false,
+    rankingOfensores: false,
+    ofensoresSegmentos: false
+};
+
+let estadoModalExpandidoAtual = {
+    ativo: false,
+    tipo: null, // 'tabela' | 'grafico'
+    idOrigem: null,
+    titulo: ''
+};
+
+let registroExplosaoCache = new Map();
+let contadorChaveExplosao = 0;
 
 let chartEvolucaoSegmentosInst = null;
 let chartHorariosPicoNovoInst = null;
 let chartOfensoresRankingInst = null;
+
+function registrarListaParaExplosao(titulo, lista) {
+    contadorChaveExplosao++;
+    const chave = `exp_${contadorChaveExplosao}`;
+    registroExplosaoCache.set(chave, { titulo, lista: Array.isArray(lista) ? lista : [] });
+    return chave;
+}
+
+function dispararExplosaoPorChave(chave) {
+    const pacote = registroExplosaoCache.get(chave);
+    if (!pacote) return;
+    abrirExplosaoPersonalizadaGraficos(pacote.titulo, pacote.lista);
+}
 
 // --- 1. CLASSIFICADOR OFICIAL (OCULTA OS NOMES DE PROJETOS DE BASE) ---
 function classificarRegistroNovaTaxonomia(reg) {
@@ -4258,86 +3049,286 @@ function obterNumeroSemanaFormatado(dataISO) {
     return 'Semana 5';
 }
 
-// --- 12. ASSINATURA DO DESENVOLVEDOR NO CABEÇALHO AZUL AO LADO DO BOTÃO SAIR/BLOQUEAR ---
-function injetarAssinaturaDesenvolvedorHeader() {
-    if (document.getElementById('assinatura-dev-leonardo')) return;
-    const btnSair = document.getElementById('btn-sair-gestor') || document.querySelector('button[onclick*="sairModoGestor"], button[onclick*="bloquearGestor"]');
+// --- ITEM 07 CORRIGIDO: SEM DUPLICAR USUÁRIO LOGADO E TUDO NA MESMA LINHA SUPERIOR ---
+function otimizarCabecalhoAzulLinhaUnica() {
+    try {
+        // 1. Remove qualquer badge duplicado criado anteriormente
+        const badgeDuplicado = document.getElementById('badge-usuario-logado-compacto');
+        if (badgeDuplicado) badgeDuplicado.remove();
 
-    const spanAssinatura = document.createElement('span');
-    spanAssinatura.id = 'assinatura-dev-leonardo';
-    spanAssinatura.className = 'text-white font-bold italic text-[11px] sm:text-xs tracking-wide px-2.5 py-1 rounded bg-blue-950/50 border border-blue-400/30 whitespace-nowrap shadow-sm';
-    spanAssinatura.innerText = 'Desenvolvido por Leonardo Simões de Almeida';
+        const header = document.querySelector('header');
+        if (!header) return;
 
-    if (btnSair && btnSair.parentNode) {
-        btnSair.parentNode.insertBefore(spanAssinatura, btnSair);
-    } else {
-        const headerAcoes = document.getElementById('header-gestor-acoes') || document.querySelector('header');
-        if (headerAcoes) headerAcoes.appendChild(spanAssinatura);
+        // Compacta a altura do cabeçalho azul
+        header.classList.remove('py-3', 'py-4', 'p-4');
+        header.classList.add('py-1.5', 'px-3');
+
+        const containerInterno = header.firstElementChild;
+        if (containerInterno) {
+            containerInterno.className = 'max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2';
+        }
+
+        // Localiza a barra superior direita onde ficam os botões de Modo (Campo / Gestor) e o utilizador original
+        const btnModoCampo = document.getElementById('btn-modo-campo');
+        const btnSair = document.getElementById('btn-sair-gestor') || document.querySelector('button[onclick*="sairModoGestor"], button[onclick*="bloquearGestor"]');
+        const barraSuperiorDireita = btnModoCampo ? btnModoCampo.parentElement : (header.querySelector('.flex') || containerInterno);
+
+        if (barraSuperiorDireita) {
+            barraSuperiorDireita.className = 'flex flex-wrap items-center justify-end gap-2 ml-auto';
+
+            // 2. Cria ou posiciona "Desenvolvido por Leonardo Simões de Almeida" no início da linha superior direita
+            let spanDev = document.getElementById('assinatura-dev-leonardo');
+            if (!spanDev) {
+                spanDev = document.createElement('span');
+                spanDev.id = 'assinatura-dev-leonardo';
+            }
+            spanDev.className = 'text-white font-bold italic text-[11px] tracking-wide px-2 py-0.5 rounded bg-blue-950/50 border border-blue-400/30 whitespace-nowrap';
+            spanDev.innerText = 'Desenvolvido por Leonardo Simões de Almeida';
+
+            if (barraSuperiorDireita.firstChild !== spanDev) {
+                barraSuperiorDireita.insertBefore(spanDev, barraSuperiorDireita.firstChild);
+            }
+
+            // 3. Move a informação ORIGINAL de quem está logado (ex: #header-gestor-acoes) para a mesma linha superior
+            const blocoAcoesGestor = document.getElementById('header-gestor-acoes');
+            if (blocoAcoesGestor && blocoAcoesGestor !== barraSuperiorDireita) {
+                blocoAcoesGestor.classList.remove('w-full', 'mt-2', 'pt-2', 'border-t');
+                blocoAcoesGestor.className = 'flex items-center gap-2';
+                barraSuperiorDireita.appendChild(blocoAcoesGestor);
+            }
+
+            // 4. Garante que o botão Sair/Bloquear fique no final dessa mesma linha superior
+            if (btnSair && btnSair.parentElement !== barraSuperiorDireita && (!blocoAcoesGestor || !blocoAcoesGestor.contains(btnSair))) {
+                barraSuperiorDireita.appendChild(btnSair);
+            }
+        }
+
+        // Compacta a sub-barra de abas logo abaixo para ganhar espaço vertical
+        const subBarra = document.getElementById('header-gestor-subbarra');
+        if (subBarra) {
+            subBarra.classList.remove('py-2.5', 'p-3', 'mt-2');
+            subBarra.classList.add('py-1', 'px-2', 'mt-1');
+        }
+    } catch (e) {
+        console.warn("Aviso ao alinhar cabeçalho em linha única:", e);
     }
 }
 
-// --- CONSTRUÇÃO DO LAYOUT LIMPO E EXCLUSIVO DA ABA GRÁFICOS (ITEM 11) ---
-function construirLayoutExclusivoAbaGraficos() {
-    injetarAssinaturaDesenvolvedorHeader();
-    const containerGraficos = document.getElementById('subview-graficos');
-    if (!containerGraficos || containerGraficos.dataset.layoutReconstruidoV12 === 'true') return;
+// --- ITEM 03: LÓGICA DE SELEÇÃO SIMPLES OU MÚLTIPLA (COM TECLA CTRL OU BOTÃO MULTI) ---
+function alternarFiltroDinamicoComCtrl(grupo, valor, event) {
+    const usouCtrl = (event && (event.ctrlKey || event.metaKey || event.shiftKey)) || modoSelecaoMultiplaSemCtrl;
+    const valorPadraoTodos = grupo === 'segmentos' ? 'TODOS' : 'TODAS';
+    let atual = filtrosMultiGraficos[grupo] || [valorPadraoTodos];
 
-    containerGraficos.dataset.layoutReconstruidoV12 = 'true';
-    containerGraficos.className = 'space-y-6 pb-10';
+    if (valor === valorPadraoTodos) {
+        filtrosMultiGraficos[grupo] = [valorPadraoTodos];
+    } else if (!usouCtrl) {
+        filtrosMultiGraficos[grupo] = [valor];
+    } else {
+        atual = atual.filter(v => v !== valorPadraoTodos);
+        if (atual.includes(valor)) {
+            atual = atual.filter(v => v !== valor);
+            if (atual.length === 0) atual = [valorPadraoTodos];
+        } else {
+            atual.push(valor);
+        }
+        filtrosMultiGraficos[grupo] = atual;
+    }
 
-    containerGraficos.innerHTML = `
-        <!-- BARRA DE TOPO: TÍTULO + BOTÕES BAIXAR PLANILHA E IMPRIMIR PDF (ITEM 09) -->
-        <div class="bg-slate-900 text-white p-4 rounded-2xl shadow-lg border-b-4 border-cyan-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
-                <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Painel Analítico Oficial</span>
-                <h2 class="text-base sm:text-lg font-black tracking-tight mt-0.5">📊 Indicadores de Produtividade, Segmentos & Ofensores</h2>
+    const segs = filtrosMultiGraficos.segmentos;
+    if (!segs.includes('TODOS') && !segs.includes('CONSTRUÇÃO MDU')) {
+        filtrosMultiGraficos.categorias = filtrosMultiGraficos.categorias.filter(c => c !== 'VISTORIA');
+        if (filtrosMultiGraficos.categorias.length === 0) filtrosMultiGraficos.categorias = ['TODAS'];
+    }
+
+    renderizarAbaGraficosCompletaOficial();
+    atualizarConteudoModalExpandidoAoVivo();
+}
+
+function alternarModoMultiToque() {
+    modoSelecaoMultiplaSemCtrl = !modoSelecaoMultiplaSemCtrl;
+    renderizarAbaGraficosCompletaOficial();
+    atualizarConteudoModalExpandidoAoVivo();
+}
+
+function registroPassaNosFiltrosGlobaisGraficos(reg) {
+    const tax = reg._tax || classificarRegistroNovaTaxonomia(reg);
+    const sem = reg._semana || obterNumeroSemanaFormatado(reg.dataRegistro);
+
+    const segs = filtrosMultiGraficos.segmentos;
+    const cats = filtrosMultiGraficos.categorias;
+    const sems = filtrosMultiGraficos.semanas;
+
+    const okSeg = segs.includes('TODOS') || segs.includes(tax.segmento);
+    const okCat = cats.includes('TODAS') || cats.includes(tax.categoria);
+    const okSem = sems.includes('TODAS') || sems.includes(sem);
+    return okSeg && okCat && okSem;
+}
+
+function obterHtmlBarraSeletoresInterativos(sufixoId = 'principal') {
+    const segs = filtrosMultiGraficos.segmentos;
+    const cats = filtrosMultiGraficos.categorias;
+    const sems = filtrosMultiGraficos.semanas;
+
+    const opcoesSeg = ['TODOS', 'CONSTRUÇÃO MDU', 'EXPANSÃO MDU', 'MAILING'];
+    const mostrarVistoria = segs.includes('TODOS') || segs.includes('CONSTRUÇÃO MDU');
+    const opcoesCat = mostrarVistoria
+        ? ['TODAS', 'ATIVAÇÃO', 'CONSTRUÇÃO', 'VISTORIA']
+        : ['TODAS', 'ATIVAÇÃO', 'CONSTRUÇÃO'];
+    const opcoesSem = ['TODAS', 'Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
+
+    const btnsSeg = opcoesSeg.map(op => {
+        const ativo = segs.includes(op);
+        return `<button type="button" onclick="alternarFiltroDinamicoComCtrl('segmentos', '${op}', event)" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${ativo ? 'bg-cyan-400 text-slate-950 shadow ring-2 ring-white/60' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">${op}</button>`;
+    }).join('');
+
+    const btnsCat = opcoesCat.map(op => {
+        const ativo = cats.includes(op);
+        return `<button type="button" onclick="alternarFiltroDinamicoComCtrl('categorias', '${op}', event)" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${ativo ? 'bg-amber-400 text-slate-950 shadow ring-2 ring-white/60' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">${op}</button>`;
+    }).join('');
+
+    const btnsSem = opcoesSem.map(op => {
+        const ativo = sems.includes(op);
+        return `<button type="button" onclick="alternarFiltroDinamicoComCtrl('semanas', '${op}', event)" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${ativo ? 'bg-emerald-400 text-slate-950 shadow ring-2 ring-white/60' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">${op === 'TODAS' ? 'Todas' : op}</button>`;
+    }).join('');
+
+    return `
+        <div class="bg-slate-900 text-white p-3 rounded-xl border border-slate-700 space-y-2">
+            <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-700 pb-1.5">
+                <span class="text-[10px] font-bold text-slate-300">
+                    💡 Segure <kbd class="bg-slate-700 px-1.5 py-0.5 rounded text-cyan-300 font-mono">CTRL</kbd> ao clicar para marcar múltiplos itens simultaneamente (Todas as tabelas e gráficos respondem ao filtro!)
+                </span>
+                <button type="button" onclick="alternarModoMultiToque()" class="px-2.5 py-0.5 rounded text-[10px] font-black transition ${modoSelecaoMultiplaSemCtrl ? 'bg-emerald-400 text-slate-950' : 'bg-slate-800 text-slate-300 border border-slate-600'}">
+                    ☑️ Modo Multi S/ Teclado: ${modoSelecaoMultiplaSemCtrl ? 'ATIVO' : 'OFF'}
+                </button>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <button type="button" onclick="exportarPlanilhaDinamica OficialExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1.5 transition">
-                    📥 Baixar Planilha (.XLS)
-                </button>
-                <button type="button" onclick="gerarRelatorioVisualImpressaoPDF()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1.5 transition">
-                    🖨️ Imprimir / Salvar PDF
-                </button>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+                <div class="bg-slate-800/90 p-2 rounded-lg border border-slate-700">
+                    <span class="text-[9px] font-black text-cyan-300 uppercase block mb-1">1. Segmento (${segs.join(' + ')}):</span>
+                    <div class="flex flex-wrap gap-1">${btnsSeg}</div>
+                </div>
+                <div class="bg-slate-800/90 p-2 rounded-lg border border-slate-700">
+                    <span class="text-[9px] font-black text-amber-300 uppercase block mb-1">2. Categoria (${cats.join(' + ')}):</span>
+                    <div class="flex flex-wrap gap-1">${btnsCat}</div>
+                </div>
+                <div class="bg-slate-800/90 p-2 rounded-lg border border-slate-700">
+                    <span class="text-[9px] font-black text-emerald-300 uppercase block mb-1">3. Semana (${sems.join(' + ')}):</span>
+                    <div class="flex flex-wrap gap-1">${btnsSem}</div>
+                </div>
             </div>
         </div>
+    `;
+}
 
-        <!-- ITEM 08: CONSOLIDADOS SUPERIORES COM AS NOVAS SEGMENTAÇÕES E PORCENTAGENS DAS CATEGORIAS -->
-        <div id="painel-consolidado-topo-segmentos" class="grid grid-cols-1 lg:grid-cols-3 gap-4"></div>
+// --- ITEM 05: OPÇÃO DE INIBIR / MOSTRAR QUALQUER GRÁFICO OU PLANILHA ---
+function alternarInibicaoSecaoGrafico(chaveSecao) {
+    secoesInibidasGraficos[chaveSecao] = !secoesInibidasGraficos[chaveSecao];
+    aplicarVisibilidadeSecoesInibidas();
+}
 
-        <!-- ITEM 01: PLANILHA DINÂMICA COM BOTÕES DE SELEÇÃO (SEGMENTO, CATEGORIA E SEMANA) -->
-        <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
-            <div class="bg-slate-900 text-white p-4 flex flex-col gap-3">
-                <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-700 pb-2.5">
-                    <div>
-                        <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 01 • Produtividade (Apenas Concluídas)</span>
-                        <h3 class="font-black text-sm sm:text-base mt-0.5">📋 Planilha Dinâmica de Executados, Dias Trabalhados e HPs</h3>
-                    </div>
-                    <button type="button" onclick="expandirTabelaModal('tbody-planilha-dinamica-oficial', 'Planilha Dinâmica de Produtividade')" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 text-[11px] font-bold px-3 py-1.5 rounded-lg">
-                        🔍 Expandir Planilha
-                    </button>
+function mostrarTodasSecoesGraficos() {
+    Object.keys(secoesInibidasGraficos).forEach(k => secoesInibidasGraficos[k] = false);
+    aplicarVisibilidadeSecoesInibidas();
+}
+
+function aplicarVisibilidadeSecoesInibidas() {
+    const mapaNomes = {
+        consolidados: '1. Consolidados Topo',
+        planilhaDinamica: '2. Planilha Dinâmica',
+        geralTecnicos: '3. Atendidas por Técnico',
+        evolucaoSegmentos: '4. Gráfico Evolução',
+        picosHorarios: '5. Gráfico Picos Horários',
+        planilhaHorarios: '6. Planilha Horários',
+        rankingOfensores: '7. Ranking Ofensores',
+        ofensoresSegmentos: '8. Malogros Construção x Expansão'
+    };
+
+    Object.entries(secoesInibidasGraficos).forEach(([chave, oculto]) => {
+        const elSecao = document.getElementById(`secao-bloco-${chave}`);
+        if (elSecao) {
+            elSecao.classList.toggle('hidden', oculto);
+        }
+    });
+
+    const barraChips = document.getElementById('barra-chips-inibicao-secoes');
+    if (barraChips) {
+        barraChips.innerHTML = Object.entries(mapaNomes).map(([chave, label]) => {
+            const oculto = secoesInibidasGraficos[chave];
+            return `
+                <button type="button" onclick="alternarInibicaoSecaoGrafico('${chave}')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 border ${oculto ? 'bg-red-50 text-red-700 border-red-300 line-through opacity-75' : 'bg-emerald-50 text-emerald-900 border-emerald-300 shadow-sm'}">
+                    <span>${oculto ? '🚫' : '👁️'}</span> <span>${label}</span>
+                </button>
+            `;
+        }).join('');
+    }
+}
+
+// --- CONSTRUÇÃO DO LAYOUT DA ABA GRÁFICOS ---
+function construirLayoutExclusivoAbaGraficos() {
+    otimizarCabecalhoAzulLinhaUnica();
+    const containerGraficos = document.getElementById('subview-graficos');
+    if (!containerGraficos || containerGraficos.dataset.layoutReconstruidoV14 === 'true') return;
+
+    containerGraficos.dataset.layoutReconstruidoV14 = 'true';
+    containerGraficos.className = 'space-y-4 pb-10';
+
+    containerGraficos.innerHTML = `
+        <!-- BARRA DE TOPO + CONTROLE DE INIBIÇÃO DE PLANILHAS/GRÁFICOS (ITENS 05 e 09) -->
+        <div class="bg-slate-900 text-white p-3.5 rounded-2xl shadow-lg border-b-4 border-cyan-400 space-y-2.5">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div>
+                    <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Painel Analítico Interativo</span>
+                    <h2 class="text-sm sm:text-base font-black tracking-tight mt-0.5">📊 Indicadores de Produtividade, Segmentos & Ofensores</h2>
                 </div>
-
-                <!-- Seletores em Botões -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
-                    <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700">
-                        <span class="text-[10px] font-bold text-cyan-300 uppercase block mb-1.5">1. Selecionar Segmento:</span>
-                        <div id="botoes-filtro-segmento-din" class="flex flex-wrap gap-1.5"></div>
-                    </div>
-                    <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700">
-                        <span class="text-[10px] font-bold text-amber-300 uppercase block mb-1.5">2. Selecionar Categoria:</span>
-                        <div id="botoes-filtro-categoria-din" class="flex flex-wrap gap-1.5"></div>
-                    </div>
-                    <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700">
-                        <span class="text-[10px] font-bold text-emerald-300 uppercase block mb-1.5">3. Selecionar Semana:</span>
-                        <div id="botoes-filtro-semana-din" class="flex flex-wrap gap-1.5"></div>
-                    </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="mostrarTodasSecoesGraficos()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 font-bold text-[11px] px-3 py-1.5 rounded-xl transition">
+                        👁️ Mostrar Todos os Blocos
+                    </button>
+                    <button type="button" onclick="exportarPlanilhaDinamicaOficialExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-1.5 rounded-xl shadow flex items-center gap-1.5 transition">
+                        📥 Baixar Planilha (.XLS)
+                    </button>
+                    <button type="button" onclick="gerarRelatorioVisualImpressaoPDF()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-3.5 py-1.5 rounded-xl shadow flex items-center gap-1.5 transition">
+                        🖨️ Imprimir / Salvar PDF
+                    </button>
                 </div>
             </div>
 
-            <!-- Resumo de % das Categorias dentro do filtro atual -->
-            <div id="barra-porcentagem-categorias-din" class="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs"></div>
+            <!-- SELETORES GLOBAIS (SEGMENTO, CATEGORIA, SEMANA COM SUPORTE A CTRL) -->
+            <div id="container-seletores-globais-topo"></div>
+        </div>
 
+        <!-- ITEM 05: BARRA DE BOTÕES PARA INIBIR/EXIBIR QUALQUER GRÁFICO OU PLANILHA -->
+        <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-2">
+            <span class="text-[10px] font-black text-slate-700 uppercase">👁️ Exibição na Tela (Clique para Inibir / Mostrar):</span>
+            <div id="barra-chips-inibicao-secoes" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <!-- BLOCO 1 (ITEM 08): CONSOLIDADOS SUPERIORES -->
+        <div id="secao-bloco-consolidados" class="space-y-1.5">
+            <div class="flex justify-between items-center px-1">
+                <span class="text-[11px] font-black text-slate-700 uppercase">📌 Consolidados por Segmento e Porcentagem das Categorias</span>
+                <button type="button" onclick="alternarInibicaoSecaoGrafico('consolidados')" class="text-[10px] font-bold text-red-600 hover:underline">🚫 Inibir Bloco</button>
+            </div>
+            <div id="painel-consolidado-topo-segmentos" class="grid grid-cols-1 lg:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- BLOCO 2 (ITEM 01): PLANILHA DINÂMICA DE PRODUTIVIDADE -->
+        <div id="secao-bloco-planilhaDinamica" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+            <div class="bg-slate-900 text-white p-3.5 flex flex-wrap justify-between items-center gap-2">
+                <div>
+                    <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 01 • Apenas Atividades Concluídas</span>
+                    <h3 class="font-black text-sm sm:text-base mt-0.5">📋 Planilha Dinâmica de Executados, Dias Trabalhados, Produtividade e HPs</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="expandirTabelaModal('tbody-planilha-dinamica-oficial', 'Planilha Dinâmica de Produtividade')" class="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow">
+                        🔍 Expandir p/ Reunião
+                    </button>
+                    <button type="button" onclick="alternarInibicaoSecaoGrafico('planilhaDinamica')" class="bg-red-900/80 hover:bg-red-800 text-red-100 text-[10px] font-bold px-2.5 py-1.5 rounded-lg">
+                        🚫 Inibir
+                    </button>
+                </div>
+            </div>
+            <div id="barra-porcentagem-categorias-din" class="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs"></div>
             <div class="overflow-x-auto max-h-[520px]">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
@@ -4356,16 +3347,21 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- ITEM 03: PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO (CONCLUÍDAS, MALOGROS E APOIOS) -->
-        <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
-            <div class="bg-blue-950 text-white p-4 flex flex-wrap justify-between items-center gap-2">
+        <!-- BLOCO 3 (ITEM 03): PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO -->
+        <div id="secao-bloco-geralTecnicos" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+            <div class="bg-blue-950 text-white p-3.5 flex flex-wrap justify-between items-center gap-2">
                 <div>
-                    <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 03 • Resumo Geral por Técnico</span>
-                    <h3 class="font-black text-sm sm:text-base mt-0.5">👷 Atividades Atendidas por Técnico (Concluídas, Malogros e Apoios)</h3>
+                    <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 03 • Resultado Geral por Técnico</span>
+                    <h3 class="font-black text-sm sm:text-base mt-0.5">👷 Quantidade de Atividades Atendidas (Concluídas, Malogros e Apoios)</h3>
                 </div>
-                <button type="button" onclick="expandirTabelaModal('tbody-geral-atendidas-tecnico', 'Atividades Atendidas por Técnico')" class="bg-blue-900 hover:bg-blue-800 text-cyan-200 border border-blue-700 text-[11px] font-bold px-3 py-1.5 rounded-lg">
-                    🔍 Expandir Planilha
-                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="expandirTabelaModal('tbody-geral-atendidas-tecnico', 'Atividades Atendidas por Técnico')" class="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow">
+                        🔍 Expandir p/ Reunião
+                    </button>
+                    <button type="button" onclick="alternarInibicaoSecaoGrafico('geralTecnicos')" class="bg-red-900/80 hover:bg-red-800 text-red-100 text-[10px] font-bold px-2.5 py-1.5 rounded-lg">
+                        🚫 Inibir
+                    </button>
+                </div>
             </div>
             <div class="overflow-x-auto max-h-[500px]">
                 <table class="w-full text-left border-collapse text-xs">
@@ -4387,36 +3383,41 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- ITEM 07: GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS -->
-        <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3">
+        <!-- BLOCO 4 (ITEM 07): GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS -->
+        <div id="secao-bloco-evolucaoSegmentos" class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3">
             <div class="flex flex-wrap justify-between items-center gap-2 border-b pb-2.5">
                 <div>
-                    <span class="bg-emerald-100 text-emerald-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 07 • Evolução Temporal</span>
-                    <h3 class="font-black text-slate-800 text-sm sm:text-base mt-0.5">📈 Evolução Diária dos Segmentos (Construção MDU, Expansão MDU e Mailing)</h3>
+                    <span class="bg-emerald-100 text-emerald-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 07 • Evolução dos Segmentos</span>
+                    <h3 class="font-black text-slate-800 text-sm sm:text-base mt-0.5">📈 Evolução das Atividades Executadas por Segmento</h3>
                 </div>
-                <button type="button" onclick="expandirGraficoModal('canvasEvolucaoSegmentos', 'Evolução dos Segmentos')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-3 py-1.5 rounded-lg border">
-                    🔍 Expandir Gráfico
-                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="expandirGraficoModal('canvasEvolucaoSegmentos', 'Evolução dos Segmentos')" class="bg-blue-900 hover:bg-blue-800 text-white text-[11px] font-black px-3 py-1.5 rounded-lg shadow">
+                        🔍 Expandir p/ Reunião
+                    </button>
+                    <button type="button" onclick="alternarInibicaoSecaoGrafico('evolucaoSegmentos')" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-[10px] font-bold px-2.5 py-1.5 rounded-lg">
+                        🚫 Inibir
+                    </button>
+                </div>
             </div>
             <div class="h-72 w-full">
                 <canvas id="canvasEvolucaoSegmentos"></canvas>
             </div>
         </div>
 
-        <!-- ITEM 02: PICOS DE HORÁRIOS + PLANILHA DE FAIXAS DE ABERTURA/FECHAMENTO E RECORDES DOS TÉCNICOS -->
+        <!-- BLOCOS 5 E 6 (ITEM 02): PICOS DE HORÁRIOS E PLANILHA DE FAIXAS HORÁRIAS -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3 flex flex-col justify-between">
+            <div id="secao-bloco-picosHorarios" class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3 flex flex-col justify-between">
                 <div>
                     <div class="flex justify-between items-center border-b pb-2">
                         <div>
-                            <span class="bg-blue-100 text-blue-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Curva de Horários</span>
-                            <h3 class="font-black text-slate-800 text-sm mt-0.5">🕒 Gráfico de Picos de Horários (Aberturas x Fechamentos)</h3>
+                            <span class="bg-blue-100 text-blue-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Picos e Extremos</span>
+                            <h3 class="font-black text-slate-800 text-sm mt-0.5">🕒 Gráfico de Picos de Horários</h3>
                         </div>
-                        <button type="button" onclick="expandirGraficoModal('canvasHorariosPicoOficial', 'Picos de Horários')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border">
-                            🔍 Expandir
-                        </button>
+                        <div class="flex gap-1">
+                            <button type="button" onclick="expandirGraficoModal('canvasHorariosPicoOficial', 'Gráfico de Picos de Horários')" class="bg-blue-900 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">🔍 Expandir</button>
+                            <button type="button" onclick="alternarInibicaoSecaoGrafico('picosHorarios')" class="bg-red-50 text-red-700 border border-red-200 text-[10px] font-bold px-2 py-1 rounded-lg">🚫 Inibir</button>
+                        </div>
                     </div>
-                    <!-- Destaques de Extremos dos Técnicos -->
                     <div id="cards-extremos-horarios-tecnicos" class="grid grid-cols-1 sm:grid-cols-3 gap-2 my-3"></div>
                 </div>
                 <div class="h-64 w-full">
@@ -4424,15 +3425,16 @@ function construirLayoutExclusivoAbaGraficos() {
                 </div>
             </div>
 
-            <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+            <div id="secao-bloco-planilhaHorarios" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
                 <div class="bg-slate-900 text-white p-3.5 flex justify-between items-center">
                     <div>
-                        <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Volume por Faixa</span>
+                        <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Volume Real por Faixa</span>
                         <h3 class="font-bold text-xs sm:text-sm mt-0.5">⏰ Horários com Mais Atividades Abertas e Fechadas</h3>
                     </div>
-                    <button type="button" onclick="expandirTabelaModal('tbody-horarios-pico-planilha', 'Horários com Mais Atividades Abertas e Fechadas')" class="bg-slate-800 text-cyan-300 border border-slate-600 text-[10px] font-bold px-2.5 py-1 rounded">
-                        🔍 Expandir Planilha
-                    </button>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="expandirTabelaModal('tbody-horarios-pico-planilha', 'Horários com Mais Atividades Abertas e Fechadas')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">🔍 Expandir</button>
+                        <button type="button" onclick="alternarInibicaoSecaoGrafico('planilhaHorarios')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2 py-1 rounded">🚫 Inibir</button>
+                    </div>
                 </div>
                 <div class="overflow-y-auto max-h-[360px]">
                     <table class="w-full text-left border-collapse text-xs">
@@ -4450,18 +3452,18 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- ITENS 04 E 05: RANKING GERAL DE OFENSORES DE MALOGRO + SEPARAÇÃO ATIVAÇÃO MDU vs EXPANSÃO MDU -->
+        <!-- BLOCOS 7 E 8 (ITENS 04 E 05): RANKING DE OFENSORES + CONSTRUÇÃO MDU x EXPANSÃO MDU -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <!-- Item 04 -->
-            <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+            <div id="secao-bloco-rankingOfensores" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
                 <div class="bg-red-950 text-white p-3.5 flex justify-between items-center">
                     <div>
-                        <span class="bg-red-300 text-red-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 04 • Ranking de Ofensores</span>
+                        <span class="bg-red-300 text-red-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 04 • Ranking Geral</span>
                         <h3 class="font-bold text-xs sm:text-sm mt-0.5">🚨 Maiores Ofensores de Malogros (Números Reais e %)</h3>
                     </div>
                     <div class="flex gap-1">
-                        <button type="button" onclick="expandirGraficoModal('canvasOfensoresRanking', 'Ranking de Ofensores de Malogros')" class="bg-red-900 text-red-100 border border-red-700 text-[10px] font-bold px-2 py-1 rounded">📊 Gráfico</button>
-                        <button type="button" onclick="expandirTabelaModal('tbody-ranking-ofensores-geral', 'Ranking de Ofensores de Malogros')" class="bg-red-900 text-red-100 border border-red-700 text-[10px] font-bold px-2 py-1 rounded">🔍 Planilha</button>
+                        <button type="button" onclick="expandirGraficoModal('canvasOfensoresRanking', 'Gráfico Ranking de Ofensores')" class="bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-1 rounded">📊 Gráfico</button>
+                        <button type="button" onclick="expandirTabelaModal('tbody-ranking-ofensores-geral', 'Ranking de Ofensores de Malogros')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2 py-1 rounded">🔍 Planilha</button>
+                        <button type="button" onclick="alternarInibicaoSecaoGrafico('rankingOfensores')" class="bg-red-800 text-white text-[10px] font-bold px-2 py-1 rounded">🚫</button>
                     </div>
                 </div>
                 <div class="p-3 h-52 border-b">
@@ -4482,26 +3484,30 @@ function construirLayoutExclusivoAbaGraficos() {
                 </div>
             </div>
 
-            <!-- Item 05 -->
-            <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+            <div id="secao-bloco-ofensoresSegmentos" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
                 <div class="bg-amber-950 text-white p-3.5 flex justify-between items-center">
                     <div>
-                        <span class="bg-amber-300 text-amber-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 05 • Ofensores por Segmento</span>
-                        <h3 class="font-bold text-xs sm:text-sm mt-0.5">📊 Volume e % de Malogros: ATIVAÇÃO MDU vs. EXPANSÃO MDU</h3>
+                        <span class="bg-amber-300 text-amber-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 05 • Comparativo entre Segmentos</span>
+                        <h3 class="font-bold text-xs sm:text-sm mt-0.5">📊 Volume e % de Malogros: CONSTRUÇÃO MDU x EXPANSÃO MDU</h3>
                     </div>
-                    <button type="button" onclick="expandirTabelaModal('tbody-ofensores-segmentos-mdu', 'Ofensores: Ativação MDU vs Expansão MDU')" class="bg-amber-900 text-amber-100 border border-amber-700 text-[10px] font-bold px-2.5 py-1 rounded">
-                        🔍 Expandir Planilha
-                    </button>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="expandirTabelaModal('tbody-ofensores-segmentos-mdu', 'Ofensores: CONSTRUÇÃO MDU x EXPANSÃO MDU')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">
+                            🔍 Expandir
+                        </button>
+                        <button type="button" onclick="alternarInibicaoSecaoGrafico('ofensoresSegmentos')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2 py-1 rounded">
+                            🚫 Inibir
+                        </button>
+                    </div>
                 </div>
                 <div id="resumo-topo-ofensores-segmentos" class="grid grid-cols-2 gap-2 p-3 bg-amber-50/60 border-b border-amber-200 text-xs"></div>
                 <div class="overflow-y-auto max-h-[420px]">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0">
                             <tr>
-                                <th class="p-2.5">Ofensor</th>
-                                <th class="p-2.5 text-center bg-blue-900">ATIVAÇÃO MDU<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
+                                <th class="p-2.5">Ofensor de Malogro</th>
+                                <th class="p-2.5 text-center bg-blue-900">CONSTRUÇÃO MDU<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
                                 <th class="p-2.5 text-center bg-indigo-900">EXPANSÃO MDU<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
-                                <th class="p-2.5 text-center bg-slate-950 text-amber-300">Total Geral<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
+                                <th class="p-2.5 text-center bg-slate-950 text-amber-300">Soma (Const + Exp)<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
                             </tr>
                         </thead>
                         <tbody id="tbody-ofensores-segmentos-mdu" class="divide-y divide-slate-200"></tbody>
@@ -4510,28 +3516,17 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
     `;
+
+    aplicarVisibilidadeSecoesInibidas();
 }
 
-// --- SELETORES DINÂMICOS (SEGMENTO, CATEGORIA E SEMANA) ---
-function selecionarFiltroPlanilhaDinamica(tipo, valor) {
-    if (tipo === 'segmento') {
-        filtroMacroDinamicoGraf = valor;
-        if ((valor === 'EXPANSÃO MDU' || valor === 'MAILING') && filtroCatDinamicaGraf === 'VISTORIA') {
-            filtroCatDinamicaGraf = 'TODAS';
-        }
-    } else if (tipo === 'categoria') {
-        filtroCatDinamicaGraf = valor;
-    } else if (tipo === 'semana') {
-        filtroSemanaDinamicaGraf = valor;
-    }
-    renderizarAbaGraficosCompletaOficial();
-}
-
-// --- MODO EXPLOSÃO UNIVERSAL PARA TODAS AS SEÇÕES (ITEM 06) ---
+// --- ITEM 06: MODO EXPLOSÃO HABILITADO EM TODAS AS SEÇÕES E NO MODAL EXPANDIDO ---
 function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset) {
     const modal = document.getElementById('modal-explosao');
     const corpo = document.getElementById('tabela-explosao-corpo');
     if (!modal || !corpo) return;
+
+    modal.style.zIndex = "95";
 
     document.getElementById('modal-explosao-titulo').innerText = `💥 Explosão de Dados: ${tituloExplosao} (${listaRegistrosSubset.length} reg.)`;
     corpo.innerHTML = "";
@@ -4561,11 +3556,116 @@ function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset
     modal.classList.remove('hidden');
 }
 
-// --- RENDERIZADOR PRINCIPAL DA ABA GRÁFICOS ---
+// --- ITEM 01: EXPANDIR TABELAS E GRÁFICOS LEVANDO OS SELETORES PARA A REUNIÃO ---
+function expandirTabelaModal(idTbodyOrigem, tituloJanela) {
+    const modal = document.getElementById('modal-expandir-tabela');
+    const titulo = document.getElementById('modal-tabela-expandida-titulo');
+    const container = document.getElementById('container-tabela-expandida');
+    const tbodyOrigem = document.getElementById(idTbodyOrigem);
+    if (!modal || !container || !tbodyOrigem) return;
+
+    estadoModalExpandidoAtual = { ativo: true, tipo: 'tabela', idOrigem: idTbodyOrigem, titulo: tituloJanela };
+    if (titulo) titulo.innerText = `📊 Modo Apresentação: ${tituloJanela}`;
+
+    let boxSeletoresModal = document.getElementById('seletores-reuniao-modal-tabela');
+    if (!boxSeletoresModal) {
+        boxSeletoresModal = document.createElement('div');
+        boxSeletoresModal.id = 'seletores-reuniao-modal-tabela';
+        boxSeletoresModal.className = 'px-4 pt-3 pb-1 bg-slate-100 border-b border-slate-300';
+        container.parentNode.insertBefore(boxSeletoresModal, container);
+    }
+    boxSeletoresModal.innerHTML = obterHtmlBarraSeletoresInterativos('modal_tabela');
+
+    const tabelaOriginal = tbodyOrigem.closest('table');
+    if (!tabelaOriginal) return;
+
+    container.innerHTML = "";
+    const infoTopo = document.getElementById('barra-porcentagem-categorias-din');
+    if (idTbodyOrigem === 'tbody-planilha-dinamica-oficial' && infoTopo) {
+        const cloneInfo = infoTopo.cloneNode(true);
+        cloneInfo.removeAttribute('id');
+        cloneInfo.className = 'bg-blue-50 px-4 py-2 border-b border-blue-200 flex flex-wrap items-center justify-between gap-2 text-xs mb-2 rounded-lg';
+        container.appendChild(cloneInfo);
+    }
+
+    const tabelaClone = tabelaOriginal.cloneNode(true);
+    tabelaClone.className = "w-full text-left border-collapse text-xs sm:text-sm";
+    tabelaClone.querySelector('thead')?.classList.add('sticky', 'top-0', 'z-10', 'shadow-sm');
+    const tbodyClone = tabelaClone.querySelector('tbody');
+    if (tbodyClone) tbodyClone.removeAttribute('id');
+
+    container.appendChild(tabelaClone);
+    modal.classList.remove('hidden');
+}
+
+function expandirGraficoModal(idCanvasOrigem, tituloJanela) {
+    const modal = document.getElementById('modal-expandir-grafico');
+    const titulo = document.getElementById('modal-grafico-expandido-titulo');
+    const canvasOrigem = document.getElementById(idCanvasOrigem);
+    const canvasAlvo = document.getElementById('canvasGraficoExpandido');
+    if (!modal || !canvasOrigem || !canvasAlvo) return;
+
+    estadoModalExpandidoAtual = { ativo: true, tipo: 'grafico', idOrigem: idCanvasOrigem, titulo: tituloJanela };
+    if (titulo) titulo.innerText = `📈 Modo Apresentação: ${tituloJanela}`;
+
+    let boxSeletoresGraf = document.getElementById('seletores-reuniao-modal-grafico');
+    if (!boxSeletoresGraf) {
+        boxSeletoresGraf = document.createElement('div');
+        boxSeletoresGraf.id = 'seletores-reuniao-modal-grafico';
+        boxSeletoresGraf.className = 'px-4 pt-3 pb-1 bg-slate-100 border-b border-slate-300';
+        const wrapperCanvas = canvasAlvo.parentElement;
+        if (wrapperCanvas && wrapperCanvas.parentNode) {
+            wrapperCanvas.parentNode.insertBefore(boxSeletoresGraf, wrapperCanvas);
+        }
+    }
+    boxSeletoresGraf.innerHTML = obterHtmlBarraSeletoresInterativos('modal_grafico');
+
+    modal.classList.remove('hidden');
+
+    const chartOriginal = Chart.getChart(canvasOrigem);
+    if (!chartOriginal) return;
+    if (typeof graficoExpandidoInstancia !== 'undefined' && graficoExpandidoInstancia) {
+        graficoExpandidoInstancia.destroy();
+    }
+
+    graficoExpandidoInstancia = new Chart(canvasAlvo, {
+        type: chartOriginal.config.type,
+        data: JSON.parse(JSON.stringify(chartOriginal.data)),
+        options: {
+            ...chartOriginal.config.options,
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { ...chartOriginal.config.options.plugins, legend: { display: true, position: 'top' } },
+            onClick: (event, elements) => {
+                if (elements.length > 0 && chartOriginal.config.options.onClick) {
+                    chartOriginal.config.options.onClick(event, elements);
+                }
+            }
+        }
+    });
+}
+
+function atualizarConteudoModalExpandidoAoVivo() {
+    if (!estadoModalExpandidoAtual.ativo) return;
+    if (estadoModalExpandidoAtual.tipo === 'tabela') {
+        expandirTabelaModal(estadoModalExpandidoAtual.idOrigem, estadoModalExpandidoAtual.titulo);
+    } else if (estadoModalExpandidoAtual.tipo === 'grafico') {
+        expandirGraficoModal(estadoModalExpandidoAtual.idOrigem, estadoModalExpandidoAtual.titulo);
+    }
+}
+
+// --- RENDERIZADOR PRINCIPAL DA ABA GRÁFICOS (TODAS AS SEÇÕES REAGEM ÀS SELEÇÕES) ---
 function renderizarAbaGraficosCompletaOficial() {
     construirLayoutExclusivoAbaGraficos();
+    registroExplosaoCache.clear();
+    contadorChaveExplosao = 0;
 
-    const basePeriodo = (dadosFiltradosAtuais || []).filter(r =>
+    const containerSeletoresTopo = document.getElementById('container-seletores-globais-topo');
+    if (containerSeletoresTopo) {
+        containerSeletoresTopo.innerHTML = obterHtmlBarraSeletoresInterativos('topo');
+    }
+
+    const basePeriodoBruta = (dadosFiltradosAtuais || []).filter(r =>
         r &&
         r.equipe !== '__CONFIG_SISTEMA__' &&
         r.projeto !== '__CONFIG_AUDITORIA__' &&
@@ -4579,52 +3679,39 @@ function renderizarAbaGraficosCompletaOficial() {
         _semana: obterNumeroSemanaFormatado(r.dataRegistro)
     }));
 
-    const apenasConcluidasPeriodo = basePeriodo.filter(r => r.desfecho === 'CONCLUIDA');
+    const baseFiltradaSelecao = basePeriodoBruta.filter(registroPassaNosFiltrosGlobaisGraficos);
+    const concluidasFiltradasSelecao = baseFiltradaSelecao.filter(r => r.desfecho === 'CONCLUIDA');
 
-    // =========================================================================================
-    // ITEM 08: CONSOLIDADOS SUPERIORES COM AS NOVAS SEGMENTAÇÕES E % DAS CATEGORIAS
-    // =========================================================================================
+    // 1. CONSOLIDADOS SUPERIORES
     const painelTopo = document.getElementById('painel-consolidado-topo-segmentos');
     if (painelTopo) {
         const cfgSegmentos = [
-            {
-                nome: 'CONSTRUÇÃO MDU',
-                corHeader: 'bg-blue-900 text-white border-blue-400',
-                corBg: 'bg-blue-50/50 border-blue-200',
-                categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO', 'VISTORIA']
-            },
-            {
-                nome: 'EXPANSÃO MDU',
-                corHeader: 'bg-indigo-900 text-white border-indigo-400',
-                corBg: 'bg-indigo-50/50 border-indigo-200',
-                categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO']
-            },
-            {
-                nome: 'MAILING',
-                corHeader: 'bg-purple-900 text-white border-purple-400',
-                corBg: 'bg-purple-50/50 border-purple-200',
-                categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO']
-            }
+            { nome: 'CONSTRUÇÃO MDU', corHeader: 'bg-blue-900 text-white border-blue-400', corBg: 'bg-blue-50/50 border-blue-200', categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO', 'VISTORIA'] },
+            { nome: 'EXPANSÃO MDU', corHeader: 'bg-indigo-900 text-white border-indigo-400', corBg: 'bg-indigo-50/50 border-indigo-200', categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO'] },
+            { nome: 'MAILING', corHeader: 'bg-purple-900 text-white border-purple-400', corBg: 'bg-purple-50/50 border-purple-200', categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO'] }
         ];
 
-        const totalExecGeral = apenasConcluidasPeriodo.length;
+        const totalExecRecorte = concluidasFiltradasSelecao.length;
 
         painelTopo.innerHTML = cfgSegmentos.map(seg => {
-            const concluidasSeg = apenasConcluidasPeriodo.filter(r => r._tax.segmento === seg.nome);
-            const atendidasSeg = basePeriodo.filter(r => r._tax.segmento === seg.nome);
+            const concluidasSeg = concluidasFiltradasSelecao.filter(r => r._tax.segmento === seg.nome);
+            const atendidasSeg = baseFiltradaSelecao.filter(r => r._tax.segmento === seg.nome);
             const totalSeg = concluidasSeg.length;
             const totalHpsSeg = concluidasSeg.reduce((acc, r) => acc + (Number(r.hps) || 0), 0);
-            const percSobreGeral = totalExecGeral > 0 ? ((totalSeg / totalExecGeral) * 100).toFixed(1) : '0.0';
+            const percSobreGeral = totalExecRecorte > 0 ? ((totalSeg / totalExecRecorte) * 100).toFixed(1) : '0.0';
+            const chaveExpSeg = registrarListaParaExplosao(`${seg.nome} (Atendidas no Filtro)`, atendidasSeg);
 
             const linhasCatHtml = seg.categorias.map(cat => {
                 const listaCat = concluidasSeg.filter(r => r._tax.categoria === cat);
                 const qtdCat = listaCat.length;
                 const hpsCat = listaCat.reduce((acc, r) => acc + (Number(r.hps) || 0), 0);
                 const percCat = totalSeg > 0 ? ((qtdCat / totalSeg) * 100).toFixed(1) : '0.0';
+                const chaveExpCat = registrarListaParaExplosao(`${seg.nome} • ${cat} (Concluídas)`, listaCat);
+
                 return `
-                    <div onclick="abrirExplosaoPersonalizadaGraficos('${seg.nome} • ${cat} (Concluídas)', dadosFiltradosAtuais.filter(x => x.desfecho === 'CONCLUIDA' && classificarRegistroNovaTaxonomia(x).segmento === '${seg.nome}' && classificarRegistroNovaTaxonomia(x).categoria === '${cat}'))" class="bg-white p-2.5 rounded-xl border border-slate-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition shadow-sm">
+                    <div onclick="dispararExplosaoPorChave('${chaveExpCat}')" class="bg-white p-2.5 rounded-xl border border-slate-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition shadow-sm">
                         <div>
-                            <span class="font-black text-slate-800 text-xs">${cat}</span>
+                            <span class="font-black text-slate-800 text-xs underline decoration-dotted">${cat}</span>
                             <div class="text-[10px] text-slate-500">HPs: <b>${hpsCat}</b></div>
                         </div>
                         <div class="text-right">
@@ -4637,21 +3724,21 @@ function renderizarAbaGraficosCompletaOficial() {
 
             return `
                 <div class="rounded-2xl border-2 ${seg.corBg} shadow-sm overflow-hidden flex flex-col justify-between">
-                    <div class="${seg.corHeader} p-3.5 border-b-2 flex justify-between items-center cursor-pointer" onclick="abrirExplosaoPersonalizadaGraficos('${seg.nome} (Todas Atendidas)', dadosFiltradosAtuais.filter(x => classificarRegistroNovaTaxonomia(x).segmento === '${seg.nome}'))">
+                    <div class="${seg.corHeader} p-3 border-b-2 flex justify-between items-center cursor-pointer" onclick="dispararExplosaoPorChave('${chaveExpSeg}')">
                         <div>
-                            <span class="text-[9px] uppercase font-bold opacity-80 block">Segmento Oficial</span>
-                            <h4 class="font-black text-sm sm:text-base">${seg.nome}</h4>
+                            <span class="text-[9px] uppercase font-bold opacity-80 block">Segmento Oficial (Clique p/ Explosão)</span>
+                            <h4 class="font-black text-sm sm:text-base underline decoration-dotted">${seg.nome}</h4>
                         </div>
                         <div class="text-right">
                             <span class="text-lg font-black text-cyan-300">${totalSeg} exec.</span>
-                            <span class="block text-[10px] opacity-90">${percSobreGeral}% do total (${totalHpsSeg} HPs)</span>
+                            <span class="block text-[10px] opacity-90">${percSobreGeral}% do recorte (${totalHpsSeg} HPs)</span>
                         </div>
                     </div>
                     <div class="p-3 space-y-2 flex-1 flex flex-col justify-center">
                         ${linhasCatHtml}
                     </div>
-                    <div class="bg-slate-200/70 px-3.5 py-2 text-[10px] font-bold text-slate-700 flex justify-between">
-                        <span>Total Acionado: ${atendidasSeg.length}</span>
+                    <div class="bg-slate-200/70 px-3.5 py-1.5 text-[10px] font-bold text-slate-700 flex justify-between">
+                        <span>Total Atendido: ${atendidasSeg.length}</span>
                         <span>Malogros/Pend.: ${atendidasSeg.length - totalSeg}</span>
                     </div>
                 </div>
@@ -4659,69 +3746,25 @@ function renderizarAbaGraficosCompletaOficial() {
         }).join('');
     }
 
-    // =========================================================================================
-    // ITEM 01: PLANILHA DINÂMICA (BOTÕES DE SEGMENTO, CATEGORIA E SEMANA + APENAS CONCLUÍDAS)
-    // =========================================================================================
-    const divBtnSeg = document.getElementById('botoes-filtro-segmento-din');
-    const divBtnCat = document.getElementById('botoes-filtro-categoria-din');
-    const divBtnSem = document.getElementById('botoes-filtro-semana-din');
-
-    if (divBtnSeg) {
-        const opcoesSeg = ['TODOS', 'CONSTRUÇÃO MDU', 'EXPANSÃO MDU', 'MAILING'];
-        divBtnSeg.innerHTML = opcoesSeg.map(op => `
-            <button type="button" onclick="selecionarFiltroPlanilhaDinamica('segmento', '${op}')" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${filtroMacroDinamicoGraf === op ? 'bg-cyan-400 text-slate-950 shadow' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">
-                ${op}
-            </button>
-        `).join('');
-    }
-
-    if (divBtnCat) {
-        const opcoesCat = (filtroMacroDinamicoGraf === 'EXPANSÃO MDU' || filtroMacroDinamicoGraf === 'MAILING')
-            ? ['TODAS', 'ATIVAÇÃO', 'CONSTRUÇÃO']
-            : ['TODAS', 'ATIVAÇÃO', 'CONSTRUÇÃO', 'VISTORIA'];
-        divBtnCat.innerHTML = opcoesCat.map(op => `
-            <button type="button" onclick="selecionarFiltroPlanilhaDinamica('categoria', '${op}')" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${filtroCatDinamicaGraf === op ? 'bg-amber-400 text-slate-950 shadow' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">
-                ${op}
-            </button>
-        `).join('');
-    }
-
-    if (divBtnSem) {
-        const opcoesSem = ['TODAS', 'Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
-        divBtnSem.innerHTML = opcoesSem.map(op => `
-            <button type="button" onclick="selecionarFiltroPlanilhaDinamica('semana', '${op}')" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${filtroSemanaDinamicaGraf === op ? 'bg-emerald-400 text-slate-950 shadow' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">
-                ${op === 'TODAS' ? 'Todas' : op}
-            </button>
-        `).join('');
-    }
-
-    // Filtra apenas atividades CONCLUÍDAS para a Planilha Dinâmica (Item 01)
-    const concluidasDinamicas = apenasConcluidasPeriodo.filter(r => {
-        const mSeg = filtroMacroDinamicoGraf === 'TODOS' || r._tax.segmento === filtroMacroDinamicoGraf;
-        const mCat = filtroCatDinamicaGraf === 'TODAS' || r._tax.categoria === filtroCatDinamicaGraf;
-        const mSem = filtroSemanaDinamicaGraf === 'TODAS' || r._semana === filtroSemanaDinamicaGraf;
-        return mSeg && mCat && mSem;
-    });
-
-    // Barra de Porcentagens das Categorias dentro do filtro atual
+    // 2. PLANILHA DINÂMICA DE PRODUTIVIDADE (APENAS CONCLUÍDAS)
     const barraPercCat = document.getElementById('barra-porcentagem-categorias-din');
     if (barraPercCat) {
-        const totDin = concluidasDinamicas.length;
-        const qtdAtiv = concluidasDinamicas.filter(r => r._tax.categoria === 'ATIVAÇÃO').length;
-        const qtdConst = concluidasDinamicas.filter(r => r._tax.categoria === 'CONSTRUÇÃO').length;
-        const qtdVist = concluidasDinamicas.filter(r => r._tax.categoria === 'VISTORIA').length;
+        const totDin = concluidasFiltradasSelecao.length;
+        const qtdAtiv = concluidasFiltradasSelecao.filter(r => r._tax.categoria === 'ATIVAÇÃO').length;
+        const qtdConst = concluidasFiltradasSelecao.filter(r => r._tax.categoria === 'CONSTRUÇÃO').length;
+        const qtdVist = concluidasFiltradasSelecao.filter(r => r._tax.categoria === 'VISTORIA').length;
         const pAtiv = totDin > 0 ? ((qtdAtiv / totDin) * 100).toFixed(1) : '0.0';
         const pConst = totDin > 0 ? ((qtdConst / totDin) * 100).toFixed(1) : '0.0';
         const pVist = totDin > 0 ? ((qtdVist / totDin) * 100).toFixed(1) : '0.0';
 
         barraPercCat.innerHTML = `
             <div class="font-black text-slate-700">
-                🎯 Recorte Ativo: <span class="text-blue-900">${filtroMacroDinamicoGraf}</span> • <span class="text-amber-800">${filtroCatDinamicaGraf}</span> • <span class="text-emerald-800">${filtroSemanaDinamicaGraf}</span> (${totDin} concluídas)
+                🎯 Seleção Ativa: <span class="text-blue-900">${filtrosMultiGraficos.segmentos.join(' + ')}</span> • <span class="text-amber-800">${filtrosMultiGraficos.categorias.join(' + ')}</span> • <span class="text-emerald-800">${filtrosMultiGraficos.semanas.join(' + ')}</span> (${totDin} concluídas)
             </div>
             <div class="flex flex-wrap gap-2">
                 <span class="bg-emerald-100 text-emerald-950 font-black px-2.5 py-1 rounded-lg border border-emerald-300">⚡ ATIVAÇÃO: ${qtdAtiv} (${pAtiv}%)</span>
                 <span class="bg-blue-100 text-blue-950 font-black px-2.5 py-1 rounded-lg border border-blue-300">🛠️ CONSTRUÇÃO: ${qtdConst} (${pConst}%)</span>
-                ${(filtroMacroDinamicoGraf === 'TODOS' || filtroMacroDinamicoGraf === 'CONSTRUÇÃO MDU') ? `<span class="bg-purple-100 text-purple-950 font-black px-2.5 py-1 rounded-lg border border-purple-300">🔍 VISTORIA: ${qtdVist} (${pVist}%)</span>` : ''}
+                <span class="bg-purple-100 text-purple-950 font-black px-2.5 py-1 rounded-lg border border-purple-300">🔍 VISTORIA: ${qtdVist} (${pVist}%)</span>
             </div>
         `;
     }
@@ -4732,7 +3775,7 @@ function renderizarAbaGraficosCompletaOficial() {
         mapaDin[eq.nome] = { nome: eq.nome, executados: 0, hps: 0, diasSet: new Set(), registros: [] };
     });
 
-    concluidasDinamicas.forEach(r => {
+    concluidasFiltradasSelecao.forEach(r => {
         const nome = r.equipe || 'NÃO IDENTIFICADO';
         if (!mapaDin[nome]) mapaDin[nome] = { nome, executados: 0, hps: 0, diasSet: new Set(), registros: [] };
         mapaDin[nome].executados++;
@@ -4761,10 +3804,11 @@ function renderizarAbaGraficosCompletaOficial() {
             somaExec += t.executados;
             somaHps += t.hps;
             t.diasSet.forEach(d => diasGlobaisSet.add(d));
+            const chaveExp = registrarListaParaExplosao(`Executadas por ${t.nome}`, t.registros);
 
             const tr = document.createElement('tr');
             tr.className = "hover:bg-blue-50/60 cursor-pointer transition";
-            tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`${t.nome} (${filtroMacroDinamicoGraf} / ${filtroCatDinamicaGraf} / ${filtroSemanaDinamicaGraf})`, t.registros);
+            tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExp}')`);
             tr.innerHTML = `
                 <td class="p-3 text-center font-bold text-slate-400">${idx + 1}º</td>
                 <td class="p-3 font-black text-blue-950 underline decoration-dotted">${t.nome}</td>
@@ -4780,10 +3824,11 @@ function renderizarAbaGraficosCompletaOficial() {
         const diasGlobais = diasGlobaisSet.size;
         const prodGlobal = diasGlobais > 0 ? (somaExec / diasGlobais).toFixed(2) : "0.00";
         const hpDiaGlobal = diasGlobais > 0 ? (somaHps / diasGlobais).toFixed(1) : "0.0";
+        const chaveExpTot = registrarListaParaExplosao(`Total Concluídas na Seleção`, concluidasFiltradasSelecao);
 
         tbodyDin.innerHTML += `
-            <tr class="bg-slate-900 text-white font-black text-xs">
-                <td colspan="2" class="p-3 text-right uppercase">Total Consolidado da Seleção:</td>
+            <tr onclick="dispararExplosaoPorChave('${chaveExpTot}')" class="bg-slate-900 text-white font-black text-xs cursor-pointer hover:bg-slate-800">
+                <td colspan="2" class="p-3 text-right uppercase underline decoration-dotted">Total Consolidado da Seleção (Clique p/ Explosão):</td>
                 <td class="p-3 text-center text-emerald-300 text-sm">${somaExec}</td>
                 <td class="p-3 text-center font-mono">${diasGlobais} d</td>
                 <td class="p-3 text-center text-cyan-300 text-sm">${prodGlobal}</td>
@@ -4793,9 +3838,7 @@ function renderizarAbaGraficosCompletaOficial() {
         `;
     }
 
-    // =========================================================================================
-    // ITEM 03: PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO (CONCLUÍDAS, MALOGROS E APOIOS)
-    // =========================================================================================
+    // 3. PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO
     const mapaGeralTec = {};
     equipesVisiveis.forEach(eq => {
         mapaGeralTec[eq.nome] = {
@@ -4810,7 +3853,7 @@ function renderizarAbaGraficosCompletaOficial() {
 
     const setApoiosUnicosGeral = new Set();
 
-    basePeriodo.forEach(r => {
+    baseFiltradaSelecao.forEach(r => {
         const nome = r.equipe || 'NÃO IDENTIFICADO';
         if (!mapaGeralTec[nome]) {
             mapaGeralTec[nome] = {
@@ -4823,7 +3866,7 @@ function renderizarAbaGraficosCompletaOficial() {
         item.registros.push(r);
 
         if (r.desfecho === 'CONCLUIDA') item.concluidas++;
-        else item.malogros++; // Inclui malogradas/pendentes não executadas
+        else item.malogros++;
 
         if (r._tax.segmento === 'CONSTRUÇÃO MDU') {
             if (r._tax.categoria === 'ATIVAÇÃO') item.cMduAtiv++;
@@ -4865,10 +3908,11 @@ function renderizarAbaGraficosCompletaOficial() {
                 totMal += t.malogros;
                 totAp += t.apoios;
                 totAtend += t.totalAtendidas;
+                const chaveExp = registrarListaParaExplosao(`Atendidas por ${t.nome}`, t.registros);
 
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50 cursor-pointer transition";
-                tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`Atividades de ${t.nome}`, t.registros);
+                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExp}')`);
                 tr.innerHTML = `
                     <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
                     <td class="p-2.5 font-black text-slate-800 underline decoration-dotted">${t.nome}</td>
@@ -4883,9 +3927,10 @@ function renderizarAbaGraficosCompletaOficial() {
                 tbodyGeralAtend.appendChild(tr);
             });
 
+        const chaveExpGeral = registrarListaParaExplosao(`Todas Atividades Atendidas na Seleção`, baseFiltradaSelecao);
         tbodyGeralAtend.innerHTML += `
-            <tr class="bg-slate-900 text-white font-black text-xs">
-                <td colspan="5" class="p-2.5 text-right uppercase">Total Geral Operação:</td>
+            <tr onclick="dispararExplosaoPorChave('${chaveExpGeral}')" class="bg-slate-900 text-white font-black text-xs cursor-pointer hover:bg-slate-800">
+                <td colspan="5" class="p-2.5 text-right uppercase underline decoration-dotted">Total Geral na Seleção (Clique p/ Explosão):</td>
                 <td class="p-2.5 text-center text-emerald-300">${totConc}</td>
                 <td class="p-2.5 text-center text-red-300">${totMal}</td>
                 <td class="p-2.5 text-center text-fuchsia-300">🤝 ${totAp}</td>
@@ -4894,10 +3939,8 @@ function renderizarAbaGraficosCompletaOficial() {
         `;
     }
 
-    // =========================================================================================
-    // ITEM 07: GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS
-    // =========================================================================================
-    const datasUnicas = [...new Set(basePeriodo.map(r => r.dataRegistro).filter(Boolean))].sort();
+    // 4. GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS
+    const datasUnicas = [...new Set(baseFiltradaSelecao.map(r => r.dataRegistro).filter(Boolean))].sort();
     const ctxEvo = document.getElementById('canvasEvolucaoSegmentos')?.getContext('2d');
     if (ctxEvo) {
         if (chartEvolucaoSegmentosInst) chartEvolucaoSegmentosInst.destroy();
@@ -4908,19 +3951,19 @@ function renderizarAbaGraficosCompletaOficial() {
                 datasets: [
                     {
                         label: '🏗️ CONSTRUÇÃO MDU (Exec.)',
-                        data: datasUnicas.map(dt => apenasConcluidasPeriodo.filter(r => r.dataRegistro === dt && r._tax.segmento === 'CONSTRUÇÃO MDU').length),
+                        data: datasUnicas.map(dt => concluidasFiltradasSelecao.filter(r => r.dataRegistro === dt && r._tax.segmento === 'CONSTRUÇÃO MDU').length),
                         backgroundColor: '#1d4ed8',
                         borderRadius: 4
                     },
                     {
                         label: '🚀 EXPANSÃO MDU (Exec.)',
-                        data: datasUnicas.map(dt => apenasConcluidasPeriodo.filter(r => r.dataRegistro === dt && r._tax.segmento === 'EXPANSÃO MDU').length),
+                        data: datasUnicas.map(dt => concluidasFiltradasSelecao.filter(r => r.dataRegistro === dt && r._tax.segmento === 'EXPANSÃO MDU').length),
                         backgroundColor: '#059669',
                         borderRadius: 4
                     },
                     {
                         label: '📬 MAILING (Exec.)',
-                        data: datasUnicas.map(dt => apenasConcluidasPeriodo.filter(r => r.dataRegistro === dt && r._tax.segmento === 'MAILING').length),
+                        data: datasUnicas.map(dt => concluidasFiltradasSelecao.filter(r => r.dataRegistro === dt && r._tax.segmento === 'MAILING').length),
                         backgroundColor: '#7c3aed',
                         borderRadius: 4
                     }
@@ -4932,16 +3975,14 @@ function renderizarAbaGraficosCompletaOficial() {
                 onClick: (e, el) => {
                     if (el.length > 0 && datasUnicas[el[0].index]) {
                         const dtAlvo = datasUnicas[el[0].index];
-                        abrirExplosaoPersonalizadaGraficos(`Data ${dtAlvo}`, basePeriodo.filter(r => r.dataRegistro === dtAlvo));
+                        abrirExplosaoPersonalizadaGraficos(`Evolução em ${dtAlvo}`, baseFiltradaSelecao.filter(r => r.dataRegistro === dtAlvo));
                     }
                 }
             }
         });
     }
 
-    // =========================================================================================
-    // ITEM 02: PICOS DE HORÁRIOS + PLANILHA DE FAIXAS E RECORDES DE TÉCNICOS (SEM MÉDIAS)
-    // =========================================================================================
+    // 5 e 6. PICOS DE HORÁRIOS + PLANILHA DE FAIXAS HORÁRIAS
     const aberturasPorHora = new Array(24).fill(0);
     const fechamentosPorHora = new Array(24).fill(0);
     const registrosPorHora = Array.from({ length: 24 }, () => []);
@@ -4950,7 +3991,7 @@ function renderizarAbaGraficosCompletaOficial() {
     let tecMaisTarde = { nome: '-', hora: '--:--', min: -1, imovel: '', reg: null };
     let tecMaisTempo = { nome: '-', duracaoTxt: '--h --m', durMin: -1, imovel: '', reg: null };
 
-    basePeriodo.forEach(r => {
+    baseFiltradaSelecao.forEach(r => {
         const minIn = converterHorarioParaMinutos(r.hEntrada);
         const minOut = converterHorarioParaMinutos(r.hSaida);
         const pausa = Number(r.tempoPausadoMinutos) || 0;
@@ -5007,9 +4048,7 @@ function renderizarAbaGraficosCompletaOficial() {
     const ctxHorasNovo = document.getElementById('canvasHorariosPicoOficial')?.getContext('2d');
     if (ctxHorasNovo) {
         if (chartHorariosPicoNovoInst) chartHorariosPicoNovoInst.destroy();
-        const labelsH = [];
-        const sliceIn = [];
-        const sliceOut = [];
+        const labelsH = [], sliceIn = [], sliceOut = [];
         for (let h = 6; h <= 21; h++) {
             labelsH.push(`${String(h).padStart(2, '0')}h`);
             sliceIn.push(aberturasPorHora[h]);
@@ -5051,14 +4090,15 @@ function renderizarAbaGraficosCompletaOficial() {
         faixasOrdenadas.sort((a, b) => b.total - a.total || b.abertas - a.abertas);
 
         if (faixasOrdenadas.length === 0) {
-            tbodyHorarios.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Sem registros de horário no período.</td></tr>`;
+            tbodyHorarios.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Sem registros de horário na seleção atual.</td></tr>`;
         } else {
             faixasOrdenadas.forEach(f => {
+                const chaveExpH = registrarListaParaExplosao(`Movimentações das ${f.label}`, registrosPorHora[f.hora]);
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-blue-50/50 cursor-pointer";
-                tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`Movimentações das ${f.label}`, registrosPorHora[f.hora]);
+                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExpH}')`);
                 tr.innerHTML = `
-                    <td class="p-2.5 font-mono font-black text-slate-800">🕒 ${f.label}</td>
+                    <td class="p-2.5 font-mono font-black text-slate-800 underline decoration-dotted">🕒 ${f.label}</td>
                     <td class="p-2.5 text-center font-black text-blue-800 bg-blue-50/60">${f.abertas}</td>
                     <td class="p-2.5 text-center font-black text-emerald-800 bg-emerald-50/60">${f.fechadas}</td>
                     <td class="p-2.5 text-center font-black text-slate-900 bg-slate-100">${f.total}</td>
@@ -5068,15 +4108,15 @@ function renderizarAbaGraficosCompletaOficial() {
         }
     }
 
-    // =========================================================================================
-    // ITENS 04 E 05: RANKING DE OFENSORES + SEPARAÇÃO ATIVAÇÃO MDU vs EXPANSÃO MDU
-    // =========================================================================================
+    // 7 e 8. RANKING DE OFENSORES + COMPARATIVO CONSTRUÇÃO MDU x EXPANSÃO MDU
     const mapaOfensores = {};
     let totalOcorrenciasGeral = 0;
-    let totalOcorrenciasAtivMDU = 0;
+    let totalOcorrenciasConstMDU = 0;
     let totalOcorrenciasExpMDU = 0;
+    const regsMalogroConstMDU = [];
+    const regsMalogroExpMDU = [];
 
-    basePeriodo.forEach(r => {
+    baseFiltradaSelecao.forEach(r => {
         if (r.desfecho !== 'CONCLUIDA') {
             const listaMotivos = (Array.isArray(r.malogros) && r.malogros.length > 0)
                 ? r.malogros
@@ -5085,19 +4125,20 @@ function renderizarAbaGraficosCompletaOficial() {
             listaMotivos.forEach(m => {
                 const ch = String(m || 'OUTROS').trim().toUpperCase();
                 if (!mapaOfensores[ch]) {
-                    mapaOfensores[ch] = { ofensor: ch, total: 0, ativMdu: 0, expMdu: 0, registros: [] };
+                    mapaOfensores[ch] = { ofensor: ch, total: 0, constMdu: 0, expMdu: 0, registros: [] };
                 }
                 mapaOfensores[ch].total++;
                 mapaOfensores[ch].registros.push(r);
                 totalOcorrenciasGeral++;
 
-                // Racional Item 05: ATIVAÇÃO MDU (Ativações de Construção MDU + Mailing) vs EXPANSÃO MDU
-                if (r._tax.segmento === 'EXPANSÃO MDU') {
+                if (r._tax.segmento === 'CONSTRUÇÃO MDU') {
+                    mapaOfensores[ch].constMdu++;
+                    totalOcorrenciasConstMDU++;
+                    regsMalogroConstMDU.push(r);
+                } else if (r._tax.segmento === 'EXPANSÃO MDU') {
                     mapaOfensores[ch].expMdu++;
                     totalOcorrenciasExpMDU++;
-                } else if (r._tax.categoria === 'ATIVAÇÃO' || r._tax.segmento === 'CONSTRUÇÃO MDU') {
-                    mapaOfensores[ch].ativMdu++;
-                    totalOcorrenciasAtivMDU++;
+                    regsMalogroExpMDU.push(r);
                 }
             });
         }
@@ -5105,7 +4146,6 @@ function renderizarAbaGraficosCompletaOficial() {
 
     const listaOfensoresOrd = Object.values(mapaOfensores).sort((a, b) => b.total - a.total);
 
-    // Item 04: Gráfico e Tabela Ranking Geral
     const ctxOf = document.getElementById('canvasOfensoresRanking')?.getContext('2d');
     if (ctxOf) {
         if (chartOfensoresRankingInst) chartOfensoresRankingInst.destroy();
@@ -5140,13 +4180,14 @@ function renderizarAbaGraficosCompletaOficial() {
     if (tbodyOfGeral) {
         tbodyOfGeral.innerHTML = "";
         if (listaOfensoresOrd.length === 0) {
-            tbodyOfGeral.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado no período.</td></tr>`;
+            tbodyOfGeral.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado na seleção atual.</td></tr>`;
         } else {
             listaOfensoresOrd.forEach((o, idx) => {
                 const perc = totalOcorrenciasGeral > 0 ? ((o.total / totalOcorrenciasGeral) * 100).toFixed(1) : '0.0';
+                const chaveExpOf = registrarListaParaExplosao(`Ofensor: ${o.ofensor}`, o.registros);
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-red-50/60 cursor-pointer";
-                tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`Ofensor: ${o.ofensor}`, o.registros);
+                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExpOf}')`);
                 tr.innerHTML = `
                     <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
                     <td class="p-2.5 font-black text-red-950 underline decoration-dotted">${o.ofensor}</td>
@@ -5158,32 +4199,34 @@ function renderizarAbaGraficosCompletaOficial() {
         }
     }
 
-    // Item 05: Separação ATIVAÇÃO MDU vs EXPANSÃO MDU
     const boxResumoSegOf = document.getElementById('resumo-topo-ofensores-segmentos');
+    const somaConstMaisExp = totalOcorrenciasConstMDU + totalOcorrenciasExpMDU;
+
     if (boxResumoSegOf) {
-        const totalSegSoma = totalOcorrenciasAtivMDU + totalOcorrenciasExpMDU;
-        const pAtivMdu = totalSegSoma > 0 ? ((totalOcorrenciasAtivMDU / totalSegSoma) * 100).toFixed(1) : '0.0';
-        const pExpMdu = totalSegSoma > 0 ? ((totalOcorrenciasExpMDU / totalSegSoma) * 100).toFixed(1) : '0.0';
+        const pConstMdu = somaConstMaisExp > 0 ? ((totalOcorrenciasConstMDU / somaConstMaisExp) * 100).toFixed(1) : '0.0';
+        const pExpMdu = somaConstMaisExp > 0 ? ((totalOcorrenciasExpMDU / somaConstMaisExp) * 100).toFixed(1) : '0.0';
+        const chConst = registrarListaParaExplosao(`Malogros CONSTRUÇÃO MDU`, regsMalogroConstMDU);
+        const chExp = registrarListaParaExplosao(`Malogros EXPANSÃO MDU`, regsMalogroExpMDU);
 
         boxResumoSegOf.innerHTML = `
-            <div class="bg-white p-2.5 rounded-xl border border-blue-200 flex justify-between items-center">
+            <div onclick="dispararExplosaoPorChave('${chConst}')" class="bg-white p-2.5 rounded-xl border border-blue-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition">
                 <div>
-                    <span class="text-[10px] font-black text-blue-900 uppercase block">⚡ ATIVAÇÃO MDU</span>
+                    <span class="text-[10px] font-black text-blue-900 uppercase block underline decoration-dotted">🏗️ CONSTRUÇÃO MDU</span>
                     <span class="text-[10px] text-slate-500">Volume de Malogros</span>
                 </div>
                 <div class="text-right">
-                    <span class="font-black text-blue-950 text-sm">${totalOcorrenciasAtivMDU} ocorr.</span>
-                    <span class="block text-[10px] font-bold text-blue-700">${pAtivMdu}% do volume</span>
+                    <span class="font-black text-blue-950 text-sm">${totalOcorrenciasConstMDU} ocorr.</span>
+                    <span class="block text-[10px] font-bold text-blue-700">${pConstMdu}% (Const x Exp)</span>
                 </div>
             </div>
-            <div class="bg-white p-2.5 rounded-xl border border-indigo-200 flex justify-between items-center">
+            <div onclick="dispararExplosaoPorChave('${chExp}')" class="bg-white p-2.5 rounded-xl border border-indigo-200 flex justify-between items-center cursor-pointer hover:border-indigo-500 transition">
                 <div>
-                    <span class="text-[10px] font-black text-indigo-900 uppercase block">🚀 EXPANSÃO MDU</span>
+                    <span class="text-[10px] font-black text-indigo-900 uppercase block underline decoration-dotted">🚀 EXPANSÃO MDU</span>
                     <span class="text-[10px] text-slate-500">Volume de Malogros</span>
                 </div>
                 <div class="text-right">
                     <span class="font-black text-indigo-950 text-sm">${totalOcorrenciasExpMDU} ocorr.</span>
-                    <span class="block text-[10px] font-bold text-indigo-700">${pExpMdu}% do volume</span>
+                    <span class="block text-[10px] font-bold text-indigo-700">${pExpMdu}% (Const x Exp)</span>
                 </div>
             </div>
         `;
@@ -5192,22 +4235,26 @@ function renderizarAbaGraficosCompletaOficial() {
     const tbodyOfSeg = document.getElementById('tbody-ofensores-segmentos-mdu');
     if (tbodyOfSeg) {
         tbodyOfSeg.innerHTML = "";
-        if (listaOfensoresOrd.length === 0) {
-            tbodyOfSeg.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado nos segmentos.</td></tr>`;
+        const ofensoresConstExp = listaOfensoresOrd.filter(o => (o.constMdu + o.expMdu) > 0);
+
+        if (ofensoresConstExp.length === 0) {
+            tbodyOfSeg.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado em Construção MDU ou Expansão MDU na seleção.</td></tr>`;
         } else {
-            listaOfensoresOrd.forEach(o => {
-                const percAtiv = totalOcorrenciasAtivMDU > 0 ? ((o.ativMdu / totalOcorrenciasAtivMDU) * 100).toFixed(1) : '0.0';
+            ofensoresConstExp.forEach(o => {
+                const somaLinha = o.constMdu + o.expMdu;
+                const percConst = totalOcorrenciasConstMDU > 0 ? ((o.constMdu / totalOcorrenciasConstMDU) * 100).toFixed(1) : '0.0';
                 const percExp = totalOcorrenciasExpMDU > 0 ? ((o.expMdu / totalOcorrenciasExpMDU) * 100).toFixed(1) : '0.0';
-                const percTot = totalOcorrenciasGeral > 0 ? ((o.total / totalOcorrenciasGeral) * 100).toFixed(1) : '0.0';
+                const percSoma = somaConstMaisExp > 0 ? ((somaLinha / somaConstMaisExp) * 100).toFixed(1) : '0.0';
+                const chaveExpLinha = registrarListaParaExplosao(`Ofensor (Const x Exp): ${o.ofensor}`, o.registros.filter(r => r._tax.segmento === 'CONSTRUÇÃO MDU' || r._tax.segmento === 'EXPANSÃO MDU'));
 
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-amber-50/60 cursor-pointer";
-                tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`Ofensor por Segmento: ${o.ofensor}`, o.registros);
+                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExpLinha}')`);
                 tr.innerHTML = `
                     <td class="p-2.5 font-bold text-slate-800 underline decoration-dotted">${o.ofensor}</td>
-                    <td class="p-2.5 text-center bg-blue-50/40"><b class="text-blue-950">${o.ativMdu}</b> <span class="text-[10px] text-blue-700 font-semibold">(${percAtiv}%)</span></td>
+                    <td class="p-2.5 text-center bg-blue-50/40"><b class="text-blue-950">${o.constMdu}</b> <span class="text-[10px] text-blue-700 font-semibold">(${percConst}%)</span></td>
                     <td class="p-2.5 text-center bg-indigo-50/40"><b class="text-indigo-950">${o.expMdu}</b> <span class="text-[10px] text-indigo-700 font-semibold">(${percExp}%)</span></td>
-                    <td class="p-2.5 text-center bg-slate-100"><b class="text-slate-950">${o.total}</b> <span class="text-[10px] text-slate-600 font-bold">(${percTot}%)</span></td>
+                    <td class="p-2.5 text-center bg-slate-100"><b class="text-slate-950">${somaLinha}</b> <span class="text-[10px] text-slate-600 font-bold">(${percSoma}%)</span></td>
                 `;
                 tbodyOfSeg.appendChild(tr);
             });
@@ -5215,9 +4262,9 @@ function renderizarAbaGraficosCompletaOficial() {
     }
 }
 
-// --- ITEM 09: EXPORTAÇÃO EXCEL OFICIAL COM A NOVA TAXONOMIA (SEM EXIBIR NOMES DE PROJETOS DE BASE) ---
+// --- EXPORTAÇÃO EXCEL OFICIAL ---
 function exportarPlanilhaDinamicaOficialExcel() {
-    const base = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
+    const baseBruta = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
         r &&
         r.equipe !== '__CONFIG_SISTEMA__' &&
         r.projeto !== '__CONFIG_AUDITORIA__' &&
@@ -5226,10 +4273,14 @@ function exportarPlanilhaDinamicaOficialExcel() {
         r.projeto !== PROJETO_SOLIC_MATERIAL &&
         !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(r.desfecho) &&
         (typeof registroPertenceAoUsuarioLogado === 'function' ? registroPertenceAoUsuarioLogado(r) : true)
-    );
+    ).map(r => ({
+        ...r,
+        _tax: classificarRegistroNovaTaxonomia(r),
+        _semana: obterNumeroSemanaFormatado(r.dataRegistro)
+    })).filter(registroPassaNosFiltrosGlobaisGraficos);
 
-    if (base.length === 0) {
-        alert("⚠️ Nenhum registro finalizado no período selecionado para exportar.");
+    if (baseBruta.length === 0) {
+        alert("⚠️ Nenhum registro finalizado na seleção atual para exportar.");
         return;
     }
 
@@ -5241,17 +4292,15 @@ function exportarPlanilhaDinamicaOficialExcel() {
             <th>SEMANA</th><th>DATA</th><th>TÉCNICO / EQUIPE</th><th>APOIO CONJUNTO</th><th>SEGMENTO</th><th>CATEGORIA</th><th>IMÓVEL / BLOCO</th><th>ENDEREÇO</th><th>HPs</th><th>RESULTADO</th>
         </tr>`;
 
-    base.forEach(r => {
-        const tax = classificarRegistroNovaTaxonomia(r);
-        const sem = obterNumeroSemanaFormatado(r.dataRegistro);
+    baseBruta.forEach(r => {
         const ap = extrairApoiosDoRegistro(r).join(', ') || '-';
         html += `<tr>
-            <td>${sem}</td>
+            <td>${r._semana}</td>
             <td>${r.dataRegistro}</td>
             <td><b>${r.equipe}</b></td>
             <td>${ap}</td>
-            <td><b>${tax.segmento}</b></td>
-            <td><b>${tax.categoria}</b></td>
+            <td><b>${r._tax.segmento}</b></td>
+            <td><b>${r._tax.categoria}</b></td>
             <td>${r.imovel}</td>
             <td>${r.endereco || '-'}</td>
             <td>${r.hps || 0}</td>
@@ -5270,23 +4319,46 @@ function exportarPlanilhaDinamicaOficialExcel() {
     document.body.removeChild(a);
 }
 
-// Sobrescreve exportarExcel global para usar a nova taxonomia limpa
 exportarExcel = exportarPlanilhaDinamicaOficialExcel;
 
-// Conecta a nova renderização ao ciclo central do Gestor
-const _origAtualizarDashboardV12 = atualizarDashboardGestor;
-atualizarDashboardGestor = async function(forcarRecargaMobile = false) {
-    await _origAtualizarDashboardV12.apply(this, arguments);
-    try {
-        injetarAssinaturaDesenvolvedorHeader();
-        renderizarAbaGraficosCompletaOficial();
-    } catch (e) {
-        console.warn("Erro ao atualizar aba gráficos oficial:", e);
+// Boletim WhatsApp formatado
+copiarBoletimGestorWhatsApp = function() {
+    const lista = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
+        r && r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL && r.equipe !== "__CONFIG_SISTEMA__" && r.projeto !== "__CONFIG_AUDITORIA__" && registroPertenceAoUsuarioLogado(r)
+    );
+
+    if (lista.length === 0) {
+        alert("⚠️ Nenhum registro encontrado no filtro atual para gerar o Boletim.");
+        return;
     }
+
+    const dIni = document.getElementById('gestor-filtro-data-inicio')?.value;
+    const dFim = document.getElementById('gestor-filtro-data-fim')?.value;
+    const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Todo o Histórico';
+
+    const andamento = lista.filter(i => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(i.desfecho)).length;
+    const finalizadas = lista.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
+    const concluidas = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
+    const pendentes = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
+    const malogradas = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
+
+    const texto = [
+        `📊 *BOLETIM GPD - MDU PROCISA RJ*`,
+        `📅 *Período:* ${periodoStr}`,
+        `──────────────────────`,
+        `🔵 *Ativas / Em Execução Agora:* ${andamento}`,
+        `📈 *Total Finalizadas:* ${finalizadas.length}`,
+        `🟢 *Concluídas:* ${concluidas}`,
+        `🟡 *Pendentes:* ${pendentes}`,
+        `🔴 *Malogradas:* ${malogradas}`
+    ].join('\n');
+
+    copiarParaAreaTransferencia(texto, "✅ Boletim Executivo copiado para o WhatsApp!");
 };
 
 setTimeout(() => {
-    injetarAssinaturaDesenvolvedorHeader();
+    otimizarCabecalhoAzulLinhaUnica();
+    inicializarMelhoriasVisuaisGestor();
     construirLayoutExclusivoAbaGraficos();
     renderizarAbaGraficosCompletaOficial();
-}, 500);
+}, 400);
