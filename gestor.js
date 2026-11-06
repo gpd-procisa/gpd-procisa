@@ -2972,7 +2972,7 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
-// ================= REESTRUTURAÇÃO COMPLETA DA ABA GRÁFICOS & INDICADORES (V2 - MODO REUNIÃO, MULTI-SELEÇÃO CTRL E CABEÇALHO EM LINHA ÚNICA) =================
+// ================= REESTRUTURAÇÃO COMPLETA DA ABA GRÁFICOS & INDICADORES (V4 - CABEÇALHO ISOLADO DO MODO CAMPO) =================
 
 let filtrosMultiGraficos = {
     segmentos: ['TODOS'],   // 'TODOS' ou array ex: ['CONSTRUÇÃO MDU', 'EXPANSÃO MDU']
@@ -2980,7 +2980,7 @@ let filtrosMultiGraficos = {
     semanas: ['TODAS']      // 'TODAS' ou array ex: ['Semana 1', 'Semana 2']
 };
 
-let modoSelecaoMultiplaSemCtrl = false; // Permite marcar múltiplos também sem teclado físico se ativado
+let modoSelecaoMultiplaSemCtrl = false;
 let secoesInibidasGraficos = {
     consolidados: false,
     planilhaDinamica: false,
@@ -3049,72 +3049,39 @@ function obterNumeroSemanaFormatado(dataISO) {
     return 'Semana 5';
 }
 
-// --- ITEM 07 CORRIGIDO: SEM DUPLICAR USUÁRIO LOGADO E TUDO NA MESMA LINHA SUPERIOR ---
+// --- CABEÇALHO 100% ISOLADO DO MODO CAMPO ---
 function otimizarCabecalhoAzulLinhaUnica() {
     try {
-        // 1. Remove qualquer badge duplicado criado anteriormente
         const badgeDuplicado = document.getElementById('badge-usuario-logado-compacto');
         if (badgeDuplicado) badgeDuplicado.remove();
 
-        const header = document.querySelector('header');
-        if (!header) return;
+        const viewGestor = document.getElementById('view-gestor');
+        const gestorEstaVisivel = viewGestor && !viewGestor.classList.contains('hidden');
+        const blocoAcoesGestor = document.getElementById('header-gestor-acoes');
 
-        // Compacta a altura do cabeçalho azul
-        header.classList.remove('py-3', 'py-4', 'p-4');
-        header.classList.add('py-1.5', 'px-3');
-
-        const containerInterno = header.firstElementChild;
-        if (containerInterno) {
-            containerInterno.className = 'max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2';
+        if (!gestorEstaVisivel) {
+            if (blocoAcoesGestor) blocoAcoesGestor.classList.add('hidden');
+            const spanExistente = document.getElementById('assinatura-dev-leonardo');
+            if (spanExistente) spanExistente.classList.add('hidden');
+            return;
         }
 
-        // Localiza a barra superior direita onde ficam os botões de Modo (Campo / Gestor) e o utilizador original
-        const btnModoCampo = document.getElementById('btn-modo-campo');
         const btnSair = document.getElementById('btn-sair-gestor') || document.querySelector('button[onclick*="sairModoGestor"], button[onclick*="bloquearGestor"]');
-        const barraSuperiorDireita = btnModoCampo ? btnModoCampo.parentElement : (header.querySelector('.flex') || containerInterno);
-
-        if (barraSuperiorDireita) {
-            barraSuperiorDireita.className = 'flex flex-wrap items-center justify-end gap-2 ml-auto';
-
-            // 2. Cria ou posiciona "Desenvolvido por Leonardo Simões de Almeida" no início da linha superior direita
+        if (btnSair && btnSair.parentElement) {
             let spanDev = document.getElementById('assinatura-dev-leonardo');
             if (!spanDev) {
                 spanDev = document.createElement('span');
                 spanDev.id = 'assinatura-dev-leonardo';
+                btnSair.parentElement.insertBefore(spanDev, btnSair);
             }
-            spanDev.className = 'text-white font-bold italic text-[11px] tracking-wide px-2 py-0.5 rounded bg-blue-950/50 border border-blue-400/30 whitespace-nowrap';
+            spanDev.className = 'text-white font-bold italic text-[11px] mr-2 whitespace-nowrap';
             spanDev.innerText = 'Desenvolvido por Leonardo Simões de Almeida';
-
-            if (barraSuperiorDireita.firstChild !== spanDev) {
-                barraSuperiorDireita.insertBefore(spanDev, barraSuperiorDireita.firstChild);
-            }
-
-            // 3. Move a informação ORIGINAL de quem está logado (ex: #header-gestor-acoes) para a mesma linha superior
-            const blocoAcoesGestor = document.getElementById('header-gestor-acoes');
-            if (blocoAcoesGestor && blocoAcoesGestor !== barraSuperiorDireita) {
-                blocoAcoesGestor.classList.remove('w-full', 'mt-2', 'pt-2', 'border-t');
-                blocoAcoesGestor.className = 'flex items-center gap-2';
-                barraSuperiorDireita.appendChild(blocoAcoesGestor);
-            }
-
-            // 4. Garante que o botão Sair/Bloquear fique no final dessa mesma linha superior
-            if (btnSair && btnSair.parentElement !== barraSuperiorDireita && (!blocoAcoesGestor || !blocoAcoesGestor.contains(btnSair))) {
-                barraSuperiorDireita.appendChild(btnSair);
-            }
+            spanDev.classList.remove('hidden');
         }
-
-        // Compacta a sub-barra de abas logo abaixo para ganhar espaço vertical
-        const subBarra = document.getElementById('header-gestor-subbarra');
-        if (subBarra) {
-            subBarra.classList.remove('py-2.5', 'p-3', 'mt-2');
-            subBarra.classList.add('py-1', 'px-2', 'mt-1');
-        }
-    } catch (e) {
-        console.warn("Aviso ao alinhar cabeçalho em linha única:", e);
-    }
+    } catch (e) {}
 }
 
-// --- ITEM 03: LÓGICA DE SELEÇÃO SIMPLES OU MÚLTIPLA (COM TECLA CTRL OU BOTÃO MULTI) ---
+// --- LÓGICA DE SELEÇÃO SIMPLES OU MÚLTIPLA (COM TECLA CTRL OU BOTÃO MULTI) ---
 function alternarFiltroDinamicoComCtrl(grupo, valor, event) {
     const usouCtrl = (event && (event.ctrlKey || event.metaKey || event.shiftKey)) || modoSelecaoMultiplaSemCtrl;
     const valorPadraoTodos = grupo === 'segmentos' ? 'TODOS' : 'TODAS';
@@ -3220,7 +3187,7 @@ function obterHtmlBarraSeletoresInterativos(sufixoId = 'principal') {
     `;
 }
 
-// --- ITEM 05: OPÇÃO DE INIBIR / MOSTRAR QUALQUER GRÁFICO OU PLANILHA ---
+// --- OPÇÃO DE INIBIR / MOSTRAR QUALQUER GRÁFICO OU PLANILHA ---
 function alternarInibicaoSecaoGrafico(chaveSecao) {
     secoesInibidasGraficos[chaveSecao] = !secoesInibidasGraficos[chaveSecao];
     aplicarVisibilidadeSecoesInibidas();
@@ -3267,13 +3234,13 @@ function aplicarVisibilidadeSecoesInibidas() {
 function construirLayoutExclusivoAbaGraficos() {
     otimizarCabecalhoAzulLinhaUnica();
     const containerGraficos = document.getElementById('subview-graficos');
-    if (!containerGraficos || containerGraficos.dataset.layoutReconstruidoV14 === 'true') return;
+    if (!containerGraficos || containerGraficos.dataset.layoutReconstruidoV15 === 'true') return;
 
-    containerGraficos.dataset.layoutReconstruidoV14 = 'true';
+    containerGraficos.dataset.layoutReconstruidoV15 = 'true';
     containerGraficos.className = 'space-y-4 pb-10';
 
     containerGraficos.innerHTML = `
-        <!-- BARRA DE TOPO + CONTROLE DE INIBIÇÃO DE PLANILHAS/GRÁFICOS (ITENS 05 e 09) -->
+        <!-- BARRA DE TOPO + CONTROLE DE INIBIÇÃO DE PLANILHAS/GRÁFICOS -->
         <div class="bg-slate-900 text-white p-3.5 rounded-2xl shadow-lg border-b-4 border-cyan-400 space-y-2.5">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <div>
@@ -3297,13 +3264,13 @@ function construirLayoutExclusivoAbaGraficos() {
             <div id="container-seletores-globais-topo"></div>
         </div>
 
-        <!-- ITEM 05: BARRA DE BOTÕES PARA INIBIR/EXIBIR QUALQUER GRÁFICO OU PLANILHA -->
+        <!-- BARRA DE BOTÕES PARA INIBIR/EXIBIR QUALQUER GRÁFICO OU PLANILHA -->
         <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-2">
             <span class="text-[10px] font-black text-slate-700 uppercase">👁️ Exibição na Tela (Clique para Inibir / Mostrar):</span>
             <div id="barra-chips-inibicao-secoes" class="flex flex-wrap gap-1.5"></div>
         </div>
 
-        <!-- BLOCO 1 (ITEM 08): CONSOLIDADOS SUPERIORES -->
+        <!-- BLOCO 1: CONSOLIDADOS SUPERIORES -->
         <div id="secao-bloco-consolidados" class="space-y-1.5">
             <div class="flex justify-between items-center px-1">
                 <span class="text-[11px] font-black text-slate-700 uppercase">📌 Consolidados por Segmento e Porcentagem das Categorias</span>
@@ -3312,7 +3279,7 @@ function construirLayoutExclusivoAbaGraficos() {
             <div id="painel-consolidado-topo-segmentos" class="grid grid-cols-1 lg:grid-cols-3 gap-4"></div>
         </div>
 
-        <!-- BLOCO 2 (ITEM 01): PLANILHA DINÂMICA DE PRODUTIVIDADE -->
+        <!-- BLOCO 2: PLANILHA DINÂMICA DE PRODUTIVIDADE -->
         <div id="secao-bloco-planilhaDinamica" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
             <div class="bg-slate-900 text-white p-3.5 flex flex-wrap justify-between items-center gap-2">
                 <div>
@@ -3347,7 +3314,7 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- BLOCO 3 (ITEM 03): PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO -->
+        <!-- BLOCO 3: PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO -->
         <div id="secao-bloco-geralTecnicos" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
             <div class="bg-blue-950 text-white p-3.5 flex flex-wrap justify-between items-center gap-2">
                 <div>
@@ -3383,7 +3350,7 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- BLOCO 4 (ITEM 07): GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS -->
+        <!-- BLOCO 4: GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS -->
         <div id="secao-bloco-evolucaoSegmentos" class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3">
             <div class="flex flex-wrap justify-between items-center gap-2 border-b pb-2.5">
                 <div>
@@ -3404,7 +3371,7 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- BLOCOS 5 E 6 (ITEM 02): PICOS DE HORÁRIOS E PLANILHA DE FAIXAS HORÁRIAS -->
+        <!-- BLOCOS 5 E 6: PICOS DE HORÁRIOS E PLANILHA DE FAIXAS HORÁRIAS -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div id="secao-bloco-picosHorarios" class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3 flex flex-col justify-between">
                 <div>
@@ -3415,7 +3382,7 @@ function construirLayoutExclusivoAbaGraficos() {
                         </div>
                         <div class="flex gap-1">
                             <button type="button" onclick="expandirGraficoModal('canvasHorariosPicoOficial', 'Gráfico de Picos de Horários')" class="bg-blue-900 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">🔍 Expandir</button>
-                            <button type="button" onclick="alternarInibicaoSecaoGrafico('picosHorarios')" class="bg-red-50 text-red-700 border border-red-200 text-[10px] font-bold px-2 py-1 rounded-lg">🚫 Inibir</button>
+                            <button type="button" onclick="alternarInibicaoSecaoGrafico('picosHorarios')" class="bg-red-50 text-red-700 border border-red-200 text-[10px] font-bold px-2.5 py-1 rounded-lg">🚫 Inibir</button>
                         </div>
                     </div>
                     <div id="cards-extremos-horarios-tecnicos" class="grid grid-cols-1 sm:grid-cols-3 gap-2 my-3"></div>
@@ -3433,7 +3400,7 @@ function construirLayoutExclusivoAbaGraficos() {
                     </div>
                     <div class="flex gap-1">
                         <button type="button" onclick="expandirTabelaModal('tbody-horarios-pico-planilha', 'Horários com Mais Atividades Abertas e Fechadas')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">🔍 Expandir</button>
-                        <button type="button" onclick="alternarInibicaoSecaoGrafico('planilhaHorarios')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2 py-1 rounded">🚫 Inibir</button>
+                        <button type="button" onclick="alternarInibicaoSecaoGrafico('planilhaHorarios')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2.5 py-1 rounded">🚫 Inibir</button>
                     </div>
                 </div>
                 <div class="overflow-y-auto max-h-[360px]">
@@ -3452,7 +3419,7 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- BLOCOS 7 E 8 (ITENS 04 E 05): RANKING DE OFENSORES + CONSTRUÇÃO MDU x EXPANSÃO MDU -->
+        <!-- BLOCOS 7 E 8: RANKING DE OFENSORES + CONSTRUÇÃO MDU x EXPANSÃO MDU -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div id="secao-bloco-rankingOfensores" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
                 <div class="bg-red-950 text-white p-3.5 flex justify-between items-center">
@@ -3520,7 +3487,7 @@ function construirLayoutExclusivoAbaGraficos() {
     aplicarVisibilidadeSecoesInibidas();
 }
 
-// --- ITEM 06: MODO EXPLOSÃO HABILITADO EM TODAS AS SEÇÕES E NO MODAL EXPANDIDO ---
+// --- MODO EXPLOSÃO HABILITADO EM TODAS AS SEÇÕES E NO MODAL EXPANDIDO ---
 function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset) {
     const modal = document.getElementById('modal-explosao');
     const corpo = document.getElementById('tabela-explosao-corpo');
@@ -3556,7 +3523,7 @@ function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset
     modal.classList.remove('hidden');
 }
 
-// --- ITEM 01: EXPANDIR TABELAS E GRÁFICOS LEVANDO OS SELETORES PARA A REUNIÃO ---
+// --- EXPANDIR TABELAS E GRÁFICOS LEVANDO OS SELETORES PARA A REUNIÃO ---
 function expandirTabelaModal(idTbodyOrigem, tituloJanela) {
     const modal = document.getElementById('modal-expandir-tabela');
     const titulo = document.getElementById('modal-tabela-expandida-titulo');
@@ -3654,8 +3621,9 @@ function atualizarConteudoModalExpandidoAoVivo() {
     }
 }
 
-// --- RENDERIZADOR PRINCIPAL DA ABA GRÁFICOS (TODAS AS SEÇÕES REAGEM ÀS SELEÇÕES) ---
+// --- RENDERIZADOR PRINCIPAL DA ABA GRÁFICOS ---
 function renderizarAbaGraficosCompletaOficial() {
+    otimizarCabecalhoAzulLinhaUnica();
     construirLayoutExclusivoAbaGraficos();
     registroExplosaoCache.clear();
     contadorChaveExplosao = 0;
@@ -4321,7 +4289,6 @@ function exportarPlanilhaDinamicaOficialExcel() {
 
 exportarExcel = exportarPlanilhaDinamicaOficialExcel;
 
-// Boletim WhatsApp formatado
 copiarBoletimGestorWhatsApp = function() {
     const lista = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
         r && r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL && r.equipe !== "__CONFIG_SISTEMA__" && r.projeto !== "__CONFIG_AUDITORIA__" && registroPertenceAoUsuarioLogado(r)
@@ -4353,7 +4320,7 @@ copiarBoletimGestorWhatsApp = function() {
         `🔴 *Malogradas:* ${malogradas}`
     ].join('\n');
 
-    copiarParaAreaTransferencia(texto, "✅ Boletim Executivo copiado para o WhatsApp!");
+    copiarTextoAreaTransferencia(texto, "✅ Boletim Executivo copiado para o WhatsApp!");
 };
 
 setTimeout(() => {
