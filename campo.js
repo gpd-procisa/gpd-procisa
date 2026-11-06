@@ -3698,3 +3698,134 @@ setTimeout(() => {
     verificarSolicitacoesApoioParaTitularCampo();
     organizarTelaPrincipalEBotaoSuporteRodape();
 }, 400);
+// ================= CORREÇÃO DE SINCRONIZAÇÃO DE ABERTURA (GARANTE QUE "EM ANDAMENTO" SEMPRE CHEGUE AO GESTOR) =================
+let filaCheckinPendenteNuvem = null;
+let sincronizandoCheckinPendente = false;
+
+function salvarCheckinPendenteLocal(payloadDB) {
+    try {
+        filaCheckinPendenteNuvem = payloadDB;
+        localStorage.setItem('gpd_checkin_pendente_nuvem', JSON.stringify(payloadDB));
+    } catch (e) {}
+}
+
+function limparCheckinPendenteLocal() {
+    filaCheckinPendenteNuvem = null;
+    localStorage.removeItem('gpd_checkin_pendente_nuvem');
+}
+
+function atualizarBadgeSincronismoAbertura(sincronizado) {
+    const lblStatus = document.getElementById('lbl-status-execucao-campo');
+    if (!lblStatus) return;
+    if (sincronizado) {
+        lblStatus.innerHTML = `Status: Em Andamento no Painel <span class="bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.5 rounded text-[9px] font-black ml-1">☁️ No Painel</span>`;
+    } else {
+        lblStatus.innerHTML = `Status: Em Andamento <span class="bg-amber-100 text-amber-900 border border-amber-400 px-1.5 py-0.5 rounded text-[9px] font-black ml-1 animate-pulse">⏳ Enviando p/ Gestão...</span>`;
+    }
+}
+
+// Reenvia automaticamente para o Supabase qualquer abertura (EM ANDAMENTO) que tenha falhado por oscilação de 4G
+async function forcarSincronizacaoCheckinAbertoNaNuvem() {
+    if (sincronizandoCheckinPendente || typeof supabaseClient === 'undefined') return;
+    const posAberturaVisivel = !document.getElementById('bloco-pos-abertura')?.classList.contains('hidden');
+    if (!posAberturaVisivel) {
+        limparCheckinPendenteLocal();
+        return;
+    }
+
+    let pendente = filaCheckinPendenteNuvem;
+    if (!pendente) {
+        try {
+            const salvo = localStorage.getItem('gpd_checkin_pendente_nuvem');
+            if (salvo) pendente = JSON.parse(salvo);
+        } catch (e) {}
+    }
+
+    // Se a tela está aberta com uma atividade, mas idEmAndamento está vazio ou pendente, reconstrói o pacote e sobe para a nuvem!
+    if (!pendente && !dadosAtendimento.idEmAndamento) {
+        const equipe = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
+        const projeto = obterProjetoTravadoDaAtividadeAberta() || document.getElementById('sel-projeto')?.value || 'CONSTRUÇÃO ON GOING';
+        const imovel = obterImovelTravadoDaAtividadeAberta() || document.getElementById('inp-imovel')?.value?.trim() || '';
+        if (equipe && imovel) {
+            const idNovo = Date.now();
+            pendente = {
+                id: idNovo,
+                data_registro: obterDataLocalISO(),
+                equipe: equipe,
+                membros: equipe,
+                projeto: projeto,
+                imovel: imovel,
+                h_entrada: document.getElementById('lbl-h-entrada')?.innerText || new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
+                h_saida: "Em Andamento",
+                gps_entrada: dadosAtendimento.gpsEntrada || "Em Campo",
+                gps_saida: "Em Campo",
+                desfecho: dadosAtendimento.emPausa ? "PARALISADA" : "EM ANDAMENTO",
+                motivo_desfecho: "Atividade iniciada em campo (Em execução)",
+                malogros: [],
+                responsavel: document.getElementById('form-responsavel')?.value || '',
+                contato: document.getElementById('form-contato')?.value || '',
+                email: document.getElementById('form-email')?.value || '',
+                agendamento: null,
+                andares: 0,
+                hps: 0,
+                servico_obra: "SIM",
+                observacoes: "Em andamento"
+            };
+        }
+    }
+
+    if (!pendente) return;
+
+    sincronizandoCheckinPendente = true;
+    try {
+        const { error } = await supabaseClient.from('registros_producao').upsert([pendente], { onConflict: 'id' });
+        if (!error) {
+            dadosAtendimento.idEmAndamento = pendente.id;
+            limparCheckinPendenteLocal();
+            salvarRascunhoCampo();
+            atualizarBadgeSincronismoAbertura(true);
+        } else {
+            atualizarBadgeSincronismoAbertura(false);
+        }
+    } catch (e) {
+        atualizarBadgeSincronismoAbertura(false);
+    } finally {
+        sincronizandoCheckinPendente = false;
+    }
+}
+
+// Intercepta fazerCheckIn para garantir o salvamento com retry imediato na nuvem
+const _checkinOrigSync = fazerCheckIn;
+fazerCheckIn = async function(...args) {
+    const res = await _checkinOrigSync.apply(this, args);
+    const posAberturaVisivel = !document.getElementById('bloco-pos-abertura')?.classList.contains('hidden');
+    if (posAberturaVisivel) {
+        if (!dadosAtendimento.idEmAndamento) {
+            atualizarBadgeSincronismoAbertura(false);
+            await forcarSincronizacaoCheckinAbertoNaNuvem();
+        } else {
+            // Confirma no banco se o ID realmente gravou
+            try {
+                const { data } = await supabaseClient.from('registros_producao').select('id').eq('id', dadosAtendimento.idEmAndamento).maybeSingle();
+                if (!data) {
+                    dadosAtendimento.idEmAndamento = null;
+                    atualizarBadgeSincronismoAbertura(false);
+                    await forcarSincronizacaoCheckinAbertoNaNuvem();
+                } else {
+                    atualizarBadgeSincronismoAbertura(true);
+                }
+            } catch (e) {
+                atualizarBadgeSincronismoAbertura(false);
+                await forcarSincronizacaoCheckinAbertoNaNuvem();
+            }
+        }
+    }
+    return res;
+};
+
+// Verifica a cada 10 segundos se há uma atividade aberta na tela do técnico que ainda não subiu para o Painel Gestor
+setInterval(() => {
+    if (navigator.onLine) {
+        forcarSincronizacaoCheckinAbertoNaNuvem();
+    }
+}, 10000);
