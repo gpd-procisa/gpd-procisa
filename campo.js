@@ -3698,3 +3698,200 @@ setTimeout(() => {
     verificarSolicitacoesApoioParaTitularCampo();
     organizarTelaPrincipalEBotaoSuporteRodape();
 }, 400);
+// ================= PATCH DE ESTABILIDADE EM PRODUÇÃO (CAMPO.JS) =================
+(function() {
+    let salvandoAtendimentoTrava = false;
+    let sincronizandoAberturaTrava = false;
+
+    // 1. Extrai o Projeto e o Imóvel reais gravados no cabeçalho da abertura: "IMOVEL (PROJETO)"
+    function obterProjetoOriginalTravado() {
+        if (typeof dadosAtendimento !== 'undefined' && dadosAtendimento._projetoTravado) {
+            return dadosAtendimento._projetoTravado;
+        }
+        const txt = document.getElementById('lbl-imovel-aberto')?.innerText || '';
+        const m = txt.match(/\(([^)]+)\)\s*$/);
+        if (m && m[1]) return m[1].trim();
+        return document.getElementById('sel-projeto')?.value || '';
+    }
+
+    function obterImovelOriginalTravado() {
+        if (typeof dadosAtendimento !== 'undefined' && dadosAtendimento._imovelTravado) {
+            return dadosAtendimento._imovelTravado;
+        }
+        const txt = document.getElementById('lbl-imovel-aberto')?.innerText || '';
+        const idx = txt.lastIndexOf(' (');
+        if (idx > 0) return txt.substring(0, idx).trim();
+        return document.getElementById('inp-imovel')?.value?.trim() || '';
+    }
+
+    // 2. Impede que atualizarProjetosPermitidosCampo resete o select para "CONSTRUÇÃO F" enquanto uma atividade está aberta
+    if (typeof window.atualizarProjetosPermitidosCampo === 'function') {
+        const _origAtuProj = window.atualizarProjetosPermitidosCampo;
+        window.atualizarProjetosPermitidosCampo = function(nomeEquipe, projetoPreSelecionado = null) {
+            const abertaNaTela = !document.getElementById('bloco-pos-abertura')?.classList.contains('hidden');
+            const projManter = projetoPreSelecionado || (abertaNaTela ? obterProjetoOriginalTravado() : document.getElementById('sel-projeto')?.value);
+            return _origAtuProj.call(this, nomeEquipe, projManter || null);
+        };
+    }
+
+    // 3. Garante que toda atividade aberta no Modo Campo realmente suba para o Modo Gestão (mesmo se o 4G falhar no check-in)
+    async function garantirAberturaSincronizadaNaNuvem() {
+        if (sincronizandoAberturaTrava || !navigator.onLine || typeof supabaseClient === 'undefined') return;
+        const abertaNaTela = !document.getElementById('bloco-pos-abertura')?.classList.contains('hidden');
+        if (!abertaNaTela || typeof dadosAtendimento === 'undefined') return;
+
+        const equipe = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
+        const projeto = obterProjetoOriginalTravado();
+        const imovel = obterImovelOriginalTravado();
+        if (!equipe || !imovel || !projeto) return;
+
+        // Mantém o select sempre sincronizado com o projeto real aberto
+        const selProj = document.getElementById('sel-projeto');
+        if (selProj && selProj.value !== projeto) selProj.value = projeto;
+
+        sincronizandoAberturaTrava = true;
+        try {
+            const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+
+            // Verifica se já existe registro aberto na nuvem para esta equipe e imóvel hoje
+            const { data: existentes, error: errBusca } = await supabaseClient
+                .from('registros_producao')
+                .select('id, desfecho')
+                .eq('data_registro', hojeISO)
+                .eq('equipe', equipe)
+                .eq('imovel', imovel);
+
+            if (!errBusca && Array.isArray(existentes)) {
+                const abertaBanco = existentes.find(r => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(r.desfecho));
+                if (abertaBanco) {
+                    dadosAtendimento.idEmAndamento = abertaBanco.id;
+                    sincronizandoAberturaTrava = false;
+                    return;
+                }
+            }
+
+            // Se não existe na nuvem (falhou no check-in por oscilação de rede), insere agora!
+            const novoId = dadosAtendimento.idEmAndamento || Date.now();
+            const hIn = document.getElementById('lbl-h-entrada')?.innerText || new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+            const gpsIn = dadosAtendimento.gpsEntrada || document.getElementById('lbl-gps-entrada')?.innerText || 'Em Campo';
+            const endAtual = document.getElementById('form-endereco')?.value?.trim() || '';
+
+            const payloadRecuperacao = {
+                id: novoId,
+                data_registro: hojeISO,
+                equipe: equipe,
+                membros: equipe,
+                projeto: projeto,
+                imovel: imovel,
+                h_entrada: hIn !== '-' ? hIn : new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
+                h_saida: dadosAtendimento.emPausa ? "Paralisada" : "Em Andamento",
+                gps_entrada: gpsIn,
+                gps_saida: "Em Campo",
+                desfecho: dadosAtendimento.emPausa ? "PARALISADA" : "EM ANDAMENTO",
+                motivo_desfecho: "Atividade iniciada em campo (Sincronizada)",
+                malogros: [],
+                responsavel: document.getElementById('form-responsavel')?.value?.trim() || '',
+                contato: document.getElementById('form-contato')?.value?.trim() || '',
+                email: document.getElementById('form-email')?.value?.trim() || '',
+                agendamento: null,
+                andares: 0,
+                hps: 0,
+                servico_obra: "SIM",
+                observacoes: endAtual ? `[END: ${endAtual}] Em andamento` : "Em andamento"
+            };
+
+            const { error: errIns } = await supabaseClient
+                .from('registros_producao')
+                .upsert([payloadRecuperacao], { onConflict: 'id' });
+
+            if (!errIns) {
+                dadosAtendimento.idEmAndamento = novoId;
+                if (typeof salvarRascunhoCampo === 'function') salvarRascunhoCampo();
+            }
+        } catch (e) {} finally {
+            sincronizandoAberturaTrava = false;
+        }
+    }
+
+    // 4. Intercepta fazerCheckIn para travar o projeto escolhido e evitar abrir atividade duplicada
+    if (typeof window.fazerCheckIn === 'function') {
+        const _origCheckIn = window.fazerCheckIn;
+        window.fazerCheckIn = async function(...args) {
+            const projEscolhido = document.getElementById('sel-projeto')?.value || '';
+            const imovelEscolhido = document.getElementById('inp-imovel')?.value?.trim() || '';
+            if (typeof dadosAtendimento !== 'undefined') {
+                dadosAtendimento._projetoTravado = projEscolhido;
+                dadosAtendimento._imovelTravado = imovelEscolhido;
+            }
+            const res = await _origCheckIn.apply(this, args);
+            if (projEscolhido) {
+                const selProj = document.getElementById('sel-projeto');
+                if (selProj) selProj.value = projEscolhido;
+            }
+            setTimeout(garantirAberturaSincronizadaNaNuvem, 1500);
+            return res;
+        };
+    }
+
+    // 5. Intercepta salvarRegistro para exigir Endereço Obrigatório, manter o Projeto correto e apagar qualquer "EM ANDAMENTO" duplicada
+    if (typeof window.salvarRegistro === 'function') {
+        const _origSalvarReg = window.salvarRegistro;
+        window.salvarRegistro = async function(...args) {
+            if (salvandoAtendimentoTrava) return;
+
+            // Validação estrita do Endereço Obrigatório
+            const inpEnd = document.getElementById('form-endereco');
+            const endVal = (inpEnd?.value || '').trim();
+            if (!endVal || endVal.replace(/[-_.,/\\\s]/g, '').length < 4) {
+                alert("⚠️ ENDEREÇO OBRIGATÓRIO:\n\nPreencha o Endereço Completo do atendimento antes de finalizar a atividade.");
+                if (inpEnd) {
+                    inpEnd.focus();
+                }
+                return;
+            }
+
+            // Garante que o select de projeto tenha exatamente o projeto travado na abertura antes de rodar o salvamento
+            const projReal = obterProjetoOriginalTravado();
+            const imovelReal = obterImovelOriginalTravado();
+            const equipeReal = (document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '').trim().toUpperCase();
+            const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+
+            if (projReal) {
+                const selProj = document.getElementById('sel-projeto');
+                if (selProj) {
+                    if (!Array.from(selProj.options).some(o => o.value === projReal)) {
+                        selProj.innerHTML += `<option value="${projReal}">${projReal}</option>`;
+                    }
+                    selProj.value = projReal;
+                }
+            }
+
+            salvandoAtendimentoTrava = true;
+            try {
+                const resultado = await _origSalvarReg.apply(this, args);
+
+                // Assim que finaliza, remove na nuvem qualquer registro "EM ANDAMENTO" ou "PARALISADA" que tenha sobrado do mesmo imóvel/técnico no dia
+                if (navigator.onLine && typeof supabaseClient !== 'undefined' && equipeReal && imovelReal) {
+                    await supabaseClient
+                        .from('registros_producao')
+                        .delete()
+                        .eq('data_registro', hojeISO)
+                        .eq('equipe', equipeReal)
+                        .eq('imovel', imovelReal)
+                        .in('desfecho', ['EM ANDAMENTO', 'PARALISADA', 'REABERTA']);
+                }
+
+                if (typeof dadosAtendimento !== 'undefined') {
+                    dadosAtendimento._projetoTravado = null;
+                    dadosAtendimento._imovelTravado = null;
+                }
+                return resultado;
+            } finally {
+                salvandoAtendimentoTrava = false;
+            }
+        };
+    }
+
+    // Verifica a cada 12 segundos se há atividade aberta em campo que precise ser sincronizada com a Gestão
+    setInterval(garantirAberturaSincronizadaNaNuvem, 12000);
+})();
