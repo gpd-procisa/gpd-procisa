@@ -4218,3 +4218,1075 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
+// ================= REESTRUTURAÇÃO COMPLETA DA ABA GRÁFICOS & INDICADORES (12 ITENS OFICIAIS) =================
+
+let filtroMacroDinamicoGraf = 'TODOS';     // TODOS | CONSTRUÇÃO MDU | EXPANSÃO MDU | MAILING
+let filtroCatDinamicaGraf = 'TODAS';       // TODAS | ATIVAÇÃO | CONSTRUÇÃO | VISTORIA
+let filtroSemanaDinamicaGraf = 'TODAS';    // TODAS | Semana 1 | Semana 2 | Semana 3 | Semana 4 | Semana 5
+
+let chartEvolucaoSegmentosInst = null;
+let chartHorariosPicoNovoInst = null;
+let chartOfensoresRankingInst = null;
+
+// --- 1. CLASSIFICADOR OFICIAL (OCULTA OS NOMES DE PROJETOS DE BASE) ---
+function classificarRegistroNovaTaxonomia(reg) {
+    const p = String(reg?.projeto || '').toUpperCase().trim();
+    const macroOrig = typeof obterMacroGrupoProjeto === 'function' ? String(obterMacroGrupoProjeto(p)).toUpperCase() : '';
+
+    if (p === 'VISTORIA' || p.includes('VISTORIA')) {
+        return { segmento: 'CONSTRUÇÃO MDU', categoria: 'VISTORIA', chaveCombinada: 'CONSTRUÇÃO MDU - VISTORIA' };
+    }
+    if (p.includes('NAP LOTADA')) {
+        const cat = (p.includes('ATIVAÇÃO') || p.includes('ATIVACAO')) ? 'ATIVAÇÃO' : 'CONSTRUÇÃO';
+        return { segmento: 'EXPANSÃO MDU', categoria: cat, chaveCombinada: `EXPANSÃO MDU - ${cat}` };
+    }
+    if (p.endsWith(' F') || p.includes('PROJETO F') || p === 'CONSTRUÇÃO F' || p === 'ATIVAÇÃO F' || macroOrig.includes('PROJETO F')) {
+        const cat = (p.includes('ATIVAÇÃO') || p.includes('ATIVACAO')) ? 'ATIVAÇÃO' : 'CONSTRUÇÃO';
+        return { segmento: 'MAILING', categoria: cat, chaveCombinada: `MAILING - ${cat}` };
+    }
+    const cat = (p.includes('ATIVAÇÃO') || p.includes('ATIVACAO')) ? 'ATIVAÇÃO' : 'CONSTRUÇÃO';
+    return { segmento: 'CONSTRUÇÃO MDU', categoria: cat, chaveCombinada: `CONSTRUÇÃO MDU - ${cat}` };
+}
+
+function obterNumeroSemanaFormatado(dataISO) {
+    if (!dataISO || typeof dataISO !== 'string' || dataISO.length < 10) return 'Semana 1';
+    const dia = parseInt(dataISO.substring(8, 10), 10);
+    if (isNaN(dia) || dia <= 7) return 'Semana 1';
+    if (dia <= 14) return 'Semana 2';
+    if (dia <= 21) return 'Semana 3';
+    if (dia <= 28) return 'Semana 4';
+    return 'Semana 5';
+}
+
+// --- 12. ASSINATURA DO DESENVOLVEDOR NO CABEÇALHO AZUL AO LADO DO BOTÃO SAIR/BLOQUEAR ---
+function injetarAssinaturaDesenvolvedorHeader() {
+    if (document.getElementById('assinatura-dev-leonardo')) return;
+    const btnSair = document.getElementById('btn-sair-gestor') || document.querySelector('button[onclick*="sairModoGestor"], button[onclick*="bloquearGestor"]');
+
+    const spanAssinatura = document.createElement('span');
+    spanAssinatura.id = 'assinatura-dev-leonardo';
+    spanAssinatura.className = 'text-white font-bold italic text-[11px] sm:text-xs tracking-wide px-2.5 py-1 rounded bg-blue-950/50 border border-blue-400/30 whitespace-nowrap shadow-sm';
+    spanAssinatura.innerText = 'Desenvolvido por Leonardo Simões de Almeida';
+
+    if (btnSair && btnSair.parentNode) {
+        btnSair.parentNode.insertBefore(spanAssinatura, btnSair);
+    } else {
+        const headerAcoes = document.getElementById('header-gestor-acoes') || document.querySelector('header');
+        if (headerAcoes) headerAcoes.appendChild(spanAssinatura);
+    }
+}
+
+// --- CONSTRUÇÃO DO LAYOUT LIMPO E EXCLUSIVO DA ABA GRÁFICOS (ITEM 11) ---
+function construirLayoutExclusivoAbaGraficos() {
+    injetarAssinaturaDesenvolvedorHeader();
+    const containerGraficos = document.getElementById('subview-graficos');
+    if (!containerGraficos || containerGraficos.dataset.layoutReconstruidoV12 === 'true') return;
+
+    containerGraficos.dataset.layoutReconstruidoV12 = 'true';
+    containerGraficos.className = 'space-y-6 pb-10';
+
+    containerGraficos.innerHTML = `
+        <!-- BARRA DE TOPO: TÍTULO + BOTÕES BAIXAR PLANILHA E IMPRIMIR PDF (ITEM 09) -->
+        <div class="bg-slate-900 text-white p-4 rounded-2xl shadow-lg border-b-4 border-cyan-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+                <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Painel Analítico Oficial</span>
+                <h2 class="text-base sm:text-lg font-black tracking-tight mt-0.5">📊 Indicadores de Produtividade, Segmentos & Ofensores</h2>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="exportarPlanilhaDinamica OficialExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1.5 transition">
+                    📥 Baixar Planilha (.XLS)
+                </button>
+                <button type="button" onclick="gerarRelatorioVisualImpressaoPDF()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1.5 transition">
+                    🖨️ Imprimir / Salvar PDF
+                </button>
+            </div>
+        </div>
+
+        <!-- ITEM 08: CONSOLIDADOS SUPERIORES COM AS NOVAS SEGMENTAÇÕES E PORCENTAGENS DAS CATEGORIAS -->
+        <div id="painel-consolidado-topo-segmentos" class="grid grid-cols-1 lg:grid-cols-3 gap-4"></div>
+
+        <!-- ITEM 01: PLANILHA DINÂMICA COM BOTÕES DE SELEÇÃO (SEGMENTO, CATEGORIA E SEMANA) -->
+        <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+            <div class="bg-slate-900 text-white p-4 flex flex-col gap-3">
+                <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-700 pb-2.5">
+                    <div>
+                        <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 01 • Produtividade (Apenas Concluídas)</span>
+                        <h3 class="font-black text-sm sm:text-base mt-0.5">📋 Planilha Dinâmica de Executados, Dias Trabalhados e HPs</h3>
+                    </div>
+                    <button type="button" onclick="expandirTabelaModal('tbody-planilha-dinamica-oficial', 'Planilha Dinâmica de Produtividade')" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 text-[11px] font-bold px-3 py-1.5 rounded-lg">
+                        🔍 Expandir Planilha
+                    </button>
+                </div>
+
+                <!-- Seletores em Botões -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+                    <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700">
+                        <span class="text-[10px] font-bold text-cyan-300 uppercase block mb-1.5">1. Selecionar Segmento:</span>
+                        <div id="botoes-filtro-segmento-din" class="flex flex-wrap gap-1.5"></div>
+                    </div>
+                    <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700">
+                        <span class="text-[10px] font-bold text-amber-300 uppercase block mb-1.5">2. Selecionar Categoria:</span>
+                        <div id="botoes-filtro-categoria-din" class="flex flex-wrap gap-1.5"></div>
+                    </div>
+                    <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700">
+                        <span class="text-[10px] font-bold text-emerald-300 uppercase block mb-1.5">3. Selecionar Semana:</span>
+                        <div id="botoes-filtro-semana-din" class="flex flex-wrap gap-1.5"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumo de % das Categorias dentro do filtro atual -->
+            <div id="barra-porcentagem-categorias-din" class="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs"></div>
+
+            <div class="overflow-x-auto max-h-[520px]">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
+                        <tr>
+                            <th class="p-3 text-center">#</th>
+                            <th class="p-3">Técnico / Equipe</th>
+                            <th class="p-3 text-center bg-emerald-900 text-emerald-100">Nº Atividades Executadas</th>
+                            <th class="p-3 text-center">Dias Trabalhados</th>
+                            <th class="p-3 text-center bg-blue-900 text-cyan-200 font-black">Produtividade (Exec / Dia)</th>
+                            <th class="p-3 text-center bg-indigo-900 text-indigo-100">Quantidade de HP</th>
+                            <th class="p-3 text-center bg-purple-900 text-purple-100 font-black">HP / DIA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-planilha-dinamica-oficial" class="divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ITEM 03: PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO (CONCLUÍDAS, MALOGROS E APOIOS) -->
+        <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+            <div class="bg-blue-950 text-white p-4 flex flex-wrap justify-between items-center gap-2">
+                <div>
+                    <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 03 • Resumo Geral por Técnico</span>
+                    <h3 class="font-black text-sm sm:text-base mt-0.5">👷 Atividades Atendidas por Técnico (Concluídas, Malogros e Apoios)</h3>
+                </div>
+                <button type="button" onclick="expandirTabelaModal('tbody-geral-atendidas-tecnico', 'Atividades Atendidas por Técnico')" class="bg-blue-900 hover:bg-blue-800 text-cyan-200 border border-blue-700 text-[11px] font-bold px-3 py-1.5 rounded-lg">
+                    🔍 Expandir Planilha
+                </button>
+            </div>
+            <div class="overflow-x-auto max-h-[500px]">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
+                        <tr>
+                            <th class="p-2.5 text-center">#</th>
+                            <th class="p-2.5">Técnico / Equipe</th>
+                            <th class="p-2.5 text-center bg-blue-900/80">Construção MDU<br><span class="text-[9px] font-normal text-blue-200">(Ativ / Const / Vist)</span></th>
+                            <th class="p-2.5 text-center bg-indigo-900/80">Expansão MDU<br><span class="text-[9px] font-normal text-indigo-200">(Ativ / Const)</span></th>
+                            <th class="p-2.5 text-center bg-purple-900/80">Mailing<br><span class="text-[9px] font-normal text-purple-200">(Ativ / Const)</span></th>
+                            <th class="p-2.5 text-center bg-emerald-800 text-white font-black">🟢 Concluídas</th>
+                            <th class="p-2.5 text-center bg-red-800 text-white font-black">🔴 Malogros</th>
+                            <th class="p-2.5 text-center bg-fuchsia-800 text-white font-black">🤝 Apoios</th>
+                            <th class="p-2.5 text-center bg-slate-950 text-cyan-300 font-black">Total Atendidas</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-geral-atendidas-tecnico" class="divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ITEM 07: GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS -->
+        <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3">
+            <div class="flex flex-wrap justify-between items-center gap-2 border-b pb-2.5">
+                <div>
+                    <span class="bg-emerald-100 text-emerald-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 07 • Evolução Temporal</span>
+                    <h3 class="font-black text-slate-800 text-sm sm:text-base mt-0.5">📈 Evolução Diária dos Segmentos (Construção MDU, Expansão MDU e Mailing)</h3>
+                </div>
+                <button type="button" onclick="expandirGraficoModal('canvasEvolucaoSegmentos', 'Evolução dos Segmentos')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-3 py-1.5 rounded-lg border">
+                    🔍 Expandir Gráfico
+                </button>
+            </div>
+            <div class="h-72 w-full">
+                <canvas id="canvasEvolucaoSegmentos"></canvas>
+            </div>
+        </div>
+
+        <!-- ITEM 02: PICOS DE HORÁRIOS + PLANILHA DE FAIXAS DE ABERTURA/FECHAMENTO E RECORDES DOS TÉCNICOS -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <div>
+                            <span class="bg-blue-100 text-blue-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Curva de Horários</span>
+                            <h3 class="font-black text-slate-800 text-sm mt-0.5">🕒 Gráfico de Picos de Horários (Aberturas x Fechamentos)</h3>
+                        </div>
+                        <button type="button" onclick="expandirGraficoModal('canvasHorariosPicoOficial', 'Picos de Horários')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border">
+                            🔍 Expandir
+                        </button>
+                    </div>
+                    <!-- Destaques de Extremos dos Técnicos -->
+                    <div id="cards-extremos-horarios-tecnicos" class="grid grid-cols-1 sm:grid-cols-3 gap-2 my-3"></div>
+                </div>
+                <div class="h-64 w-full">
+                    <canvas id="canvasHorariosPicoOficial"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+                <div class="bg-slate-900 text-white p-3.5 flex justify-between items-center">
+                    <div>
+                        <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Volume por Faixa</span>
+                        <h3 class="font-bold text-xs sm:text-sm mt-0.5">⏰ Horários com Mais Atividades Abertas e Fechadas</h3>
+                    </div>
+                    <button type="button" onclick="expandirTabelaModal('tbody-horarios-pico-planilha', 'Horários com Mais Atividades Abertas e Fechadas')" class="bg-slate-800 text-cyan-300 border border-slate-600 text-[10px] font-bold px-2.5 py-1 rounded">
+                        🔍 Expandir Planilha
+                    </button>
+                </div>
+                <div class="overflow-y-auto max-h-[360px]">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0">
+                            <tr>
+                                <th class="p-2.5">Faixa de Horário</th>
+                                <th class="p-2.5 text-center bg-blue-900">🟢 Qtd. Abertas (Check-in)</th>
+                                <th class="p-2.5 text-center bg-emerald-900">🔴 Qtd. Fechadas (Check-out)</th>
+                                <th class="p-2.5 text-center">Total Movimentações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-horarios-pico-planilha" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ITENS 04 E 05: RANKING GERAL DE OFENSORES DE MALOGRO + SEPARAÇÃO ATIVAÇÃO MDU vs EXPANSÃO MDU -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Item 04 -->
+            <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+                <div class="bg-red-950 text-white p-3.5 flex justify-between items-center">
+                    <div>
+                        <span class="bg-red-300 text-red-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 04 • Ranking de Ofensores</span>
+                        <h3 class="font-bold text-xs sm:text-sm mt-0.5">🚨 Maiores Ofensores de Malogros (Números Reais e %)</h3>
+                    </div>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="expandirGraficoModal('canvasOfensoresRanking', 'Ranking de Ofensores de Malogros')" class="bg-red-900 text-red-100 border border-red-700 text-[10px] font-bold px-2 py-1 rounded">📊 Gráfico</button>
+                        <button type="button" onclick="expandirTabelaModal('tbody-ranking-ofensores-geral', 'Ranking de Ofensores de Malogros')" class="bg-red-900 text-red-100 border border-red-700 text-[10px] font-bold px-2 py-1 rounded">🔍 Planilha</button>
+                    </div>
+                </div>
+                <div class="p-3 h-52 border-b">
+                    <canvas id="canvasOfensoresRanking"></canvas>
+                </div>
+                <div class="overflow-y-auto max-h-[280px]">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0">
+                            <tr>
+                                <th class="p-2.5 text-center">#</th>
+                                <th class="p-2.5">Ofensor de Malogro</th>
+                                <th class="p-2.5 text-center">Nº Ocorrências</th>
+                                <th class="p-2.5 text-right">% sobre Malogros</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-ranking-ofensores-geral" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Item 05 -->
+            <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+                <div class="bg-amber-950 text-white p-3.5 flex justify-between items-center">
+                    <div>
+                        <span class="bg-amber-300 text-amber-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 05 • Ofensores por Segmento</span>
+                        <h3 class="font-bold text-xs sm:text-sm mt-0.5">📊 Volume e % de Malogros: ATIVAÇÃO MDU vs. EXPANSÃO MDU</h3>
+                    </div>
+                    <button type="button" onclick="expandirTabelaModal('tbody-ofensores-segmentos-mdu', 'Ofensores: Ativação MDU vs Expansão MDU')" class="bg-amber-900 text-amber-100 border border-amber-700 text-[10px] font-bold px-2.5 py-1 rounded">
+                        🔍 Expandir Planilha
+                    </button>
+                </div>
+                <div id="resumo-topo-ofensores-segmentos" class="grid grid-cols-2 gap-2 p-3 bg-amber-50/60 border-b border-amber-200 text-xs"></div>
+                <div class="overflow-y-auto max-h-[420px]">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0">
+                            <tr>
+                                <th class="p-2.5">Ofensor</th>
+                                <th class="p-2.5 text-center bg-blue-900">ATIVAÇÃO MDU<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
+                                <th class="p-2.5 text-center bg-indigo-900">EXPANSÃO MDU<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
+                                <th class="p-2.5 text-center bg-slate-950 text-amber-300">Total Geral<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-ofensores-segmentos-mdu" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// --- SELETORES DINÂMICOS (SEGMENTO, CATEGORIA E SEMANA) ---
+function selecionarFiltroPlanilhaDinamica(tipo, valor) {
+    if (tipo === 'segmento') {
+        filtroMacroDinamicoGraf = valor;
+        if ((valor === 'EXPANSÃO MDU' || valor === 'MAILING') && filtroCatDinamicaGraf === 'VISTORIA') {
+            filtroCatDinamicaGraf = 'TODAS';
+        }
+    } else if (tipo === 'categoria') {
+        filtroCatDinamicaGraf = valor;
+    } else if (tipo === 'semana') {
+        filtroSemanaDinamicaGraf = valor;
+    }
+    renderizarAbaGraficosCompletaOficial();
+}
+
+// --- MODO EXPLOSÃO UNIVERSAL PARA TODAS AS SEÇÕES (ITEM 06) ---
+function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset) {
+    const modal = document.getElementById('modal-explosao');
+    const corpo = document.getElementById('tabela-explosao-corpo');
+    if (!modal || !corpo) return;
+
+    document.getElementById('modal-explosao-titulo').innerText = `💥 Explosão de Dados: ${tituloExplosao} (${listaRegistrosSubset.length} reg.)`;
+    corpo.innerHTML = "";
+
+    if (listaRegistrosSubset.length === 0) {
+        corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este recorte.</td></tr>`;
+    } else {
+        listaRegistrosSubset.forEach(item => {
+            const tax = classificarRegistroNovaTaxonomia(item);
+            const sem = obterNumeroSemanaFormatado(item.dataRegistro);
+            const apoios = extrairApoiosDoRegistro(item);
+            const badgeAp = apoios.length > 0 ? `<div class="text-[9px] font-black text-purple-800">🤝 Apoio: ${apoios.join(', ')}</div>` : '';
+            const detalheInfo = (item.malogros && item.malogros.length > 0) ? item.malogros.join(' + ') : (item.motivoDesfecho || 'Concluído');
+
+            corpo.innerHTML += `
+                <tr class="hover:bg-blue-50/50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); fecharModalGraficoExpandido(); fecharModalTabelaExpandida(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))">
+                    <td class="p-2.5 font-mono font-bold">${item.dataRegistro}<div class="text-[9px] text-indigo-700">${sem}</div></td>
+                    <td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'}</div></td>
+                    <td class="p-2.5 font-semibold text-blue-900">${item.equipe}${badgeAp}</td>
+                    <td class="p-2.5"><span class="bg-slate-800 text-cyan-300 font-black px-2 py-0.5 rounded text-[10px]">${tax.segmento}</span><div class="text-[10px] font-bold text-slate-600 mt-0.5">Categoria: ${tax.categoria}</div></td>
+                    <td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] ${obterClasseCorDesfecho(item.desfecho)}">${item.desfecho}</span><div class="text-[9px] mt-0.5">HPs: <b>${item.hps || 0}</b></div></td>
+                    <td class="p-2.5 text-slate-600">${detalheInfo}</td>
+                </tr>
+            `;
+        });
+    }
+    modal.classList.remove('hidden');
+}
+
+// --- RENDERIZADOR PRINCIPAL DA ABA GRÁFICOS ---
+function renderizarAbaGraficosCompletaOficial() {
+    construirLayoutExclusivoAbaGraficos();
+
+    const basePeriodo = (dadosFiltradosAtuais || []).filter(r =>
+        r &&
+        r.equipe !== '__CONFIG_SISTEMA__' &&
+        r.projeto !== '__CONFIG_AUDITORIA__' &&
+        r.projeto !== 'IMPREVISTO / ATRASO' &&
+        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+        r.projeto !== PROJETO_SOLIC_MATERIAL &&
+        !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(r.desfecho)
+    ).map(r => ({
+        ...r,
+        _tax: classificarRegistroNovaTaxonomia(r),
+        _semana: obterNumeroSemanaFormatado(r.dataRegistro)
+    }));
+
+    const apenasConcluidasPeriodo = basePeriodo.filter(r => r.desfecho === 'CONCLUIDA');
+
+    // =========================================================================================
+    // ITEM 08: CONSOLIDADOS SUPERIORES COM AS NOVAS SEGMENTAÇÕES E % DAS CATEGORIAS
+    // =========================================================================================
+    const painelTopo = document.getElementById('painel-consolidado-topo-segmentos');
+    if (painelTopo) {
+        const cfgSegmentos = [
+            {
+                nome: 'CONSTRUÇÃO MDU',
+                corHeader: 'bg-blue-900 text-white border-blue-400',
+                corBg: 'bg-blue-50/50 border-blue-200',
+                categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO', 'VISTORIA']
+            },
+            {
+                nome: 'EXPANSÃO MDU',
+                corHeader: 'bg-indigo-900 text-white border-indigo-400',
+                corBg: 'bg-indigo-50/50 border-indigo-200',
+                categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO']
+            },
+            {
+                nome: 'MAILING',
+                corHeader: 'bg-purple-900 text-white border-purple-400',
+                corBg: 'bg-purple-50/50 border-purple-200',
+                categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO']
+            }
+        ];
+
+        const totalExecGeral = apenasConcluidasPeriodo.length;
+
+        painelTopo.innerHTML = cfgSegmentos.map(seg => {
+            const concluidasSeg = apenasConcluidasPeriodo.filter(r => r._tax.segmento === seg.nome);
+            const atendidasSeg = basePeriodo.filter(r => r._tax.segmento === seg.nome);
+            const totalSeg = concluidasSeg.length;
+            const totalHpsSeg = concluidasSeg.reduce((acc, r) => acc + (Number(r.hps) || 0), 0);
+            const percSobreGeral = totalExecGeral > 0 ? ((totalSeg / totalExecGeral) * 100).toFixed(1) : '0.0';
+
+            const linhasCatHtml = seg.categorias.map(cat => {
+                const listaCat = concluidasSeg.filter(r => r._tax.categoria === cat);
+                const qtdCat = listaCat.length;
+                const hpsCat = listaCat.reduce((acc, r) => acc + (Number(r.hps) || 0), 0);
+                const percCat = totalSeg > 0 ? ((qtdCat / totalSeg) * 100).toFixed(1) : '0.0';
+                return `
+                    <div onclick="abrirExplosaoPersonalizadaGraficos('${seg.nome} • ${cat} (Concluídas)', dadosFiltradosAtuais.filter(x => x.desfecho === 'CONCLUIDA' && classificarRegistroNovaTaxonomia(x).segmento === '${seg.nome}' && classificarRegistroNovaTaxonomia(x).categoria === '${cat}'))" class="bg-white p-2.5 rounded-xl border border-slate-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition shadow-sm">
+                        <div>
+                            <span class="font-black text-slate-800 text-xs">${cat}</span>
+                            <div class="text-[10px] text-slate-500">HPs: <b>${hpsCat}</b></div>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-black text-emerald-700 text-sm">${qtdCat} exec.</span>
+                            <span class="block text-[10px] font-bold bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded">${percCat}% do segmento</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="rounded-2xl border-2 ${seg.corBg} shadow-sm overflow-hidden flex flex-col justify-between">
+                    <div class="${seg.corHeader} p-3.5 border-b-2 flex justify-between items-center cursor-pointer" onclick="abrirExplosaoPersonalizadaGraficos('${seg.nome} (Todas Atendidas)', dadosFiltradosAtuais.filter(x => classificarRegistroNovaTaxonomia(x).segmento === '${seg.nome}'))">
+                        <div>
+                            <span class="text-[9px] uppercase font-bold opacity-80 block">Segmento Oficial</span>
+                            <h4 class="font-black text-sm sm:text-base">${seg.nome}</h4>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-lg font-black text-cyan-300">${totalSeg} exec.</span>
+                            <span class="block text-[10px] opacity-90">${percSobreGeral}% do total (${totalHpsSeg} HPs)</span>
+                        </div>
+                    </div>
+                    <div class="p-3 space-y-2 flex-1 flex flex-col justify-center">
+                        ${linhasCatHtml}
+                    </div>
+                    <div class="bg-slate-200/70 px-3.5 py-2 text-[10px] font-bold text-slate-700 flex justify-between">
+                        <span>Total Acionado: ${atendidasSeg.length}</span>
+                        <span>Malogros/Pend.: ${atendidasSeg.length - totalSeg}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // =========================================================================================
+    // ITEM 01: PLANILHA DINÂMICA (BOTÕES DE SEGMENTO, CATEGORIA E SEMANA + APENAS CONCLUÍDAS)
+    // =========================================================================================
+    const divBtnSeg = document.getElementById('botoes-filtro-segmento-din');
+    const divBtnCat = document.getElementById('botoes-filtro-categoria-din');
+    const divBtnSem = document.getElementById('botoes-filtro-semana-din');
+
+    if (divBtnSeg) {
+        const opcoesSeg = ['TODOS', 'CONSTRUÇÃO MDU', 'EXPANSÃO MDU', 'MAILING'];
+        divBtnSeg.innerHTML = opcoesSeg.map(op => `
+            <button type="button" onclick="selecionarFiltroPlanilhaDinamica('segmento', '${op}')" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${filtroMacroDinamicoGraf === op ? 'bg-cyan-400 text-slate-950 shadow' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">
+                ${op}
+            </button>
+        `).join('');
+    }
+
+    if (divBtnCat) {
+        const opcoesCat = (filtroMacroDinamicoGraf === 'EXPANSÃO MDU' || filtroMacroDinamicoGraf === 'MAILING')
+            ? ['TODAS', 'ATIVAÇÃO', 'CONSTRUÇÃO']
+            : ['TODAS', 'ATIVAÇÃO', 'CONSTRUÇÃO', 'VISTORIA'];
+        divBtnCat.innerHTML = opcoesCat.map(op => `
+            <button type="button" onclick="selecionarFiltroPlanilhaDinamica('categoria', '${op}')" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${filtroCatDinamicaGraf === op ? 'bg-amber-400 text-slate-950 shadow' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">
+                ${op}
+            </button>
+        `).join('');
+    }
+
+    if (divBtnSem) {
+        const opcoesSem = ['TODAS', 'Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
+        divBtnSem.innerHTML = opcoesSem.map(op => `
+            <button type="button" onclick="selecionarFiltroPlanilhaDinamica('semana', '${op}')" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${filtroSemanaDinamicaGraf === op ? 'bg-emerald-400 text-slate-950 shadow' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">
+                ${op === 'TODAS' ? 'Todas' : op}
+            </button>
+        `).join('');
+    }
+
+    // Filtra apenas atividades CONCLUÍDAS para a Planilha Dinâmica (Item 01)
+    const concluidasDinamicas = apenasConcluidasPeriodo.filter(r => {
+        const mSeg = filtroMacroDinamicoGraf === 'TODOS' || r._tax.segmento === filtroMacroDinamicoGraf;
+        const mCat = filtroCatDinamicaGraf === 'TODAS' || r._tax.categoria === filtroCatDinamicaGraf;
+        const mSem = filtroSemanaDinamicaGraf === 'TODAS' || r._semana === filtroSemanaDinamicaGraf;
+        return mSeg && mCat && mSem;
+    });
+
+    // Barra de Porcentagens das Categorias dentro do filtro atual
+    const barraPercCat = document.getElementById('barra-porcentagem-categorias-din');
+    if (barraPercCat) {
+        const totDin = concluidasDinamicas.length;
+        const qtdAtiv = concluidasDinamicas.filter(r => r._tax.categoria === 'ATIVAÇÃO').length;
+        const qtdConst = concluidasDinamicas.filter(r => r._tax.categoria === 'CONSTRUÇÃO').length;
+        const qtdVist = concluidasDinamicas.filter(r => r._tax.categoria === 'VISTORIA').length;
+        const pAtiv = totDin > 0 ? ((qtdAtiv / totDin) * 100).toFixed(1) : '0.0';
+        const pConst = totDin > 0 ? ((qtdConst / totDin) * 100).toFixed(1) : '0.0';
+        const pVist = totDin > 0 ? ((qtdVist / totDin) * 100).toFixed(1) : '0.0';
+
+        barraPercCat.innerHTML = `
+            <div class="font-black text-slate-700">
+                🎯 Recorte Ativo: <span class="text-blue-900">${filtroMacroDinamicoGraf}</span> • <span class="text-amber-800">${filtroCatDinamicaGraf}</span> • <span class="text-emerald-800">${filtroSemanaDinamicaGraf}</span> (${totDin} concluídas)
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <span class="bg-emerald-100 text-emerald-950 font-black px-2.5 py-1 rounded-lg border border-emerald-300">⚡ ATIVAÇÃO: ${qtdAtiv} (${pAtiv}%)</span>
+                <span class="bg-blue-100 text-blue-950 font-black px-2.5 py-1 rounded-lg border border-blue-300">🛠️ CONSTRUÇÃO: ${qtdConst} (${pConst}%)</span>
+                ${(filtroMacroDinamicoGraf === 'TODOS' || filtroMacroDinamicoGraf === 'CONSTRUÇÃO MDU') ? `<span class="bg-purple-100 text-purple-950 font-black px-2.5 py-1 rounded-lg border border-purple-300">🔍 VISTORIA: ${qtdVist} (${pVist}%)</span>` : ''}
+            </div>
+        `;
+    }
+
+    const equipesVisiveis = typeof obterEquipesVisiveisUsuarioAtual === 'function' ? obterEquipesVisiveisUsuarioAtual(true) : (equipesSistema || []).filter(e => e.status === 'Ativo');
+    const mapaDin = {};
+    equipesVisiveis.forEach(eq => {
+        mapaDin[eq.nome] = { nome: eq.nome, executados: 0, hps: 0, diasSet: new Set(), registros: [] };
+    });
+
+    concluidasDinamicas.forEach(r => {
+        const nome = r.equipe || 'NÃO IDENTIFICADO';
+        if (!mapaDin[nome]) mapaDin[nome] = { nome, executados: 0, hps: 0, diasSet: new Set(), registros: [] };
+        mapaDin[nome].executados++;
+        mapaDin[nome].hps += Number(r.hps) || 0;
+        if (r.dataRegistro) mapaDin[nome].diasSet.add(r.dataRegistro);
+        mapaDin[nome].registros.push(r);
+    });
+
+    const listaDinamica = Object.values(mapaDin).map(item => {
+        const dias = item.diasSet.size;
+        return {
+            ...item,
+            dias,
+            produtividade: dias > 0 ? (item.executados / dias) : 0,
+            hpDia: dias > 0 ? (item.hps / dias) : 0
+        };
+    }).sort((a, b) => b.executados - a.executados || b.produtividade - a.produtividade || a.nome.localeCompare(b.nome));
+
+    const tbodyDin = document.getElementById('tbody-planilha-dinamica-oficial');
+    if (tbodyDin) {
+        tbodyDin.innerHTML = "";
+        let somaExec = 0, somaHps = 0;
+        const diasGlobaisSet = new Set();
+
+        listaDinamica.forEach((t, idx) => {
+            somaExec += t.executados;
+            somaHps += t.hps;
+            t.diasSet.forEach(d => diasGlobaisSet.add(d));
+
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-blue-50/60 cursor-pointer transition";
+            tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`${t.nome} (${filtroMacroDinamicoGraf} / ${filtroCatDinamicaGraf} / ${filtroSemanaDinamicaGraf})`, t.registros);
+            tr.innerHTML = `
+                <td class="p-3 text-center font-bold text-slate-400">${idx + 1}º</td>
+                <td class="p-3 font-black text-blue-950 underline decoration-dotted">${t.nome}</td>
+                <td class="p-3 text-center font-black text-emerald-700 bg-emerald-50/70 text-sm">${t.executados}</td>
+                <td class="p-3 text-center font-mono font-bold text-slate-700">${t.dias}</td>
+                <td class="p-3 text-center font-black text-blue-950 bg-blue-50/80 text-sm">${t.produtividade.toFixed(2)}</td>
+                <td class="p-3 text-center font-black text-indigo-900 bg-indigo-50/60">${t.hps}</td>
+                <td class="p-3 text-center font-black text-purple-900 bg-purple-50/60">${t.hpDia.toFixed(1)}</td>
+            `;
+            tbodyDin.appendChild(tr);
+        });
+
+        const diasGlobais = diasGlobaisSet.size;
+        const prodGlobal = diasGlobais > 0 ? (somaExec / diasGlobais).toFixed(2) : "0.00";
+        const hpDiaGlobal = diasGlobais > 0 ? (somaHps / diasGlobais).toFixed(1) : "0.0";
+
+        tbodyDin.innerHTML += `
+            <tr class="bg-slate-900 text-white font-black text-xs">
+                <td colspan="2" class="p-3 text-right uppercase">Total Consolidado da Seleção:</td>
+                <td class="p-3 text-center text-emerald-300 text-sm">${somaExec}</td>
+                <td class="p-3 text-center font-mono">${diasGlobais} d</td>
+                <td class="p-3 text-center text-cyan-300 text-sm">${prodGlobal}</td>
+                <td class="p-3 text-center text-indigo-200">${somaHps}</td>
+                <td class="p-3 text-center text-purple-200">${hpDiaGlobal}</td>
+            </tr>
+        `;
+    }
+
+    // =========================================================================================
+    // ITEM 03: PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO (CONCLUÍDAS, MALOGROS E APOIOS)
+    // =========================================================================================
+    const mapaGeralTec = {};
+    equipesVisiveis.forEach(eq => {
+        mapaGeralTec[eq.nome] = {
+            nome: eq.nome,
+            cMduAtiv: 0, cMduConst: 0, cMduVist: 0,
+            eMduAtiv: 0, eMduConst: 0,
+            mailAtiv: 0, mailConst: 0,
+            concluidas: 0, malogros: 0, apoios: 0, totalAtendidas: 0,
+            registros: []
+        };
+    });
+
+    const setApoiosUnicosGeral = new Set();
+
+    basePeriodo.forEach(r => {
+        const nome = r.equipe || 'NÃO IDENTIFICADO';
+        if (!mapaGeralTec[nome]) {
+            mapaGeralTec[nome] = {
+                nome, cMduAtiv: 0, cMduConst: 0, cMduVist: 0, eMduAtiv: 0, eMduConst: 0, mailAtiv: 0, mailConst: 0,
+                concluidas: 0, malogros: 0, apoios: 0, totalAtendidas: 0, registros: []
+            };
+        }
+        const item = mapaGeralTec[nome];
+        item.totalAtendidas++;
+        item.registros.push(r);
+
+        if (r.desfecho === 'CONCLUIDA') item.concluidas++;
+        else item.malogros++; // Inclui malogradas/pendentes não executadas
+
+        if (r._tax.segmento === 'CONSTRUÇÃO MDU') {
+            if (r._tax.categoria === 'ATIVAÇÃO') item.cMduAtiv++;
+            else if (r._tax.categoria === 'CONSTRUÇÃO') item.cMduConst++;
+            else item.cMduVist++;
+        } else if (r._tax.segmento === 'EXPANSÃO MDU') {
+            if (r._tax.categoria === 'ATIVAÇÃO') item.eMduAtiv++;
+            else item.eMduConst++;
+        } else if (r._tax.segmento === 'MAILING') {
+            if (r._tax.categoria === 'ATIVAÇÃO') item.mailAtiv++;
+            else item.mailConst++;
+        }
+
+        extrairApoiosDoRegistro(r).forEach(apNome => {
+            if (!mapaGeralTec[apNome]) {
+                mapaGeralTec[apNome] = {
+                    nome: apNome, cMduAtiv: 0, cMduConst: 0, cMduVist: 0, eMduAtiv: 0, eMduConst: 0, mailAtiv: 0, mailConst: 0,
+                    concluidas: 0, malogros: 0, apoios: 0, totalAtendidas: 0, registros: []
+                };
+            }
+            const chAp = `${r.dataRegistro}_${obterCodigoBaseImovel(r.imovel)}_${apNome}`;
+            if (!setApoiosUnicosGeral.has(chAp)) {
+                setApoiosUnicosGeral.add(chAp);
+                mapaGeralTec[apNome].apoios++;
+                mapaGeralTec[apNome].registros.push(r);
+            }
+        });
+    });
+
+    const tbodyGeralAtend = document.getElementById('tbody-geral-atendidas-tecnico');
+    if (tbodyGeralAtend) {
+        tbodyGeralAtend.innerHTML = "";
+        let totConc = 0, totMal = 0, totAp = 0, totAtend = 0;
+
+        Object.values(mapaGeralTec)
+            .sort((a, b) => b.concluidas - a.concluidas || b.totalAtendidas - a.totalAtendidas || b.apoios - a.apoios)
+            .forEach((t, idx) => {
+                totConc += t.concluidas;
+                totMal += t.malogros;
+                totAp += t.apoios;
+                totAtend += t.totalAtendidas;
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 cursor-pointer transition";
+                tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`Atividades de ${t.nome}`, t.registros);
+                tr.innerHTML = `
+                    <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
+                    <td class="p-2.5 font-black text-slate-800 underline decoration-dotted">${t.nome}</td>
+                    <td class="p-2.5 text-center font-semibold bg-blue-50/40"><span class="text-emerald-700 font-bold">${t.cMduAtiv}</span> / <span class="text-blue-800 font-bold">${t.cMduConst}</span> / <span class="text-purple-800 font-bold">${t.cMduVist}</span></td>
+                    <td class="p-2.5 text-center font-semibold bg-indigo-50/40"><span class="text-emerald-700 font-bold">${t.eMduAtiv}</span> / <span class="text-indigo-800 font-bold">${t.eMduConst}</span></td>
+                    <td class="p-2.5 text-center font-semibold bg-purple-50/40"><span class="text-emerald-700 font-bold">${t.mailAtiv}</span> / <span class="text-purple-800 font-bold">${t.mailConst}</span></td>
+                    <td class="p-2.5 text-center font-black text-emerald-700 bg-emerald-50/80 text-sm">${t.concluidas}</td>
+                    <td class="p-2.5 text-center font-black text-red-700 bg-red-50/80 text-sm">${t.malogros}</td>
+                    <td class="p-2.5 text-center font-black text-fuchsia-800 bg-fuchsia-50/80">${t.apoios > 0 ? `🤝 ${t.apoios}` : '0'}</td>
+                    <td class="p-2.5 text-center font-black text-slate-900 bg-slate-100 text-sm">${t.totalAtendidas}</td>
+                `;
+                tbodyGeralAtend.appendChild(tr);
+            });
+
+        tbodyGeralAtend.innerHTML += `
+            <tr class="bg-slate-900 text-white font-black text-xs">
+                <td colspan="5" class="p-2.5 text-right uppercase">Total Geral Operação:</td>
+                <td class="p-2.5 text-center text-emerald-300">${totConc}</td>
+                <td class="p-2.5 text-center text-red-300">${totMal}</td>
+                <td class="p-2.5 text-center text-fuchsia-300">🤝 ${totAp}</td>
+                <td class="p-2.5 text-center text-cyan-300">${totAtend}</td>
+            </tr>
+        `;
+    }
+
+    // =========================================================================================
+    // ITEM 07: GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS
+    // =========================================================================================
+    const datasUnicas = [...new Set(basePeriodo.map(r => r.dataRegistro).filter(Boolean))].sort();
+    const ctxEvo = document.getElementById('canvasEvolucaoSegmentos')?.getContext('2d');
+    if (ctxEvo) {
+        if (chartEvolucaoSegmentosInst) chartEvolucaoSegmentosInst.destroy();
+        chartEvolucaoSegmentosInst = new Chart(ctxEvo, {
+            type: 'bar',
+            data: {
+                labels: datasUnicas.length > 0 ? datasUnicas.map(d => d.split('-').reverse().slice(0, 2).join('/')) : ['Sem dados'],
+                datasets: [
+                    {
+                        label: '🏗️ CONSTRUÇÃO MDU (Exec.)',
+                        data: datasUnicas.map(dt => apenasConcluidasPeriodo.filter(r => r.dataRegistro === dt && r._tax.segmento === 'CONSTRUÇÃO MDU').length),
+                        backgroundColor: '#1d4ed8',
+                        borderRadius: 4
+                    },
+                    {
+                        label: '🚀 EXPANSÃO MDU (Exec.)',
+                        data: datasUnicas.map(dt => apenasConcluidasPeriodo.filter(r => r.dataRegistro === dt && r._tax.segmento === 'EXPANSÃO MDU').length),
+                        backgroundColor: '#059669',
+                        borderRadius: 4
+                    },
+                    {
+                        label: '📬 MAILING (Exec.)',
+                        data: datasUnicas.map(dt => apenasConcluidasPeriodo.filter(r => r.dataRegistro === dt && r._tax.segmento === 'MAILING').length),
+                        backgroundColor: '#7c3aed',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                onClick: (e, el) => {
+                    if (el.length > 0 && datasUnicas[el[0].index]) {
+                        const dtAlvo = datasUnicas[el[0].index];
+                        abrirExplosaoPersonalizadaGraficos(`Data ${dtAlvo}`, basePeriodo.filter(r => r.dataRegistro === dtAlvo));
+                    }
+                }
+            }
+        });
+    }
+
+    // =========================================================================================
+    // ITEM 02: PICOS DE HORÁRIOS + PLANILHA DE FAIXAS E RECORDES DE TÉCNICOS (SEM MÉDIAS)
+    // =========================================================================================
+    const aberturasPorHora = new Array(24).fill(0);
+    const fechamentosPorHora = new Array(24).fill(0);
+    const registrosPorHora = Array.from({ length: 24 }, () => []);
+
+    let tecMaisCedo = { nome: '-', hora: '--:--', min: 9999, imovel: '', reg: null };
+    let tecMaisTarde = { nome: '-', hora: '--:--', min: -1, imovel: '', reg: null };
+    let tecMaisTempo = { nome: '-', duracaoTxt: '--h --m', durMin: -1, imovel: '', reg: null };
+
+    basePeriodo.forEach(r => {
+        const minIn = converterHorarioParaMinutos(r.hEntrada);
+        const minOut = converterHorarioParaMinutos(r.hSaida);
+        const pausa = Number(r.tempoPausadoMinutos) || 0;
+
+        if (minIn !== null) {
+            const hIn = Math.floor(minIn / 60);
+            if (hIn >= 0 && hIn < 24) {
+                aberturasPorHora[hIn]++;
+                registrosPorHora[hIn].push(r);
+            }
+            if (minIn < tecMaisCedo.min) {
+                tecMaisCedo = { nome: r.equipe, hora: r.hEntrada, min: minIn, imovel: r.imovel, reg: r };
+            }
+        }
+        if (minOut !== null) {
+            const hOut = Math.floor(minOut / 60);
+            if (hOut >= 0 && hOut < 24) {
+                fechamentosPorHora[hOut]++;
+                if (!registrosPorHora[hOut].includes(r)) registrosPorHora[hOut].push(r);
+            }
+            if (minOut > tecMaisTarde.min) {
+                tecMaisTarde = { nome: r.equipe, hora: r.hSaida, min: minOut, imovel: r.imovel, reg: r };
+            }
+        }
+        if (minIn !== null && minOut !== null && minOut >= minIn) {
+            const durLiq = Math.max(0, (minOut - minIn) - pausa);
+            if (durLiq > 0 && durLiq <= 840 && durLiq > tecMaisTempo.durMin) {
+                tecMaisTempo = { nome: r.equipe, duracaoTxt: formatarDuracaoTexto(durLiq), durMin: durLiq, imovel: r.imovel, reg: r };
+            }
+        }
+    });
+
+    const boxExtremos = document.getElementById('cards-extremos-horarios-tecnicos');
+    if (boxExtremos) {
+        boxExtremos.innerHTML = `
+            <div onclick="${tecMaisCedo.reg ? `abrirDetalhesAtividade(registrosSalvos.find(x => x.id === ${tecMaisCedo.reg.id}))` : ''}" class="bg-blue-50 border border-blue-200 p-2.5 rounded-xl cursor-pointer hover:border-blue-500 transition">
+                <span class="text-[9px] font-black text-blue-800 uppercase block">🌅 Abriu Mais Cedo</span>
+                <div class="font-black text-blue-950 text-xs truncate mt-0.5">${tecMaisCedo.nome}</div>
+                <div class="text-[11px] font-mono font-bold text-emerald-700">Às ${tecMaisCedo.hora} ${tecMaisCedo.imovel ? `(${tecMaisCedo.imovel})` : ''}</div>
+            </div>
+            <div onclick="${tecMaisTarde.reg ? `abrirDetalhesAtividade(registrosSalvos.find(x => x.id === ${tecMaisTarde.reg.id}))` : ''}" class="bg-indigo-50 border border-indigo-200 p-2.5 rounded-xl cursor-pointer hover:border-indigo-500 transition">
+                <span class="text-[9px] font-black text-indigo-800 uppercase block">🌙 Fechou Mais Tarde</span>
+                <div class="font-black text-indigo-950 text-xs truncate mt-0.5">${tecMaisTarde.nome}</div>
+                <div class="text-[11px] font-mono font-bold text-indigo-700">Às ${tecMaisTarde.hora} ${tecMaisTarde.imovel ? `(${tecMaisTarde.imovel})` : ''}</div>
+            </div>
+            <div onclick="${tecMaisTempo.reg ? `abrirDetalhesAtividade(registrosSalvos.find(x => x.id === ${tecMaisTempo.reg.id}))` : ''}" class="bg-amber-50 border border-amber-200 p-2.5 rounded-xl cursor-pointer hover:border-amber-500 transition">
+                <span class="text-[9px] font-black text-amber-900 uppercase block">⏱️ Maior Tempo na Atividade</span>
+                <div class="font-black text-amber-950 text-xs truncate mt-0.5">${tecMaisTempo.nome}</div>
+                <div class="text-[11px] font-mono font-bold text-amber-800">${tecMaisTempo.duracaoTxt} ${tecMaisTempo.imovel ? `(${tecMaisTempo.imovel})` : ''}</div>
+            </div>
+        `;
+    }
+
+    const ctxHorasNovo = document.getElementById('canvasHorariosPicoOficial')?.getContext('2d');
+    if (ctxHorasNovo) {
+        if (chartHorariosPicoNovoInst) chartHorariosPicoNovoInst.destroy();
+        const labelsH = [];
+        const sliceIn = [];
+        const sliceOut = [];
+        for (let h = 6; h <= 21; h++) {
+            labelsH.push(`${String(h).padStart(2, '0')}h`);
+            sliceIn.push(aberturasPorHora[h]);
+            sliceOut.push(fechamentosPorHora[h]);
+        }
+        chartHorariosPicoNovoInst = new Chart(ctxHorasNovo, {
+            type: 'line',
+            data: {
+                labels: labelsH,
+                datasets: [
+                    { label: '🟢 Atividades Abertas', data: sliceIn, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.15)', fill: true, tension: 0.35 },
+                    { label: '🔴 Atividades Fechadas', data: sliceOut, borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.15)', fill: true, tension: 0.35 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                onClick: (e, el) => {
+                    if (el.length > 0) {
+                        const hClicada = el[0].index + 6;
+                        abrirExplosaoPersonalizadaGraficos(`Faixa Horária ${String(hClicada).padStart(2, '0')}:00 às ${String(hClicada).padStart(2, '0')}:59`, registrosPorHora[hClicada]);
+                    }
+                }
+            }
+        });
+    }
+
+    const tbodyHorarios = document.getElementById('tbody-horarios-pico-planilha');
+    if (tbodyHorarios) {
+        tbodyHorarios.innerHTML = "";
+        const faixasOrdenadas = [];
+        for (let h = 6; h <= 21; h++) {
+            const ab = aberturasPorHora[h];
+            const fe = fechamentosPorHora[h];
+            if (ab > 0 || fe > 0) {
+                faixasOrdenadas.push({ hora: h, label: `${String(h).padStart(2, '0')}:00 às ${String(h).padStart(2, '0')}:59`, abertas: ab, fechadas: fe, total: ab + fe });
+            }
+        }
+        faixasOrdenadas.sort((a, b) => b.total - a.total || b.abertas - a.abertas);
+
+        if (faixasOrdenadas.length === 0) {
+            tbodyHorarios.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Sem registros de horário no período.</td></tr>`;
+        } else {
+            faixasOrdenadas.forEach(f => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-blue-50/50 cursor-pointer";
+                tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`Movimentações das ${f.label}`, registrosPorHora[f.hora]);
+                tr.innerHTML = `
+                    <td class="p-2.5 font-mono font-black text-slate-800">🕒 ${f.label}</td>
+                    <td class="p-2.5 text-center font-black text-blue-800 bg-blue-50/60">${f.abertas}</td>
+                    <td class="p-2.5 text-center font-black text-emerald-800 bg-emerald-50/60">${f.fechadas}</td>
+                    <td class="p-2.5 text-center font-black text-slate-900 bg-slate-100">${f.total}</td>
+                `;
+                tbodyHorarios.appendChild(tr);
+            });
+        }
+    }
+
+    // =========================================================================================
+    // ITENS 04 E 05: RANKING DE OFENSORES + SEPARAÇÃO ATIVAÇÃO MDU vs EXPANSÃO MDU
+    // =========================================================================================
+    const mapaOfensores = {};
+    let totalOcorrenciasGeral = 0;
+    let totalOcorrenciasAtivMDU = 0;
+    let totalOcorrenciasExpMDU = 0;
+
+    basePeriodo.forEach(r => {
+        if (r.desfecho !== 'CONCLUIDA') {
+            const listaMotivos = (Array.isArray(r.malogros) && r.malogros.length > 0)
+                ? r.malogros
+                : [r.motivoDesfecho || 'SEM OFENSOR ESPECIFICADO'];
+
+            listaMotivos.forEach(m => {
+                const ch = String(m || 'OUTROS').trim().toUpperCase();
+                if (!mapaOfensores[ch]) {
+                    mapaOfensores[ch] = { ofensor: ch, total: 0, ativMdu: 0, expMdu: 0, registros: [] };
+                }
+                mapaOfensores[ch].total++;
+                mapaOfensores[ch].registros.push(r);
+                totalOcorrenciasGeral++;
+
+                // Racional Item 05: ATIVAÇÃO MDU (Ativações de Construção MDU + Mailing) vs EXPANSÃO MDU
+                if (r._tax.segmento === 'EXPANSÃO MDU') {
+                    mapaOfensores[ch].expMdu++;
+                    totalOcorrenciasExpMDU++;
+                } else if (r._tax.categoria === 'ATIVAÇÃO' || r._tax.segmento === 'CONSTRUÇÃO MDU') {
+                    mapaOfensores[ch].ativMdu++;
+                    totalOcorrenciasAtivMDU++;
+                }
+            });
+        }
+    });
+
+    const listaOfensoresOrd = Object.values(mapaOfensores).sort((a, b) => b.total - a.total);
+
+    // Item 04: Gráfico e Tabela Ranking Geral
+    const ctxOf = document.getElementById('canvasOfensoresRanking')?.getContext('2d');
+    if (ctxOf) {
+        if (chartOfensoresRankingInst) chartOfensoresRankingInst.destroy();
+        const topOf = listaOfensoresOrd.slice(0, 8);
+        chartOfensoresRankingInst = new Chart(ctxOf, {
+            type: 'bar',
+            data: {
+                labels: topOf.length > 0 ? topOf.map(o => o.ofensor) : ['Sem malogros'],
+                datasets: [{
+                    label: 'Nº de Ocorrências',
+                    data: topOf.map(o => o.total),
+                    backgroundColor: '#dc2626',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                onClick: (e, el) => {
+                    if (el.length > 0 && topOf[el[0].index]) {
+                        const alvo = topOf[el[0].index];
+                        abrirExplosaoPersonalizadaGraficos(`Ofensor: ${alvo.ofensor}`, alvo.registros);
+                    }
+                }
+            }
+        });
+    }
+
+    const tbodyOfGeral = document.getElementById('tbody-ranking-ofensores-geral');
+    if (tbodyOfGeral) {
+        tbodyOfGeral.innerHTML = "";
+        if (listaOfensoresOrd.length === 0) {
+            tbodyOfGeral.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado no período.</td></tr>`;
+        } else {
+            listaOfensoresOrd.forEach((o, idx) => {
+                const perc = totalOcorrenciasGeral > 0 ? ((o.total / totalOcorrenciasGeral) * 100).toFixed(1) : '0.0';
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-red-50/60 cursor-pointer";
+                tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`Ofensor: ${o.ofensor}`, o.registros);
+                tr.innerHTML = `
+                    <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
+                    <td class="p-2.5 font-black text-red-950 underline decoration-dotted">${o.ofensor}</td>
+                    <td class="p-2.5 text-center font-black text-slate-900 bg-red-50/60">${o.total}</td>
+                    <td class="p-2.5 text-right font-black text-red-700">${perc}%</td>
+                `;
+                tbodyOfGeral.appendChild(tr);
+            });
+        }
+    }
+
+    // Item 05: Separação ATIVAÇÃO MDU vs EXPANSÃO MDU
+    const boxResumoSegOf = document.getElementById('resumo-topo-ofensores-segmentos');
+    if (boxResumoSegOf) {
+        const totalSegSoma = totalOcorrenciasAtivMDU + totalOcorrenciasExpMDU;
+        const pAtivMdu = totalSegSoma > 0 ? ((totalOcorrenciasAtivMDU / totalSegSoma) * 100).toFixed(1) : '0.0';
+        const pExpMdu = totalSegSoma > 0 ? ((totalOcorrenciasExpMDU / totalSegSoma) * 100).toFixed(1) : '0.0';
+
+        boxResumoSegOf.innerHTML = `
+            <div class="bg-white p-2.5 rounded-xl border border-blue-200 flex justify-between items-center">
+                <div>
+                    <span class="text-[10px] font-black text-blue-900 uppercase block">⚡ ATIVAÇÃO MDU</span>
+                    <span class="text-[10px] text-slate-500">Volume de Malogros</span>
+                </div>
+                <div class="text-right">
+                    <span class="font-black text-blue-950 text-sm">${totalOcorrenciasAtivMDU} ocorr.</span>
+                    <span class="block text-[10px] font-bold text-blue-700">${pAtivMdu}% do volume</span>
+                </div>
+            </div>
+            <div class="bg-white p-2.5 rounded-xl border border-indigo-200 flex justify-between items-center">
+                <div>
+                    <span class="text-[10px] font-black text-indigo-900 uppercase block">🚀 EXPANSÃO MDU</span>
+                    <span class="text-[10px] text-slate-500">Volume de Malogros</span>
+                </div>
+                <div class="text-right">
+                    <span class="font-black text-indigo-950 text-sm">${totalOcorrenciasExpMDU} ocorr.</span>
+                    <span class="block text-[10px] font-bold text-indigo-700">${pExpMdu}% do volume</span>
+                </div>
+            </div>
+        `;
+    }
+
+    const tbodyOfSeg = document.getElementById('tbody-ofensores-segmentos-mdu');
+    if (tbodyOfSeg) {
+        tbodyOfSeg.innerHTML = "";
+        if (listaOfensoresOrd.length === 0) {
+            tbodyOfSeg.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado nos segmentos.</td></tr>`;
+        } else {
+            listaOfensoresOrd.forEach(o => {
+                const percAtiv = totalOcorrenciasAtivMDU > 0 ? ((o.ativMdu / totalOcorrenciasAtivMDU) * 100).toFixed(1) : '0.0';
+                const percExp = totalOcorrenciasExpMDU > 0 ? ((o.expMdu / totalOcorrenciasExpMDU) * 100).toFixed(1) : '0.0';
+                const percTot = totalOcorrenciasGeral > 0 ? ((o.total / totalOcorrenciasGeral) * 100).toFixed(1) : '0.0';
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-amber-50/60 cursor-pointer";
+                tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`Ofensor por Segmento: ${o.ofensor}`, o.registros);
+                tr.innerHTML = `
+                    <td class="p-2.5 font-bold text-slate-800 underline decoration-dotted">${o.ofensor}</td>
+                    <td class="p-2.5 text-center bg-blue-50/40"><b class="text-blue-950">${o.ativMdu}</b> <span class="text-[10px] text-blue-700 font-semibold">(${percAtiv}%)</span></td>
+                    <td class="p-2.5 text-center bg-indigo-50/40"><b class="text-indigo-950">${o.expMdu}</b> <span class="text-[10px] text-indigo-700 font-semibold">(${percExp}%)</span></td>
+                    <td class="p-2.5 text-center bg-slate-100"><b class="text-slate-950">${o.total}</b> <span class="text-[10px] text-slate-600 font-bold">(${percTot}%)</span></td>
+                `;
+                tbodyOfSeg.appendChild(tr);
+            });
+        }
+    }
+}
+
+// --- ITEM 09: EXPORTAÇÃO EXCEL OFICIAL COM A NOVA TAXONOMIA (SEM EXIBIR NOMES DE PROJETOS DE BASE) ---
+function exportarPlanilhaDinamicaOficialExcel() {
+    const base = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
+        r &&
+        r.equipe !== '__CONFIG_SISTEMA__' &&
+        r.projeto !== '__CONFIG_AUDITORIA__' &&
+        r.projeto !== 'IMPREVISTO / ATRASO' &&
+        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+        r.projeto !== PROJETO_SOLIC_MATERIAL &&
+        !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(r.desfecho) &&
+        (typeof registroPertenceAoUsuarioLogado === 'function' ? registroPertenceAoUsuarioLogado(r) : true)
+    );
+
+    if (base.length === 0) {
+        alert("⚠️ Nenhum registro finalizado no período selecionado para exportar.");
+        return;
+    }
+
+    let html = `<table border="1">
+        <tr style="background-color:#0f172a;color:#ffffff;font-weight:bold;font-size:13px;">
+            <th colspan="10">RELATÓRIO OFICIAL DE INDICADORES GPD — SEGMENTOS & PRODUTIVIDADE (${obterDataLocalISO()})</th>
+        </tr>
+        <tr style="background-color:#cbd5e1;font-weight:bold;">
+            <th>SEMANA</th><th>DATA</th><th>TÉCNICO / EQUIPE</th><th>APOIO CONJUNTO</th><th>SEGMENTO</th><th>CATEGORIA</th><th>IMÓVEL / BLOCO</th><th>ENDEREÇO</th><th>HPs</th><th>RESULTADO</th>
+        </tr>`;
+
+    base.forEach(r => {
+        const tax = classificarRegistroNovaTaxonomia(r);
+        const sem = obterNumeroSemanaFormatado(r.dataRegistro);
+        const ap = extrairApoiosDoRegistro(r).join(', ') || '-';
+        html += `<tr>
+            <td>${sem}</td>
+            <td>${r.dataRegistro}</td>
+            <td><b>${r.equipe}</b></td>
+            <td>${ap}</td>
+            <td><b>${tax.segmento}</b></td>
+            <td><b>${tax.categoria}</b></td>
+            <td>${r.imovel}</td>
+            <td>${r.endereco || '-'}</td>
+            <td>${r.hps || 0}</td>
+            <td><b>${r.desfecho}</b></td>
+        </tr>`;
+    });
+
+    html += `</table>`;
+    const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `INDICADORES_GPD_SEGMENTOS_${obterDataLocalISO()}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// Sobrescreve exportarExcel global para usar a nova taxonomia limpa
+exportarExcel = exportarPlanilhaDinamicaOficialExcel;
+
+// Conecta a nova renderização ao ciclo central do Gestor
+const _origAtualizarDashboardV12 = atualizarDashboardGestor;
+atualizarDashboardGestor = async function(forcarRecargaMobile = false) {
+    await _origAtualizarDashboardV12.apply(this, arguments);
+    try {
+        injetarAssinaturaDesenvolvedorHeader();
+        renderizarAbaGraficosCompletaOficial();
+    } catch (e) {
+        console.warn("Erro ao atualizar aba gráficos oficial:", e);
+    }
+};
+
+setTimeout(() => {
+    injetarAssinaturaDesenvolvedorHeader();
+    construirLayoutExclusivoAbaGraficos();
+    renderizarAbaGraficosCompletaOficial();
+}, 500);
