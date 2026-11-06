@@ -2972,459 +2972,1360 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
-// ================= BLINDAGEM DE PRODUÇÃO (CAMPO.JS): TRAVA DE PROJETO, ENDEREÇO OBRIGATÓRIO E ANTI-DUPLICIDADE =================
-let salvamentoFinalEmCurso = false;
+// ================= REESTRUTURAÇÃO COMPLETA DA ABA GRÁFICOS & INDICADORES (V4 - CABEÇALHO ISOLADO DO MODO CAMPO) =================
 
-// 1. Extrai com segurança o projeto e o código do imóvel que estão gravados no cabeçalho da atividade aberta ("IMOVEL (PROJETO)")
-function obterProjetoTravadoDaAtividadeAberta() {
-    if (dadosAtendimento && dadosAtendimento.projetoTravadoAbertura) {
-        return dadosAtendimento.projetoTravadoAbertura;
-    }
-    const lblAberto = document.getElementById('lbl-imovel-aberto')?.innerText || '';
-    const matchProj = lblAberto.match(/\(([^)]+)\)\s*$/);
-    if (matchProj && matchProj[1]) {
-        return matchProj[1].trim();
-    }
-    return document.getElementById('sel-projeto')?.value || '';
-}
-
-function obterImovelTravadoDaAtividadeAberta() {
-    if (dadosAtendimento && dadosAtendimento.imovelTravadoAbertura) {
-        return dadosAtendimento.imovelTravadoAbertura;
-    }
-    const lblAberto = document.getElementById('lbl-imovel-aberto')?.innerText || '';
-    const idxParen = lblAberto.lastIndexOf(' (');
-    if (idxParen > 0) {
-        return lblAberto.substring(0, idxParen).trim();
-    }
-    return document.getElementById('inp-imovel')?.value?.trim() || '';
-}
-
-// 2. Impede que atualizarProjetosPermitidosCampo resete o <select> de projeto para "CONSTRUÇÃO F" enquanto houver atividade aberta!
-const _origAtualizarProjetosPermitidos = atualizarProjetosPermitidosCampo;
-atualizarProjetosPermitidosCampo = function(nomeEquipe, projetoPreSelecionado = null) {
-    const posAberturaVisivel = !document.getElementById('bloco-pos-abertura')?.classList.contains('hidden');
-    const projetoParaManter = projetoPreSelecionado || (posAberturaVisivel ? obterProjetoTravadoDaAtividadeAberta() : document.getElementById('sel-projeto')?.value);
-    return _origAtualizarProjetosPermitidos.call(this, nomeEquipe, projetoParaManter || null);
+let filtrosMultiGraficos = {
+    segmentos: ['TODOS'],   // 'TODOS' ou array ex: ['CONSTRUÇÃO MDU', 'EXPANSÃO MDU']
+    categorias: ['TODAS'],  // 'TODAS' ou array ex: ['ATIVAÇÃO', 'CONSTRUÇÃO']
+    semanas: ['TODAS']      // 'TODAS' ou array ex: ['Semana 1', 'Semana 2']
 };
 
-// 3. Trava o projeto e o imóvel escolhidos no exato momento do Check-in / Retomada / Início de Programada
-const _origFazerCheckInBlindado = fazerCheckIn;
-fazerCheckIn = async function(...args) {
-    const projEscolhido = document.getElementById('sel-projeto')?.value || '';
-    const imovelEscolhido = document.getElementById('inp-imovel')?.value?.trim() || '';
-    dadosAtendimento.projetoTravadoAbertura = projEscolhido;
-    dadosAtendimento.imovelTravadoAbertura = imovelEscolhido;
-
-    // Antes de abrir nova atividade, verifica se já existe uma EM ANDAMENTO idêntica para este técnico e imóvel hoje para não duplicar!
-    const equipe = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '';
-    const hojeISO = obterDataLocalISO();
-    if (equipe && imovelEscolhido && typeof supabaseClient !== 'undefined') {
-        try {
-            const { data: abertasExistentes } = await supabaseClient
-                .from('registros_producao')
-                .select('id, imovel, projeto, h_entrada, gps_entrada, desfecho')
-                .eq('data_registro', hojeISO)
-                .eq('equipe', equipe)
-                .in('desfecho', ['EM ANDAMENTO', 'PARALISADA']);
-
-            const jaAbertaMesmoImovel = (abertasExistentes || []).find(a =>
-                String(a.imovel || '').toUpperCase().trim() === imovelEscolhido.toUpperCase()
-            );
-
-            if (jaAbertaMesmoImovel) {
-                await carregarRegistrosModoCampoLeve();
-                retomarAtividadeEmAndamentoOuParalisadaNuvem(jaAbertaMesmoImovel.id);
-                return;
-            }
-        } catch (e) {}
-    }
-
-    const res = await _origFazerCheckInBlindado.apply(this, args);
-    if (projEscolhido) {
-        dadosAtendimento.projetoTravadoAbertura = projEscolhido;
-        const selP = document.getElementById('sel-projeto');
-        if (selP) selP.value = projEscolhido;
-    }
-    return res;
+let modoSelecaoMultiplaSemCtrl = false;
+let secoesInibidasGraficos = {
+    consolidados: false,
+    planilhaDinamica: false,
+    geralTecnicos: false,
+    evolucaoSegmentos: false,
+    picosHorarios: false,
+    planilhaHorarios: false,
+    rankingOfensores: false,
+    ofensoresSegmentos: false
 };
 
-// 4. Sobrescreve salvarRegistro com: Trava Anti-Duplo-Clique + Endereço Obrigatório Estrito + Projeto Travado + Limpeza Total da linha EM ANDAMENTO
-salvarRegistro = async function() {
-    if (salvamentoFinalEmCurso) return;
+let estadoModalExpandidoAtual = {
+    ativo: false,
+    tipo: null, // 'tabela' | 'grafico'
+    idOrigem: null,
+    titulo: ''
+};
 
-    if (dadosAtendimento.emPausa) {
-        alert("⚠️ A atividade encontra-se PARALISADA. Clique no botão verde '▶️ Retomar Atividade Agora' antes de finalizar o atendimento.");
-        return;
+let registroExplosaoCache = new Map();
+let contadorChaveExplosao = 0;
+
+let chartEvolucaoSegmentosInst = null;
+let chartHorariosPicoNovoInst = null;
+let chartOfensoresRankingInst = null;
+
+function registrarListaParaExplosao(titulo, lista) {
+    contadorChaveExplosao++;
+    const chave = `exp_${contadorChaveExplosao}`;
+    registroExplosaoCache.set(chave, { titulo, lista: Array.isArray(lista) ? lista : [] });
+    return chave;
+}
+
+function dispararExplosaoPorChave(chave) {
+    const pacote = registroExplosaoCache.get(chave);
+    if (!pacote) return;
+    abrirExplosaoPersonalizadaGraficos(pacote.titulo, pacote.lista);
+}
+
+// --- 1. CLASSIFICADOR OFICIAL (OCULTA OS NOMES DE PROJETOS DE BASE) ---
+function classificarRegistroNovaTaxonomia(reg) {
+    const p = String(reg?.projeto || '').toUpperCase().trim();
+    const macroOrig = typeof obterMacroGrupoProjeto === 'function' ? String(obterMacroGrupoProjeto(p)).toUpperCase() : '';
+
+    if (p === 'VISTORIA' || p.includes('VISTORIA')) {
+        return { segmento: 'CONSTRUÇÃO MDU', categoria: 'VISTORIA', chaveCombinada: 'CONSTRUÇÃO MDU - VISTORIA' };
     }
-
-    lerDadosBlocosDaTela();
-
-    // VALIDAÇÃO ESTRITA DO ENDEREÇO OBRIGATÓRIO
-    const inpEndEl = document.getElementById('form-endereco');
-    const enderecoGeral = (inpEndEl?.value || '').trim();
-    const enderecoSemSimbolos = enderecoGeral.replace(/[-_.,/\\\s]/g, '');
-    if (!enderecoGeral || enderecoSemSimbolos.length < 4) {
-        alert("⚠️ PREENCHIMENTO OBRIGATÓRIO:\n\nInforme o ENDEREÇO COMPLETO do atendimento (Rua/Av, Número e Bairro) antes de finalizar a atividade.");
-        if (inpEndEl) {
-            inpEndEl.classList.add('border-2', 'border-red-600', 'bg-red-50');
-            inpEndEl.focus();
-        }
-        return;
-    } else if (inpEndEl) {
-        inpEndEl.classList.remove('border-red-600', 'bg-red-50');
+    if (p.includes('NAP LOTADA')) {
+        const cat = (p.includes('ATIVAÇÃO') || p.includes('ATIVACAO')) ? 'ATIVAÇÃO' : 'CONSTRUÇÃO';
+        return { segmento: 'EXPANSÃO MDU', categoria: cat, chaveCombinada: `EXPANSÃO MDU - ${cat}` };
     }
-
-    const liberouAcessoGeral = document.getElementById('form-liberou-acesso') ? document.getElementById('form-liberou-acesso').value.trim() : '';
-    if (!liberouAcessoGeral) {
-        alert("⚠️ O preenchimento do campo 'LIBEROU O ACESSO' é obrigatório.");
-        document.getElementById('form-liberou-acesso')?.focus();
-        return;
+    if (p.endsWith(' F') || p.includes('PROJETO F') || p === 'CONSTRUÇÃO F' || p === 'ATIVAÇÃO F' || macroOrig.includes('PROJETO F')) {
+        const cat = (p.includes('ATIVAÇÃO') || p.includes('ATIVACAO')) ? 'ATIVAÇÃO' : 'CONSTRUÇÃO';
+        return { segmento: 'MAILING', categoria: cat, chaveCombinada: `MAILING - ${cat}` };
     }
+    const cat = (p.includes('ATIVAÇÃO') || p.includes('ATIVACAO')) ? 'ATIVAÇÃO' : 'CONSTRUÇÃO';
+    return { segmento: 'CONSTRUÇÃO MDU', categoria: cat, chaveCombinada: `CONSTRUÇÃO MDU - ${cat}` };
+}
 
-    const qtdBlocos = dadosAtendimento.blocos.length;
+function obterNumeroSemanaFormatado(dataISO) {
+    if (!dataISO || typeof dataISO !== 'string' || dataISO.length < 10) return 'Semana 1';
+    const dia = parseInt(dataISO.substring(8, 10), 10);
+    if (isNaN(dia) || dia <= 7) return 'Semana 1';
+    if (dia <= 14) return 'Semana 2';
+    if (dia <= 21) return 'Semana 3';
+    if (dia <= 28) return 'Semana 4';
+    return 'Semana 5';
+}
 
-    for (let i = 0; i < qtdBlocos; i++) {
-        const b = dadosAtendimento.blocos[i];
-        const nomeBloco = qtdBlocos > 1 ? `(${b.identificacao || 'Bloco ' + (i + 1)})` : '';
-
-        const numAndares = Number(b.andares);
-        const numHps = Number(b.hps);
-
-        if (!b.andares || isNaN(numAndares) || numAndares <= 0) {
-            alert(`⚠️ Informe obrigatoriamente a quantidade de ANDARES ${nomeBloco}.`);
-            document.getElementById(`bloco-andares-${i}`)?.focus();
-            return;
-        }
-        if (!b.hps || isNaN(numHps) || numHps <= 0) {
-            alert(`⚠️ Informe obrigatoriamente o Nº DE HPs ${nomeBloco}.`);
-            document.getElementById(`bloco-hps-${i}`)?.focus();
-            return;
-        }
-        if (!b.desfecho) {
-            alert(`⚠️ Selecione o DESFECHO da atividade ${nomeBloco} (CONCLUÍDA, PENDENTE ou MALOGRADA).`);
-            return;
-        }
-        if (b.desfecho === 'PENDENTE' && (!b.obsPendente.trim() || !b.pendenciasOpcoes || b.pendenciasOpcoes.length === 0)) {
-            alert(`⚠️ Para atividade PENDENTE ${nomeBloco}, selecione pelo menos uma opção e descreva o motivo.`);
-            return;
-        }
-        if (b.desfecho === 'MALOGRADA' && (!b.obsMalograda.trim() || !b.malogros || b.malogros.length === 0)) {
-            alert(`⚠️ Informe o motivo e selecione pelo menos um ofensor de malogro ${nomeBloco}.`);
-            return;
-        }
-    }
-
-    salvamentoFinalEmCurso = true;
-    const btnSalvar = document.getElementById('btn-salvar-final');
-    if (btnSalvar) {
-        btnSalvar.disabled = true;
-        btnSalvar.innerText = "⏳ Salvando e eliminando duplicidades...";
-    }
-
+// --- CABEÇALHO 100% ISOLADO DO MODO CAMPO ---
+function otimizarCabecalhoAzulLinhaUnica() {
     try {
-        // Recupera o PROJETO REAL travado na abertura (impede que mude de ATIVAÇÃO NAP LOTADA para CONSTRUÇÃO F!)
-        const projetoNome = obterProjetoTravadoDaAtividadeAberta() || document.getElementById('sel-projeto')?.value || 'CONSTRUÇÃO ON GOING';
-        const imovelBase = obterImovelTravadoDaAtividadeAberta() || document.getElementById('inp-imovel')?.value?.trim() || '';
-        const equipeNome = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '';
+        const badgeDuplicado = document.getElementById('badge-usuario-logado-compacto');
+        if (badgeDuplicado) badgeDuplicado.remove();
 
-        let validadosNuvem = [];
-        if (dadosAtendimento.idEmAndamento) {
-            try {
-                const { data: regNuvem } = await supabaseClient
-                    .from('registros_producao')
-                    .select('id, equipe, membros')
-                    .eq('id', dadosAtendimento.idEmAndamento)
-                    .maybeSingle();
+        const viewGestor = document.getElementById('view-gestor');
+        const gestorEstaVisivel = viewGestor && !viewGestor.classList.contains('hidden');
+        const blocoAcoesGestor = document.getElementById('header-gestor-acoes');
 
-                if (regNuvem) {
-                    validadosNuvem = extrairListaApoiosDoMembros(regNuvem.membros, regNuvem.equipe);
-                    const pendentesNuvem = extrairListaApoiosPendentesDoMembros(regNuvem.membros, regNuvem.equipe);
-                    for (const nomePend of pendentesNuvem) {
-                        const confirmaPresenca = confirm(
-                            `🤝 VALIDAÇÃO DE PRESENÇA DE EQUIPE DE APOIO\n\n` +
-                            `O técnico "${nomePend}" registrou entrada de apoio nesta atividade.\n\n` +
-                            `Você VALIDA e confirma que "${nomePend}" esteve presente apoiando você nesta atividade?`
-                        );
-                        if (confirmaPresenca && !validadosNuvem.includes(nomePend)) {
-                            validadosNuvem.push(nomePend);
-                        }
+        if (!gestorEstaVisivel) {
+            if (blocoAcoesGestor) blocoAcoesGestor.classList.add('hidden');
+            const spanExistente = document.getElementById('assinatura-dev-leonardo');
+            if (spanExistente) spanExistente.classList.add('hidden');
+            return;
+        }
+
+        const btnSair = document.getElementById('btn-sair-gestor') || document.querySelector('button[onclick*="sairModoGestor"], button[onclick*="bloquearGestor"]');
+        if (btnSair && btnSair.parentElement) {
+            let spanDev = document.getElementById('assinatura-dev-leonardo');
+            if (!spanDev) {
+                spanDev = document.createElement('span');
+                spanDev.id = 'assinatura-dev-leonardo';
+                btnSair.parentElement.insertBefore(spanDev, btnSair);
+            }
+            spanDev.className = 'text-white font-bold italic text-[11px] mr-2 whitespace-nowrap';
+            spanDev.innerText = 'Desenvolvido por Leonardo Simões de Almeida';
+            spanDev.classList.remove('hidden');
+        }
+    } catch (e) {}
+}
+
+// --- LÓGICA DE SELEÇÃO SIMPLES OU MÚLTIPLA (COM TECLA CTRL OU BOTÃO MULTI) ---
+function alternarFiltroDinamicoComCtrl(grupo, valor, event) {
+    const usouCtrl = (event && (event.ctrlKey || event.metaKey || event.shiftKey)) || modoSelecaoMultiplaSemCtrl;
+    const valorPadraoTodos = grupo === 'segmentos' ? 'TODOS' : 'TODAS';
+    let atual = filtrosMultiGraficos[grupo] || [valorPadraoTodos];
+
+    if (valor === valorPadraoTodos) {
+        filtrosMultiGraficos[grupo] = [valorPadraoTodos];
+    } else if (!usouCtrl) {
+        filtrosMultiGraficos[grupo] = [valor];
+    } else {
+        atual = atual.filter(v => v !== valorPadraoTodos);
+        if (atual.includes(valor)) {
+            atual = atual.filter(v => v !== valor);
+            if (atual.length === 0) atual = [valorPadraoTodos];
+        } else {
+            atual.push(valor);
+        }
+        filtrosMultiGraficos[grupo] = atual;
+    }
+
+    const segs = filtrosMultiGraficos.segmentos;
+    if (!segs.includes('TODOS') && !segs.includes('CONSTRUÇÃO MDU')) {
+        filtrosMultiGraficos.categorias = filtrosMultiGraficos.categorias.filter(c => c !== 'VISTORIA');
+        if (filtrosMultiGraficos.categorias.length === 0) filtrosMultiGraficos.categorias = ['TODAS'];
+    }
+
+    renderizarAbaGraficosCompletaOficial();
+    atualizarConteudoModalExpandidoAoVivo();
+}
+
+function alternarModoMultiToque() {
+    modoSelecaoMultiplaSemCtrl = !modoSelecaoMultiplaSemCtrl;
+    renderizarAbaGraficosCompletaOficial();
+    atualizarConteudoModalExpandidoAoVivo();
+}
+
+function registroPassaNosFiltrosGlobaisGraficos(reg) {
+    const tax = reg._tax || classificarRegistroNovaTaxonomia(reg);
+    const sem = reg._semana || obterNumeroSemanaFormatado(reg.dataRegistro);
+
+    const segs = filtrosMultiGraficos.segmentos;
+    const cats = filtrosMultiGraficos.categorias;
+    const sems = filtrosMultiGraficos.semanas;
+
+    const okSeg = segs.includes('TODOS') || segs.includes(tax.segmento);
+    const okCat = cats.includes('TODAS') || cats.includes(tax.categoria);
+    const okSem = sems.includes('TODAS') || sems.includes(sem);
+    return okSeg && okCat && okSem;
+}
+
+function obterHtmlBarraSeletoresInterativos(sufixoId = 'principal') {
+    const segs = filtrosMultiGraficos.segmentos;
+    const cats = filtrosMultiGraficos.categorias;
+    const sems = filtrosMultiGraficos.semanas;
+
+    const opcoesSeg = ['TODOS', 'CONSTRUÇÃO MDU', 'EXPANSÃO MDU', 'MAILING'];
+    const mostrarVistoria = segs.includes('TODOS') || segs.includes('CONSTRUÇÃO MDU');
+    const opcoesCat = mostrarVistoria
+        ? ['TODAS', 'ATIVAÇÃO', 'CONSTRUÇÃO', 'VISTORIA']
+        : ['TODAS', 'ATIVAÇÃO', 'CONSTRUÇÃO'];
+    const opcoesSem = ['TODAS', 'Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
+
+    const btnsSeg = opcoesSeg.map(op => {
+        const ativo = segs.includes(op);
+        return `<button type="button" onclick="alternarFiltroDinamicoComCtrl('segmentos', '${op}', event)" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${ativo ? 'bg-cyan-400 text-slate-950 shadow ring-2 ring-white/60' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">${op}</button>`;
+    }).join('');
+
+    const btnsCat = opcoesCat.map(op => {
+        const ativo = cats.includes(op);
+        return `<button type="button" onclick="alternarFiltroDinamicoComCtrl('categorias', '${op}', event)" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${ativo ? 'bg-amber-400 text-slate-950 shadow ring-2 ring-white/60' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">${op}</button>`;
+    }).join('');
+
+    const btnsSem = opcoesSem.map(op => {
+        const ativo = sems.includes(op);
+        return `<button type="button" onclick="alternarFiltroDinamicoComCtrl('semanas', '${op}', event)" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${ativo ? 'bg-emerald-400 text-slate-950 shadow ring-2 ring-white/60' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">${op === 'TODAS' ? 'Todas' : op}</button>`;
+    }).join('');
+
+    return `
+        <div class="bg-slate-900 text-white p-3 rounded-xl border border-slate-700 space-y-2">
+            <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-700 pb-1.5">
+                <span class="text-[10px] font-bold text-slate-300">
+                    💡 Segure <kbd class="bg-slate-700 px-1.5 py-0.5 rounded text-cyan-300 font-mono">CTRL</kbd> ao clicar para marcar múltiplos itens simultaneamente (Todas as tabelas e gráficos respondem ao filtro!)
+                </span>
+                <button type="button" onclick="alternarModoMultiToque()" class="px-2.5 py-0.5 rounded text-[10px] font-black transition ${modoSelecaoMultiplaSemCtrl ? 'bg-emerald-400 text-slate-950' : 'bg-slate-800 text-slate-300 border border-slate-600'}">
+                    ☑️ Modo Multi S/ Teclado: ${modoSelecaoMultiplaSemCtrl ? 'ATIVO' : 'OFF'}
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+                <div class="bg-slate-800/90 p-2 rounded-lg border border-slate-700">
+                    <span class="text-[9px] font-black text-cyan-300 uppercase block mb-1">1. Segmento (${segs.join(' + ')}):</span>
+                    <div class="flex flex-wrap gap-1">${btnsSeg}</div>
+                </div>
+                <div class="bg-slate-800/90 p-2 rounded-lg border border-slate-700">
+                    <span class="text-[9px] font-black text-amber-300 uppercase block mb-1">2. Categoria (${cats.join(' + ')}):</span>
+                    <div class="flex flex-wrap gap-1">${btnsCat}</div>
+                </div>
+                <div class="bg-slate-800/90 p-2 rounded-lg border border-slate-700">
+                    <span class="text-[9px] font-black text-emerald-300 uppercase block mb-1">3. Semana (${sems.join(' + ')}):</span>
+                    <div class="flex flex-wrap gap-1">${btnsSem}</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// --- OPÇÃO DE INIBIR / MOSTRAR QUALQUER GRÁFICO OU PLANILHA ---
+function alternarInibicaoSecaoGrafico(chaveSecao) {
+    secoesInibidasGraficos[chaveSecao] = !secoesInibidasGraficos[chaveSecao];
+    aplicarVisibilidadeSecoesInibidas();
+}
+
+function mostrarTodasSecoesGraficos() {
+    Object.keys(secoesInibidasGraficos).forEach(k => secoesInibidasGraficos[k] = false);
+    aplicarVisibilidadeSecoesInibidas();
+}
+
+function aplicarVisibilidadeSecoesInibidas() {
+    const mapaNomes = {
+        consolidados: '1. Consolidados Topo',
+        planilhaDinamica: '2. Planilha Dinâmica',
+        geralTecnicos: '3. Atendidas por Técnico',
+        evolucaoSegmentos: '4. Gráfico Evolução',
+        picosHorarios: '5. Gráfico Picos Horários',
+        planilhaHorarios: '6. Planilha Horários',
+        rankingOfensores: '7. Ranking Ofensores',
+        ofensoresSegmentos: '8. Malogros Construção x Expansão'
+    };
+
+    Object.entries(secoesInibidasGraficos).forEach(([chave, oculto]) => {
+        const elSecao = document.getElementById(`secao-bloco-${chave}`);
+        if (elSecao) {
+            elSecao.classList.toggle('hidden', oculto);
+        }
+    });
+
+    const barraChips = document.getElementById('barra-chips-inibicao-secoes');
+    if (barraChips) {
+        barraChips.innerHTML = Object.entries(mapaNomes).map(([chave, label]) => {
+            const oculto = secoesInibidasGraficos[chave];
+            return `
+                <button type="button" onclick="alternarInibicaoSecaoGrafico('${chave}')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 border ${oculto ? 'bg-red-50 text-red-700 border-red-300 line-through opacity-75' : 'bg-emerald-50 text-emerald-900 border-emerald-300 shadow-sm'}">
+                    <span>${oculto ? '🚫' : '👁️'}</span> <span>${label}</span>
+                </button>
+            `;
+        }).join('');
+    }
+}
+
+// --- CONSTRUÇÃO DO LAYOUT DA ABA GRÁFICOS ---
+function construirLayoutExclusivoAbaGraficos() {
+    otimizarCabecalhoAzulLinhaUnica();
+    const containerGraficos = document.getElementById('subview-graficos');
+    if (!containerGraficos || containerGraficos.dataset.layoutReconstruidoV15 === 'true') return;
+
+    containerGraficos.dataset.layoutReconstruidoV15 = 'true';
+    containerGraficos.className = 'space-y-4 pb-10';
+
+    containerGraficos.innerHTML = `
+        <!-- BARRA DE TOPO + CONTROLE DE INIBIÇÃO DE PLANILHAS/GRÁFICOS -->
+        <div class="bg-slate-900 text-white p-3.5 rounded-2xl shadow-lg border-b-4 border-cyan-400 space-y-2.5">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div>
+                    <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Painel Analítico Interativo</span>
+                    <h2 class="text-sm sm:text-base font-black tracking-tight mt-0.5">📊 Indicadores de Produtividade, Segmentos & Ofensores</h2>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="mostrarTodasSecoesGraficos()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 font-bold text-[11px] px-3 py-1.5 rounded-xl transition">
+                        👁️ Mostrar Todos os Blocos
+                    </button>
+                    <button type="button" onclick="exportarPlanilhaDinamicaOficialExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-1.5 rounded-xl shadow flex items-center gap-1.5 transition">
+                        📥 Baixar Planilha (.XLS)
+                    </button>
+                    <button type="button" onclick="gerarRelatorioVisualImpressaoPDF()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-3.5 py-1.5 rounded-xl shadow flex items-center gap-1.5 transition">
+                        🖨️ Imprimir / Salvar PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- SELETORES GLOBAIS (SEGMENTO, CATEGORIA, SEMANA COM SUPORTE A CTRL) -->
+            <div id="container-seletores-globais-topo"></div>
+        </div>
+
+        <!-- BARRA DE BOTÕES PARA INIBIR/EXIBIR QUALQUER GRÁFICO OU PLANILHA -->
+        <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-2">
+            <span class="text-[10px] font-black text-slate-700 uppercase">👁️ Exibição na Tela (Clique para Inibir / Mostrar):</span>
+            <div id="barra-chips-inibicao-secoes" class="flex flex-wrap gap-1.5"></div>
+        </div>
+
+        <!-- BLOCO 1: CONSOLIDADOS SUPERIORES -->
+        <div id="secao-bloco-consolidados" class="space-y-1.5">
+            <div class="flex justify-between items-center px-1">
+                <span class="text-[11px] font-black text-slate-700 uppercase">📌 Consolidados por Segmento e Porcentagem das Categorias</span>
+                <button type="button" onclick="alternarInibicaoSecaoGrafico('consolidados')" class="text-[10px] font-bold text-red-600 hover:underline">🚫 Inibir Bloco</button>
+            </div>
+            <div id="painel-consolidado-topo-segmentos" class="grid grid-cols-1 lg:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- BLOCO 2: PLANILHA DINÂMICA DE PRODUTIVIDADE -->
+        <div id="secao-bloco-planilhaDinamica" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+            <div class="bg-slate-900 text-white p-3.5 flex flex-wrap justify-between items-center gap-2">
+                <div>
+                    <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 01 • Apenas Atividades Concluídas</span>
+                    <h3 class="font-black text-sm sm:text-base mt-0.5">📋 Planilha Dinâmica de Executados, Dias Trabalhados, Produtividade e HPs</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="expandirTabelaModal('tbody-planilha-dinamica-oficial', 'Planilha Dinâmica de Produtividade')" class="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow">
+                        🔍 Expandir p/ Reunião
+                    </button>
+                    <button type="button" onclick="alternarInibicaoSecaoGrafico('planilhaDinamica')" class="bg-red-900/80 hover:bg-red-800 text-red-100 text-[10px] font-bold px-2.5 py-1.5 rounded-lg">
+                        🚫 Inibir
+                    </button>
+                </div>
+            </div>
+            <div id="barra-porcentagem-categorias-din" class="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs"></div>
+            <div class="overflow-x-auto max-h-[520px]">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
+                        <tr>
+                            <th class="p-3 text-center">#</th>
+                            <th class="p-3">Técnico / Equipe</th>
+                            <th class="p-3 text-center bg-emerald-900 text-emerald-100">Nº Atividades Executadas</th>
+                            <th class="p-3 text-center">Dias Trabalhados</th>
+                            <th class="p-3 text-center bg-blue-900 text-cyan-200 font-black">Produtividade (Exec / Dia)</th>
+                            <th class="p-3 text-center bg-indigo-900 text-indigo-100">Quantidade de HP</th>
+                            <th class="p-3 text-center bg-purple-900 text-purple-100 font-black">HP / DIA</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-planilha-dinamica-oficial" class="divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- BLOCO 3: PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO -->
+        <div id="secao-bloco-geralTecnicos" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+            <div class="bg-blue-950 text-white p-3.5 flex flex-wrap justify-between items-center gap-2">
+                <div>
+                    <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 03 • Resultado Geral por Técnico</span>
+                    <h3 class="font-black text-sm sm:text-base mt-0.5">👷 Quantidade de Atividades Atendidas (Concluídas, Malogros e Apoios)</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="expandirTabelaModal('tbody-geral-atendidas-tecnico', 'Atividades Atendidas por Técnico')" class="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow">
+                        🔍 Expandir p/ Reunião
+                    </button>
+                    <button type="button" onclick="alternarInibicaoSecaoGrafico('geralTecnicos')" class="bg-red-900/80 hover:bg-red-800 text-red-100 text-[10px] font-bold px-2.5 py-1.5 rounded-lg">
+                        🚫 Inibir
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto max-h-[500px]">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
+                        <tr>
+                            <th class="p-2.5 text-center">#</th>
+                            <th class="p-2.5">Técnico / Equipe</th>
+                            <th class="p-2.5 text-center bg-blue-900/80">Construção MDU<br><span class="text-[9px] font-normal text-blue-200">(Ativ / Const / Vist)</span></th>
+                            <th class="p-2.5 text-center bg-indigo-900/80">Expansão MDU<br><span class="text-[9px] font-normal text-indigo-200">(Ativ / Const)</span></th>
+                            <th class="p-2.5 text-center bg-purple-900/80">Mailing<br><span class="text-[9px] font-normal text-purple-200">(Ativ / Const)</span></th>
+                            <th class="p-2.5 text-center bg-emerald-800 text-white font-black">🟢 Concluídas</th>
+                            <th class="p-2.5 text-center bg-red-800 text-white font-black">🔴 Malogros</th>
+                            <th class="p-2.5 text-center bg-fuchsia-800 text-white font-black">🤝 Apoios</th>
+                            <th class="p-2.5 text-center bg-slate-950 text-cyan-300 font-black">Total Atendidas</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-geral-atendidas-tecnico" class="divide-y divide-slate-200"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- BLOCO 4: GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS -->
+        <div id="secao-bloco-evolucaoSegmentos" class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3">
+            <div class="flex flex-wrap justify-between items-center gap-2 border-b pb-2.5">
+                <div>
+                    <span class="bg-emerald-100 text-emerald-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 07 • Evolução dos Segmentos</span>
+                    <h3 class="font-black text-slate-800 text-sm sm:text-base mt-0.5">📈 Evolução das Atividades Executadas por Segmento</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="expandirGraficoModal('canvasEvolucaoSegmentos', 'Evolução dos Segmentos')" class="bg-blue-900 hover:bg-blue-800 text-white text-[11px] font-black px-3 py-1.5 rounded-lg shadow">
+                        🔍 Expandir p/ Reunião
+                    </button>
+                    <button type="button" onclick="alternarInibicaoSecaoGrafico('evolucaoSegmentos')" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-[10px] font-bold px-2.5 py-1.5 rounded-lg">
+                        🚫 Inibir
+                    </button>
+                </div>
+            </div>
+            <div class="h-72 w-full">
+                <canvas id="canvasEvolucaoSegmentos"></canvas>
+            </div>
+        </div>
+
+        <!-- BLOCOS 5 E 6: PICOS DE HORÁRIOS E PLANILHA DE FAIXAS HORÁRIAS -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div id="secao-bloco-picosHorarios" class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <div>
+                            <span class="bg-blue-100 text-blue-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Picos e Extremos</span>
+                            <h3 class="font-black text-slate-800 text-sm mt-0.5">🕒 Gráfico de Picos de Horários</h3>
+                        </div>
+                        <div class="flex gap-1">
+                            <button type="button" onclick="expandirGraficoModal('canvasHorariosPicoOficial', 'Gráfico de Picos de Horários')" class="bg-blue-900 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">🔍 Expandir</button>
+                            <button type="button" onclick="alternarInibicaoSecaoGrafico('picosHorarios')" class="bg-red-50 text-red-700 border border-red-200 text-[10px] font-bold px-2.5 py-1 rounded-lg">🚫 Inibir</button>
+                        </div>
+                    </div>
+                    <div id="cards-extremos-horarios-tecnicos" class="grid grid-cols-1 sm:grid-cols-3 gap-2 my-3"></div>
+                </div>
+                <div class="h-64 w-full">
+                    <canvas id="canvasHorariosPicoOficial"></canvas>
+                </div>
+            </div>
+
+            <div id="secao-bloco-planilhaHorarios" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+                <div class="bg-slate-900 text-white p-3.5 flex justify-between items-center">
+                    <div>
+                        <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Volume Real por Faixa</span>
+                        <h3 class="font-bold text-xs sm:text-sm mt-0.5">⏰ Horários com Mais Atividades Abertas e Fechadas</h3>
+                    </div>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="expandirTabelaModal('tbody-horarios-pico-planilha', 'Horários com Mais Atividades Abertas e Fechadas')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">🔍 Expandir</button>
+                        <button type="button" onclick="alternarInibicaoSecaoGrafico('planilhaHorarios')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2.5 py-1 rounded">🚫 Inibir</button>
+                    </div>
+                </div>
+                <div class="overflow-y-auto max-h-[360px]">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0">
+                            <tr>
+                                <th class="p-2.5">Faixa de Horário</th>
+                                <th class="p-2.5 text-center bg-blue-900">🟢 Qtd. Abertas (Check-in)</th>
+                                <th class="p-2.5 text-center bg-emerald-900">🔴 Qtd. Fechadas (Check-out)</th>
+                                <th class="p-2.5 text-center">Total Movimentações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-horarios-pico-planilha" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- BLOCOS 7 E 8: RANKING DE OFENSORES + CONSTRUÇÃO MDU x EXPANSÃO MDU -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div id="secao-bloco-rankingOfensores" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+                <div class="bg-red-950 text-white p-3.5 flex justify-between items-center">
+                    <div>
+                        <span class="bg-red-300 text-red-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 04 • Ranking Geral</span>
+                        <h3 class="font-bold text-xs sm:text-sm mt-0.5">🚨 Maiores Ofensores de Malogros (Números Reais e %)</h3>
+                    </div>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="expandirGraficoModal('canvasOfensoresRanking', 'Gráfico Ranking de Ofensores')" class="bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-1 rounded">📊 Gráfico</button>
+                        <button type="button" onclick="expandirTabelaModal('tbody-ranking-ofensores-geral', 'Ranking de Ofensores de Malogros')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2 py-1 rounded">🔍 Planilha</button>
+                        <button type="button" onclick="alternarInibicaoSecaoGrafico('rankingOfensores')" class="bg-red-800 text-white text-[10px] font-bold px-2 py-1 rounded">🚫</button>
+                    </div>
+                </div>
+                <div class="p-3 h-52 border-b">
+                    <canvas id="canvasOfensoresRanking"></canvas>
+                </div>
+                <div class="overflow-y-auto max-h-[280px]">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0">
+                            <tr>
+                                <th class="p-2.5 text-center">#</th>
+                                <th class="p-2.5">Ofensor de Malogro</th>
+                                <th class="p-2.5 text-center">Nº Ocorrências</th>
+                                <th class="p-2.5 text-right">% sobre Malogros</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-ranking-ofensores-geral" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="secao-bloco-ofensoresSegmentos" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+                <div class="bg-amber-950 text-white p-3.5 flex justify-between items-center">
+                    <div>
+                        <span class="bg-amber-300 text-amber-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 05 • Comparativo entre Segmentos</span>
+                        <h3 class="font-bold text-xs sm:text-sm mt-0.5">📊 Volume e % de Malogros: CONSTRUÇÃO MDU x EXPANSÃO MDU</h3>
+                    </div>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="expandirTabelaModal('tbody-ofensores-segmentos-mdu', 'Ofensores: CONSTRUÇÃO MDU x EXPANSÃO MDU')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">
+                            🔍 Expandir
+                        </button>
+                        <button type="button" onclick="alternarInibicaoSecaoGrafico('ofensoresSegmentos')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2 py-1 rounded">
+                            🚫 Inibir
+                        </button>
+                    </div>
+                </div>
+                <div id="resumo-topo-ofensores-segmentos" class="grid grid-cols-2 gap-2 p-3 bg-amber-50/60 border-b border-amber-200 text-xs"></div>
+                <div class="overflow-y-auto max-h-[420px]">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0">
+                            <tr>
+                                <th class="p-2.5">Ofensor de Malogro</th>
+                                <th class="p-2.5 text-center bg-blue-900">CONSTRUÇÃO MDU<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
+                                <th class="p-2.5 text-center bg-indigo-900">EXPANSÃO MDU<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
+                                <th class="p-2.5 text-center bg-slate-950 text-amber-300">Soma (Const + Exp)<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-ofensores-segmentos-mdu" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+
+    aplicarVisibilidadeSecoesInibidas();
+}
+
+// --- MODO EXPLOSÃO HABILITADO EM TODAS AS SEÇÕES E NO MODAL EXPANDIDO ---
+function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset) {
+    const modal = document.getElementById('modal-explosao');
+    const corpo = document.getElementById('tabela-explosao-corpo');
+    if (!modal || !corpo) return;
+
+    modal.style.zIndex = "95";
+
+    document.getElementById('modal-explosao-titulo').innerText = `💥 Explosão de Dados: ${tituloExplosao} (${listaRegistrosSubset.length} reg.)`;
+    corpo.innerHTML = "";
+
+    if (listaRegistrosSubset.length === 0) {
+        corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este recorte.</td></tr>`;
+    } else {
+        listaRegistrosSubset.forEach(item => {
+            const tax = classificarRegistroNovaTaxonomia(item);
+            const sem = obterNumeroSemanaFormatado(item.dataRegistro);
+            const apoios = extrairApoiosDoRegistro(item);
+            const badgeAp = apoios.length > 0 ? `<div class="text-[9px] font-black text-purple-800">🤝 Apoio: ${apoios.join(', ')}</div>` : '';
+            const detalheInfo = (item.malogros && item.malogros.length > 0) ? item.malogros.join(' + ') : (item.motivoDesfecho || 'Concluído');
+
+            corpo.innerHTML += `
+                <tr class="hover:bg-blue-50/50 border-b text-xs cursor-pointer" onclick="fecharModalExplosao(); fecharModalGraficoExpandido(); fecharModalTabelaExpandida(); abrirDetalhesAtividade(registrosSalvos.find(r => r.id === ${item.id}))">
+                    <td class="p-2.5 font-mono font-bold">${item.dataRegistro}<div class="text-[9px] text-indigo-700">${sem}</div></td>
+                    <td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'}</div></td>
+                    <td class="p-2.5 font-semibold text-blue-900">${item.equipe}${badgeAp}</td>
+                    <td class="p-2.5"><span class="bg-slate-800 text-cyan-300 font-black px-2 py-0.5 rounded text-[10px]">${tax.segmento}</span><div class="text-[10px] font-bold text-slate-600 mt-0.5">Categoria: ${tax.categoria}</div></td>
+                    <td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] ${obterClasseCorDesfecho(item.desfecho)}">${item.desfecho}</span><div class="text-[9px] mt-0.5">HPs: <b>${item.hps || 0}</b></div></td>
+                    <td class="p-2.5 text-slate-600">${detalheInfo}</td>
+                </tr>
+            `;
+        });
+    }
+    modal.classList.remove('hidden');
+}
+
+// --- EXPANDIR TABELAS E GRÁFICOS LEVANDO OS SELETORES PARA A REUNIÃO ---
+function expandirTabelaModal(idTbodyOrigem, tituloJanela) {
+    const modal = document.getElementById('modal-expandir-tabela');
+    const titulo = document.getElementById('modal-tabela-expandida-titulo');
+    const container = document.getElementById('container-tabela-expandida');
+    const tbodyOrigem = document.getElementById(idTbodyOrigem);
+    if (!modal || !container || !tbodyOrigem) return;
+
+    estadoModalExpandidoAtual = { ativo: true, tipo: 'tabela', idOrigem: idTbodyOrigem, titulo: tituloJanela };
+    if (titulo) titulo.innerText = `📊 Modo Apresentação: ${tituloJanela}`;
+
+    let boxSeletoresModal = document.getElementById('seletores-reuniao-modal-tabela');
+    if (!boxSeletoresModal) {
+        boxSeletoresModal = document.createElement('div');
+        boxSeletoresModal.id = 'seletores-reuniao-modal-tabela';
+        boxSeletoresModal.className = 'px-4 pt-3 pb-1 bg-slate-100 border-b border-slate-300';
+        container.parentNode.insertBefore(boxSeletoresModal, container);
+    }
+    boxSeletoresModal.innerHTML = obterHtmlBarraSeletoresInterativos('modal_tabela');
+
+    const tabelaOriginal = tbodyOrigem.closest('table');
+    if (!tabelaOriginal) return;
+
+    container.innerHTML = "";
+    const infoTopo = document.getElementById('barra-porcentagem-categorias-din');
+    if (idTbodyOrigem === 'tbody-planilha-dinamica-oficial' && infoTopo) {
+        const cloneInfo = infoTopo.cloneNode(true);
+        cloneInfo.removeAttribute('id');
+        cloneInfo.className = 'bg-blue-50 px-4 py-2 border-b border-blue-200 flex flex-wrap items-center justify-between gap-2 text-xs mb-2 rounded-lg';
+        container.appendChild(cloneInfo);
+    }
+
+    const tabelaClone = tabelaOriginal.cloneNode(true);
+    tabelaClone.className = "w-full text-left border-collapse text-xs sm:text-sm";
+    tabelaClone.querySelector('thead')?.classList.add('sticky', 'top-0', 'z-10', 'shadow-sm');
+    const tbodyClone = tabelaClone.querySelector('tbody');
+    if (tbodyClone) tbodyClone.removeAttribute('id');
+
+    container.appendChild(tabelaClone);
+    modal.classList.remove('hidden');
+}
+
+function expandirGraficoModal(idCanvasOrigem, tituloJanela) {
+    const modal = document.getElementById('modal-expandir-grafico');
+    const titulo = document.getElementById('modal-grafico-expandido-titulo');
+    const canvasOrigem = document.getElementById(idCanvasOrigem);
+    const canvasAlvo = document.getElementById('canvasGraficoExpandido');
+    if (!modal || !canvasOrigem || !canvasAlvo) return;
+
+    estadoModalExpandidoAtual = { ativo: true, tipo: 'grafico', idOrigem: idCanvasOrigem, titulo: tituloJanela };
+    if (titulo) titulo.innerText = `📈 Modo Apresentação: ${tituloJanela}`;
+
+    let boxSeletoresGraf = document.getElementById('seletores-reuniao-modal-grafico');
+    if (!boxSeletoresGraf) {
+        boxSeletoresGraf = document.createElement('div');
+        boxSeletoresGraf.id = 'seletores-reuniao-modal-grafico';
+        boxSeletoresGraf.className = 'px-4 pt-3 pb-1 bg-slate-100 border-b border-slate-300';
+        const wrapperCanvas = canvasAlvo.parentElement;
+        if (wrapperCanvas && wrapperCanvas.parentNode) {
+            wrapperCanvas.parentNode.insertBefore(boxSeletoresGraf, wrapperCanvas);
+        }
+    }
+    boxSeletoresGraf.innerHTML = obterHtmlBarraSeletoresInterativos('modal_grafico');
+
+    modal.classList.remove('hidden');
+
+    const chartOriginal = Chart.getChart(canvasOrigem);
+    if (!chartOriginal) return;
+    if (typeof graficoExpandidoInstancia !== 'undefined' && graficoExpandidoInstancia) {
+        graficoExpandidoInstancia.destroy();
+    }
+
+    graficoExpandidoInstancia = new Chart(canvasAlvo, {
+        type: chartOriginal.config.type,
+        data: JSON.parse(JSON.stringify(chartOriginal.data)),
+        options: {
+            ...chartOriginal.config.options,
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { ...chartOriginal.config.options.plugins, legend: { display: true, position: 'top' } },
+            onClick: (event, elements) => {
+                if (elements.length > 0 && chartOriginal.config.options.onClick) {
+                    chartOriginal.config.options.onClick(event, elements);
+                }
+            }
+        }
+    });
+}
+
+function atualizarConteudoModalExpandidoAoVivo() {
+    if (!estadoModalExpandidoAtual.ativo) return;
+    if (estadoModalExpandidoAtual.tipo === 'tabela') {
+        expandirTabelaModal(estadoModalExpandidoAtual.idOrigem, estadoModalExpandidoAtual.titulo);
+    } else if (estadoModalExpandidoAtual.tipo === 'grafico') {
+        expandirGraficoModal(estadoModalExpandidoAtual.idOrigem, estadoModalExpandidoAtual.titulo);
+    }
+}
+
+// --- RENDERIZADOR PRINCIPAL DA ABA GRÁFICOS ---
+function renderizarAbaGraficosCompletaOficial() {
+    otimizarCabecalhoAzulLinhaUnica();
+    construirLayoutExclusivoAbaGraficos();
+    registroExplosaoCache.clear();
+    contadorChaveExplosao = 0;
+
+    const containerSeletoresTopo = document.getElementById('container-seletores-globais-topo');
+    if (containerSeletoresTopo) {
+        containerSeletoresTopo.innerHTML = obterHtmlBarraSeletoresInterativos('topo');
+    }
+
+    const basePeriodoBruta = (dadosFiltradosAtuais || []).filter(r =>
+        r &&
+        r.equipe !== '__CONFIG_SISTEMA__' &&
+        r.projeto !== '__CONFIG_AUDITORIA__' &&
+        r.projeto !== 'IMPREVISTO / ATRASO' &&
+        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+        r.projeto !== PROJETO_SOLIC_MATERIAL &&
+        !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(r.desfecho)
+    ).map(r => ({
+        ...r,
+        _tax: classificarRegistroNovaTaxonomia(r),
+        _semana: obterNumeroSemanaFormatado(r.dataRegistro)
+    }));
+
+    const baseFiltradaSelecao = basePeriodoBruta.filter(registroPassaNosFiltrosGlobaisGraficos);
+    const concluidasFiltradasSelecao = baseFiltradaSelecao.filter(r => r.desfecho === 'CONCLUIDA');
+
+    // 1. CONSOLIDADOS SUPERIORES
+    const painelTopo = document.getElementById('painel-consolidado-topo-segmentos');
+    if (painelTopo) {
+        const cfgSegmentos = [
+            { nome: 'CONSTRUÇÃO MDU', corHeader: 'bg-blue-900 text-white border-blue-400', corBg: 'bg-blue-50/50 border-blue-200', categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO', 'VISTORIA'] },
+            { nome: 'EXPANSÃO MDU', corHeader: 'bg-indigo-900 text-white border-indigo-400', corBg: 'bg-indigo-50/50 border-indigo-200', categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO'] },
+            { nome: 'MAILING', corHeader: 'bg-purple-900 text-white border-purple-400', corBg: 'bg-purple-50/50 border-purple-200', categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO'] }
+        ];
+
+        const totalExecRecorte = concluidasFiltradasSelecao.length;
+
+        painelTopo.innerHTML = cfgSegmentos.map(seg => {
+            const concluidasSeg = concluidasFiltradasSelecao.filter(r => r._tax.segmento === seg.nome);
+            const atendidasSeg = baseFiltradaSelecao.filter(r => r._tax.segmento === seg.nome);
+            const totalSeg = concluidasSeg.length;
+            const totalHpsSeg = concluidasSeg.reduce((acc, r) => acc + (Number(r.hps) || 0), 0);
+            const percSobreGeral = totalExecRecorte > 0 ? ((totalSeg / totalExecRecorte) * 100).toFixed(1) : '0.0';
+            const chaveExpSeg = registrarListaParaExplosao(`${seg.nome} (Atendidas no Filtro)`, atendidasSeg);
+
+            const linhasCatHtml = seg.categorias.map(cat => {
+                const listaCat = concluidasSeg.filter(r => r._tax.categoria === cat);
+                const qtdCat = listaCat.length;
+                const hpsCat = listaCat.reduce((acc, r) => acc + (Number(r.hps) || 0), 0);
+                const percCat = totalSeg > 0 ? ((qtdCat / totalSeg) * 100).toFixed(1) : '0.0';
+                const chaveExpCat = registrarListaParaExplosao(`${seg.nome} • ${cat} (Concluídas)`, listaCat);
+
+                return `
+                    <div onclick="dispararExplosaoPorChave('${chaveExpCat}')" class="bg-white p-2.5 rounded-xl border border-slate-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition shadow-sm">
+                        <div>
+                            <span class="font-black text-slate-800 text-xs underline decoration-dotted">${cat}</span>
+                            <div class="text-[10px] text-slate-500">HPs: <b>${hpsCat}</b></div>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-black text-emerald-700 text-sm">${qtdCat} exec.</span>
+                            <span class="block text-[10px] font-bold bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded">${percCat}% do segmento</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="rounded-2xl border-2 ${seg.corBg} shadow-sm overflow-hidden flex flex-col justify-between">
+                    <div class="${seg.corHeader} p-3 border-b-2 flex justify-between items-center cursor-pointer" onclick="dispararExplosaoPorChave('${chaveExpSeg}')">
+                        <div>
+                            <span class="text-[9px] uppercase font-bold opacity-80 block">Segmento Oficial (Clique p/ Explosão)</span>
+                            <h4 class="font-black text-sm sm:text-base underline decoration-dotted">${seg.nome}</h4>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-lg font-black text-cyan-300">${totalSeg} exec.</span>
+                            <span class="block text-[10px] opacity-90">${percSobreGeral}% do recorte (${totalHpsSeg} HPs)</span>
+                        </div>
+                    </div>
+                    <div class="p-3 space-y-2 flex-1 flex flex-col justify-center">
+                        ${linhasCatHtml}
+                    </div>
+                    <div class="bg-slate-200/70 px-3.5 py-1.5 text-[10px] font-bold text-slate-700 flex justify-between">
+                        <span>Total Atendido: ${atendidasSeg.length}</span>
+                        <span>Malogros/Pend.: ${atendidasSeg.length - totalSeg}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 2. PLANILHA DINÂMICA DE PRODUTIVIDADE (APENAS CONCLUÍDAS)
+    const barraPercCat = document.getElementById('barra-porcentagem-categorias-din');
+    if (barraPercCat) {
+        const totDin = concluidasFiltradasSelecao.length;
+        const qtdAtiv = concluidasFiltradasSelecao.filter(r => r._tax.categoria === 'ATIVAÇÃO').length;
+        const qtdConst = concluidasFiltradasSelecao.filter(r => r._tax.categoria === 'CONSTRUÇÃO').length;
+        const qtdVist = concluidasFiltradasSelecao.filter(r => r._tax.categoria === 'VISTORIA').length;
+        const pAtiv = totDin > 0 ? ((qtdAtiv / totDin) * 100).toFixed(1) : '0.0';
+        const pConst = totDin > 0 ? ((qtdConst / totDin) * 100).toFixed(1) : '0.0';
+        const pVist = totDin > 0 ? ((qtdVist / totDin) * 100).toFixed(1) : '0.0';
+
+        barraPercCat.innerHTML = `
+            <div class="font-black text-slate-700">
+                🎯 Seleção Ativa: <span class="text-blue-900">${filtrosMultiGraficos.segmentos.join(' + ')}</span> • <span class="text-amber-800">${filtrosMultiGraficos.categorias.join(' + ')}</span> • <span class="text-emerald-800">${filtrosMultiGraficos.semanas.join(' + ')}</span> (${totDin} concluídas)
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <span class="bg-emerald-100 text-emerald-950 font-black px-2.5 py-1 rounded-lg border border-emerald-300">⚡ ATIVAÇÃO: ${qtdAtiv} (${pAtiv}%)</span>
+                <span class="bg-blue-100 text-blue-950 font-black px-2.5 py-1 rounded-lg border border-blue-300">🛠️ CONSTRUÇÃO: ${qtdConst} (${pConst}%)</span>
+                <span class="bg-purple-100 text-purple-950 font-black px-2.5 py-1 rounded-lg border border-purple-300">🔍 VISTORIA: ${qtdVist} (${pVist}%)</span>
+            </div>
+        `;
+    }
+
+    const equipesVisiveis = typeof obterEquipesVisiveisUsuarioAtual === 'function' ? obterEquipesVisiveisUsuarioAtual(true) : (equipesSistema || []).filter(e => e.status === 'Ativo');
+    const mapaDin = {};
+    equipesVisiveis.forEach(eq => {
+        mapaDin[eq.nome] = { nome: eq.nome, executados: 0, hps: 0, diasSet: new Set(), registros: [] };
+    });
+
+    concluidasFiltradasSelecao.forEach(r => {
+        const nome = r.equipe || 'NÃO IDENTIFICADO';
+        if (!mapaDin[nome]) mapaDin[nome] = { nome, executados: 0, hps: 0, diasSet: new Set(), registros: [] };
+        mapaDin[nome].executados++;
+        mapaDin[nome].hps += Number(r.hps) || 0;
+        if (r.dataRegistro) mapaDin[nome].diasSet.add(r.dataRegistro);
+        mapaDin[nome].registros.push(r);
+    });
+
+    const listaDinamica = Object.values(mapaDin).map(item => {
+        const dias = item.diasSet.size;
+        return {
+            ...item,
+            dias,
+            produtividade: dias > 0 ? (item.executados / dias) : 0,
+            hpDia: dias > 0 ? (item.hps / dias) : 0
+        };
+    }).sort((a, b) => b.executados - a.executados || b.produtividade - a.produtividade || a.nome.localeCompare(b.nome));
+
+    const tbodyDin = document.getElementById('tbody-planilha-dinamica-oficial');
+    if (tbodyDin) {
+        tbodyDin.innerHTML = "";
+        let somaExec = 0, somaHps = 0;
+        const diasGlobaisSet = new Set();
+
+        listaDinamica.forEach((t, idx) => {
+            somaExec += t.executados;
+            somaHps += t.hps;
+            t.diasSet.forEach(d => diasGlobaisSet.add(d));
+            const chaveExp = registrarListaParaExplosao(`Executadas por ${t.nome}`, t.registros);
+
+            const tr = document.createElement('tr');
+            tr.className = "hover:bg-blue-50/60 cursor-pointer transition";
+            tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExp}')`);
+            tr.innerHTML = `
+                <td class="p-3 text-center font-bold text-slate-400">${idx + 1}º</td>
+                <td class="p-3 font-black text-blue-950 underline decoration-dotted">${t.nome}</td>
+                <td class="p-3 text-center font-black text-emerald-700 bg-emerald-50/70 text-sm">${t.executados}</td>
+                <td class="p-3 text-center font-mono font-bold text-slate-700">${t.dias}</td>
+                <td class="p-3 text-center font-black text-blue-950 bg-blue-50/80 text-sm">${t.produtividade.toFixed(2)}</td>
+                <td class="p-3 text-center font-black text-indigo-900 bg-indigo-50/60">${t.hps}</td>
+                <td class="p-3 text-center font-black text-purple-900 bg-purple-50/60">${t.hpDia.toFixed(1)}</td>
+            `;
+            tbodyDin.appendChild(tr);
+        });
+
+        const diasGlobais = diasGlobaisSet.size;
+        const prodGlobal = diasGlobais > 0 ? (somaExec / diasGlobais).toFixed(2) : "0.00";
+        const hpDiaGlobal = diasGlobais > 0 ? (somaHps / diasGlobais).toFixed(1) : "0.0";
+        const chaveExpTot = registrarListaParaExplosao(`Total Concluídas na Seleção`, concluidasFiltradasSelecao);
+
+        tbodyDin.innerHTML += `
+            <tr onclick="dispararExplosaoPorChave('${chaveExpTot}')" class="bg-slate-900 text-white font-black text-xs cursor-pointer hover:bg-slate-800">
+                <td colspan="2" class="p-3 text-right uppercase underline decoration-dotted">Total Consolidado da Seleção (Clique p/ Explosão):</td>
+                <td class="p-3 text-center text-emerald-300 text-sm">${somaExec}</td>
+                <td class="p-3 text-center font-mono">${diasGlobais} d</td>
+                <td class="p-3 text-center text-cyan-300 text-sm">${prodGlobal}</td>
+                <td class="p-3 text-center text-indigo-200">${somaHps}</td>
+                <td class="p-3 text-center text-purple-200">${hpDiaGlobal}</td>
+            </tr>
+        `;
+    }
+
+    // 3. PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO
+    const mapaGeralTec = {};
+    equipesVisiveis.forEach(eq => {
+        mapaGeralTec[eq.nome] = {
+            nome: eq.nome,
+            cMduAtiv: 0, cMduConst: 0, cMduVist: 0,
+            eMduAtiv: 0, eMduConst: 0,
+            mailAtiv: 0, mailConst: 0,
+            concluidas: 0, malogros: 0, apoios: 0, totalAtendidas: 0,
+            registros: []
+        };
+    });
+
+    const setApoiosUnicosGeral = new Set();
+
+    baseFiltradaSelecao.forEach(r => {
+        const nome = r.equipe || 'NÃO IDENTIFICADO';
+        if (!mapaGeralTec[nome]) {
+            mapaGeralTec[nome] = {
+                nome, cMduAtiv: 0, cMduConst: 0, cMduVist: 0, eMduAtiv: 0, eMduConst: 0, mailAtiv: 0, mailConst: 0,
+                concluidas: 0, malogros: 0, apoios: 0, totalAtendidas: 0, registros: []
+            };
+        }
+        const item = mapaGeralTec[nome];
+        item.totalAtendidas++;
+        item.registros.push(r);
+
+        if (r.desfecho === 'CONCLUIDA') item.concluidas++;
+        else item.malogros++;
+
+        if (r._tax.segmento === 'CONSTRUÇÃO MDU') {
+            if (r._tax.categoria === 'ATIVAÇÃO') item.cMduAtiv++;
+            else if (r._tax.categoria === 'CONSTRUÇÃO') item.cMduConst++;
+            else item.cMduVist++;
+        } else if (r._tax.segmento === 'EXPANSÃO MDU') {
+            if (r._tax.categoria === 'ATIVAÇÃO') item.eMduAtiv++;
+            else item.eMduConst++;
+        } else if (r._tax.segmento === 'MAILING') {
+            if (r._tax.categoria === 'ATIVAÇÃO') item.mailAtiv++;
+            else item.mailConst++;
+        }
+
+        extrairApoiosDoRegistro(r).forEach(apNome => {
+            if (!mapaGeralTec[apNome]) {
+                mapaGeralTec[apNome] = {
+                    nome: apNome, cMduAtiv: 0, cMduConst: 0, cMduVist: 0, eMduAtiv: 0, eMduConst: 0, mailAtiv: 0, mailConst: 0,
+                    concluidas: 0, malogros: 0, apoios: 0, totalAtendidas: 0, registros: []
+                };
+            }
+            const chAp = `${r.dataRegistro}_${obterCodigoBaseImovel(r.imovel)}_${apNome}`;
+            if (!setApoiosUnicosGeral.has(chAp)) {
+                setApoiosUnicosGeral.add(chAp);
+                mapaGeralTec[apNome].apoios++;
+                mapaGeralTec[apNome].registros.push(r);
+            }
+        });
+    });
+
+    const tbodyGeralAtend = document.getElementById('tbody-geral-atendidas-tecnico');
+    if (tbodyGeralAtend) {
+        tbodyGeralAtend.innerHTML = "";
+        let totConc = 0, totMal = 0, totAp = 0, totAtend = 0;
+
+        Object.values(mapaGeralTec)
+            .sort((a, b) => b.concluidas - a.concluidas || b.totalAtendidas - a.totalAtendidas || b.apoios - a.apoios)
+            .forEach((t, idx) => {
+                totConc += t.concluidas;
+                totMal += t.malogros;
+                totAp += t.apoios;
+                totAtend += t.totalAtendidas;
+                const chaveExp = registrarListaParaExplosao(`Atendidas por ${t.nome}`, t.registros);
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 cursor-pointer transition";
+                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExp}')`);
+                tr.innerHTML = `
+                    <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
+                    <td class="p-2.5 font-black text-slate-800 underline decoration-dotted">${t.nome}</td>
+                    <td class="p-2.5 text-center font-semibold bg-blue-50/40"><span class="text-emerald-700 font-bold">${t.cMduAtiv}</span> / <span class="text-blue-800 font-bold">${t.cMduConst}</span> / <span class="text-purple-800 font-bold">${t.cMduVist}</span></td>
+                    <td class="p-2.5 text-center font-semibold bg-indigo-50/40"><span class="text-emerald-700 font-bold">${t.eMduAtiv}</span> / <span class="text-indigo-800 font-bold">${t.eMduConst}</span></td>
+                    <td class="p-2.5 text-center font-semibold bg-purple-50/40"><span class="text-emerald-700 font-bold">${t.mailAtiv}</span> / <span class="text-purple-800 font-bold">${t.mailConst}</span></td>
+                    <td class="p-2.5 text-center font-black text-emerald-700 bg-emerald-50/80 text-sm">${t.concluidas}</td>
+                    <td class="p-2.5 text-center font-black text-red-700 bg-red-50/80 text-sm">${t.malogros}</td>
+                    <td class="p-2.5 text-center font-black text-fuchsia-800 bg-fuchsia-50/80">${t.apoios > 0 ? `🤝 ${t.apoios}` : '0'}</td>
+                    <td class="p-2.5 text-center font-black text-slate-900 bg-slate-100 text-sm">${t.totalAtendidas}</td>
+                `;
+                tbodyGeralAtend.appendChild(tr);
+            });
+
+        const chaveExpGeral = registrarListaParaExplosao(`Todas Atividades Atendidas na Seleção`, baseFiltradaSelecao);
+        tbodyGeralAtend.innerHTML += `
+            <tr onclick="dispararExplosaoPorChave('${chaveExpGeral}')" class="bg-slate-900 text-white font-black text-xs cursor-pointer hover:bg-slate-800">
+                <td colspan="5" class="p-2.5 text-right uppercase underline decoration-dotted">Total Geral na Seleção (Clique p/ Explosão):</td>
+                <td class="p-2.5 text-center text-emerald-300">${totConc}</td>
+                <td class="p-2.5 text-center text-red-300">${totMal}</td>
+                <td class="p-2.5 text-center text-fuchsia-300">🤝 ${totAp}</td>
+                <td class="p-2.5 text-center text-cyan-300">${totAtend}</td>
+            </tr>
+        `;
+    }
+
+    // 4. GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS
+    const datasUnicas = [...new Set(baseFiltradaSelecao.map(r => r.dataRegistro).filter(Boolean))].sort();
+    const ctxEvo = document.getElementById('canvasEvolucaoSegmentos')?.getContext('2d');
+    if (ctxEvo) {
+        if (chartEvolucaoSegmentosInst) chartEvolucaoSegmentosInst.destroy();
+        chartEvolucaoSegmentosInst = new Chart(ctxEvo, {
+            type: 'bar',
+            data: {
+                labels: datasUnicas.length > 0 ? datasUnicas.map(d => d.split('-').reverse().slice(0, 2).join('/')) : ['Sem dados'],
+                datasets: [
+                    {
+                        label: '🏗️ CONSTRUÇÃO MDU (Exec.)',
+                        data: datasUnicas.map(dt => concluidasFiltradasSelecao.filter(r => r.dataRegistro === dt && r._tax.segmento === 'CONSTRUÇÃO MDU').length),
+                        backgroundColor: '#1d4ed8',
+                        borderRadius: 4
+                    },
+                    {
+                        label: '🚀 EXPANSÃO MDU (Exec.)',
+                        data: datasUnicas.map(dt => concluidasFiltradasSelecao.filter(r => r.dataRegistro === dt && r._tax.segmento === 'EXPANSÃO MDU').length),
+                        backgroundColor: '#059669',
+                        borderRadius: 4
+                    },
+                    {
+                        label: '📬 MAILING (Exec.)',
+                        data: datasUnicas.map(dt => concluidasFiltradasSelecao.filter(r => r.dataRegistro === dt && r._tax.segmento === 'MAILING').length),
+                        backgroundColor: '#7c3aed',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                onClick: (e, el) => {
+                    if (el.length > 0 && datasUnicas[el[0].index]) {
+                        const dtAlvo = datasUnicas[el[0].index];
+                        abrirExplosaoPersonalizadaGraficos(`Evolução em ${dtAlvo}`, baseFiltradaSelecao.filter(r => r.dataRegistro === dtAlvo));
                     }
                 }
-            } catch (e) {}
-        }
-
-        const parceiro2 = document.getElementById('sel-adicionar-apoio-em-andamento')?.value?.trim().toUpperCase() || parceiroApoioPreSelecionadoSuporte || '';
-        if (parceiro2 && !validadosNuvem.includes(parceiro2)) validadosNuvem.push(parceiro2);
-
-        let gpsSaidaFinal = dadosAtendimento.gpsEntrada || "Não capturado";
-        try {
-            gpsSaidaFinal = await capturarGpsReal(4000);
-            const partes = gpsSaidaFinal.split(',').map(s => parseFloat(s.trim()));
-            const hojeISO = obterDataLocalISO();
-            if (partes.length === 2 && !isNaN(partes[0]) && telemetriaEquipes[equipeNome]?.data === hojeISO && telemetriaEquipes[equipeNome]?.statusTurno === 'DISPONIVEL') {
-                await registrarPontoTelemetriaEquipe(equipeNome, partes[0], partes[1], 'DISPONIVEL');
             }
-        } catch (e) {}
-
-        const responsavelGeral = document.getElementById('form-responsavel').value.trim();
-        const contatoGeral = document.getElementById('form-contato').value.trim();
-        const emailGeral = document.getElementById('form-email').value.trim();
-        const dataLocalCorreta = obterDataLocalISO();
-        const horaEntradaOriginal = document.getElementById('lbl-h-entrada').innerText || "08:30";
-        const horaSaidaAtual = new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-        const minutosPausaTotal = Number(dadosAtendimento.minutosPausados) || 0;
-        const membrosFinalSalvar = validadosNuvem.length > 0 ? formatarStringMembrosApoio(equipeNome, validadosNuvem, []) : equipeNome;
-
-        const listaRegistrosParaInserir = dadosAtendimento.blocos.map((b, idx) => {
-            let motivoDesfecho = "";
-            let opcoesMarcadas = [];
-
-            if (b.desfecho === 'CONCLUIDA') {
-                motivoDesfecho = b.obsConcluida.trim();
-                opcoesMarcadas = b.concluidasOpcoes || [];
-            } else if (b.desfecho === 'PENDENTE') {
-                motivoDesfecho = b.obsPendente.trim();
-                opcoesMarcadas = b.pendenciasOpcoes || [];
-            } else if (b.desfecho === 'MALOGRADA') {
-                motivoDesfecho = b.obsMalograda.trim();
-                opcoesMarcadas = b.malogros || [];
-            }
-
-            const codigoImovelFinal = qtdBlocos > 1
-                ? `${imovelBase} - ${(b.identificacao || 'BLOCO ' + (idx + 1)).toUpperCase().trim()}`
-                : imovelBase;
-
-            const tagLiberou = `[LIBEROU_ACESSO: ${liberouAcessoGeral}] `;
-            const tagPausa = (minutosPausaTotal > 0 && idx === 0) ? `[PAUSA_TOTAL: ${minutosPausaTotal}] ` : '';
-            const sufixoFotos = (b.fotos && b.fotos.length > 0) ? ` [FOTOS:${JSON.stringify(b.fotos)}]` : '';
-            const obsFinal = `[END: ${enderecoGeral}] ${tagLiberou}${tagPausa}${b.observacoes || ''}${sufixoFotos}`.trim();
-
-            return {
-                id: Date.now() + idx,
-                data_registro: dataLocalCorreta,
-                equipe: equipeNome,
-                membros: membrosFinalSalvar,
-                projeto: projetoNome,
-                imovel: codigoImovelFinal,
-                h_entrada: horaEntradaOriginal,
-                h_saida: horaSaidaAtual,
-                gps_entrada: dadosAtendimento.gpsEntrada || gpsSaidaFinal,
-                gps_saida: gpsSaidaFinal,
-                desfecho: b.desfecho,
-                motivo_desfecho: motivoDesfecho,
-                malogros: opcoesMarcadas,
-                responsavel: responsavelGeral,
-                contato: contatoGeral,
-                email: emailGeral,
-                agendamento: null,
-                andares: Number(b.andares) || 0,
-                hps: Number(b.hps) || 0,
-                servico_obra: b.servicoObra || "SIM",
-                observacoes: obsFinal,
-                fusoes: Number(b.fusoes) || 0,
-                conectores: Number(b.conectores) || 0,
-                cabo_rl: Number(b.caboRL) || 0,
-                cabo_drop: Number(b.caboDrop) || 0,
-                nap: Number(b.nap) || 0,
-                dio: Number(b.dio) || 0,
-                cx_sobrepor: Number(b.cxSobrepor) || 0,
-                cx_embutida: Number(b.cxEmbutida) || 0,
-                cx_fosc: Number(b.cxFosc) || 0
-            };
         });
-
-        const primeiroReg = listaRegistrosParaInserir[0];
-        const todasFotos = dadosAtendimento.blocos.flatMap(b => b.fotos || []);
-
-        const blocosParaWhats = dadosAtendimento.blocos.map((b, idx) => ({
-            identificacao: b.identificacao || `BLOCO ${idx + 1}`,
-            andares: Number(b.andares) || 0,
-            hps: Number(b.hps) || 0,
-            desfecho: b.desfecho,
-            fusoes: Number(b.fusoes) || 0,
-            conectores: Number(b.conectores) || 0,
-            caboRL: Number(b.caboRL) || 0,
-            caboDrop: Number(b.caboDrop) || 0,
-            nap: Number(b.nap) || 0,
-            dio: Number(b.dio) || 0,
-            cxSobrepor: Number(b.cxSobrepor) || 0,
-            cxEmbutida: Number(b.cxEmbutida) || 0,
-            cxFosc: Number(b.cxFosc) || 0,
-            opcoesMarcadas: b.desfecho === 'CONCLUIDA' ? b.concluidasOpcoes : (b.desfecho === 'PENDENTE' ? b.pendenciasOpcoes : b.malogros),
-            motivoDesfecho: b.desfecho === 'CONCLUIDA' ? b.obsConcluida : (b.desfecho === 'PENDENTE' ? b.obsPendente : b.obsMalograda),
-            observacoes: (b.observacoes || '').trim(),
-            fotos: b.fotos || []
-        }));
-
-        let resumoMontado = montarTextoResumoItem({
-            dataRegistro: dataLocalCorreta,
-            equipe: equipeNome,
-            imovel: qtdBlocos > 1 ? `${imovelBase} (${qtdBlocos} Blocos)` : imovelBase,
-            endereco: enderecoGeral,
-            liberouAcesso: liberouAcessoGeral,
-            tempoPausadoMinutos: minutosPausaTotal,
-            projeto: projetoNome,
-            andares: listaRegistrosParaInserir.reduce((acc, r) => acc + r.andares, 0),
-            hps: listaRegistrosParaInserir.reduce((acc, r) => acc + r.hps, 0),
-            desfecho: listaRegistrosParaInserir.map(r => r.desfecho).join(' / '),
-            hEntrada: horaEntradaOriginal,
-            hSaida: horaSaidaAtual,
-            gpsEntrada: primeiroReg.gps_entrada,
-            caboRL: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cabo_rl, 0),
-            caboDrop: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cabo_drop, 0),
-            conectores: listaRegistrosParaInserir.reduce((acc, r) => acc + r.conectores, 0),
-            fusoes: listaRegistrosParaInserir.reduce((acc, r) => acc + r.fusoes, 0),
-            nap: listaRegistrosParaInserir.reduce((acc, r) => acc + r.nap, 0),
-            dio: listaRegistrosParaInserir.reduce((acc, r) => acc + r.dio, 0),
-            cxSobrepor: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cx_sobrepor, 0),
-            cxEmbutida: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cx_embutida, 0),
-            cxFosc: listaRegistrosParaInserir.reduce((acc, r) => acc + r.cx_fosc, 0),
-            malogros: primeiroReg.malogros,
-            motivoDesfecho: primeiroReg.motivo_desfecho,
-            observacoes: (dadosAtendimento.blocos[0]?.observacoes || '').trim(),
-            fotos: todasFotos,
-            blocosDetalhados: blocosParaWhats
-        });
-
-        if (validadosNuvem.length > 0) {
-            resumoMontado = resumoMontado.replace(
-                `👷 *Equipe:* ${equipeNome}`,
-                `👷 *Equipe Titular:* ${equipeNome}\n🤝 *Apoio Validado:* ${validadosNuvem.join(', ')}`
-            );
-        }
-
-        try {
-            if (!navigator.onLine) {
-                throw new Error("Sem conexão 4G no momento");
-            }
-
-            // LIMPEZA TRIPLA ANTI-FANTASMA: Remove qualquer linha EM ANDAMENTO/PARALISADA/REABERTA deste imóvel e equipe hoje (mesmo que o ID tenha mudado)
-            if (dadosAtendimento.idEmAndamento) {
-                await supabaseClient.from('registros_producao').delete().eq('id', dadosAtendimento.idEmAndamento);
-            }
-            await supabaseClient
-                .from('registros_producao')
-                .delete()
-                .eq('data_registro', dataLocalCorreta)
-                .eq('equipe', equipeNome)
-                .eq('imovel', imovelBase)
-                .in('desfecho', ['EM ANDAMENTO', 'PARALISADA', 'REABERTA']);
-
-            const { error } = await supabaseClient.from('registros_producao').insert(listaRegistrosParaInserir);
-            if (error) throw error;
-
-            dadosAtendimento.projetoTravadoAbertura = null;
-            dadosAtendimento.imovelTravadoAbertura = null;
-            ultimoResumoCampoTexto = resumoMontado;
-            document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
-
-            alert(`✅ Atendimento finalizado com sucesso!\nProjeto: ${projetoNome}\nImóvel: ${imovelBase}`);
-            resetarFormularioCampo();
-            await carregarRegistrosModoCampoLeve();
-            verificarPendenciasReabertasEProgramadasCampo(false);
-            atualizarAbaMinhasAtividadesCampo(false);
-            await verificarSolicitacoesApoioParaTitularCampo();
-        } catch (errOffline) {
-            dadosAtendimento.projetoTravadoAbertura = null;
-            dadosAtendimento.imovelTravadoAbertura = null;
-            salvarNaFilaOfflineCampo(listaRegistrosParaInserir, resumoMontado);
-            ultimoResumoCampoTexto = resumoMontado;
-            document.getElementById('box-ultimo-resumo-whats').classList.remove('hidden');
-
-            resetarFormularioCampo();
-            alert(`📡 SINAL 4G INDISPONÍVEL NO LOCAL!\n\nSeu atendimento (${imovelBase}) e todas as fotos foram GUARDADOS COM SEGURANÇA na Fila Offline do aparelho.`);
-        }
-    } finally {
-        salvamentoFinalEmCurso = false;
-        if (btnSalvar) {
-            btnSalvar.disabled = false;
-            btnSalvar.innerText = "💾 Finalizar e Salvar Atendimento";
-        }
-    }
-};
-// ================= CARGA SEGURA E ULTRA-RÁPIDA DE ATIVIDADES (COM FALLBACK AUTOMÁTICO DE COLUNAS) =================
-
-async function buscarRegistrosSeguroNoSupabase() {
-    if (typeof supabaseClient === 'undefined') return [];
-
-    // 1ª Tentativa: Usa a função nativa original do sistema se ela existir e já estiver mapeada
-    if (typeof carregarRegistrosDaNuvem === 'function') {
-        try {
-            await carregarRegistrosDaNuvem(true);
-            if (Array.isArray(registrosSalvos) && registrosSalvos.length > 0) {
-                return registrosSalvos;
-            }
-        } catch (e) {
-            console.warn("Aviso em carregarRegistrosDaNuvem padrão:", e);
-        }
     }
 
-    // 2ª Tentativa: Busca direta com todas as colunas padrão da tabela registros_producao (usando '*')
-    try {
-        const { data, error } = await supabaseClient
-            .from('registros_producao')
-            .select('*')
-            .neq('equipe', '__CONFIG_SISTEMA__')
-            .neq('projeto', '__CONFIG_AUDITORIA__')
-            .order('id', { ascending: false })
-            .limit(1500);
+    // 5 e 6. PICOS DE HORÁRIOS + PLANILHA DE FAIXAS HORÁRIAS
+    const aberturasPorHora = new Array(24).fill(0);
+    const fechamentosPorHora = new Array(24).fill(0);
+    const registrosPorHora = Array.from({ length: 24 }, () => []);
 
-        if (!error && Array.isArray(data) && data.length > 0) {
-            const convertidos = data.map(row => {
-                if (typeof converterLinhaBancoParaObjetoGpd === 'function') {
-                    return converterLinhaBancoParaObjetoGpd(row);
+    let tecMaisCedo = { nome: '-', hora: '--:--', min: 9999, imovel: '', reg: null };
+    let tecMaisTarde = { nome: '-', hora: '--:--', min: -1, imovel: '', reg: null };
+    let tecMaisTempo = { nome: '-', duracaoTxt: '--h --m', durMin: -1, imovel: '', reg: null };
+
+    baseFiltradaSelecao.forEach(r => {
+        const minIn = converterHorarioParaMinutos(r.hEntrada);
+        const minOut = converterHorarioParaMinutos(r.hSaida);
+        const pausa = Number(r.tempoPausadoMinutos) || 0;
+
+        if (minIn !== null) {
+            const hIn = Math.floor(minIn / 60);
+            if (hIn >= 0 && hIn < 24) {
+                aberturasPorHora[hIn]++;
+                registrosPorHora[hIn].push(r);
+            }
+            if (minIn < tecMaisCedo.min) {
+                tecMaisCedo = { nome: r.equipe, hora: r.hEntrada, min: minIn, imovel: r.imovel, reg: r };
+            }
+        }
+        if (minOut !== null) {
+            const hOut = Math.floor(minOut / 60);
+            if (hOut >= 0 && hOut < 24) {
+                fechamentosPorHora[hOut]++;
+                if (!registrosPorHora[hOut].includes(r)) registrosPorHora[hOut].push(r);
+            }
+            if (minOut > tecMaisTarde.min) {
+                tecMaisTarde = { nome: r.equipe, hora: r.hSaida, min: minOut, imovel: r.imovel, reg: r };
+            }
+        }
+        if (minIn !== null && minOut !== null && minOut >= minIn) {
+            const durLiq = Math.max(0, (minOut - minIn) - pausa);
+            if (durLiq > 0 && durLiq <= 840 && durLiq > tecMaisTempo.durMin) {
+                tecMaisTempo = { nome: r.equipe, duracaoTxt: formatarDuracaoTexto(durLiq), durMin: durLiq, imovel: r.imovel, reg: r };
+            }
+        }
+    });
+
+    const boxExtremos = document.getElementById('cards-extremos-horarios-tecnicos');
+    if (boxExtremos) {
+        boxExtremos.innerHTML = `
+            <div onclick="${tecMaisCedo.reg ? `abrirDetalhesAtividade(registrosSalvos.find(x => x.id === ${tecMaisCedo.reg.id}))` : ''}" class="bg-blue-50 border border-blue-200 p-2.5 rounded-xl cursor-pointer hover:border-blue-500 transition">
+                <span class="text-[9px] font-black text-blue-800 uppercase block">🌅 Abriu Mais Cedo</span>
+                <div class="font-black text-blue-950 text-xs truncate mt-0.5">${tecMaisCedo.nome}</div>
+                <div class="text-[11px] font-mono font-bold text-emerald-700">Às ${tecMaisCedo.hora} ${tecMaisCedo.imovel ? `(${tecMaisCedo.imovel})` : ''}</div>
+            </div>
+            <div onclick="${tecMaisTarde.reg ? `abrirDetalhesAtividade(registrosSalvos.find(x => x.id === ${tecMaisTarde.reg.id}))` : ''}" class="bg-indigo-50 border border-indigo-200 p-2.5 rounded-xl cursor-pointer hover:border-indigo-500 transition">
+                <span class="text-[9px] font-black text-indigo-800 uppercase block">🌙 Fechou Mais Tarde</span>
+                <div class="font-black text-indigo-950 text-xs truncate mt-0.5">${tecMaisTarde.nome}</div>
+                <div class="text-[11px] font-mono font-bold text-indigo-700">Às ${tecMaisTarde.hora} ${tecMaisTarde.imovel ? `(${tecMaisTarde.imovel})` : ''}</div>
+            </div>
+            <div onclick="${tecMaisTempo.reg ? `abrirDetalhesAtividade(registrosSalvos.find(x => x.id === ${tecMaisTempo.reg.id}))` : ''}" class="bg-amber-50 border border-amber-200 p-2.5 rounded-xl cursor-pointer hover:border-amber-500 transition">
+                <span class="text-[9px] font-black text-amber-900 uppercase block">⏱️ Maior Tempo na Atividade</span>
+                <div class="font-black text-amber-950 text-xs truncate mt-0.5">${tecMaisTempo.nome}</div>
+                <div class="text-[11px] font-mono font-bold text-amber-800">${tecMaisTempo.duracaoTxt} ${tecMaisTempo.imovel ? `(${tecMaisTempo.imovel})` : ''}</div>
+            </div>
+        `;
+    }
+
+    const ctxHorasNovo = document.getElementById('canvasHorariosPicoOficial')?.getContext('2d');
+    if (ctxHorasNovo) {
+        if (chartHorariosPicoNovoInst) chartHorariosPicoNovoInst.destroy();
+        const labelsH = [], sliceIn = [], sliceOut = [];
+        for (let h = 6; h <= 21; h++) {
+            labelsH.push(`${String(h).padStart(2, '0')}h`);
+            sliceIn.push(aberturasPorHora[h]);
+            sliceOut.push(fechamentosPorHora[h]);
+        }
+        chartHorariosPicoNovoInst = new Chart(ctxHorasNovo, {
+            type: 'line',
+            data: {
+                labels: labelsH,
+                datasets: [
+                    { label: '🟢 Atividades Abertas', data: sliceIn, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.15)', fill: true, tension: 0.35 },
+                    { label: '🔴 Atividades Fechadas', data: sliceOut, borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.15)', fill: true, tension: 0.35 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                onClick: (e, el) => {
+                    if (el.length > 0) {
+                        const hClicada = el[0].index + 6;
+                        abrirExplosaoPersonalizadaGraficos(`Faixa Horária ${String(hClicada).padStart(2, '0')}:00 às ${String(hClicada).padStart(2, '0')}:59`, registrosPorHora[hClicada]);
+                    }
                 }
-                return converterLinhaLeveParaObjetoGpd(row);
-            });
-            registrosSalvos = convertidos;
-            return convertidos;
-        }
-    } catch (err) {
-        console.error("Erro na busca direta:", err);
+            }
+        });
     }
 
-    return registrosSalvos || [];
+    const tbodyHorarios = document.getElementById('tbody-horarios-pico-planilha');
+    if (tbodyHorarios) {
+        tbodyHorarios.innerHTML = "";
+        const faixasOrdenadas = [];
+        for (let h = 6; h <= 21; h++) {
+            const ab = aberturasPorHora[h];
+            const fe = fechamentosPorHora[h];
+            if (ab > 0 || fe > 0) {
+                faixasOrdenadas.push({ hora: h, label: `${String(h).padStart(2, '0')}:00 às ${String(h).padStart(2, '0')}:59`, abertas: ab, fechadas: fe, total: ab + fe });
+            }
+        }
+        faixasOrdenadas.sort((a, b) => b.total - a.total || b.abertas - a.abertas);
+
+        if (faixasOrdenadas.length === 0) {
+            tbodyHorarios.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Sem registros de horário na seleção atual.</td></tr>`;
+        } else {
+            faixasOrdenadas.forEach(f => {
+                const chaveExpH = registrarListaParaExplosao(`Movimentações das ${f.label}`, registrosPorHora[f.hora]);
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-blue-50/50 cursor-pointer";
+                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExpH}')`);
+                tr.innerHTML = `
+                    <td class="p-2.5 font-mono font-black text-slate-800 underline decoration-dotted">🕒 ${f.label}</td>
+                    <td class="p-2.5 text-center font-black text-blue-800 bg-blue-50/60">${f.abertas}</td>
+                    <td class="p-2.5 text-center font-black text-emerald-800 bg-emerald-50/60">${f.fechadas}</td>
+                    <td class="p-2.5 text-center font-black text-slate-900 bg-slate-100">${f.total}</td>
+                `;
+                tbodyHorarios.appendChild(tr);
+            });
+        }
+    }
+
+    // 7 e 8. RANKING DE OFENSORES + COMPARATIVO CONSTRUÇÃO MDU x EXPANSÃO MDU
+    const mapaOfensores = {};
+    let totalOcorrenciasGeral = 0;
+    let totalOcorrenciasConstMDU = 0;
+    let totalOcorrenciasExpMDU = 0;
+    const regsMalogroConstMDU = [];
+    const regsMalogroExpMDU = [];
+
+    baseFiltradaSelecao.forEach(r => {
+        if (r.desfecho !== 'CONCLUIDA') {
+            const listaMotivos = (Array.isArray(r.malogros) && r.malogros.length > 0)
+                ? r.malogros
+                : [r.motivoDesfecho || 'SEM OFENSOR ESPECIFICADO'];
+
+            listaMotivos.forEach(m => {
+                const ch = String(m || 'OUTROS').trim().toUpperCase();
+                if (!mapaOfensores[ch]) {
+                    mapaOfensores[ch] = { ofensor: ch, total: 0, constMdu: 0, expMdu: 0, registros: [] };
+                }
+                mapaOfensores[ch].total++;
+                mapaOfensores[ch].registros.push(r);
+                totalOcorrenciasGeral++;
+
+                if (r._tax.segmento === 'CONSTRUÇÃO MDU') {
+                    mapaOfensores[ch].constMdu++;
+                    totalOcorrenciasConstMDU++;
+                    regsMalogroConstMDU.push(r);
+                } else if (r._tax.segmento === 'EXPANSÃO MDU') {
+                    mapaOfensores[ch].expMdu++;
+                    totalOcorrenciasExpMDU++;
+                    regsMalogroExpMDU.push(r);
+                }
+            });
+        }
+    });
+
+    const listaOfensoresOrd = Object.values(mapaOfensores).sort((a, b) => b.total - a.total);
+
+    const ctxOf = document.getElementById('canvasOfensoresRanking')?.getContext('2d');
+    if (ctxOf) {
+        if (chartOfensoresRankingInst) chartOfensoresRankingInst.destroy();
+        const topOf = listaOfensoresOrd.slice(0, 8);
+        chartOfensoresRankingInst = new Chart(ctxOf, {
+            type: 'bar',
+            data: {
+                labels: topOf.length > 0 ? topOf.map(o => o.ofensor) : ['Sem malogros'],
+                datasets: [{
+                    label: 'Nº de Ocorrências',
+                    data: topOf.map(o => o.total),
+                    backgroundColor: '#dc2626',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                onClick: (e, el) => {
+                    if (el.length > 0 && topOf[el[0].index]) {
+                        const alvo = topOf[el[0].index];
+                        abrirExplosaoPersonalizadaGraficos(`Ofensor: ${alvo.ofensor}`, alvo.registros);
+                    }
+                }
+            }
+        });
+    }
+
+    const tbodyOfGeral = document.getElementById('tbody-ranking-ofensores-geral');
+    if (tbodyOfGeral) {
+        tbodyOfGeral.innerHTML = "";
+        if (listaOfensoresOrd.length === 0) {
+            tbodyOfGeral.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado na seleção atual.</td></tr>`;
+        } else {
+            listaOfensoresOrd.forEach((o, idx) => {
+                const perc = totalOcorrenciasGeral > 0 ? ((o.total / totalOcorrenciasGeral) * 100).toFixed(1) : '0.0';
+                const chaveExpOf = registrarListaParaExplosao(`Ofensor: ${o.ofensor}`, o.registros);
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-red-50/60 cursor-pointer";
+                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExpOf}')`);
+                tr.innerHTML = `
+                    <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
+                    <td class="p-2.5 font-black text-red-950 underline decoration-dotted">${o.ofensor}</td>
+                    <td class="p-2.5 text-center font-black text-slate-900 bg-red-50/60">${o.total}</td>
+                    <td class="p-2.5 text-right font-black text-red-700">${perc}%</td>
+                `;
+                tbodyOfGeral.appendChild(tr);
+            });
+        }
+    }
+
+    const boxResumoSegOf = document.getElementById('resumo-topo-ofensores-segmentos');
+    const somaConstMaisExp = totalOcorrenciasConstMDU + totalOcorrenciasExpMDU;
+
+    if (boxResumoSegOf) {
+        const pConstMdu = somaConstMaisExp > 0 ? ((totalOcorrenciasConstMDU / somaConstMaisExp) * 100).toFixed(1) : '0.0';
+        const pExpMdu = somaConstMaisExp > 0 ? ((totalOcorrenciasExpMDU / somaConstMaisExp) * 100).toFixed(1) : '0.0';
+        const chConst = registrarListaParaExplosao(`Malogros CONSTRUÇÃO MDU`, regsMalogroConstMDU);
+        const chExp = registrarListaParaExplosao(`Malogros EXPANSÃO MDU`, regsMalogroExpMDU);
+
+        boxResumoSegOf.innerHTML = `
+            <div onclick="dispararExplosaoPorChave('${chConst}')" class="bg-white p-2.5 rounded-xl border border-blue-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition">
+                <div>
+                    <span class="text-[10px] font-black text-blue-900 uppercase block underline decoration-dotted">🏗️ CONSTRUÇÃO MDU</span>
+                    <span class="text-[10px] text-slate-500">Volume de Malogros</span>
+                </div>
+                <div class="text-right">
+                    <span class="font-black text-blue-950 text-sm">${totalOcorrenciasConstMDU} ocorr.</span>
+                    <span class="block text-[10px] font-bold text-blue-700">${pConstMdu}% (Const x Exp)</span>
+                </div>
+            </div>
+            <div onclick="dispararExplosaoPorChave('${chExp}')" class="bg-white p-2.5 rounded-xl border border-indigo-200 flex justify-between items-center cursor-pointer hover:border-indigo-500 transition">
+                <div>
+                    <span class="text-[10px] font-black text-indigo-900 uppercase block underline decoration-dotted">🚀 EXPANSÃO MDU</span>
+                    <span class="text-[10px] text-slate-500">Volume de Malogros</span>
+                </div>
+                <div class="text-right">
+                    <span class="font-black text-indigo-950 text-sm">${totalOcorrenciasExpMDU} ocorr.</span>
+                    <span class="block text-[10px] font-bold text-indigo-700">${pExpMdu}% (Const x Exp)</span>
+                </div>
+            </div>
+        `;
+    }
+
+    const tbodyOfSeg = document.getElementById('tbody-ofensores-segmentos-mdu');
+    if (tbodyOfSeg) {
+        tbodyOfSeg.innerHTML = "";
+        const ofensoresConstExp = listaOfensoresOrd.filter(o => (o.constMdu + o.expMdu) > 0);
+
+        if (ofensoresConstExp.length === 0) {
+            tbodyOfSeg.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado em Construção MDU ou Expansão MDU na seleção.</td></tr>`;
+        } else {
+            ofensoresConstExp.forEach(o => {
+                const somaLinha = o.constMdu + o.expMdu;
+                const percConst = totalOcorrenciasConstMDU > 0 ? ((o.constMdu / totalOcorrenciasConstMDU) * 100).toFixed(1) : '0.0';
+                const percExp = totalOcorrenciasExpMDU > 0 ? ((o.expMdu / totalOcorrenciasExpMDU) * 100).toFixed(1) : '0.0';
+                const percSoma = somaConstMaisExp > 0 ? ((somaLinha / somaConstMaisExp) * 100).toFixed(1) : '0.0';
+                const chaveExpLinha = registrarListaParaExplosao(`Ofensor (Const x Exp): ${o.ofensor}`, o.registros.filter(r => r._tax.segmento === 'CONSTRUÇÃO MDU' || r._tax.segmento === 'EXPANSÃO MDU'));
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-amber-50/60 cursor-pointer";
+                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExpLinha}')`);
+                tr.innerHTML = `
+                    <td class="p-2.5 font-bold text-slate-800 underline decoration-dotted">${o.ofensor}</td>
+                    <td class="p-2.5 text-center bg-blue-50/40"><b class="text-blue-950">${o.constMdu}</b> <span class="text-[10px] text-blue-700 font-semibold">(${percConst}%)</span></td>
+                    <td class="p-2.5 text-center bg-indigo-50/40"><b class="text-indigo-950">${o.expMdu}</b> <span class="text-[10px] text-indigo-700 font-semibold">(${percExp}%)</span></td>
+                    <td class="p-2.5 text-center bg-slate-100"><b class="text-slate-950">${somaLinha}</b> <span class="text-[10px] text-slate-600 font-bold">(${percSoma}%)</span></td>
+                `;
+                tbodyOfSeg.appendChild(tr);
+            });
+        }
+    }
 }
 
-// Desativa qualquer exclusão automática para garantir que NENHUM registro suma da tela
-sanearDuplicidadesEOrfaosPainelGestor = async function() {
-    return;
+// --- EXPORTAÇÃO EXCEL OFICIAL ---
+function exportarPlanilhaDinamicaOficialExcel() {
+    const baseBruta = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
+        r &&
+        r.equipe !== '__CONFIG_SISTEMA__' &&
+        r.projeto !== '__CONFIG_AUDITORIA__' &&
+        r.projeto !== 'IMPREVISTO / ATRASO' &&
+        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+        r.projeto !== PROJETO_SOLIC_MATERIAL &&
+        !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(r.desfecho) &&
+        (typeof registroPertenceAoUsuarioLogado === 'function' ? registroPertenceAoUsuarioLogado(r) : true)
+    ).map(r => ({
+        ...r,
+        _tax: classificarRegistroNovaTaxonomia(r),
+        _semana: obterNumeroSemanaFormatado(r.dataRegistro)
+    })).filter(registroPassaNosFiltrosGlobaisGraficos);
+
+    if (baseBruta.length === 0) {
+        alert("⚠️ Nenhum registro finalizado na seleção atual para exportar.");
+        return;
+    }
+
+    let html = `<table border="1">
+        <tr style="background-color:#0f172a;color:#ffffff;font-weight:bold;font-size:13px;">
+            <th colspan="10">RELATÓRIO OFICIAL DE INDICADORES GPD — SEGMENTOS & PRODUTIVIDADE (${obterDataLocalISO()})</th>
+        </tr>
+        <tr style="background-color:#cbd5e1;font-weight:bold;">
+            <th>SEMANA</th><th>DATA</th><th>TÉCNICO / EQUIPE</th><th>APOIO CONJUNTO</th><th>SEGMENTO</th><th>CATEGORIA</th><th>IMÓVEL / BLOCO</th><th>ENDEREÇO</th><th>HPs</th><th>RESULTADO</th>
+        </tr>`;
+
+    baseBruta.forEach(r => {
+        const ap = extrairApoiosDoRegistro(r).join(', ') || '-';
+        html += `<tr>
+            <td>${r._semana}</td>
+            <td>${r.dataRegistro}</td>
+            <td><b>${r.equipe}</b></td>
+            <td>${ap}</td>
+            <td><b>${r._tax.segmento}</b></td>
+            <td><b>${r._tax.categoria}</b></td>
+            <td>${r.imovel}</td>
+            <td>${r.endereco || '-'}</td>
+            <td>${r.hps || 0}</td>
+            <td><b>${r.desfecho}</b></td>
+        </tr>`;
+    });
+
+    html += `</table>`;
+    const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `INDICADORES_GPD_SEGMENTOS_${obterDataLocalISO()}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+exportarExcel = exportarPlanilhaDinamicaOficialExcel;
+
+copiarBoletimGestorWhatsApp = function() {
+    const lista = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
+        r && r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL && r.equipe !== "__CONFIG_SISTEMA__" && r.projeto !== "__CONFIG_AUDITORIA__" && registroPertenceAoUsuarioLogado(r)
+    );
+
+    if (lista.length === 0) {
+        alert("⚠️ Nenhum registro encontrado no filtro atual para gerar o Boletim.");
+        return;
+    }
+
+    const dIni = document.getElementById('gestor-filtro-data-inicio')?.value;
+    const dFim = document.getElementById('gestor-filtro-data-fim')?.value;
+    const periodoStr = (dIni || dFim) ? `${dIni || 'Início'} a ${dFim || 'Hoje'}` : 'Todo o Histórico';
+
+    const andamento = lista.filter(i => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(i.desfecho)).length;
+    const finalizadas = lista.filter(i => !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(i.desfecho));
+    const concluidas = finalizadas.filter(i => i.desfecho === 'CONCLUIDA').length;
+    const pendentes = finalizadas.filter(i => i.desfecho === 'PENDENTE').length;
+    const malogradas = finalizadas.filter(i => i.desfecho === 'MALOGRADA').length;
+
+    const texto = [
+        `📊 *BOLETIM GPD - MDU PROCISA RJ*`,
+        `📅 *Período:* ${periodoStr}`,
+        `──────────────────────`,
+        `🔵 *Ativas / Em Execução Agora:* ${andamento}`,
+        `📈 *Total Finalizadas:* ${finalizadas.length}`,
+        `🟢 *Concluídas:* ${concluidas}`,
+        `🟡 *Pendentes:* ${pendentes}`,
+        `🔴 *Malogradas:* ${malogradas}`
+    ].join('\n');
+
+    copiarTextoAreaTransferencia(texto, "✅ Boletim Executivo copiado para o WhatsApp!");
 };
 
-// Substitui garantirCargaNuvemGestor por uma versão direta que nunca trava nem deixa a lista vazia
-garantirCargaNuvemGestor = async function(forcarRecarga = false) {
-    if (modoConsultaBackupAtivo) return;
-
-    if (forcarRecarga || !Array.isArray(registrosSalvos) || registrosSalvos.length === 0 || !cargaInicialGestorConcluida) {
-        if (sincronizandoRegistrosMobileEmCurso) return;
-        sincronizandoRegistrosMobileEmCurso = true;
-        try {
-            await buscarRegistrosSeguroNoSupabase();
-            historicoCompletoGestorJaBaixado = true;
-            cargaInicialGestorConcluida = true;
-        } finally {
-            sincronizandoRegistrosMobileEmCurso = false;
-        }
-    }
-};
-
-// Força o carregamento imediato assim que o script abrir e limpa filtros de data que possam estar ocultando atividades
-setTimeout(async () => {
-    try {
-        await garantirCargaNuvemGestor(true);
-        await atualizarDashboardGestor(false);
-
-        // Se o filtro de data de hoje estiver ocultando atividades de outros dias, avisa ou carrega na tabela
-        const corpoAtiv = document.getElementById('tabela-gestor-corpo');
-        if (dadosFiltradosAtuais && dadosFiltradosAtuais.length === 0 && Array.isArray(registrosSalvos) && registrosSalvos.length > 0) {
-            const inpIni = document.getElementById('gestor-filtro-data-inicio');
-            const inpFim = document.getElementById('gestor-filtro-data-fim');
-            if (inpIni) inpIni.value = '';
-            if (inpFim) inpFim.value = '';
-            await atualizarDashboardGestor(false);
-        }
-    } catch (e) {
-        console.warn("Erro ao restaurar visualização das atividades:", e);
-    }
-}, 300);
+setTimeout(() => {
+    otimizarCabecalhoAzulLinhaUnica();
+    inicializarMelhoriasVisuaisGestor();
+    construirLayoutExclusivoAbaGraficos();
+    renderizarAbaGraficosCompletaOficial();
+}, 400);
