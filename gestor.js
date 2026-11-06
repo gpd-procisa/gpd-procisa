@@ -4329,3 +4329,200 @@ setTimeout(() => {
     construirLayoutExclusivoAbaGraficos();
     renderizarAbaGraficosCompletaOficial();
 }, 400);
+// ================= PATCH DE ESTABILIDADE E VELOCIDADE EM PRODUÇÃO (GESTOR.JS) =================
+(function() {
+    let limpezaDuplicadosEmAndamento = false;
+
+    // 1. Impede que a aba Gráficos & Indicadores apareça no final da aba Atividades
+    function blindarVisibilidadeSubAbasGestor() {
+        const subGraficos = document.getElementById('subview-graficos');
+        const btnGraficos = document.getElementById('subtab-btn-graficos');
+        if (!subGraficos || !btnGraficos) return;
+
+        const abaGraficosEstaAtiva = btnGraficos.classList.contains('bg-blue-900');
+        if (!abaGraficosEstaAtiva) {
+            subGraficos.classList.add('hidden');
+            subGraficos.style.setProperty('display', 'none', 'important');
+        } else {
+            subGraficos.classList.remove('hidden');
+            subGraficos.style.removeProperty('display');
+        }
+    }
+
+    // 2. Remove duplicidades (quando a mesma atividade aparece FECHADA e também ABERTA no mesmo horário/dia, ou clique duplo)
+    async function removerDuplicidadesEAtividadesFantasmas() {
+        if (limpezaDuplicadosEmAndamento || typeof modoConsultaBackupAtivo !== 'undefined' && modoConsultaBackupAtivo) return;
+        if (!Array.isArray(registrosSalvos) || registrosSalvos.length === 0) return;
+
+        limpezaDuplicadosEmAndamento = true;
+        try {
+            const chavesFinalizadasHoje = new Set();
+            const mapaFinalizadosExatos = new Map();
+            const mapaAbertosPorImovel = new Map();
+            const idsFantasmasParaApagar = new Set();
+
+            const obterBaseCod = (str) => {
+                let c = String(str || '').toUpperCase().trim();
+                const i = c.lastIndexOf(' - BLOCO');
+                return i !== -1 ? c.substring(0, i).trim() : c;
+            };
+
+            // Passagem A: Identifica todas as atividades já Concluídas, Pendentes ou Malogradas
+            registrosSalvos.forEach(r => {
+                if (!r || r.equipe === '__CONFIG_SISTEMA__' || r.projeto === '__CONFIG_AUDITORIA__') return;
+                if (['CONCLUIDA', 'PENDENTE', 'MALOGRADA'].includes(r.desfecho)) {
+                    const dt = String(r.dataRegistro || '').trim();
+                    const eq = String(r.equipe || '').toUpperCase().trim();
+                    const codBase = obterBaseCod(r.imovel);
+                    const imovelFull = String(r.imovel || '').toUpperCase().trim();
+                    const hIn = String(r.hEntrada || '').trim();
+
+                    chavesFinalizadasHoje.add(`${dt}|${eq}|${codBase}|${hIn}`);
+                    chavesFinalizadasHoje.add(`${dt}|${eq}|${codBase}`);
+
+                    // Detecta duplicidade exata gerada por erro de clique duplo no mesmo horário
+                    const chaveDuploClique = `${dt}|${eq}|${imovelFull}|${r.projeto}|${r.desfecho}|${hIn}`;
+                    if (mapaFinalizadosExatos.has(chaveDuploClique)) {
+                        const ant = mapaFinalizadosExatos.get(chaveDuploClique);
+                        if ((r.id || 0) > (ant.id || 0)) {
+                            idsFantasmasParaApagar.add(ant.id);
+                            mapaFinalizadosExatos.set(chaveDuploClique, r);
+                        } else {
+                            idsFantasmasParaApagar.add(r.id);
+                        }
+                    } else {
+                        mapaFinalizadosExatos.set(chaveDuploClique, r);
+                    }
+                }
+            });
+
+            // Passagem B: Identifica atividades "EM ANDAMENTO" / "PARALISADA" que já foram fechadas ou que estão duplicadas no mesmo horário
+            registrosSalvos.forEach(r => {
+                if (!r || idsFantasmasParaApagar.has(r.id)) return;
+                if (['EM ANDAMENTO', 'PARALISADA'].includes(r.desfecho)) {
+                    const dt = String(r.dataRegistro || '').trim();
+                    const eq = String(r.equipe || '').toUpperCase().trim();
+                    const codBase = obterBaseCod(r.imovel);
+                    const hIn = String(r.hEntrada || '').trim();
+
+                    // Se a mesma atividade (mesma data, equipe, imóvel e hora de entrada) já consta FECHADA, remove a aberta fantasma
+                    if (chavesFinalizadasHoje.has(`${dt}|${eq}|${codBase}|${hIn}`) || chavesFinalizadasHoje.has(`${dt}|${eq}|${codBase}`)) {
+                        idsFantasmasParaApagar.add(r.id);
+                        return;
+                    }
+
+                    // Se o técnico clicou 2 vezes em Iniciar Atividade e gerou 2 abertas iguais
+                    const chaveAberta = `${dt}|${eq}|${codBase}`;
+                    if (mapaAbertosPorImovel.has(chaveAberta)) {
+                        const ant = mapaAbertosPorImovel.get(chaveAberta);
+                        if ((r.id || 0) > (ant.id || 0)) {
+                            idsFantasmasParaApagar.add(ant.id);
+                            mapaAbertosPorImovel.set(chaveAberta, r);
+                        } else {
+                            idsFantasmasParaApagar.add(r.id);
+                        }
+                    } else {
+                        mapaAbertosPorImovel.set(chaveAberta, r);
+                    }
+                }
+            });
+
+            if (idsFantasmasParaApagar.size > 0) {
+                registrosSalvos = registrosSalvos.filter(r => !idsFantasmasParaApagar.has(r.id));
+                if (typeof supabaseClient !== 'undefined') {
+                    await supabaseClient.from('registros_producao').delete().in('id', Array.from(idsFantasmasParaApagar));
+                }
+            }
+        } catch (e) {} finally {
+            limpezaDuplicadosEmAndamento = false;
+        }
+    }
+
+    // 3. Acelera o carregamento da nuvem (Evita que o Supabase trave baixando todas as fotos Base64 de uma só vez)
+    if (typeof window.carregarRegistrosDaNuvem === 'function') {
+        const _origCarregarNuvem = window.carregarRegistrosDaNuvem;
+        window.carregarRegistrosDaNuvem = async function(forcarTudo = false) {
+            if (typeof supabaseClient === 'undefined') return _origCarregarNuvem.apply(this, arguments);
+
+            try {
+                // Busca rápida sem a coluna pesada de fotos (observacoes) para destravar a tela em menos de 1 segundo
+                const COLUNAS_RAPIDAS = 'id, data_registro, equipe, membros, projeto, imovel, h_entrada, h_saida, gps_entrada, gps_saida, desfecho, motivo_desfecho, malogros, responsavel, contato, email, agendamento, andares, hps, servico_obra, fusoes, conectores, cabo_rl, cabo_drop, nap, dio';
+
+                const { data: linhasRapidas, error } = await supabaseClient
+                    .from('registros_producao')
+                    .select(COLUNAS_RAPIDAS)
+                    .neq('equipe', '__CONFIG_SISTEMA__')
+                    .neq('projeto', '__CONFIG_AUDITORIA__')
+                    .order('data_registro', { ascending: false })
+                    .order('id', { ascending: false })
+                    .limit(2000);
+
+                if (!error && Array.isArray(linhasRapidas) && linhasRapidas.length > 0) {
+                    const mapaAntigo = new Map((registrosSalvos || []).map(r => [r.id, r]));
+
+                    registrosSalvos = linhasRapidas.map(row => {
+                        const ant = mapaAntigo.get(row.id);
+                        const conv = typeof converterLinhaBancoParaObjetoGpd === 'function'
+                            ? converterLinhaBancoParaObjetoGpd({ ...row, observacoes: '' })
+                            : row;
+                        if (ant) {
+                            conv.endereco = ant.endereco || conv.endereco || '';
+                            conv.liberouAcesso = ant.liberouAcesso || conv.liberouAcesso || '';
+                            conv.observacoes = ant.observacoes || conv.observacoes || '';
+                            conv.qtdFotos = ant.qtdFotos || 0;
+                            conv.fotos = ant.fotos || [];
+                        }
+                        return conv;
+                    });
+
+                    await removerDuplicidadesEAtividadesFantasmas();
+
+                    // Carrega em segundo plano as observações apenas das atividades de hoje/em aberto (lote pequeno que nunca trava)
+                    const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().slice(0, 10);
+                    const idsPrioritarios = registrosSalvos
+                        .filter(r => !r.endereco && (r.dataRegistro === hojeISO || ['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA', 'AGUARDANDO TRATATIVA'].includes(r.desfecho)))
+                        .slice(0, 35)
+                        .map(r => r.id);
+
+                    if (idsPrioritarios.length > 0) {
+                        supabaseClient
+                            .from('registros_producao')
+                            .select('id, observacoes')
+                            .in('id', idsPrioritarios)
+                            .then(({ data: obsRows }) => {
+                                if (Array.isArray(obsRows) && typeof converterLinhaBancoParaObjetoGpd === 'function') {
+                                    obsRows.forEach(orow => {
+                                        const alvo = registrosSalvos.find(x => x.id === orow.id);
+                                        if (alvo && orow.observacoes) {
+                                            const mEnd = orow.observacoes.match(/\[END:\s*([^\]]+)\]/i);
+                                            if (mEnd && mEnd[1]) alvo.endereco = mEnd[1].trim();
+                                            const mLib = orow.observacoes.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
+                                            if (mLib && mLib[1]) alvo.liberouAcesso = mLib[1].trim();
+                                            if (orow.observacoes.includes('[FOTOS:')) alvo.qtdFotos = 1;
+                                        }
+                                    });
+                                }
+                            }).catch(() => {});
+                    }
+                    return;
+                }
+            } catch (e) {}
+
+            // Fallback para a função original caso necessário
+            return _origCarregarNuvem.apply(this, arguments);
+        };
+    }
+
+    // Intercepta atualizarDashboardGestor para sempre limpar duplicados e blindar a aba Gráficos
+    if (typeof window.atualizarDashboardGestor === 'function') {
+        const _origAtuDash = window.atualizarDashboardGestor;
+        window.atualizarDashboardGestor = async function(...args) {
+            await removerDuplicidadesEAtividadesFantasmas();
+            const res = await _origAtuDash.apply(this, args);
+            blindarVisibilidadeSubAbasGestor();
+            return res;
+        };
+    }
+
+    setInterval(blindarVisibilidadeSubAbasGestor, 400);
+})();
