@@ -4218,52 +4218,15 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
-// ================= REESTRUTURAÇÃO COMPLETA DA ABA GRÁFICOS & INDICADORES (V2 - MODO REUNIÃO & MULTI-SELEÇÃO CTRL) =================
+// ================= REESTRUTURAÇÃO COMPLETA DA ABA GRÁFICOS & INDICADORES (12 ITENS OFICIAIS) =================
 
-let filtrosMultiGraficos = {
-    segmentos: ['TODOS'],   // 'TODOS' ou array ex: ['CONSTRUÇÃO MDU', 'EXPANSÃO MDU']
-    categorias: ['TODAS'],  // 'TODAS' ou array ex: ['ATIVAÇÃO', 'CONSTRUÇÃO']
-    semanas: ['TODAS']      // 'TODAS' ou array ex: ['Semana 1', 'Semana 2']
-};
-
-let modoSelecaoMultiplaSemCtrl = false; // Permite marcar múltiplos também sem teclado físico se ativado
-let secoesInibidasGraficos = {
-    consolidados: false,
-    planilhaDinamica: false,
-    geralTecnicos: false,
-    evolucaoSegmentos: false,
-    picosHorarios: false,
-    planilhaHorarios: false,
-    rankingOfensores: false,
-    ofensoresSegmentos: false
-};
-
-let estadoModalExpandidoAtual = {
-    ativo: false,
-    tipo: null, // 'tabela' | 'grafico'
-    idOrigem: null,
-    titulo: ''
-};
-
-let registroExplosaoCache = new Map();
-let contadorChaveExplosao = 0;
+let filtroMacroDinamicoGraf = 'TODOS';     // TODOS | CONSTRUÇÃO MDU | EXPANSÃO MDU | MAILING
+let filtroCatDinamicaGraf = 'TODAS';       // TODAS | ATIVAÇÃO | CONSTRUÇÃO | VISTORIA
+let filtroSemanaDinamicaGraf = 'TODAS';    // TODAS | Semana 1 | Semana 2 | Semana 3 | Semana 4 | Semana 5
 
 let chartEvolucaoSegmentosInst = null;
 let chartHorariosPicoNovoInst = null;
 let chartOfensoresRankingInst = null;
-
-function registrarListaParaExplosao(titulo, lista) {
-    contadorChaveExplosao++;
-    const chave = `exp_${contadorChaveExplosao}`;
-    registroExplosaoCache.set(chave, { titulo, lista: Array.isArray(lista) ? lista : [] });
-    return chave;
-}
-
-function dispararExplosaoPorChave(chave) {
-    const pacote = registroExplosaoCache.get(chave);
-    if (!pacote) return;
-    abrirExplosaoPersonalizadaGraficos(pacote.titulo, pacote.lista);
-}
 
 // --- 1. CLASSIFICADOR OFICIAL (OCULTA OS NOMES DE PROJETOS DE BASE) ---
 function classificarRegistroNovaTaxonomia(reg) {
@@ -4295,288 +4258,86 @@ function obterNumeroSemanaFormatado(dataISO) {
     return 'Semana 5';
 }
 
-// --- ITEM 07: OTIMIZAÇÃO DO CABEÇALHO AZUL EM UMA ÚNICA LINHA COMPACTA ---
-function otimizarCabecalhoAzulLinhaUnica() {
-    try {
-        const header = document.querySelector('header');
-        if (!header) return;
+// --- 12. ASSINATURA DO DESENVOLVEDOR NO CABEÇALHO AZUL AO LADO DO BOTÃO SAIR/BLOQUEAR ---
+function injetarAssinaturaDesenvolvedorHeader() {
+    if (document.getElementById('assinatura-dev-leonardo')) return;
+    const btnSair = document.getElementById('btn-sair-gestor') || document.querySelector('button[onclick*="sairModoGestor"], button[onclick*="bloquearGestor"]');
 
-        // Compacta o padding vertical do header azul para ganhar mais tela útil
-        header.classList.remove('py-3', 'py-4', 'p-4');
-        header.classList.add('py-1.5', 'px-3');
+    const spanAssinatura = document.createElement('span');
+    spanAssinatura.id = 'assinatura-dev-leonardo';
+    spanAssinatura.className = 'text-white font-bold italic text-[11px] sm:text-xs tracking-wide px-2.5 py-1 rounded bg-blue-950/50 border border-blue-400/30 whitespace-nowrap shadow-sm';
+    spanAssinatura.innerText = 'Desenvolvido por Leonardo Simões de Almeida';
 
-        const containerInterno = header.firstElementChild;
-        if (containerInterno) {
-            containerInterno.className = 'max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2';
-        }
-
-        // Cria ou posiciona a assinatura + quem está logado + modos + sair na mesma linha direita
-        let barraDireita = document.getElementById('header-gestor-acoes') || document.getElementById('btn-modo-campo')?.parentElement;
-        if (barraDireita) {
-            barraDireita.className = 'flex flex-wrap items-center justify-end gap-2 ml-auto';
-
-            let spanDev = document.getElementById('assinatura-dev-leonardo');
-            if (!spanDev) {
-                spanDev = document.createElement('span');
-                spanDev.id = 'assinatura-dev-leonardo';
-                barraDireita.insertBefore(spanDev, barraDireita.firstChild);
-            }
-            spanDev.className = 'text-white font-bold italic text-[11px] tracking-wide px-2 py-0.5 rounded bg-blue-950/60 border border-blue-400/30 whitespace-nowrap';
-            spanDev.innerText = 'Desenvolvido por Leonardo Simões de Almeida';
-
-            // Garante que a identificação de quem está logado fique visível e compacta ao lado
-            let badgeQuemLogado = document.getElementById('badge-usuario-logado-compacto');
-            if (!badgeQuemLogado) {
-                badgeQuemLogado = document.createElement('span');
-                badgeQuemLogado.id = 'badge-usuario-logado-compacto';
-                if (spanDev.nextSibling) {
-                    barraDireita.insertBefore(badgeQuemLogado, spanDev.nextSibling);
-                } else {
-                    barraDireita.appendChild(badgeQuemLogado);
-                }
-            }
-
-            const emailLog = String(usuarioLogado || '').trim();
-            const nivLog = String(nivelUsuarioLogado || '').trim();
-            if (emailLog) {
-                badgeQuemLogado.className = 'bg-blue-800/90 text-cyan-200 border border-blue-500/50 font-bold text-[10px] px-2 py-0.5 rounded whitespace-nowrap flex items-center gap-1';
-                badgeQuemLogado.innerHTML = `👤 <b>${emailLog}</b> ${nivLog ? `<span class="bg-amber-400 text-slate-950 font-black px-1 rounded text-[9px]">${nivLog}</span>` : ''}`;
-            } else {
-                const eqCampo = document.getElementById('sel-equipe')?.value || equipeAutenticadaSessao || '';
-                badgeQuemLogado.className = 'bg-blue-800/90 text-cyan-200 border border-blue-500/50 font-bold text-[10px] px-2 py-0.5 rounded whitespace-nowrap';
-                badgeQuemLogado.innerHTML = eqCampo ? `👷 <b>${eqCampo}</b>` : `👤 Visitante`;
-            }
-        }
-
-        // Compacta a subbarra do gestor se existir
-        const subBarra = document.getElementById('header-gestor-subbarra');
-        if (subBarra) {
-            subBarra.classList.remove('py-2.5', 'p-3', 'mt-2');
-            subBarra.classList.add('py-1', 'px-2', 'mt-1');
-        }
-    } catch (e) {
-        console.warn("Aviso ao compactar cabeçalho:", e);
-    }
-}
-
-// --- ITEM 03: LÓGICA DE SELEÇÃO SIMPLES OU MÚLTIPLA (COM TECLA CTRL OU BOTÃO MULTI) ---
-function alternarFiltroDinamicoComCtrl(grupo, valor, event) {
-    const usouCtrl = (event && (event.ctrlKey || event.metaKey || event.shiftKey)) || modoSelecaoMultiplaSemCtrl;
-    const valorPadraoTodos = grupo === 'segmentos' ? 'TODOS' : 'TODAS';
-    let atual = filtrosMultiGraficos[grupo] || [valorPadraoTodos];
-
-    if (valor === valorPadraoTodos) {
-        filtrosMultiGraficos[grupo] = [valorPadraoTodos];
-    } else if (!usouCtrl) {
-        // Clique simples: seleciona apenas o clicado
-        filtrosMultiGraficos[grupo] = [valor];
+    if (btnSair && btnSair.parentNode) {
+        btnSair.parentNode.insertBefore(spanAssinatura, btnSair);
     } else {
-        // CTRL + Clique: adiciona ou remove da seleção múltipla
-        atual = atual.filter(v => v !== valorPadraoTodos);
-        if (atual.includes(valor)) {
-            atual = atual.filter(v => v !== valor);
-            if (atual.length === 0) atual = [valorPadraoTodos];
-        } else {
-            atual.push(valor);
-        }
-        filtrosMultiGraficos[grupo] = atual;
-    }
-
-    // Se selecionou apenas EXPANSÃO MDU e/ou MAILING, remove VISTORIA caso esteja isolada
-    const segs = filtrosMultiGraficos.segmentos;
-    if (!segs.includes('TODOS') && !segs.includes('CONSTRUÇÃO MDU')) {
-        filtrosMultiGraficos.categorias = filtrosMultiGraficos.categorias.filter(c => c !== 'VISTORIA');
-        if (filtrosMultiGraficos.categorias.length === 0) filtrosMultiGraficos.categorias = ['TODAS'];
-    }
-
-    renderizarAbaGraficosCompletaOficial();
-    atualizarConteudoModalExpandidoAoVivo();
-}
-
-function alternarModoMultiToque() {
-    modoSelecaoMultiplaSemCtrl = !modoSelecaoMultiplaSemCtrl;
-    renderizarAbaGraficosCompletaOficial();
-    atualizarConteudoModalExpandidoAoVivo();
-}
-
-function registroPassaNosFiltrosGlobaisGraficos(reg) {
-    const tax = reg._tax || classificarRegistroNovaTaxonomia(reg);
-    const sem = reg._semana || obterNumeroSemanaFormatado(reg.dataRegistro);
-
-    const segs = filtrosMultiGraficos.segmentos;
-    const cats = filtrosMultiGraficos.categorias;
-    const sems = filtrosMultiGraficos.semanas;
-
-    const okSeg = segs.includes('TODOS') || segs.includes(tax.segmento);
-    const okCat = cats.includes('TODAS') || cats.includes(tax.categoria);
-    const okSem = sems.includes('TODAS') || sems.includes(sem);
-    return okSeg && okCat && okSem;
-}
-
-function obterHtmlBarraSeletoresInterativos(sufixoId = 'principal') {
-    const segs = filtrosMultiGraficos.segmentos;
-    const cats = filtrosMultiGraficos.categorias;
-    const sems = filtrosMultiGraficos.semanas;
-
-    const opcoesSeg = ['TODOS', 'CONSTRUÇÃO MDU', 'EXPANSÃO MDU', 'MAILING'];
-    const mostrarVistoria = segs.includes('TODOS') || segs.includes('CONSTRUÇÃO MDU');
-    const opcoesCat = mostrarVistoria
-        ? ['TODAS', 'ATIVAÇÃO', 'CONSTRUÇÃO', 'VISTORIA']
-        : ['TODAS', 'ATIVAÇÃO', 'CONSTRUÇÃO'];
-    const opcoesSem = ['TODAS', 'Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
-
-    const btnsSeg = opcoesSeg.map(op => {
-        const ativo = segs.includes(op);
-        return `<button type="button" onclick="alternarFiltroDinamicoComCtrl('segmentos', '${op}', event)" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${ativo ? 'bg-cyan-400 text-slate-950 shadow ring-2 ring-white/60' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">${op}</button>`;
-    }).join('');
-
-    const btnsCat = opcoesCat.map(op => {
-        const ativo = cats.includes(op);
-        return `<button type="button" onclick="alternarFiltroDinamicoComCtrl('categorias', '${op}', event)" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${ativo ? 'bg-amber-400 text-slate-950 shadow ring-2 ring-white/60' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">${op}</button>`;
-    }).join('');
-
-    const btnsSem = opcoesSem.map(op => {
-        const ativo = sems.includes(op);
-        return `<button type="button" onclick="alternarFiltroDinamicoComCtrl('semanas', '${op}', event)" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${ativo ? 'bg-emerald-400 text-slate-950 shadow ring-2 ring-white/60' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">${op === 'TODAS' ? 'Todas' : op}</button>`;
-    }).join('');
-
-    return `
-        <div class="bg-slate-900 text-white p-3 rounded-xl border border-slate-700 space-y-2">
-            <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-700 pb-1.5">
-                <span class="text-[10px] font-bold text-slate-300">
-                    💡 Segure <kbd class="bg-slate-700 px-1.5 py-0.5 rounded text-cyan-300 font-mono">CTRL</kbd> ao clicar para marcar múltiplos itens simultaneamente (Todas as tabelas e gráficos respondem ao filtro!)
-                </span>
-                <button type="button" onclick="alternarModoMultiToque()" class="px-2.5 py-0.5 rounded text-[10px] font-black transition ${modoSelecaoMultiplaSemCtrl ? 'bg-emerald-400 text-slate-950' : 'bg-slate-800 text-slate-300 border border-slate-600'}">
-                    ☑️ Modo Multi S/ Teclado: ${modoSelecaoMultiplaSemCtrl ? 'ATIVO' : 'OFF'}
-                </button>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
-                <div class="bg-slate-800/90 p-2 rounded-lg border border-slate-700">
-                    <span class="text-[9px] font-black text-cyan-300 uppercase block mb-1">1. Segmento (${segs.join(' + ')}):</span>
-                    <div class="flex flex-wrap gap-1">${btnsSeg}</div>
-                </div>
-                <div class="bg-slate-800/90 p-2 rounded-lg border border-slate-700">
-                    <span class="text-[9px] font-black text-amber-300 uppercase block mb-1">2. Categoria (${cats.join(' + ')}):</span>
-                    <div class="flex flex-wrap gap-1">${btnsCat}</div>
-                </div>
-                <div class="bg-slate-800/90 p-2 rounded-lg border border-slate-700">
-                    <span class="text-[9px] font-black text-emerald-300 uppercase block mb-1">3. Semana (${sems.join(' + ')}):</span>
-                    <div class="flex flex-wrap gap-1">${btnsSem}</div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-// --- ITEM 05: OPÇÃO DE INIBIR / MOSTRAR QUALQUER GRÁFICO OU PLANILHA ---
-function alternarInibicaoSecaoGrafico(chaveSecao) {
-    secoesInibidasGraficos[chaveSecao] = !secoesInibidasGraficos[chaveSecao];
-    aplicarVisibilidadeSecoesInibidas();
-}
-
-function mostrarTodasSecoesGraficos() {
-    Object.keys(secoesInibidasGraficos).forEach(k => secoesInibidasGraficos[k] = false);
-    aplicarVisibilidadeSecoesInibidas();
-}
-
-function aplicarVisibilidadeSecoesInibidas() {
-    const mapaNomes = {
-        consolidados: '1. Consolidados Topo',
-        planilhaDinamica: '2. Planilha Dinâmica',
-        geralTecnicos: '3. Atendidas por Técnico',
-        evolucaoSegmentos: '4. Gráfico Evolução',
-        picosHorarios: '5. Gráfico Picos Horários',
-        planilhaHorarios: '6. Planilha Horários',
-        rankingOfensores: '7. Ranking Ofensores',
-        ofensoresSegmentos: '8. Malogros Construção x Expansão'
-    };
-
-    Object.entries(secoesInibidasGraficos).forEach(([chave, oculto]) => {
-        const elSecao = document.getElementById(`secao-bloco-${chave}`);
-        if (elSecao) {
-            elSecao.classList.toggle('hidden', oculto);
-        }
-    });
-
-    const barraChips = document.getElementById('barra-chips-inibicao-secoes');
-    if (barraChips) {
-        barraChips.innerHTML = Object.entries(mapaNomes).map(([chave, label]) => {
-            const oculto = secoesInibidasGraficos[chave];
-            return `
-                <button type="button" onclick="alternarInibicaoSecaoGrafico('${chave}')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 border ${oculto ? 'bg-red-50 text-red-700 border-red-300 line-through opacity-75' : 'bg-emerald-50 text-emerald-900 border-emerald-300 shadow-sm'}">
-                    <span>${oculto ? '🚫' : '👁️'}</span> <span>${label}</span>
-                </button>
-            `;
-        }).join('');
+        const headerAcoes = document.getElementById('header-gestor-acoes') || document.querySelector('header');
+        if (headerAcoes) headerAcoes.appendChild(spanAssinatura);
     }
 }
 
-// --- CONSTRUÇÃO DO LAYOUT DA ABA GRÁFICOS ---
+// --- CONSTRUÇÃO DO LAYOUT LIMPO E EXCLUSIVO DA ABA GRÁFICOS (ITEM 11) ---
 function construirLayoutExclusivoAbaGraficos() {
-    otimizarCabecalhoAzulLinhaUnica();
+    injetarAssinaturaDesenvolvedorHeader();
     const containerGraficos = document.getElementById('subview-graficos');
-    if (!containerGraficos || containerGraficos.dataset.layoutReconstruidoV14 === 'true') return;
+    if (!containerGraficos || containerGraficos.dataset.layoutReconstruidoV12 === 'true') return;
 
-    containerGraficos.dataset.layoutReconstruidoV14 = 'true';
-    containerGraficos.className = 'space-y-4 pb-10';
+    containerGraficos.dataset.layoutReconstruidoV12 = 'true';
+    containerGraficos.className = 'space-y-6 pb-10';
 
     containerGraficos.innerHTML = `
-        <!-- BARRA DE TOPO + CONTROLE DE INIBIÇÃO DE PLANILHAS/GRÁFICOS (ITENS 05 e 09) -->
-        <div class="bg-slate-900 text-white p-3.5 rounded-2xl shadow-lg border-b-4 border-cyan-400 space-y-2.5">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                <div>
-                    <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Painel Analítico Interativo</span>
-                    <h2 class="text-sm sm:text-base font-black tracking-tight mt-0.5">📊 Indicadores de Produtividade, Segmentos & Ofensores</h2>
+        <!-- BARRA DE TOPO: TÍTULO + BOTÕES BAIXAR PLANILHA E IMPRIMIR PDF (ITEM 09) -->
+        <div class="bg-slate-900 text-white p-4 rounded-2xl shadow-lg border-b-4 border-cyan-400 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+                <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Painel Analítico Oficial</span>
+                <h2 class="text-base sm:text-lg font-black tracking-tight mt-0.5">📊 Indicadores de Produtividade, Segmentos & Ofensores</h2>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="button" onclick="exportarPlanilhaDinamica OficialExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1.5 transition">
+                    📥 Baixar Planilha (.XLS)
+                </button>
+                <button type="button" onclick="gerarRelatorioVisualImpressaoPDF()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1.5 transition">
+                    🖨️ Imprimir / Salvar PDF
+                </button>
+            </div>
+        </div>
+
+        <!-- ITEM 08: CONSOLIDADOS SUPERIORES COM AS NOVAS SEGMENTAÇÕES E PORCENTAGENS DAS CATEGORIAS -->
+        <div id="painel-consolidado-topo-segmentos" class="grid grid-cols-1 lg:grid-cols-3 gap-4"></div>
+
+        <!-- ITEM 01: PLANILHA DINÂMICA COM BOTÕES DE SELEÇÃO (SEGMENTO, CATEGORIA E SEMANA) -->
+        <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+            <div class="bg-slate-900 text-white p-4 flex flex-col gap-3">
+                <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-700 pb-2.5">
+                    <div>
+                        <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 01 • Produtividade (Apenas Concluídas)</span>
+                        <h3 class="font-black text-sm sm:text-base mt-0.5">📋 Planilha Dinâmica de Executados, Dias Trabalhados e HPs</h3>
+                    </div>
+                    <button type="button" onclick="expandirTabelaModal('tbody-planilha-dinamica-oficial', 'Planilha Dinâmica de Produtividade')" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 text-[11px] font-bold px-3 py-1.5 rounded-lg">
+                        🔍 Expandir Planilha
+                    </button>
                 </div>
-                <div class="flex flex-wrap items-center gap-2">
-                    <button type="button" onclick="mostrarTodasSecoesGraficos()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 font-bold text-[11px] px-3 py-1.5 rounded-xl transition">
-                        👁️ Mostrar Todos os Blocos
-                    </button>
-                    <button type="button" onclick="exportarPlanilhaDinamicaOficialExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-1.5 rounded-xl shadow flex items-center gap-1.5 transition">
-                        📥 Baixar Planilha (.XLS)
-                    </button>
-                    <button type="button" onclick="gerarRelatorioVisualImpressaoPDF()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-3.5 py-1.5 rounded-xl shadow flex items-center gap-1.5 transition">
-                        🖨️ Imprimir / Salvar PDF
-                    </button>
+
+                <!-- Seletores em Botões -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+                    <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700">
+                        <span class="text-[10px] font-bold text-cyan-300 uppercase block mb-1.5">1. Selecionar Segmento:</span>
+                        <div id="botoes-filtro-segmento-din" class="flex flex-wrap gap-1.5"></div>
+                    </div>
+                    <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700">
+                        <span class="text-[10px] font-bold text-amber-300 uppercase block mb-1.5">2. Selecionar Categoria:</span>
+                        <div id="botoes-filtro-categoria-din" class="flex flex-wrap gap-1.5"></div>
+                    </div>
+                    <div class="bg-slate-800/90 p-2.5 rounded-xl border border-slate-700">
+                        <span class="text-[10px] font-bold text-emerald-300 uppercase block mb-1.5">3. Selecionar Semana:</span>
+                        <div id="botoes-filtro-semana-din" class="flex flex-wrap gap-1.5"></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- SELETORES GLOBAIS (SEGMENTO, CATEGORIA, SEMANA COM SUPORTE A CTRL) -->
-            <div id="container-seletores-globais-topo"></div>
-        </div>
-
-        <!-- ITEM 05: BARRA DE BOTÕES PARA INIBIR/EXIBIR QUALQUER GRÁFICO OU PLANILHA -->
-        <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-2">
-            <span class="text-[10px] font-black text-slate-700 uppercase">👁️ Exibição na Tela (Clique para Inibir / Mostrar):</span>
-            <div id="barra-chips-inibicao-secoes" class="flex flex-wrap gap-1.5"></div>
-        </div>
-
-        <!-- BLOCO 1 (ITEM 08): CONSOLIDADOS SUPERIORES -->
-        <div id="secao-bloco-consolidados" class="space-y-1.5">
-            <div class="flex justify-between items-center px-1">
-                <span class="text-[11px] font-black text-slate-700 uppercase">📌 Consolidados por Segmento e Porcentagem das Categorias</span>
-                <button type="button" onclick="alternarInibicaoSecaoGrafico('consolidados')" class="text-[10px] font-bold text-red-600 hover:underline">🚫 Inibir Bloco</button>
-            </div>
-            <div id="painel-consolidado-topo-segmentos" class="grid grid-cols-1 lg:grid-cols-3 gap-4"></div>
-        </div>
-
-        <!-- BLOCO 2 (ITEM 01): PLANILHA DINÂMICA DE PRODUTIVIDADE -->
-        <div id="secao-bloco-planilhaDinamica" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
-            <div class="bg-slate-900 text-white p-3.5 flex flex-wrap justify-between items-center gap-2">
-                <div>
-                    <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 01 • Apenas Atividades Concluídas</span>
-                    <h3 class="font-black text-sm sm:text-base mt-0.5">📋 Planilha Dinâmica de Executados, Dias Trabalhados, Produtividade e HPs</h3>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button type="button" onclick="expandirTabelaModal('tbody-planilha-dinamica-oficial', 'Planilha Dinâmica de Produtividade')" class="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow">
-                        🔍 Expandir p/ Reunião
-                    </button>
-                    <button type="button" onclick="alternarInibicaoSecaoGrafico('planilhaDinamica')" class="bg-red-900/80 hover:bg-red-800 text-red-100 text-[10px] font-bold px-2.5 py-1.5 rounded-lg">
-                        🚫 Inibir
-                    </button>
-                </div>
-            </div>
+            <!-- Resumo de % das Categorias dentro do filtro atual -->
             <div id="barra-porcentagem-categorias-din" class="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs"></div>
+
             <div class="overflow-x-auto max-h-[520px]">
                 <table class="w-full text-left border-collapse text-xs">
                     <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
@@ -4595,21 +4356,16 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- BLOCO 3 (ITEM 03): PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO -->
-        <div id="secao-bloco-geralTecnicos" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
-            <div class="bg-blue-950 text-white p-3.5 flex flex-wrap justify-between items-center gap-2">
+        <!-- ITEM 03: PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO (CONCLUÍDAS, MALOGROS E APOIOS) -->
+        <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+            <div class="bg-blue-950 text-white p-4 flex flex-wrap justify-between items-center gap-2">
                 <div>
-                    <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 03 • Resultado Geral por Técnico</span>
-                    <h3 class="font-black text-sm sm:text-base mt-0.5">👷 Quantidade de Atividades Atendidas (Concluídas, Malogros e Apoios)</h3>
+                    <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 03 • Resumo Geral por Técnico</span>
+                    <h3 class="font-black text-sm sm:text-base mt-0.5">👷 Atividades Atendidas por Técnico (Concluídas, Malogros e Apoios)</h3>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button type="button" onclick="expandirTabelaModal('tbody-geral-atendidas-tecnico', 'Atividades Atendidas por Técnico')" class="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow">
-                        🔍 Expandir p/ Reunião
-                    </button>
-                    <button type="button" onclick="alternarInibicaoSecaoGrafico('geralTecnicos')" class="bg-red-900/80 hover:bg-red-800 text-red-100 text-[10px] font-bold px-2.5 py-1.5 rounded-lg">
-                        🚫 Inibir
-                    </button>
-                </div>
+                <button type="button" onclick="expandirTabelaModal('tbody-geral-atendidas-tecnico', 'Atividades Atendidas por Técnico')" class="bg-blue-900 hover:bg-blue-800 text-cyan-200 border border-blue-700 text-[11px] font-bold px-3 py-1.5 rounded-lg">
+                    🔍 Expandir Planilha
+                </button>
             </div>
             <div class="overflow-x-auto max-h-[500px]">
                 <table class="w-full text-left border-collapse text-xs">
@@ -4631,41 +4387,36 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- BLOCO 4 (ITEM 07): GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS -->
-        <div id="secao-bloco-evolucaoSegmentos" class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3">
+        <!-- ITEM 07: GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS -->
+        <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3">
             <div class="flex flex-wrap justify-between items-center gap-2 border-b pb-2.5">
                 <div>
-                    <span class="bg-emerald-100 text-emerald-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 07 • Evolução dos Segmentos</span>
-                    <h3 class="font-black text-slate-800 text-sm sm:text-base mt-0.5">📈 Evolução das Atividades Executadas por Segmento</h3>
+                    <span class="bg-emerald-100 text-emerald-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 07 • Evolução Temporal</span>
+                    <h3 class="font-black text-slate-800 text-sm sm:text-base mt-0.5">📈 Evolução Diária dos Segmentos (Construção MDU, Expansão MDU e Mailing)</h3>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button type="button" onclick="expandirGraficoModal('canvasEvolucaoSegmentos', 'Evolução dos Segmentos')" class="bg-blue-900 hover:bg-blue-800 text-white text-[11px] font-black px-3 py-1.5 rounded-lg shadow">
-                        🔍 Expandir p/ Reunião
-                    </button>
-                    <button type="button" onclick="alternarInibicaoSecaoGrafico('evolucaoSegmentos')" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-[10px] font-bold px-2.5 py-1.5 rounded-lg">
-                        🚫 Inibir
-                    </button>
-                </div>
+                <button type="button" onclick="expandirGraficoModal('canvasEvolucaoSegmentos', 'Evolução dos Segmentos')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-3 py-1.5 rounded-lg border">
+                    🔍 Expandir Gráfico
+                </button>
             </div>
             <div class="h-72 w-full">
                 <canvas id="canvasEvolucaoSegmentos"></canvas>
             </div>
         </div>
 
-        <!-- BLOCOS 5 E 6 (ITEM 02): PICOS DE HORÁRIOS E PLANILHA DE FAIXAS HORÁRIAS -->
+        <!-- ITEM 02: PICOS DE HORÁRIOS + PLANILHA DE FAIXAS DE ABERTURA/FECHAMENTO E RECORDES DOS TÉCNICOS -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div id="secao-bloco-picosHorarios" class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3 flex flex-col justify-between">
+            <div class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3 flex flex-col justify-between">
                 <div>
                     <div class="flex justify-between items-center border-b pb-2">
                         <div>
-                            <span class="bg-blue-100 text-blue-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Picos e Extremos</span>
-                            <h3 class="font-black text-slate-800 text-sm mt-0.5">🕒 Gráfico de Picos de Horários</h3>
+                            <span class="bg-blue-100 text-blue-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Curva de Horários</span>
+                            <h3 class="font-black text-slate-800 text-sm mt-0.5">🕒 Gráfico de Picos de Horários (Aberturas x Fechamentos)</h3>
                         </div>
-                        <div class="flex gap-1">
-                            <button type="button" onclick="expandirGraficoModal('canvasHorariosPicoOficial', 'Gráfico de Picos de Horários')" class="bg-blue-900 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">🔍 Expandir</button>
-                            <button type="button" onclick="alternarInibicaoSecaoGrafico('picosHorarios')" class="bg-red-50 text-red-700 border border-red-200 text-[10px] font-bold px-2 py-1 rounded-lg">🚫 Inibir</button>
-                        </div>
+                        <button type="button" onclick="expandirGraficoModal('canvasHorariosPicoOficial', 'Picos de Horários')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-lg border">
+                            🔍 Expandir
+                        </button>
                     </div>
+                    <!-- Destaques de Extremos dos Técnicos -->
                     <div id="cards-extremos-horarios-tecnicos" class="grid grid-cols-1 sm:grid-cols-3 gap-2 my-3"></div>
                 </div>
                 <div class="h-64 w-full">
@@ -4673,16 +4424,15 @@ function construirLayoutExclusivoAbaGraficos() {
                 </div>
             </div>
 
-            <div id="secao-bloco-planilhaHorarios" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+            <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
                 <div class="bg-slate-900 text-white p-3.5 flex justify-between items-center">
                     <div>
-                        <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Volume Real por Faixa</span>
+                        <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 02 • Volume por Faixa</span>
                         <h3 class="font-bold text-xs sm:text-sm mt-0.5">⏰ Horários com Mais Atividades Abertas e Fechadas</h3>
                     </div>
-                    <div class="flex gap-1">
-                        <button type="button" onclick="expandirTabelaModal('tbody-horarios-pico-planilha', 'Horários com Mais Atividades Abertas e Fechadas')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">🔍 Expandir</button>
-                        <button type="button" onclick="alternarInibicaoSecaoGrafico('planilhaHorarios')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2 py-1 rounded">🚫 Inibir</button>
-                    </div>
+                    <button type="button" onclick="expandirTabelaModal('tbody-horarios-pico-planilha', 'Horários com Mais Atividades Abertas e Fechadas')" class="bg-slate-800 text-cyan-300 border border-slate-600 text-[10px] font-bold px-2.5 py-1 rounded">
+                        🔍 Expandir Planilha
+                    </button>
                 </div>
                 <div class="overflow-y-auto max-h-[360px]">
                     <table class="w-full text-left border-collapse text-xs">
@@ -4700,18 +4450,18 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- BLOCOS 7 E 8 (ITENS 04 E 05): RANKING DE OFENSORES + CONSTRUÇÃO MDU x EXPANSÃO MDU -->
+        <!-- ITENS 04 E 05: RANKING GERAL DE OFENSORES DE MALOGRO + SEPARAÇÃO ATIVAÇÃO MDU vs EXPANSÃO MDU -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div id="secao-bloco-rankingOfensores" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+            <!-- Item 04 -->
+            <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
                 <div class="bg-red-950 text-white p-3.5 flex justify-between items-center">
                     <div>
-                        <span class="bg-red-300 text-red-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 04 • Ranking Geral</span>
+                        <span class="bg-red-300 text-red-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 04 • Ranking de Ofensores</span>
                         <h3 class="font-bold text-xs sm:text-sm mt-0.5">🚨 Maiores Ofensores de Malogros (Números Reais e %)</h3>
                     </div>
                     <div class="flex gap-1">
-                        <button type="button" onclick="expandirGraficoModal('canvasOfensoresRanking', 'Gráfico Ranking de Ofensores')" class="bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-1 rounded">📊 Gráfico</button>
-                        <button type="button" onclick="expandirTabelaModal('tbody-ranking-ofensores-geral', 'Ranking de Ofensores de Malogros')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2 py-1 rounded">🔍 Planilha</button>
-                        <button type="button" onclick="alternarInibicaoSecaoGrafico('rankingOfensores')" class="bg-red-800 text-white text-[10px] font-bold px-2 py-1 rounded">🚫</button>
+                        <button type="button" onclick="expandirGraficoModal('canvasOfensoresRanking', 'Ranking de Ofensores de Malogros')" class="bg-red-900 text-red-100 border border-red-700 text-[10px] font-bold px-2 py-1 rounded">📊 Gráfico</button>
+                        <button type="button" onclick="expandirTabelaModal('tbody-ranking-ofensores-geral', 'Ranking de Ofensores de Malogros')" class="bg-red-900 text-red-100 border border-red-700 text-[10px] font-bold px-2 py-1 rounded">🔍 Planilha</button>
                     </div>
                 </div>
                 <div class="p-3 h-52 border-b">
@@ -4732,30 +4482,26 @@ function construirLayoutExclusivoAbaGraficos() {
                 </div>
             </div>
 
-            <div id="secao-bloco-ofensoresSegmentos" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+            <!-- Item 05 -->
+            <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
                 <div class="bg-amber-950 text-white p-3.5 flex justify-between items-center">
                     <div>
-                        <span class="bg-amber-300 text-amber-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 05 • Comparativo entre Segmentos</span>
-                        <h3 class="font-bold text-xs sm:text-sm mt-0.5">📊 Volume e % de Malogros: CONSTRUÇÃO MDU x EXPANSÃO MDU</h3>
+                        <span class="bg-amber-300 text-amber-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Item 05 • Ofensores por Segmento</span>
+                        <h3 class="font-bold text-xs sm:text-sm mt-0.5">📊 Volume e % de Malogros: ATIVAÇÃO MDU vs. EXPANSÃO MDU</h3>
                     </div>
-                    <div class="flex gap-1">
-                        <button type="button" onclick="expandirTabelaModal('tbody-ofensores-segmentos-mdu', 'Ofensores: CONSTRUÇÃO MDU x EXPANSÃO MDU')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">
-                            🔍 Expandir
-                        </button>
-                        <button type="button" onclick="alternarInibicaoSecaoGrafico('ofensoresSegmentos')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2 py-1 rounded">
-                            🚫 Inibir
-                        </button>
-                    </div>
+                    <button type="button" onclick="expandirTabelaModal('tbody-ofensores-segmentos-mdu', 'Ofensores: Ativação MDU vs Expansão MDU')" class="bg-amber-900 text-amber-100 border border-amber-700 text-[10px] font-bold px-2.5 py-1 rounded">
+                        🔍 Expandir Planilha
+                    </button>
                 </div>
                 <div id="resumo-topo-ofensores-segmentos" class="grid grid-cols-2 gap-2 p-3 bg-amber-50/60 border-b border-amber-200 text-xs"></div>
                 <div class="overflow-y-auto max-h-[420px]">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0">
                             <tr>
-                                <th class="p-2.5">Ofensor de Malogro</th>
-                                <th class="p-2.5 text-center bg-blue-900">CONSTRUÇÃO MDU<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
+                                <th class="p-2.5">Ofensor</th>
+                                <th class="p-2.5 text-center bg-blue-900">ATIVAÇÃO MDU<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
                                 <th class="p-2.5 text-center bg-indigo-900">EXPANSÃO MDU<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
-                                <th class="p-2.5 text-center bg-slate-950 text-amber-300">Soma (Const + Exp)<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
+                                <th class="p-2.5 text-center bg-slate-950 text-amber-300">Total Geral<br><span class="text-[9px] font-normal">(Qtd / %)</span></th>
                             </tr>
                         </thead>
                         <tbody id="tbody-ofensores-segmentos-mdu" class="divide-y divide-slate-200"></tbody>
@@ -4764,18 +4510,28 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
     `;
-
-    aplicarVisibilidadeSecoesInibidas();
 }
 
-// --- ITEM 06: MODO EXPLOSÃO HABILITADO EM TODAS AS SEÇÕES E NO MODAL EXPANDIDO ---
+// --- SELETORES DINÂMICOS (SEGMENTO, CATEGORIA E SEMANA) ---
+function selecionarFiltroPlanilhaDinamica(tipo, valor) {
+    if (tipo === 'segmento') {
+        filtroMacroDinamicoGraf = valor;
+        if ((valor === 'EXPANSÃO MDU' || valor === 'MAILING') && filtroCatDinamicaGraf === 'VISTORIA') {
+            filtroCatDinamicaGraf = 'TODAS';
+        }
+    } else if (tipo === 'categoria') {
+        filtroCatDinamicaGraf = valor;
+    } else if (tipo === 'semana') {
+        filtroSemanaDinamicaGraf = valor;
+    }
+    renderizarAbaGraficosCompletaOficial();
+}
+
+// --- MODO EXPLOSÃO UNIVERSAL PARA TODAS AS SEÇÕES (ITEM 06) ---
 function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset) {
     const modal = document.getElementById('modal-explosao');
     const corpo = document.getElementById('tabela-explosao-corpo');
     if (!modal || !corpo) return;
-
-    // Eleva o z-index do modal de explosão para abrir inclusive por cima de tabelas/gráficos expandidos!
-    modal.style.zIndex = "95";
 
     document.getElementById('modal-explosao-titulo').innerText = `💥 Explosão de Dados: ${tituloExplosao} (${listaRegistrosSubset.length} reg.)`;
     corpo.innerHTML = "";
@@ -4805,131 +4561,11 @@ function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset
     modal.classList.remove('hidden');
 }
 
-// --- ITEM 01: EXPANDIR TABELAS E GRÁFICOS LEVANDO OS SELETORES PARA A REUNIÃO ---
-expandirTabelaModal = function(idTbodyOrigem, tituloJanela) {
-    const modal = document.getElementById('modal-expandir-tabela');
-    const titulo = document.getElementById('modal-tabela-expandida-titulo');
-    const container = document.getElementById('container-tabela-expandida');
-    const tbodyOrigem = document.getElementById(idTbodyOrigem);
-    if (!modal || !container || !tbodyOrigem) return;
-
-    estadoModalExpandidoAtual = { ativo: true, tipo: 'tabela', idOrigem: idTbodyOrigem, titulo: tituloJanela };
-    if (titulo) titulo.innerText = `📊 Modo Apresentação: ${tituloJanela}`;
-
-    let boxSeletoresModal = document.getElementById('seletores-reuniao-modal-tabela');
-    if (!boxSeletoresModal) {
-        boxSeletoresModal = document.createElement('div');
-        boxSeletoresModal.id = 'seletores-reuniao-modal-tabela';
-        boxSeletoresModal.className = 'px-4 pt-3 pb-1 bg-slate-100 border-b border-slate-300';
-        container.parentNode.insertBefore(boxSeletoresModal, container);
-    }
-    boxSeletoresModal.innerHTML = obterHtmlBarraSeletoresInterativos('modal_tabela');
-
-    const tabelaOriginal = tbodyOrigem.closest('table');
-    if (!tabelaOriginal) return;
-
-    container.innerHTML = "";
-    const infoTopo = document.getElementById('barra-porcentagem-categorias-din');
-    if (idTbodyOrigem === 'tbody-planilha-dinamica-oficial' && infoTopo) {
-        const cloneInfo = infoTopo.cloneNode(true);
-        cloneInfo.removeAttribute('id');
-        cloneInfo.className = 'bg-blue-50 px-4 py-2 border-b border-blue-200 flex flex-wrap items-center justify-between gap-2 text-xs mb-2 rounded-lg';
-        container.appendChild(cloneInfo);
-    }
-
-    const tabelaClone = tabelaOriginal.cloneNode(true);
-    tabelaClone.className = "w-full text-left border-collapse text-xs sm:text-sm";
-    tabelaClone.querySelector('thead')?.classList.add('sticky', 'top-0', 'z-10', 'shadow-sm');
-    const tbodyClone = tabelaClone.querySelector('tbody');
-    if (tbodyClone) tbodyClone.removeAttribute('id');
-
-    container.appendChild(tabelaClone);
-    modal.classList.remove('hidden');
-};
-
-const _origFecharModalTabelaExpandida = fecharModalTabelaExpandida;
-fecharModalTabelaExpandida = function() {
-    estadoModalExpandidoAtual.ativo = false;
-    if (typeof _origFecharModalTabelaExpandida === 'function') _origFecharModalTabelaExpandida();
-    else document.getElementById('modal-expandir-tabela')?.classList.add('hidden');
-};
-
-expandirGraficoModal = function(idCanvasOrigem, tituloJanela) {
-    const modal = document.getElementById('modal-expandir-grafico');
-    const titulo = document.getElementById('modal-grafico-expandido-titulo');
-    const canvasOrigem = document.getElementById(idCanvasOrigem);
-    const canvasAlvo = document.getElementById('canvasGraficoExpandido');
-    if (!modal || !canvasOrigem || !canvasAlvo) return;
-
-    estadoModalExpandidoAtual = { ativo: true, tipo: 'grafico', idOrigem: idCanvasOrigem, titulo: tituloJanela };
-    if (titulo) titulo.innerText = `📈 Modo Apresentação: ${tituloJanela}`;
-
-    let boxSeletoresGraf = document.getElementById('seletores-reuniao-modal-grafico');
-    if (!boxSeletoresGraf) {
-        boxSeletoresGraf = document.createElement('div');
-        boxSeletoresGraf.id = 'seletores-reuniao-modal-grafico';
-        boxSeletoresGraf.className = 'px-4 pt-3 pb-1 bg-slate-100 border-b border-slate-300';
-        const wrapperCanvas = canvasAlvo.parentElement;
-        if (wrapperCanvas && wrapperCanvas.parentNode) {
-            wrapperCanvas.parentNode.insertBefore(boxSeletoresGraf, wrapperCanvas);
-        }
-    }
-    boxSeletoresGraf.innerHTML = obterHtmlBarraSeletoresInterativos('modal_grafico');
-
-    modal.classList.remove('hidden');
-
-    const chartOriginal = Chart.getChart(canvasOrigem);
-    if (!chartOriginal) return;
-    if (typeof graficoExpandidoInstancia !== 'undefined' && graficoExpandidoInstancia) {
-        graficoExpandidoInstancia.destroy();
-    }
-
-    graficoExpandidoInstancia = new Chart(canvasAlvo, {
-        type: chartOriginal.config.type,
-        data: JSON.parse(JSON.stringify(chartOriginal.data)),
-        options: {
-            ...chartOriginal.config.options,
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { ...chartOriginal.config.options.plugins, legend: { display: true, position: 'top' } },
-            onClick: (event, elements) => {
-                if (elements.length > 0 && chartOriginal.config.options.onClick) {
-                    chartOriginal.config.options.onClick(event, elements);
-                }
-            }
-        }
-    });
-};
-
-const _origFecharModalGraficoExpandido = fecharModalGraficoExpandido;
-fecharModalGraficoExpandido = function() {
-    estadoModalExpandidoAtual.ativo = false;
-    if (typeof _origFecharModalGraficoExpandido === 'function') _origFecharModalGraficoExpandido();
-    else document.getElementById('modal-expandir-grafico')?.classList.add('hidden');
-};
-
-function atualizarConteudoModalExpandidoAoVivo() {
-    if (!estadoModalExpandidoAtual.ativo) return;
-    if (estadoModalExpandidoAtual.tipo === 'tabela') {
-        expandirTabelaModal(estadoModalExpandidoAtual.idOrigem, estadoModalExpandidoAtual.titulo);
-    } else if (estadoModalExpandidoAtual.tipo === 'grafico') {
-        expandirGraficoModal(estadoModalExpandidoAtual.idOrigem, estadoModalExpandidoAtual.titulo);
-    }
-}
-
-// --- RENDERIZADOR PRINCIPAL DA ABA GRÁFICOS (TODAS AS SEÇÕES REAGEM ÀS SELEÇÕES) ---
+// --- RENDERIZADOR PRINCIPAL DA ABA GRÁFICOS ---
 function renderizarAbaGraficosCompletaOficial() {
     construirLayoutExclusivoAbaGraficos();
-    registroExplosaoCache.clear();
-    contadorChaveExplosao = 0;
 
-    const containerSeletoresTopo = document.getElementById('container-seletores-globais-topo');
-    if (containerSeletoresTopo) {
-        containerSeletoresTopo.innerHTML = obterHtmlBarraSeletoresInterativos('topo');
-    }
-
-    // Base geral de registros finalizados no período de datas
-    const basePeriodoBruta = (dadosFiltradosAtuais || []).filter(r =>
+    const basePeriodo = (dadosFiltradosAtuais || []).filter(r =>
         r &&
         r.equipe !== '__CONFIG_SISTEMA__' &&
         r.projeto !== '__CONFIG_AUDITORIA__' &&
@@ -4943,42 +4579,52 @@ function renderizarAbaGraficosCompletaOficial() {
         _semana: obterNumeroSemanaFormatado(r.dataRegistro)
     }));
 
-    // ITEM 02: Base filtrada pelas seleções ativas (Segmento, Categoria e Semana)
-    const baseFiltradaSelecao = basePeriodoBruta.filter(registroPassaNosFiltrosGlobaisGraficos);
-    const concluidasFiltradasSelecao = baseFiltradaSelecao.filter(r => r.desfecho === 'CONCLUIDA');
+    const apenasConcluidasPeriodo = basePeriodo.filter(r => r.desfecho === 'CONCLUIDA');
 
     // =========================================================================================
-    // 1. CONSOLIDADOS SUPERIORES (REAGE À SEMANA/CATEGORIA/SEGMENTO MARCADOS)
+    // ITEM 08: CONSOLIDADOS SUPERIORES COM AS NOVAS SEGMENTAÇÕES E % DAS CATEGORIAS
     // =========================================================================================
     const painelTopo = document.getElementById('painel-consolidado-topo-segmentos');
     if (painelTopo) {
         const cfgSegmentos = [
-            { nome: 'CONSTRUÇÃO MDU', corHeader: 'bg-blue-900 text-white border-blue-400', corBg: 'bg-blue-50/50 border-blue-200', categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO', 'VISTORIA'] },
-            { nome: 'EXPANSÃO MDU', corHeader: 'bg-indigo-900 text-white border-indigo-400', corBg: 'bg-indigo-50/50 border-indigo-200', categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO'] },
-            { nome: 'MAILING', corHeader: 'bg-purple-900 text-white border-purple-400', corBg: 'bg-purple-50/50 border-purple-200', categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO'] }
+            {
+                nome: 'CONSTRUÇÃO MDU',
+                corHeader: 'bg-blue-900 text-white border-blue-400',
+                corBg: 'bg-blue-50/50 border-blue-200',
+                categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO', 'VISTORIA']
+            },
+            {
+                nome: 'EXPANSÃO MDU',
+                corHeader: 'bg-indigo-900 text-white border-indigo-400',
+                corBg: 'bg-indigo-50/50 border-indigo-200',
+                categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO']
+            },
+            {
+                nome: 'MAILING',
+                corHeader: 'bg-purple-900 text-white border-purple-400',
+                corBg: 'bg-purple-50/50 border-purple-200',
+                categorias: ['ATIVAÇÃO', 'CONSTRUÇÃO']
+            }
         ];
 
-        const totalExecRecorte = concluidasFiltradasSelecao.length;
+        const totalExecGeral = apenasConcluidasPeriodo.length;
 
         painelTopo.innerHTML = cfgSegmentos.map(seg => {
-            const concluidasSeg = concluidasFiltradasSelecao.filter(r => r._tax.segmento === seg.nome);
-            const atendidasSeg = baseFiltradaSelecao.filter(r => r._tax.segmento === seg.nome);
+            const concluidasSeg = apenasConcluidasPeriodo.filter(r => r._tax.segmento === seg.nome);
+            const atendidasSeg = basePeriodo.filter(r => r._tax.segmento === seg.nome);
             const totalSeg = concluidasSeg.length;
             const totalHpsSeg = concluidasSeg.reduce((acc, r) => acc + (Number(r.hps) || 0), 0);
-            const percSobreGeral = totalExecRecorte > 0 ? ((totalSeg / totalExecRecorte) * 100).toFixed(1) : '0.0';
-            const chaveExpSeg = registrarListaParaExplosao(`${seg.nome} (Atendidas no Filtro)`, atendidasSeg);
+            const percSobreGeral = totalExecGeral > 0 ? ((totalSeg / totalExecGeral) * 100).toFixed(1) : '0.0';
 
             const linhasCatHtml = seg.categorias.map(cat => {
                 const listaCat = concluidasSeg.filter(r => r._tax.categoria === cat);
                 const qtdCat = listaCat.length;
                 const hpsCat = listaCat.reduce((acc, r) => acc + (Number(r.hps) || 0), 0);
                 const percCat = totalSeg > 0 ? ((qtdCat / totalSeg) * 100).toFixed(1) : '0.0';
-                const chaveExpCat = registrarListaParaExplosao(`${seg.nome} • ${cat} (Concluídas)`, listaCat);
-
                 return `
-                    <div onclick="dispararExplosaoPorChave('${chaveExpCat}')" class="bg-white p-2.5 rounded-xl border border-slate-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition shadow-sm">
+                    <div onclick="abrirExplosaoPersonalizadaGraficos('${seg.nome} • ${cat} (Concluídas)', dadosFiltradosAtuais.filter(x => x.desfecho === 'CONCLUIDA' && classificarRegistroNovaTaxonomia(x).segmento === '${seg.nome}' && classificarRegistroNovaTaxonomia(x).categoria === '${cat}'))" class="bg-white p-2.5 rounded-xl border border-slate-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition shadow-sm">
                         <div>
-                            <span class="font-black text-slate-800 text-xs underline decoration-dotted">${cat}</span>
+                            <span class="font-black text-slate-800 text-xs">${cat}</span>
                             <div class="text-[10px] text-slate-500">HPs: <b>${hpsCat}</b></div>
                         </div>
                         <div class="text-right">
@@ -4991,21 +4637,21 @@ function renderizarAbaGraficosCompletaOficial() {
 
             return `
                 <div class="rounded-2xl border-2 ${seg.corBg} shadow-sm overflow-hidden flex flex-col justify-between">
-                    <div class="${seg.corHeader} p-3 border-b-2 flex justify-between items-center cursor-pointer" onclick="dispararExplosaoPorChave('${chaveExpSeg}')">
+                    <div class="${seg.corHeader} p-3.5 border-b-2 flex justify-between items-center cursor-pointer" onclick="abrirExplosaoPersonalizadaGraficos('${seg.nome} (Todas Atendidas)', dadosFiltradosAtuais.filter(x => classificarRegistroNovaTaxonomia(x).segmento === '${seg.nome}'))">
                         <div>
-                            <span class="text-[9px] uppercase font-bold opacity-80 block">Segmento Oficial (Clique p/ Explosão)</span>
-                            <h4 class="font-black text-sm sm:text-base underline decoration-dotted">${seg.nome}</h4>
+                            <span class="text-[9px] uppercase font-bold opacity-80 block">Segmento Oficial</span>
+                            <h4 class="font-black text-sm sm:text-base">${seg.nome}</h4>
                         </div>
                         <div class="text-right">
                             <span class="text-lg font-black text-cyan-300">${totalSeg} exec.</span>
-                            <span class="block text-[10px] opacity-90">${percSobreGeral}% do recorte (${totalHpsSeg} HPs)</span>
+                            <span class="block text-[10px] opacity-90">${percSobreGeral}% do total (${totalHpsSeg} HPs)</span>
                         </div>
                     </div>
                     <div class="p-3 space-y-2 flex-1 flex flex-col justify-center">
                         ${linhasCatHtml}
                     </div>
-                    <div class="bg-slate-200/70 px-3.5 py-1.5 text-[10px] font-bold text-slate-700 flex justify-between">
-                        <span>Total Atendido: ${atendidasSeg.length}</span>
+                    <div class="bg-slate-200/70 px-3.5 py-2 text-[10px] font-bold text-slate-700 flex justify-between">
+                        <span>Total Acionado: ${atendidasSeg.length}</span>
                         <span>Malogros/Pend.: ${atendidasSeg.length - totalSeg}</span>
                     </div>
                 </div>
@@ -5014,26 +4660,68 @@ function renderizarAbaGraficosCompletaOficial() {
     }
 
     // =========================================================================================
-    // 2. PLANILHA DINÂMICA DE PRODUTIVIDADE (APENAS CONCLUÍDAS)
+    // ITEM 01: PLANILHA DINÂMICA (BOTÕES DE SEGMENTO, CATEGORIA E SEMANA + APENAS CONCLUÍDAS)
     // =========================================================================================
+    const divBtnSeg = document.getElementById('botoes-filtro-segmento-din');
+    const divBtnCat = document.getElementById('botoes-filtro-categoria-din');
+    const divBtnSem = document.getElementById('botoes-filtro-semana-din');
+
+    if (divBtnSeg) {
+        const opcoesSeg = ['TODOS', 'CONSTRUÇÃO MDU', 'EXPANSÃO MDU', 'MAILING'];
+        divBtnSeg.innerHTML = opcoesSeg.map(op => `
+            <button type="button" onclick="selecionarFiltroPlanilhaDinamica('segmento', '${op}')" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${filtroMacroDinamicoGraf === op ? 'bg-cyan-400 text-slate-950 shadow' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">
+                ${op}
+            </button>
+        `).join('');
+    }
+
+    if (divBtnCat) {
+        const opcoesCat = (filtroMacroDinamicoGraf === 'EXPANSÃO MDU' || filtroMacroDinamicoGraf === 'MAILING')
+            ? ['TODAS', 'ATIVAÇÃO', 'CONSTRUÇÃO']
+            : ['TODAS', 'ATIVAÇÃO', 'CONSTRUÇÃO', 'VISTORIA'];
+        divBtnCat.innerHTML = opcoesCat.map(op => `
+            <button type="button" onclick="selecionarFiltroPlanilhaDinamica('categoria', '${op}')" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${filtroCatDinamicaGraf === op ? 'bg-amber-400 text-slate-950 shadow' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">
+                ${op}
+            </button>
+        `).join('');
+    }
+
+    if (divBtnSem) {
+        const opcoesSem = ['TODAS', 'Semana 1', 'Semana 2', 'Semana 3', 'Semana 4', 'Semana 5'];
+        divBtnSem.innerHTML = opcoesSem.map(op => `
+            <button type="button" onclick="selecionarFiltroPlanilhaDinamica('semana', '${op}')" class="px-2.5 py-1 rounded-lg font-black text-[10px] transition ${filtroSemanaDinamicaGraf === op ? 'bg-emerald-400 text-slate-950 shadow' : 'bg-slate-700 text-slate-200 hover:bg-slate-600'}">
+                ${op === 'TODAS' ? 'Todas' : op}
+            </button>
+        `).join('');
+    }
+
+    // Filtra apenas atividades CONCLUÍDAS para a Planilha Dinâmica (Item 01)
+    const concluidasDinamicas = apenasConcluidasPeriodo.filter(r => {
+        const mSeg = filtroMacroDinamicoGraf === 'TODOS' || r._tax.segmento === filtroMacroDinamicoGraf;
+        const mCat = filtroCatDinamicaGraf === 'TODAS' || r._tax.categoria === filtroCatDinamicaGraf;
+        const mSem = filtroSemanaDinamicaGraf === 'TODAS' || r._semana === filtroSemanaDinamicaGraf;
+        return mSeg && mCat && mSem;
+    });
+
+    // Barra de Porcentagens das Categorias dentro do filtro atual
     const barraPercCat = document.getElementById('barra-porcentagem-categorias-din');
     if (barraPercCat) {
-        const totDin = concluidasFiltradasSelecao.length;
-        const qtdAtiv = concluidasFiltradasSelecao.filter(r => r._tax.categoria === 'ATIVAÇÃO').length;
-        const qtdConst = concluidasFiltradasSelecao.filter(r => r._tax.categoria === 'CONSTRUÇÃO').length;
-        const qtdVist = concluidasFiltradasSelecao.filter(r => r._tax.categoria === 'VISTORIA').length;
+        const totDin = concluidasDinamicas.length;
+        const qtdAtiv = concluidasDinamicas.filter(r => r._tax.categoria === 'ATIVAÇÃO').length;
+        const qtdConst = concluidasDinamicas.filter(r => r._tax.categoria === 'CONSTRUÇÃO').length;
+        const qtdVist = concluidasDinamicas.filter(r => r._tax.categoria === 'VISTORIA').length;
         const pAtiv = totDin > 0 ? ((qtdAtiv / totDin) * 100).toFixed(1) : '0.0';
         const pConst = totDin > 0 ? ((qtdConst / totDin) * 100).toFixed(1) : '0.0';
         const pVist = totDin > 0 ? ((qtdVist / totDin) * 100).toFixed(1) : '0.0';
 
         barraPercCat.innerHTML = `
             <div class="font-black text-slate-700">
-                🎯 Seleção Ativa: <span class="text-blue-900">${filtrosMultiGraficos.segmentos.join(' + ')}</span> • <span class="text-amber-800">${filtrosMultiGraficos.categorias.join(' + ')}</span> • <span class="text-emerald-800">${filtrosMultiGraficos.semanas.join(' + ')}</span> (${totDin} concluídas)
+                🎯 Recorte Ativo: <span class="text-blue-900">${filtroMacroDinamicoGraf}</span> • <span class="text-amber-800">${filtroCatDinamicaGraf}</span> • <span class="text-emerald-800">${filtroSemanaDinamicaGraf}</span> (${totDin} concluídas)
             </div>
             <div class="flex flex-wrap gap-2">
                 <span class="bg-emerald-100 text-emerald-950 font-black px-2.5 py-1 rounded-lg border border-emerald-300">⚡ ATIVAÇÃO: ${qtdAtiv} (${pAtiv}%)</span>
                 <span class="bg-blue-100 text-blue-950 font-black px-2.5 py-1 rounded-lg border border-blue-300">🛠️ CONSTRUÇÃO: ${qtdConst} (${pConst}%)</span>
-                <span class="bg-purple-100 text-purple-950 font-black px-2.5 py-1 rounded-lg border border-purple-300">🔍 VISTORIA: ${qtdVist} (${pVist}%)</span>
+                ${(filtroMacroDinamicoGraf === 'TODOS' || filtroMacroDinamicoGraf === 'CONSTRUÇÃO MDU') ? `<span class="bg-purple-100 text-purple-950 font-black px-2.5 py-1 rounded-lg border border-purple-300">🔍 VISTORIA: ${qtdVist} (${pVist}%)</span>` : ''}
             </div>
         `;
     }
@@ -5044,7 +4732,7 @@ function renderizarAbaGraficosCompletaOficial() {
         mapaDin[eq.nome] = { nome: eq.nome, executados: 0, hps: 0, diasSet: new Set(), registros: [] };
     });
 
-    concluidasFiltradasSelecao.forEach(r => {
+    concluidasDinamicas.forEach(r => {
         const nome = r.equipe || 'NÃO IDENTIFICADO';
         if (!mapaDin[nome]) mapaDin[nome] = { nome, executados: 0, hps: 0, diasSet: new Set(), registros: [] };
         mapaDin[nome].executados++;
@@ -5073,11 +4761,10 @@ function renderizarAbaGraficosCompletaOficial() {
             somaExec += t.executados;
             somaHps += t.hps;
             t.diasSet.forEach(d => diasGlobaisSet.add(d));
-            const chaveExp = registrarListaParaExplosao(`Executadas por ${t.nome}`, t.registros);
 
             const tr = document.createElement('tr');
             tr.className = "hover:bg-blue-50/60 cursor-pointer transition";
-            tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExp}')`);
+            tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`${t.nome} (${filtroMacroDinamicoGraf} / ${filtroCatDinamicaGraf} / ${filtroSemanaDinamicaGraf})`, t.registros);
             tr.innerHTML = `
                 <td class="p-3 text-center font-bold text-slate-400">${idx + 1}º</td>
                 <td class="p-3 font-black text-blue-950 underline decoration-dotted">${t.nome}</td>
@@ -5093,11 +4780,10 @@ function renderizarAbaGraficosCompletaOficial() {
         const diasGlobais = diasGlobaisSet.size;
         const prodGlobal = diasGlobais > 0 ? (somaExec / diasGlobais).toFixed(2) : "0.00";
         const hpDiaGlobal = diasGlobais > 0 ? (somaHps / diasGlobais).toFixed(1) : "0.0";
-        const chaveExpTot = registrarListaParaExplosao(`Total Concluídas na Seleção`, concluidasFiltradasSelecao);
 
         tbodyDin.innerHTML += `
-            <tr onclick="dispararExplosaoPorChave('${chaveExpTot}')" class="bg-slate-900 text-white font-black text-xs cursor-pointer hover:bg-slate-800">
-                <td colspan="2" class="p-3 text-right uppercase underline decoration-dotted">Total Consolidado da Seleção (Clique p/ Explosão):</td>
+            <tr class="bg-slate-900 text-white font-black text-xs">
+                <td colspan="2" class="p-3 text-right uppercase">Total Consolidado da Seleção:</td>
                 <td class="p-3 text-center text-emerald-300 text-sm">${somaExec}</td>
                 <td class="p-3 text-center font-mono">${diasGlobais} d</td>
                 <td class="p-3 text-center text-cyan-300 text-sm">${prodGlobal}</td>
@@ -5108,7 +4794,7 @@ function renderizarAbaGraficosCompletaOficial() {
     }
 
     // =========================================================================================
-    // 3. PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO (FILTRADA PELA SELEÇÃO)
+    // ITEM 03: PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO (CONCLUÍDAS, MALOGROS E APOIOS)
     // =========================================================================================
     const mapaGeralTec = {};
     equipesVisiveis.forEach(eq => {
@@ -5124,7 +4810,7 @@ function renderizarAbaGraficosCompletaOficial() {
 
     const setApoiosUnicosGeral = new Set();
 
-    baseFiltradaSelecao.forEach(r => {
+    basePeriodo.forEach(r => {
         const nome = r.equipe || 'NÃO IDENTIFICADO';
         if (!mapaGeralTec[nome]) {
             mapaGeralTec[nome] = {
@@ -5137,7 +4823,7 @@ function renderizarAbaGraficosCompletaOficial() {
         item.registros.push(r);
 
         if (r.desfecho === 'CONCLUIDA') item.concluidas++;
-        else item.malogros++;
+        else item.malogros++; // Inclui malogradas/pendentes não executadas
 
         if (r._tax.segmento === 'CONSTRUÇÃO MDU') {
             if (r._tax.categoria === 'ATIVAÇÃO') item.cMduAtiv++;
@@ -5179,11 +4865,10 @@ function renderizarAbaGraficosCompletaOficial() {
                 totMal += t.malogros;
                 totAp += t.apoios;
                 totAtend += t.totalAtendidas;
-                const chaveExp = registrarListaParaExplosao(`Atendidas por ${t.nome}`, t.registros);
 
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50 cursor-pointer transition";
-                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExp}')`);
+                tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`Atividades de ${t.nome}`, t.registros);
                 tr.innerHTML = `
                     <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
                     <td class="p-2.5 font-black text-slate-800 underline decoration-dotted">${t.nome}</td>
@@ -5198,10 +4883,9 @@ function renderizarAbaGraficosCompletaOficial() {
                 tbodyGeralAtend.appendChild(tr);
             });
 
-        const chaveExpGeral = registrarListaParaExplosao(`Todas Atividades Atendidas na Seleção`, baseFiltradaSelecao);
         tbodyGeralAtend.innerHTML += `
-            <tr onclick="dispararExplosaoPorChave('${chaveExpGeral}')" class="bg-slate-900 text-white font-black text-xs cursor-pointer hover:bg-slate-800">
-                <td colspan="5" class="p-2.5 text-right uppercase underline decoration-dotted">Total Geral na Seleção (Clique p/ Explosão):</td>
+            <tr class="bg-slate-900 text-white font-black text-xs">
+                <td colspan="5" class="p-2.5 text-right uppercase">Total Geral Operação:</td>
                 <td class="p-2.5 text-center text-emerald-300">${totConc}</td>
                 <td class="p-2.5 text-center text-red-300">${totMal}</td>
                 <td class="p-2.5 text-center text-fuchsia-300">🤝 ${totAp}</td>
@@ -5211,9 +4895,9 @@ function renderizarAbaGraficosCompletaOficial() {
     }
 
     // =========================================================================================
-    // 4. GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS (FILTRADO PELA SELEÇÃO)
+    // ITEM 07: GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS
     // =========================================================================================
-    const datasUnicas = [...new Set(baseFiltradaSelecao.map(r => r.dataRegistro).filter(Boolean))].sort();
+    const datasUnicas = [...new Set(basePeriodo.map(r => r.dataRegistro).filter(Boolean))].sort();
     const ctxEvo = document.getElementById('canvasEvolucaoSegmentos')?.getContext('2d');
     if (ctxEvo) {
         if (chartEvolucaoSegmentosInst) chartEvolucaoSegmentosInst.destroy();
@@ -5224,19 +4908,19 @@ function renderizarAbaGraficosCompletaOficial() {
                 datasets: [
                     {
                         label: '🏗️ CONSTRUÇÃO MDU (Exec.)',
-                        data: datasUnicas.map(dt => concluidasFiltradasSelecao.filter(r => r.dataRegistro === dt && r._tax.segmento === 'CONSTRUÇÃO MDU').length),
+                        data: datasUnicas.map(dt => apenasConcluidasPeriodo.filter(r => r.dataRegistro === dt && r._tax.segmento === 'CONSTRUÇÃO MDU').length),
                         backgroundColor: '#1d4ed8',
                         borderRadius: 4
                     },
                     {
                         label: '🚀 EXPANSÃO MDU (Exec.)',
-                        data: datasUnicas.map(dt => concluidasFiltradasSelecao.filter(r => r.dataRegistro === dt && r._tax.segmento === 'EXPANSÃO MDU').length),
+                        data: datasUnicas.map(dt => apenasConcluidasPeriodo.filter(r => r.dataRegistro === dt && r._tax.segmento === 'EXPANSÃO MDU').length),
                         backgroundColor: '#059669',
                         borderRadius: 4
                     },
                     {
                         label: '📬 MAILING (Exec.)',
-                        data: datasUnicas.map(dt => concluidasFiltradasSelecao.filter(r => r.dataRegistro === dt && r._tax.segmento === 'MAILING').length),
+                        data: datasUnicas.map(dt => apenasConcluidasPeriodo.filter(r => r.dataRegistro === dt && r._tax.segmento === 'MAILING').length),
                         backgroundColor: '#7c3aed',
                         borderRadius: 4
                     }
@@ -5248,7 +4932,7 @@ function renderizarAbaGraficosCompletaOficial() {
                 onClick: (e, el) => {
                     if (el.length > 0 && datasUnicas[el[0].index]) {
                         const dtAlvo = datasUnicas[el[0].index];
-                        abrirExplosaoPersonalizadaGraficos(`Evolução em ${dtAlvo}`, baseFiltradaSelecao.filter(r => r.dataRegistro === dtAlvo));
+                        abrirExplosaoPersonalizadaGraficos(`Data ${dtAlvo}`, basePeriodo.filter(r => r.dataRegistro === dtAlvo));
                     }
                 }
             }
@@ -5256,7 +4940,7 @@ function renderizarAbaGraficosCompletaOficial() {
     }
 
     // =========================================================================================
-    // 5 e 6. PICOS DE HORÁRIOS + PLANILHA DE FAIXAS HORÁRIAS (FILTRADO PELA SELEÇÃO)
+    // ITEM 02: PICOS DE HORÁRIOS + PLANILHA DE FAIXAS E RECORDES DE TÉCNICOS (SEM MÉDIAS)
     // =========================================================================================
     const aberturasPorHora = new Array(24).fill(0);
     const fechamentosPorHora = new Array(24).fill(0);
@@ -5266,7 +4950,7 @@ function renderizarAbaGraficosCompletaOficial() {
     let tecMaisTarde = { nome: '-', hora: '--:--', min: -1, imovel: '', reg: null };
     let tecMaisTempo = { nome: '-', duracaoTxt: '--h --m', durMin: -1, imovel: '', reg: null };
 
-    baseFiltradaSelecao.forEach(r => {
+    basePeriodo.forEach(r => {
         const minIn = converterHorarioParaMinutos(r.hEntrada);
         const minOut = converterHorarioParaMinutos(r.hSaida);
         const pausa = Number(r.tempoPausadoMinutos) || 0;
@@ -5323,7 +5007,9 @@ function renderizarAbaGraficosCompletaOficial() {
     const ctxHorasNovo = document.getElementById('canvasHorariosPicoOficial')?.getContext('2d');
     if (ctxHorasNovo) {
         if (chartHorariosPicoNovoInst) chartHorariosPicoNovoInst.destroy();
-        const labelsH = [], sliceIn = [], sliceOut = [];
+        const labelsH = [];
+        const sliceIn = [];
+        const sliceOut = [];
         for (let h = 6; h <= 21; h++) {
             labelsH.push(`${String(h).padStart(2, '0')}h`);
             sliceIn.push(aberturasPorHora[h]);
@@ -5365,15 +5051,14 @@ function renderizarAbaGraficosCompletaOficial() {
         faixasOrdenadas.sort((a, b) => b.total - a.total || b.abertas - a.abertas);
 
         if (faixasOrdenadas.length === 0) {
-            tbodyHorarios.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Sem registros de horário na seleção atual.</td></tr>`;
+            tbodyHorarios.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Sem registros de horário no período.</td></tr>`;
         } else {
             faixasOrdenadas.forEach(f => {
-                const chaveExpH = registrarListaParaExplosao(`Movimentações das ${f.label}`, registrosPorHora[f.hora]);
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-blue-50/50 cursor-pointer";
-                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExpH}')`);
+                tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`Movimentações das ${f.label}`, registrosPorHora[f.hora]);
                 tr.innerHTML = `
-                    <td class="p-2.5 font-mono font-black text-slate-800 underline decoration-dotted">🕒 ${f.label}</td>
+                    <td class="p-2.5 font-mono font-black text-slate-800">🕒 ${f.label}</td>
                     <td class="p-2.5 text-center font-black text-blue-800 bg-blue-50/60">${f.abertas}</td>
                     <td class="p-2.5 text-center font-black text-emerald-800 bg-emerald-50/60">${f.fechadas}</td>
                     <td class="p-2.5 text-center font-black text-slate-900 bg-slate-100">${f.total}</td>
@@ -5384,16 +5069,14 @@ function renderizarAbaGraficosCompletaOficial() {
     }
 
     // =========================================================================================
-    // 7 e 8. RANKING DE OFENSORES + COMPARATIVO CONSTRUÇÃO MDU x EXPANSÃO MDU (ITEM 04 CORRIGIDO)
+    // ITENS 04 E 05: RANKING DE OFENSORES + SEPARAÇÃO ATIVAÇÃO MDU vs EXPANSÃO MDU
     // =========================================================================================
     const mapaOfensores = {};
     let totalOcorrenciasGeral = 0;
-    let totalOcorrenciasConstMDU = 0;
+    let totalOcorrenciasAtivMDU = 0;
     let totalOcorrenciasExpMDU = 0;
-    const regsMalogroConstMDU = [];
-    const regsMalogroExpMDU = [];
 
-    baseFiltradaSelecao.forEach(r => {
+    basePeriodo.forEach(r => {
         if (r.desfecho !== 'CONCLUIDA') {
             const listaMotivos = (Array.isArray(r.malogros) && r.malogros.length > 0)
                 ? r.malogros
@@ -5402,20 +5085,19 @@ function renderizarAbaGraficosCompletaOficial() {
             listaMotivos.forEach(m => {
                 const ch = String(m || 'OUTROS').trim().toUpperCase();
                 if (!mapaOfensores[ch]) {
-                    mapaOfensores[ch] = { ofensor: ch, total: 0, constMdu: 0, expMdu: 0, registros: [] };
+                    mapaOfensores[ch] = { ofensor: ch, total: 0, ativMdu: 0, expMdu: 0, registros: [] };
                 }
                 mapaOfensores[ch].total++;
                 mapaOfensores[ch].registros.push(r);
                 totalOcorrenciasGeral++;
 
-                if (r._tax.segmento === 'CONSTRUÇÃO MDU') {
-                    mapaOfensores[ch].constMdu++;
-                    totalOcorrenciasConstMDU++;
-                    regsMalogroConstMDU.push(r);
-                } else if (r._tax.segmento === 'EXPANSÃO MDU') {
+                // Racional Item 05: ATIVAÇÃO MDU (Ativações de Construção MDU + Mailing) vs EXPANSÃO MDU
+                if (r._tax.segmento === 'EXPANSÃO MDU') {
                     mapaOfensores[ch].expMdu++;
                     totalOcorrenciasExpMDU++;
-                    regsMalogroExpMDU.push(r);
+                } else if (r._tax.categoria === 'ATIVAÇÃO' || r._tax.segmento === 'CONSTRUÇÃO MDU') {
+                    mapaOfensores[ch].ativMdu++;
+                    totalOcorrenciasAtivMDU++;
                 }
             });
         }
@@ -5423,6 +5105,7 @@ function renderizarAbaGraficosCompletaOficial() {
 
     const listaOfensoresOrd = Object.values(mapaOfensores).sort((a, b) => b.total - a.total);
 
+    // Item 04: Gráfico e Tabela Ranking Geral
     const ctxOf = document.getElementById('canvasOfensoresRanking')?.getContext('2d');
     if (ctxOf) {
         if (chartOfensoresRankingInst) chartOfensoresRankingInst.destroy();
@@ -5457,14 +5140,13 @@ function renderizarAbaGraficosCompletaOficial() {
     if (tbodyOfGeral) {
         tbodyOfGeral.innerHTML = "";
         if (listaOfensoresOrd.length === 0) {
-            tbodyOfGeral.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado na seleção atual.</td></tr>`;
+            tbodyOfGeral.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado no período.</td></tr>`;
         } else {
             listaOfensoresOrd.forEach((o, idx) => {
                 const perc = totalOcorrenciasGeral > 0 ? ((o.total / totalOcorrenciasGeral) * 100).toFixed(1) : '0.0';
-                const chaveExpOf = registrarListaParaExplosao(`Ofensor: ${o.ofensor}`, o.registros);
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-red-50/60 cursor-pointer";
-                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExpOf}')`);
+                tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`Ofensor: ${o.ofensor}`, o.registros);
                 tr.innerHTML = `
                     <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
                     <td class="p-2.5 font-black text-red-950 underline decoration-dotted">${o.ofensor}</td>
@@ -5476,35 +5158,32 @@ function renderizarAbaGraficosCompletaOficial() {
         }
     }
 
-    // ITEM 04 CORRIGIDO: Comparativo de Malogros CONSTRUÇÃO MDU x EXPANSÃO MDU
+    // Item 05: Separação ATIVAÇÃO MDU vs EXPANSÃO MDU
     const boxResumoSegOf = document.getElementById('resumo-topo-ofensores-segmentos');
-    const somaConstMaisExp = totalOcorrenciasConstMDU + totalOcorrenciasExpMDU;
-
     if (boxResumoSegOf) {
-        const pConstMdu = somaConstMaisExp > 0 ? ((totalOcorrenciasConstMDU / somaConstMaisExp) * 100).toFixed(1) : '0.0';
-        const pExpMdu = somaConstMaisExp > 0 ? ((totalOcorrenciasExpMDU / somaConstMaisExp) * 100).toFixed(1) : '0.0';
-        const chConst = registrarListaParaExplosao(`Malogros CONSTRUÇÃO MDU`, regsMalogroConstMDU);
-        const chExp = registrarListaParaExplosao(`Malogros EXPANSÃO MDU`, regsMalogroExpMDU);
+        const totalSegSoma = totalOcorrenciasAtivMDU + totalOcorrenciasExpMDU;
+        const pAtivMdu = totalSegSoma > 0 ? ((totalOcorrenciasAtivMDU / totalSegSoma) * 100).toFixed(1) : '0.0';
+        const pExpMdu = totalSegSoma > 0 ? ((totalOcorrenciasExpMDU / totalSegSoma) * 100).toFixed(1) : '0.0';
 
         boxResumoSegOf.innerHTML = `
-            <div onclick="dispararExplosaoPorChave('${chConst}')" class="bg-white p-2.5 rounded-xl border border-blue-200 flex justify-between items-center cursor-pointer hover:border-blue-500 transition">
+            <div class="bg-white p-2.5 rounded-xl border border-blue-200 flex justify-between items-center">
                 <div>
-                    <span class="text-[10px] font-black text-blue-900 uppercase block underline decoration-dotted">🏗️ CONSTRUÇÃO MDU</span>
+                    <span class="text-[10px] font-black text-blue-900 uppercase block">⚡ ATIVAÇÃO MDU</span>
                     <span class="text-[10px] text-slate-500">Volume de Malogros</span>
                 </div>
                 <div class="text-right">
-                    <span class="font-black text-blue-950 text-sm">${totalOcorrenciasConstMDU} ocorr.</span>
-                    <span class="block text-[10px] font-bold text-blue-700">${pConstMdu}% (Const x Exp)</span>
+                    <span class="font-black text-blue-950 text-sm">${totalOcorrenciasAtivMDU} ocorr.</span>
+                    <span class="block text-[10px] font-bold text-blue-700">${pAtivMdu}% do volume</span>
                 </div>
             </div>
-            <div onclick="dispararExplosaoPorChave('${chExp}')" class="bg-white p-2.5 rounded-xl border border-indigo-200 flex justify-between items-center cursor-pointer hover:border-indigo-500 transition">
+            <div class="bg-white p-2.5 rounded-xl border border-indigo-200 flex justify-between items-center">
                 <div>
-                    <span class="text-[10px] font-black text-indigo-900 uppercase block underline decoration-dotted">🚀 EXPANSÃO MDU</span>
+                    <span class="text-[10px] font-black text-indigo-900 uppercase block">🚀 EXPANSÃO MDU</span>
                     <span class="text-[10px] text-slate-500">Volume de Malogros</span>
                 </div>
                 <div class="text-right">
                     <span class="font-black text-indigo-950 text-sm">${totalOcorrenciasExpMDU} ocorr.</span>
-                    <span class="block text-[10px] font-bold text-indigo-700">${pExpMdu}% (Const x Exp)</span>
+                    <span class="block text-[10px] font-bold text-indigo-700">${pExpMdu}% do volume</span>
                 </div>
             </div>
         `;
@@ -5513,26 +5192,22 @@ function renderizarAbaGraficosCompletaOficial() {
     const tbodyOfSeg = document.getElementById('tbody-ofensores-segmentos-mdu');
     if (tbodyOfSeg) {
         tbodyOfSeg.innerHTML = "";
-        const ofensoresConstExp = listaOfensoresOrd.filter(o => (o.constMdu + o.expMdu) > 0);
-
-        if (ofensoresConstExp.length === 0) {
-            tbodyOfSeg.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado em Construção MDU ou Expansão MDU na seleção.</td></tr>`;
+        if (listaOfensoresOrd.length === 0) {
+            tbodyOfSeg.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado nos segmentos.</td></tr>`;
         } else {
-            ofensoresConstExp.forEach(o => {
-                const somaLinha = o.constMdu + o.expMdu;
-                const percConst = totalOcorrenciasConstMDU > 0 ? ((o.constMdu / totalOcorrenciasConstMDU) * 100).toFixed(1) : '0.0';
+            listaOfensoresOrd.forEach(o => {
+                const percAtiv = totalOcorrenciasAtivMDU > 0 ? ((o.ativMdu / totalOcorrenciasAtivMDU) * 100).toFixed(1) : '0.0';
                 const percExp = totalOcorrenciasExpMDU > 0 ? ((o.expMdu / totalOcorrenciasExpMDU) * 100).toFixed(1) : '0.0';
-                const percSoma = somaConstMaisExp > 0 ? ((somaLinha / somaConstMaisExp) * 100).toFixed(1) : '0.0';
-                const chaveExpLinha = registrarListaParaExplosao(`Ofensor (Const x Exp): ${o.ofensor}`, o.registros.filter(r => r._tax.segmento === 'CONSTRUÇÃO MDU' || r._tax.segmento === 'EXPANSÃO MDU'));
+                const percTot = totalOcorrenciasGeral > 0 ? ((o.total / totalOcorrenciasGeral) * 100).toFixed(1) : '0.0';
 
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-amber-50/60 cursor-pointer";
-                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExpLinha}')`);
+                tr.onclick = () => abrirExplosaoPersonalizadaGraficos(`Ofensor por Segmento: ${o.ofensor}`, o.registros);
                 tr.innerHTML = `
                     <td class="p-2.5 font-bold text-slate-800 underline decoration-dotted">${o.ofensor}</td>
-                    <td class="p-2.5 text-center bg-blue-50/40"><b class="text-blue-950">${o.constMdu}</b> <span class="text-[10px] text-blue-700 font-semibold">(${percConst}%)</span></td>
+                    <td class="p-2.5 text-center bg-blue-50/40"><b class="text-blue-950">${o.ativMdu}</b> <span class="text-[10px] text-blue-700 font-semibold">(${percAtiv}%)</span></td>
                     <td class="p-2.5 text-center bg-indigo-50/40"><b class="text-indigo-950">${o.expMdu}</b> <span class="text-[10px] text-indigo-700 font-semibold">(${percExp}%)</span></td>
-                    <td class="p-2.5 text-center bg-slate-100"><b class="text-slate-950">${somaLinha}</b> <span class="text-[10px] text-slate-600 font-bold">(${percSoma}%)</span></td>
+                    <td class="p-2.5 text-center bg-slate-100"><b class="text-slate-950">${o.total}</b> <span class="text-[10px] text-slate-600 font-bold">(${percTot}%)</span></td>
                 `;
                 tbodyOfSeg.appendChild(tr);
             });
@@ -5540,9 +5215,9 @@ function renderizarAbaGraficosCompletaOficial() {
     }
 }
 
-// --- EXPORTAÇÃO EXCEL OFICIAL ---
+// --- ITEM 09: EXPORTAÇÃO EXCEL OFICIAL COM A NOVA TAXONOMIA (SEM EXIBIR NOMES DE PROJETOS DE BASE) ---
 function exportarPlanilhaDinamicaOficialExcel() {
-    const baseBruta = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
+    const base = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
         r &&
         r.equipe !== '__CONFIG_SISTEMA__' &&
         r.projeto !== '__CONFIG_AUDITORIA__' &&
@@ -5551,14 +5226,10 @@ function exportarPlanilhaDinamicaOficialExcel() {
         r.projeto !== PROJETO_SOLIC_MATERIAL &&
         !['EM ANDAMENTO', 'PARALISADA', 'PROGRAMADA', 'REABERTA'].includes(r.desfecho) &&
         (typeof registroPertenceAoUsuarioLogado === 'function' ? registroPertenceAoUsuarioLogado(r) : true)
-    ).map(r => ({
-        ...r,
-        _tax: classificarRegistroNovaTaxonomia(r),
-        _semana: obterNumeroSemanaFormatado(r.dataRegistro)
-    })).filter(registroPassaNosFiltrosGlobaisGraficos);
+    );
 
-    if (baseBruta.length === 0) {
-        alert("⚠️ Nenhum registro finalizado na seleção atual para exportar.");
+    if (base.length === 0) {
+        alert("⚠️ Nenhum registro finalizado no período selecionado para exportar.");
         return;
     }
 
@@ -5570,15 +5241,17 @@ function exportarPlanilhaDinamicaOficialExcel() {
             <th>SEMANA</th><th>DATA</th><th>TÉCNICO / EQUIPE</th><th>APOIO CONJUNTO</th><th>SEGMENTO</th><th>CATEGORIA</th><th>IMÓVEL / BLOCO</th><th>ENDEREÇO</th><th>HPs</th><th>RESULTADO</th>
         </tr>`;
 
-    baseBruta.forEach(r => {
+    base.forEach(r => {
+        const tax = classificarRegistroNovaTaxonomia(r);
+        const sem = obterNumeroSemanaFormatado(r.dataRegistro);
         const ap = extrairApoiosDoRegistro(r).join(', ') || '-';
         html += `<tr>
-            <td>${r._semana}</td>
+            <td>${sem}</td>
             <td>${r.dataRegistro}</td>
             <td><b>${r.equipe}</b></td>
             <td>${ap}</td>
-            <td><b>${r._tax.segmento}</b></td>
-            <td><b>${r._tax.categoria}</b></td>
+            <td><b>${tax.segmento}</b></td>
+            <td><b>${tax.categoria}</b></td>
             <td>${r.imovel}</td>
             <td>${r.endereco || '-'}</td>
             <td>${r.hps || 0}</td>
@@ -5597,13 +5270,15 @@ function exportarPlanilhaDinamicaOficialExcel() {
     document.body.removeChild(a);
 }
 
+// Sobrescreve exportarExcel global para usar a nova taxonomia limpa
 exportarExcel = exportarPlanilhaDinamicaOficialExcel;
 
-const _origAtualizarDashboardV14 = atualizarDashboardGestor;
+// Conecta a nova renderização ao ciclo central do Gestor
+const _origAtualizarDashboardV12 = atualizarDashboardGestor;
 atualizarDashboardGestor = async function(forcarRecargaMobile = false) {
-    await _origAtualizarDashboardV14.apply(this, arguments);
+    await _origAtualizarDashboardV12.apply(this, arguments);
     try {
-        otimizarCabecalhoAzulLinhaUnica();
+        injetarAssinaturaDesenvolvedorHeader();
         renderizarAbaGraficosCompletaOficial();
     } catch (e) {
         console.warn("Erro ao atualizar aba gráficos oficial:", e);
@@ -5611,7 +5286,7 @@ atualizarDashboardGestor = async function(forcarRecargaMobile = false) {
 };
 
 setTimeout(() => {
-    otimizarCabecalhoAzulLinhaUnica();
+    injetarAssinaturaDesenvolvedorHeader();
     construirLayoutExclusivoAbaGraficos();
     renderizarAbaGraficosCompletaOficial();
-}, 450);
+}, 500);
