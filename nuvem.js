@@ -1,3 +1,4 @@
+// ================= NUVEM.JS - SINCRONIZAÇÃO SUPABASE, PAGINAÇÃO TOTAL E TELEMETRIA BLINDADA =================
 const SUPABASE_URL = "https://vgqxnsyqrzyqjyvrlvou.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZncXhuc3lxcnp5cWp5dnJsdm91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDM1MTEsImV4cCI6MjEwODM3OTUxMX0.eEtPPNDWUaHAQxvoLIeA_Ag6RGW_TEMhoZ5wV65GX7Q";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -12,11 +13,11 @@ const PROJETO_SOLIC_COMBUSTIVEL = "__SOLIC_COMBUSTIVEL__";
 const PROJETO_SOLIC_MATERIAL    = "__SOLIC_MATERIAL__";
 const PRAZO_EXPURGO_48H_MS      = 48 * 60 * 60 * 1000;
 
-const LIMITE_TOTAL_SUPABASE_MB = 8000; // 8 GB do Plano Pro
+const LIMITE_TOTAL_SUPABASE_MB = 8000; // 8 GB Plano Pro
 const ORDEM_SETORES = ["Vistoriador", "Instalador", "Ativador"];
 let cargaInicialGestorConcluida = false;
 
-// ================= COFRE DE FOTOS SOB DEMANDA (LAZY LOADING / MEMÓRIA LEVE) =================
+// ================= COFRE DE FOTOS SOB DEMANDA (LAZY LOADING) =================
 const cacheFotosSobDemanda = new Map();
 let totalBytesFotosAcumuladas = 0;
 
@@ -63,7 +64,7 @@ async function obterFotosSobDemandaDoRegistro(idReg) {
     return [];
 }
 
-// ================= MOTOR REAL-TIME WEBSOCKETS (ESCUTA AO VIVO SUPABASE) =================
+// ================= MOTOR REAL-TIME WEBSOCKETS =================
 let canalRealtimeGpd = null;
 let statusConexaoRealtime = "CONECTANDO";
 let timerDebounceRealtime = null;
@@ -77,7 +78,6 @@ function atualizarIndicadorVisualRealtime(estado) {
     if (lblSync) {
         if (estado === 'ONLINE') {
             lblSync.className = "text-[10px] bg-emerald-950 text-emerald-300 px-2.5 py-1.5 rounded-lg border border-emerald-600 font-mono flex items-center gap-1.5 shadow-sm";
-            lblSync.title = "Conectado em Tempo Real via WebSockets: Qualquer lançamento ou alteração aparece na tela instantaneamente";
             lblSync.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block"></span> <b>AO VIVO (Real-Time):</b> <span id="txt-hora-sync" class="text-white">${horaAgora}</span>`;
         } else if (estado === 'RECONECTANDO') {
             lblSync.className = "text-[10px] bg-amber-950 text-amber-300 px-2.5 py-1.5 rounded-lg border border-amber-600 font-mono flex items-center gap-1.5";
@@ -86,12 +86,7 @@ function atualizarIndicadorVisualRealtime(estado) {
     }
 
     if (badgeModoLeve) {
-        if (estado === 'ONLINE') {
-            badgeModoLeve.innerText = "🟢 Ao Vivo 4G";
-            badgeModoLeve.title = "Conectado em tempo real com o painel de gestão";
-        } else {
-            badgeModoLeve.innerText = "⚡ 4G Leve";
-        }
+        badgeModoLeve.innerText = estado === 'ONLINE' ? "🟢 Ao Vivo 4G" : "⚡ 4G Leve";
     }
 }
 
@@ -162,6 +157,7 @@ async function tratarEventoRealtimeRecebido(payload) {
             if (viewCampoVisivel) {
                 if (typeof renderizarResumoSolicitacoesCampo === "function") renderizarResumoSolicitacoesCampo();
                 if (equipeAutenticadaSessao) {
+                    if (typeof atualizarBarraExpedienteCampo === "function") atualizarBarraExpedienteCampo();
                     const formAberto = !document.getElementById('bloco-pos-abertura')?.classList.contains('hidden');
                     if (!formAberto) {
                         if (typeof verificarImprevistoAtivoEquipeCampo === "function") verificarImprevistoAtivoEquipeCampo();
@@ -188,8 +184,7 @@ function lerJsonSeguroLocal(chave, valorPadrao) {
     }
 }
 
-// ================= ESTRUTURA DINÂMICA E EDITÁVEL DE GRUPOS, PROJETOS, COMBUSTÍVEL E MATERIAIS =================
-
+// ================= ESTRUTURA DE GRUPOS E PROJETOS =================
 const CATALOGO_PROJETOS_PADRAO = [
     { nome: "VISTORIA", grupo: "ON GOING", setor: "Vistoriador" },
     { nome: "CONSTRUÇÃO F", grupo: "PROJETO F", setor: "Instalador" },
@@ -237,7 +232,8 @@ const OPCOES_CONCLUIDA_PADRAO = [
     "FUSÃO / CONECTORIZAÇÃO OK",
     "TESTE ÓPTICO APROVADO",
     "CAIXAS IDENTIFICADAS",
-    "LIBERADO PARA COMERCIAL"
+    "LIBERADO PARA COMERCIAL",
+    "REDE GPON NÃO CONSTRUÍDA"
 ];
 
 let OPCOES_COMBUSTIVEL_PADRAO = lerJsonSeguroLocal('gpd_opcoes_combustivel', [
@@ -285,20 +281,11 @@ function reconstruirMapasDeProjetosDinamicos(atualizarSelectsNaTela = true) {
             item.grupo = grupoLimpo;
             item.setor = setorLimpo;
 
-            if (!GRUPOS_PROJETO_SISTEMA.includes(grupoLimpo)) {
-                GRUPOS_PROJETO_SISTEMA.push(grupoLimpo);
-            }
-            if (!novosTodos.includes(nomeLimpo)) {
-                novosTodos.push(nomeLimpo);
-            }
-            if (!novosPorSetor[setorLimpo].includes(nomeLimpo)) {
-                novosPorSetor[setorLimpo].push(nomeLimpo);
-            }
-            if (grupoLimpo === "ON GOING") {
-                novosMalling.push(nomeLimpo);
-            } else {
-                novosProjF.push(nomeLimpo);
-            }
+            if (!GRUPOS_PROJETO_SISTEMA.includes(grupoLimpo)) GRUPOS_PROJETO_SISTEMA.push(grupoLimpo);
+            if (!novosTodos.includes(nomeLimpo)) novosTodos.push(nomeLimpo);
+            if (!novosPorSetor[setorLimpo].includes(nomeLimpo)) novosPorSetor[setorLimpo].push(nomeLimpo);
+            if (grupoLimpo === "ON GOING") novosMalling.push(nomeLimpo);
+            else novosProjF.push(nomeLimpo);
         });
 
         if (novosTodos.length > 0) {
@@ -311,9 +298,7 @@ function reconstruirMapasDeProjetosDinamicos(atualizarSelectsNaTela = true) {
         localStorage.setItem('gpd_grupos_projeto', JSON.stringify(GRUPOS_PROJETO_SISTEMA));
         localStorage.setItem('gpd_catalogo_projetos', JSON.stringify(CATALOGO_PROJETOS_SISTEMA));
 
-        if (atualizarSelectsNaTela) {
-            popularSelectProjetosGlobal();
-        }
+        if (atualizarSelectsNaTela) popularSelectProjetosGlobal();
     } catch (e) {
         console.warn("Aviso ao reconstruir catálogo de projetos:", e);
     }
@@ -334,9 +319,7 @@ function popularSelectProjetosGlobal() {
                 }
             });
             selFiltroProj.innerHTML = html;
-            if (valAtual && TODOS_OS_PROJETOS.includes(valAtual)) {
-                selFiltroProj.value = valAtual;
-            }
+            if (valAtual && TODOS_OS_PROJETOS.includes(valAtual)) selFiltroProj.value = valAtual;
         }
 
         const selEditProj = document.getElementById('edit-reg-projeto');
@@ -381,8 +364,7 @@ function obterArraySetores(setorCampo) {
 }
 
 function formatarSetoresString(arrSetores) {
-    const validos = obterArraySetores(arrSetores);
-    return validos.join(" + ");
+    return obterArraySetores(arrSetores).join(" + ");
 }
 
 function tecnicoPertenceAoSetor(setorCampo, setorAlvo) {
@@ -441,6 +423,18 @@ function obterBadgeSetorHtml(setorCampo) {
         }
         return `<span class="bg-blue-100 text-blue-900 border border-blue-300 font-bold px-2 py-0.5 rounded text-[10px]">🛠️ Instalador</span>`;
     }).join('') + `</div>`;
+}
+
+// Função utilitária para exibir discretamente a categoria do técnico na aba Gráficos (Melhoria 03)
+function obterBadgeDiscretoCategoriaTecnico(nomeEquipe) {
+    const chave = String(nomeEquipe || '').trim().toUpperCase();
+    const eqObj = (equipesSistema || []).find(e => String(e.nome || '').trim().toUpperCase() === chave);
+    const setores = obterArraySetores(eqObj ? eqObj.setor : "Instalador");
+    return setores.map(s => {
+        if (s === 'Vistoriador') return `<span class="ml-1 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-purple-100 text-purple-800 border border-purple-200 align-middle">🔍 Vistoriador</span>`;
+        if (s === 'Ativador') return `<span class="ml-1 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 align-middle">⚡ Ativador</span>`;
+        return `<span class="ml-1 px-1.5 py-0.2 rounded text-[9px] font-semibold bg-blue-100 text-blue-800 border border-blue-200 align-middle">🛠️ Instalador</span>`;
+    }).join('');
 }
 
 let OPCOES_PENDENCIA_PADRAO = lerJsonSeguroLocal('gpd_opcoes_pendencia', [
@@ -620,7 +614,6 @@ function tocarAlertaSonoroCelular() {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (!AudioCtx) return;
         const ctx = new AudioCtx();
-
         const tocarNota = (freq, inicio, duracao) => {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
@@ -633,13 +626,10 @@ function tocarAlertaSonoroCelular() {
             osc.start(ctx.currentTime + inicio);
             osc.stop(ctx.currentTime + inicio + duracao);
         };
-
         tocarNota(659.25, 0, 0.16);
         tocarNota(880.00, 0.18, 0.28);
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-    } catch (e) {
-        console.warn("Aviso de áudio:", e);
-    }
+    } catch (e) {}
 }
 
 async function sincronizarUsuariosNaNuvem() {
@@ -666,7 +656,6 @@ async function sincronizarUsuariosNaNuvem() {
             agendamento: null,
             observacoes: JSON.stringify(usuariosSistema)
         };
-
         await supabaseClient.from('registros_producao').upsert([payloadConfig], { onConflict: 'id' });
     } catch (e) {
         console.warn("Aviso ao sincronizar usuários na nuvem:", e);
@@ -695,7 +684,6 @@ async function sincronizarEquipesNaNuvem() {
             agendamento: null,
             observacoes: JSON.stringify(equipesSistema)
         };
-
         await supabaseClient.from('registros_producao').upsert([payloadConfig], { onConflict: 'id' });
     } catch (e) {
         console.warn("Aviso ao sincronizar equipes na nuvem:", e);
@@ -746,6 +734,53 @@ async function sincronizarOpcoesNaNuvem() {
     }
 }
 
+// CORREÇÃO DO PROBLEMA 02: Merge inteligente por Timestamp e proteção contra sobrescrita de rotas de outros técnicos!
+function mesclarTelemetriaSemSobrescreverMaisRecente(mapaNuvem, mapaLocal) {
+    const resultado = { ...(mapaNuvem || {}) };
+    Object.entries(mapaLocal || {}).forEach(([eq, infoLoc]) => {
+        if (!infoLoc || typeof infoLoc !== 'object') return;
+        const infoNuv = resultado[eq];
+        if (!infoNuv) {
+            resultado[eq] = infoLoc;
+            return;
+        }
+        const dataLoc = String(infoLoc.data || '');
+        const dataNuv = String(infoNuv.data || '');
+        const tsLoc = Number(infoLoc.timestampUltimoSinal) || 0;
+        const tsNuv = Number(infoNuv.timestampUltimoSinal) || 0;
+
+        if (dataLoc > dataNuv) {
+            resultado[eq] = infoLoc;
+        } else if (dataLoc === dataNuv) {
+            // Se na nuvem consta DISPONIVEL hoje e localmente está ENCERRADO mas com timestamp antigo, preserva DISPONIVEL!
+            if (infoNuv.statusTurno === 'DISPONIVEL' && infoLoc.statusTurno === 'ENCERRADO' && tsLoc <= tsNuv) {
+                resultado[eq] = infoNuv;
+            } else if (tsLoc > tsNuv) {
+                resultado[eq] = infoLoc;
+            }
+        }
+    });
+    return resultado;
+}
+
+async function carregarTelemetriaDaNuvem() {
+    try {
+        const { data } = await supabaseClient
+            .from('registros_producao')
+            .select('observacoes')
+            .eq('id', ID_NUVEM_RASTREIO)
+            .maybeSingle();
+
+        if (data && data.observacoes) {
+            const mapaNuvem = JSON.parse(data.observacoes) || {};
+            telemetriaEquipes = mesclarTelemetriaSemSobrescreverMaisRecente(mapaNuvem, telemetriaEquipes);
+            localStorage.setItem('gpd_telemetria_equipes', JSON.stringify(telemetriaEquipes));
+        }
+    } catch (e) {
+        console.warn("Aviso ao carregar telemetria da nuvem:", e);
+    }
+}
+
 async function sincronizarTelemetriaNaNuvem(nomeEquipe = null, dadosEquipe = null) {
     try {
         const { data } = await supabaseClient
@@ -763,8 +798,11 @@ async function sincronizarTelemetriaNaNuvem(nomeEquipe = null, dadosEquipe = nul
             }
         }
 
-        telemetriaEquipes = { ...mapaNuvem, ...telemetriaEquipes };
+        // Nunca permite que o cache local de um aparelho sobrescreva outros técnicos na nuvem
+        telemetriaEquipes = mesclarTelemetriaSemSobrescreverMaisRecente(mapaNuvem, telemetriaEquipes);
+
         if (nomeEquipe && dadosEquipe) {
+            dadosEquipe.timestampUltimoSinal = Date.now();
             telemetriaEquipes[nomeEquipe] = dadosEquipe;
         }
 
@@ -815,8 +853,7 @@ function popularSelectImprevistos() {
     `).join('');
 }
 
-// ================= MEDIDOR DE CAPACIDADE LIVRE E OCUPADA DA NUVEM (500 MB) =================
-
+// ================= MEDIDOR DE CAPACIDADE DA NUVEM =================
 function calcularEstatisticasArmazenamentoNuvem() {
     try {
         const bytesRegistrosLeves = JSON.stringify(registrosSalvos || []).length;
@@ -846,11 +883,11 @@ function renderizarPainelCapacidadeNuvem() {
     if (stats.percentual >= 85) {
         corBarra = "bg-red-600 animate-pulse";
         corBoxAlerta = "bg-red-100 border-red-400 text-red-950";
-        msgRecomendacao = "🚨 ALERTA CRÍTICO DE CAPACIDADE (≥ 85%): Recomendamos IMEDIATAMENTE baixar o '📦 Backup Integral (.JSON)' na Central Master abaixo e clicar em '🧹 Limpar Só Fotos' para evitar lentidão ou bloqueio dos 500 MB da nuvem!";
+        msgRecomendacao = "🚨 ALERTA CRÍTICO DE CAPACIDADE (≥ 85%): Recomendamos baixar o '📦 Backup Integral (.JSON)' e clicar em '🧹 Limpar Só Fotos'.";
     } else if (stats.percentual >= 70) {
         corBarra = "bg-amber-500";
         corBoxAlerta = "bg-amber-100 border-amber-400 text-amber-950";
-        msgRecomendacao = "⚠️ ATENÇÃO PREVENTIVA (≥ 70%): O uso da nuvem está se aproximando do limite. Programe o download de um Backup (.JSON) e a limpeza de fotos de meses anteriores em breve.";
+        msgRecomendacao = "⚠️ ATENÇÃO PREVENTIVA (≥ 70%): O uso da nuvem está se aproximando do limite.";
     }
 
     const htmlPainel = `
@@ -877,7 +914,7 @@ function renderizarPainelCapacidadeNuvem() {
         </div>
         <div class="p-2.5 rounded-xl border text-[11px] font-bold flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 ${corBoxAlerta}">
             <span>${msgRecomendacao}</span>
-            ${nivelUsuarioLogado === 'Master' ? `<button type="button" onclick="mudarSubAbaGestor('opcoes'); document.getElementById('central-master-backup-nuvem')?.scrollIntoView({behavior:'smooth'})" title="Ir direto para a Central de Backup e Limpeza Inteligente" class="bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0">💾 Ir p/ Backup & Limpeza</button>` : ''}
+            ${nivelUsuarioLogado === 'Master' ? `<button type="button" onclick="mudarSubAbaGestor('opcoes'); document.getElementById('central-master-backup-nuvem')?.scrollIntoView({behavior:'smooth'})" class="bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0">💾 Ir p/ Backup & Limpeza</button>` : ''}
         </div>
     `;
 
@@ -892,8 +929,7 @@ function renderizarPainelCapacidadeNuvem() {
     }
 }
 
-// ================= FUNÇÕES DE INCLUSÃO, EDIÇÃO E EXCLUSÃO DE OPÇÕES, GRUPOS, PROJETOS, COMBUSTÍVEL E MATERIAIS =================
-
+// ================= OPÇÕES DO SISTEMA =================
 function renderizarPainelOpcoesSistema() {
     reconstruirMapasDeProjetosDinamicos(true);
     renderizarPainelCapacidadeNuvem();
@@ -907,8 +943,8 @@ function renderizarPainelOpcoesSistema() {
             const qtdProjs = CATALOGO_PROJETOS_SISTEMA.filter(p => p && p.grupo === grp).length;
             const botoes = podeEditar
                 ? `<div class="flex gap-1">
-                     <button onclick="editarGrupoProjetoSistema(${idx})" title="Renomear este Grupo de Projetos" class="text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px]">✏️ Editar</button>
-                     <button onclick="excluirGrupoProjetoSistema(${idx})" title="Excluir este Grupo de Projetos" class="text-red-600 hover:bg-red-50 px-2 py-0.5 rounded font-bold text-[10px]">🗑️</button>
+                     <button onclick="editarGrupoProjetoSistema(${idx})" class="text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px]">✏️ Editar</button>
+                     <button onclick="excluirGrupoProjetoSistema(${idx})" class="text-red-600 hover:bg-red-50 px-2 py-0.5 rounded font-bold text-[10px]">🗑️</button>
                    </div>`
                 : `<span class="text-slate-400 text-[10px]">Leitura</span>`;
 
@@ -931,8 +967,8 @@ function renderizarPainelOpcoesSistema() {
             const badgeSetor = obterBadgeSetorHtml(proj.setor);
             const botoes = podeEditar
                 ? `<div class="flex gap-1 shrink-0">
-                     <button onclick="editarProjetoSistema(${idx})" title="Editar Nome, Grupo ou Setor deste Projeto" class="text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px] border border-blue-200">✏️ Editar</button>
-                     <button onclick="excluirProjetoSistema(${idx})" title="Remover este Tipo de Projeto da lista" class="text-red-600 hover:bg-red-50 px-2 py-0.5 rounded font-bold text-[10px] border border-red-200">🗑️</button>
+                     <button onclick="editarProjetoSistema(${idx})" class="text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px] border border-blue-200">✏️ Editar</button>
+                     <button onclick="excluirProjetoSistema(${idx})" class="text-red-600 hover:bg-red-50 px-2 py-0.5 rounded font-bold text-[10px] border border-red-200">🗑️</button>
                    </div>`
                 : `<span class="text-slate-400 text-[10px]">Leitura</span>`;
 
@@ -956,8 +992,8 @@ function renderizarPainelOpcoesSistema() {
         arrayOpcoes.forEach((op, idx) => {
             const botoes = podeEditar
                 ? `<div class="flex gap-1">
-                     <button onclick="editarOpcaoSistema('${tipo}', ${idx})" title="Renomear esta opção" class="text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px]">✏️ Editar</button>
-                     <button onclick="excluirOpcaoSistema('${tipo}', ${idx})" title="Excluir esta opção" class="text-red-600 hover:bg-red-50 px-2 py-0.5 rounded font-bold text-[10px]">🗑️</button>
+                     <button onclick="editarOpcaoSistema('${tipo}', ${idx})" class="text-blue-600 hover:bg-blue-50 px-2 py-0.5 rounded font-bold text-[10px]">✏️ Editar</button>
+                     <button onclick="excluirOpcaoSistema('${tipo}', ${idx})" class="text-red-600 hover:bg-red-50 px-2 py-0.5 rounded font-bold text-[10px]">🗑️</button>
                    </div>`
                 : `<span class="text-slate-400 text-[10px]">Leitura</span>`;
 
@@ -979,178 +1015,84 @@ function renderizarPainelOpcoesSistema() {
 }
 
 async function adicionarNovoGrupoProjetoSistema() {
-    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
-    const nome = prompt("📂 NOVO GRUPO DE PROJETOS\n\nDigite o nome do novo Grupo (Ex: EXPANSÃO, ESPECIAL, PROJETO G):")?.trim().toUpperCase();
-    if (!nome) return;
-
-    if (GRUPOS_PROJETO_SISTEMA.includes(nome)) {
-        alert("⚠️ Este grupo já está cadastrado.");
-        return;
-    }
-
+    if (nivelUsuarioLogado === 'Visualizador') return;
+    const nome = prompt("📂 NOVO GRUPO DE PROJETOS\n\nDigite o nome do novo Grupo:")?.trim().toUpperCase();
+    if (!nome || GRUPOS_PROJETO_SISTEMA.includes(nome)) return;
     GRUPOS_PROJETO_SISTEMA.push(nome);
-    registrarLogAuditoria("NOVO GRUPO DE PROJETO", `Criado o grupo de projetos '${nome}'.`);
+    registrarLogAuditoria("NOVO GRUPO DE PROJETO", `Criado o grupo '${nome}'.`);
     await sincronizarOpcoesNaNuvem();
     renderizarPainelOpcoesSistema();
     if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
 }
 
 async function editarGrupoProjetoSistema(idx) {
-    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+    if (nivelUsuarioLogado === 'Visualizador') return;
     const atual = GRUPOS_PROJETO_SISTEMA[idx];
     if (!atual) return;
-
-    const novo = prompt(`✏️ RENOMEAR GRUPO DE PROJETOS\n\nNome atual: ${atual}\nDigite o novo nome para este grupo:`, atual)?.trim().toUpperCase();
+    const novo = prompt(`✏️ RENOMEAR GRUPO DE PROJETOS\n\nNome atual: ${atual}`, atual)?.trim().toUpperCase();
     if (!novo || novo === atual) return;
-
     GRUPOS_PROJETO_SISTEMA[idx] = novo;
-    CATALOGO_PROJETOS_SISTEMA.forEach(p => {
-        if (p && p.grupo === atual) p.grupo = novo;
-    });
-
-    registrarLogAuditoria("EDIÇÃO DE GRUPO DE PROJETO", `Grupo '${atual}' renomeado para '${novo}'.`);
+    CATALOGO_PROJETOS_SISTEMA.forEach(p => { if (p && p.grupo === atual) p.grupo = novo; });
     await sincronizarOpcoesNaNuvem();
     renderizarPainelOpcoesSistema();
     if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
 }
 
 async function excluirGrupoProjetoSistema(idx) {
-    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
-    if (GRUPOS_PROJETO_SISTEMA.length <= 1) {
-        alert("⚠️ O sistema precisa manter pelo menos 1 grupo de projetos ativo.");
-        return;
-    }
-
+    if (nivelUsuarioLogado === 'Visualizador' || GRUPOS_PROJETO_SISTEMA.length <= 1) return;
     const alvo = GRUPOS_PROJETO_SISTEMA[idx];
-    const vinculados = CATALOGO_PROJETOS_SISTEMA.filter(p => p && p.grupo === alvo);
-
-    if (vinculados.length > 0) {
-        const outroGrupo = GRUPOS_PROJETO_SISTEMA.find((_, i) => i !== idx) || "ON GOING";
-        if (!confirm(`⚠️ O grupo "${alvo}" possui ${vinculados.length} projeto(s) vinculado(s).\n\nSe confirmar a exclusão, esses projetos serão movidos automaticamente para o grupo "${outroGrupo}". Deseja continuar?`)) {
-            return;
-        }
-        CATALOGO_PROJETOS_SISTEMA.forEach(p => {
-            if (p && p.grupo === alvo) p.grupo = outroGrupo;
-        });
-    } else {
-        if (!confirm(`Deseja realmente excluir o grupo "${alvo}"?`)) return;
-    }
-
+    const outroGrupo = GRUPOS_PROJETO_SISTEMA.find((_, i) => i !== idx) || "ON GOING";
+    if (!confirm(`Deseja excluir o grupo "${alvo}"?`)) return;
+    CATALOGO_PROJETOS_SISTEMA.forEach(p => { if (p && p.grupo === alvo) p.grupo = outroGrupo; });
     GRUPOS_PROJETO_SISTEMA.splice(idx, 1);
-    registrarLogAuditoria("EXCLUSÃO DE GRUPO DE PROJETO", `Grupo '${alvo}' removido.`);
     await sincronizarOpcoesNaNuvem();
     renderizarPainelOpcoesSistema();
     if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
 }
 
 async function adicionarNovoProjetoSistema() {
-    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
-
-    const nome = prompt("🏗️ NOVO TIPO DE PROJETO / SERVIÇO (Passo 1 de 3)\n\nDigite o nome do novo projeto (Ex: MANUTENÇÃO MDU, VISTORIA F):")?.trim().toUpperCase();
-    if (!nome) return;
-
-    if (CATALOGO_PROJETOS_SISTEMA.some(p => p && p.nome === nome)) {
-        alert("⚠️ Já existe um projeto com este nome.");
-        return;
-    }
-
+    if (nivelUsuarioLogado === 'Visualizador') return;
+    const nome = prompt("🏗️ Digite o nome do novo projeto:")?.trim().toUpperCase();
+    if (!nome || CATALOGO_PROJETOS_SISTEMA.some(p => p && p.nome === nome)) return;
     const opcoesGruposTexto = GRUPOS_PROJETO_SISTEMA.map((g, i) => `${i + 1} - ${g}`).join('\n');
-    const respGrupo = prompt(`📂 VINCULAR AO GRUPO (Passo 2 de 3)\n\nEscolha o número ou digite o nome do Grupo para "${nome}":\n${opcoesGruposTexto}`, "1")?.trim().toUpperCase();
+    const respGrupo = prompt(`📂 Escolha o Grupo para "${nome}":\n${opcoesGruposTexto}`, "1")?.trim().toUpperCase();
     if (!respGrupo) return;
+    let grupoEscolhido = GRUPOS_PROJETO_SISTEMA[parseInt(respGrupo, 10) - 1] || respGrupo;
+    if (!GRUPOS_PROJETO_SISTEMA.includes(grupoEscolhido)) GRUPOS_PROJETO_SISTEMA.push(grupoEscolhido);
 
-    let grupoEscolhido = GRUPOS_PROJETO_SISTEMA[0];
-    const numGrp = parseInt(respGrupo, 10);
-    if (!isNaN(numGrp) && GRUPOS_PROJETO_SISTEMA[numGrp - 1]) {
-        grupoEscolhido = GRUPOS_PROJETO_SISTEMA[numGrp - 1];
-    } else if (GRUPOS_PROJETO_SISTEMA.includes(respGrupo)) {
-        grupoEscolhido = respGrupo;
-    } else {
-        grupoEscolhido = respGrupo;
-        GRUPOS_PROJETO_SISTEMA.push(grupoEscolhido);
-    }
+    const respSetor = prompt(`👷 Qual função executa "${nome}"?\n1 - Vistoriador\n2 - Instalador\n3 - Ativador`, "2")?.trim();
+    let setorEscolhido = respSetor === "1" ? "Vistoriador" : (respSetor === "3" ? "Ativador" : "Instalador");
 
-    const respSetor = prompt(
-        `👷 FUNÇÃO / SETOR EXECUTOR (Passo 3 de 3)\n\nQual função executa o projeto "${nome}" em campo?\n1 - Vistoriador\n2 - Instalador\n3 - Ativador`,
-        "2"
-    )?.trim();
-
-    let setorEscolhido = "Instalador";
-    if (respSetor === "1" || (respSetor && respSetor.toLowerCase().startsWith("vist"))) setorEscolhido = "Vistoriador";
-    else if (respSetor === "3" || (respSetor && respSetor.toLowerCase().startsWith("ativ"))) setorEscolhido = "Ativador";
-
-    CATALOGO_PROJETOS_SISTEMA.push({
-        nome: nome,
-        grupo: grupoEscolhido,
-        setor: setorEscolhido
-    });
-
-    registrarLogAuditoria("NOVO PROJETO CADASTRADO", `Projeto '${nome}' adicionado no grupo '${grupoEscolhido}' para o setor '${setorEscolhido}'.`);
+    CATALOGO_PROJETOS_SISTEMA.push({ nome, grupo: grupoEscolhido, setor: setorEscolhido });
     await sincronizarOpcoesNaNuvem();
     renderizarPainelOpcoesSistema();
-    if (typeof renderizarTabelaEquipes === "function") renderizarTabelaEquipes();
     if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
 }
 
 async function editarProjetoSistema(idx) {
-    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+    if (nivelUsuarioLogado === 'Visualizador') return;
     const atual = CATALOGO_PROJETOS_SISTEMA[idx];
     if (!atual) return;
-
-    const novoNome = prompt(`✏️ EDITAR PROJETO (Passo 1 de 3)\n\nNome atual: ${atual.nome}\nDigite o novo nome (ou mantenha o atual):`, atual.nome)?.trim().toUpperCase();
+    const novoNome = prompt(`✏️ Nome do projeto:`, atual.nome)?.trim().toUpperCase();
     if (!novoNome) return;
-
-    const opcoesGruposTexto = GRUPOS_PROJETO_SISTEMA.map((g, i) => `${i + 1} - ${g}`).join('\n');
-    const respGrupo = prompt(`📂 ALTERAR GRUPO (Passo 2 de 3)\n\nGrupo atual: ${atual.grupo}\nDigite o nome ou número do Grupo:\n${opcoesGruposTexto}`, atual.grupo)?.trim().toUpperCase();
+    const respGrupo = prompt(`📂 Grupo:`, atual.grupo)?.trim().toUpperCase();
     if (!respGrupo) return;
+    const respSetor = prompt(`👷 Setor (1-Vistoriador, 2-Instalador, 3-Ativador):`, atual.setor === "Vistoriador" ? "1" : (atual.setor === "Ativador" ? "3" : "2"))?.trim();
+    let novoSetor = respSetor === "1" ? "Vistoriador" : (respSetor === "3" ? "Ativador" : "Instalador");
 
-    let novoGrupo = atual.grupo;
-    const numGrp = parseInt(respGrupo, 10);
-    if (!isNaN(numGrp) && GRUPOS_PROJETO_SISTEMA[numGrp - 1]) {
-        novoGrupo = GRUPOS_PROJETO_SISTEMA[numGrp - 1];
-    } else {
-        novoGrupo = respGrupo;
-        if (!GRUPOS_PROJETO_SISTEMA.includes(novoGrupo)) GRUPOS_PROJETO_SISTEMA.push(novoGrupo);
-    }
-
-    const respSetor = prompt(
-        `👷 ALTERAR SETOR EXECUTOR (Passo 3 de 3)\n\nSetor atual: ${atual.setor}\n1 - Vistoriador\n2 - Instalador\n3 - Ativador`,
-        atual.setor === "Vistoriador" ? "1" : (atual.setor === "Ativador" ? "3" : "2")
-    )?.trim();
-
-    let novoSetor = atual.setor;
-    if (respSetor === "1" || (respSetor && respSetor.toLowerCase().startsWith("vist"))) novoSetor = "Vistoriador";
-    else if (respSetor === "2" || (respSetor && respSetor.toLowerCase().startsWith("inst"))) novoSetor = "Instalador";
-    else if (respSetor === "3" || (respSetor && respSetor.toLowerCase().startsWith("ativ"))) novoSetor = "Ativador";
-
-    const nomeAntigo = atual.nome;
-    CATALOGO_PROJETOS_SISTEMA[idx] = {
-        nome: novoNome,
-        grupo: novoGrupo,
-        setor: novoSetor
-    };
-
-    registrarLogAuditoria("EDIÇÃO DE PROJETO", `Projeto '${nomeAntigo}' atualizado para '${novoNome}' (Grupo: ${novoGrupo} | Setor: ${novoSetor}).`);
+    CATALOGO_PROJETOS_SISTEMA[idx] = { nome: novoNome, grupo: respGrupo, setor: novoSetor };
     await sincronizarOpcoesNaNuvem();
     renderizarPainelOpcoesSistema();
-    if (typeof renderizarTabelaEquipes === "function") renderizarTabelaEquipes();
     if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
 }
 
 async function excluirProjetoSistema(idx) {
-    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
-    if (CATALOGO_PROJETOS_SISTEMA.length <= 1) {
-        alert("⚠️ O sistema deve possuir pelo menos 1 projeto ativo.");
-        return;
-    }
-
+    if (nivelUsuarioLogado === 'Visualizador' || CATALOGO_PROJETOS_SISTEMA.length <= 1) return;
     const alvo = CATALOGO_PROJETOS_SISTEMA[idx];
-    if (!confirm(`Deseja realmente remover o projeto "${alvo.nome}" (${alvo.grupo}) da lista de opções?`)) return;
-
+    if (!confirm(`Remover o projeto "${alvo.nome}"?`)) return;
     CATALOGO_PROJETOS_SISTEMA.splice(idx, 1);
-    registrarLogAuditoria("EXCLUSÃO DE PROJETO", `Projeto '${alvo.nome}' removido do catálogo.`);
     await sincronizarOpcoesNaNuvem();
     renderizarPainelOpcoesSistema();
-    if (typeof renderizarTabelaEquipes === "function") renderizarTabelaEquipes();
     if (typeof atualizarDashboardGestor === "function") atualizarDashboardGestor();
 }
 
@@ -1164,75 +1106,45 @@ function obterArrayPorTipoOpcao(tipo) {
 }
 
 async function adicionarNovaOpcaoSistema(tipo) {
-    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
-    const msgPrompt = tipo === 'material_solic'
-        ? "🧰 Digite o nome do novo item de Material e a unidade (Ex: ALÇA PREFORMADA (un), BAP (un)):"
-        : "Digite o nome da nova opção:";
-    const nome = prompt(msgPrompt)?.trim().toUpperCase();
+    if (nivelUsuarioLogado === 'Visualizador') return;
+    const nome = prompt("Digite o nome da nova opção:")?.trim().toUpperCase();
     if (!nome) return;
-
     const lista = obterArrayPorTipoOpcao(tipo);
     if (!lista.includes(nome)) lista.push(nome);
-
-    registrarLogAuditoria("NOVA OPÇÃO CADASTRADA", `Adicionada opção '${nome}' em ${tipo.toUpperCase()}`);
     await sincronizarOpcoesNaNuvem();
     renderizarPainelOpcoesSistema();
-    if (typeof renderizarBlocosCampo === "function") renderizarBlocosCampo();
 }
 
 async function editarOpcaoSistema(tipo, index) {
-    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+    if (nivelUsuarioLogado === 'Visualizador') return;
     let lista = obterArrayPorTipoOpcao(tipo);
     const atual = lista[index];
-    const novo = prompt(`Renomear a opção "${atual}" para:`, atual)?.trim().toUpperCase();
+    const novo = prompt(`Renomear "${atual}" para:`, atual)?.trim().toUpperCase();
     if (!novo || novo === atual) return;
-
     lista[index] = novo;
-    registrarLogAuditoria("EDIÇÃO DE OPÇÃO", `Opção '${atual}' alterada para '${novo}' (${tipo.toUpperCase()})`);
     await sincronizarOpcoesNaNuvem();
     renderizarPainelOpcoesSistema();
-    if (typeof renderizarBlocosCampo === "function") renderizarBlocosCampo();
 }
 
 async function excluirOpcaoSistema(tipo, index) {
-    if (nivelUsuarioLogado === 'Visualizador') { alert("⚠️ Permissão insuficiente."); return; }
+    if (nivelUsuarioLogado === 'Visualizador') return;
     let lista = obterArrayPorTipoOpcao(tipo);
-    const alvo = lista[index];
-    if (!confirm(`Deseja realmente excluir a opção "${alvo}"?`)) return;
-
+    if (!confirm(`Excluir a opção "${lista[index]}"?`)) return;
     lista.splice(index, 1);
-    registrarLogAuditoria("EXCLUSÃO DE OPÇÃO", `Opção '${alvo}' removida de ${tipo.toUpperCase()}`);
     await sincronizarOpcoesNaNuvem();
     renderizarPainelOpcoesSistema();
-    if (typeof renderizarBlocosCampo === "function") renderizarBlocosCampo();
 }
 
 function obterClasseCorDesfecho(desfecho) {
     const d = (desfecho || '').toUpperCase().trim();
-    if (d === 'EM ANDAMENTO') {
-        return 'bg-blue-600 text-white border border-blue-700 animate-pulse shadow-sm';
-    }
-    if (d === 'PARALISADA') {
-        return 'bg-orange-500 text-white border border-orange-600 animate-pulse shadow-sm font-black';
-    }
-    if (d === 'PROGRAMADA') {
-        return 'bg-cyan-100 text-cyan-900 border border-cyan-300 font-black';
-    }
-    if (d === 'REABERTA') {
-        return 'bg-purple-600 text-white border border-purple-700 animate-pulse shadow-sm';
-    }
-    if (d === 'CONCLUIDA' || d === 'CONCLUÍDA' || d === 'IMPREVISTO RESOLVIDO' || d === 'TRATADA') {
-        return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
-    }
-    if (d === 'PENDENTE' || d === 'IMPREVISTO' || d === 'AGUARDANDO TRATATIVA') {
-        return 'bg-amber-100 text-amber-800 border border-amber-300';
-    }
-    if (d === 'MALOGRADA') {
-        return 'bg-red-100 text-red-800 border border-red-300';
-    }
-    if (d === 'MÚLTIPLO') {
-        return 'bg-indigo-100 text-indigo-900 border border-indigo-300 font-black';
-    }
+    if (d === 'EM ANDAMENTO') return 'bg-blue-600 text-white border border-blue-700 animate-pulse shadow-sm';
+    if (d === 'PARALISADA') return 'bg-orange-500 text-white border border-orange-600 animate-pulse shadow-sm font-black';
+    if (d === 'PROGRAMADA') return 'bg-cyan-100 text-cyan-900 border border-cyan-300 font-black';
+    if (d === 'REABERTA') return 'bg-purple-600 text-white border border-purple-700 animate-pulse shadow-sm';
+    if (d === 'CONCLUIDA' || d === 'CONCLUÍDA' || d === 'IMPREVISTO RESOLVIDO' || d === 'TRATADA') return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+    if (d === 'PENDENTE' || d === 'IMPREVISTO' || d === 'AGUARDANDO TRATATIVA') return 'bg-amber-100 text-amber-800 border border-amber-300';
+    if (d === 'MALOGRADA') return 'bg-red-100 text-red-800 border border-red-300';
+    if (d === 'MÚLTIPLO') return 'bg-indigo-100 text-indigo-900 border border-indigo-300 font-black';
     return 'bg-slate-100 text-slate-700 border border-slate-300';
 }
 
@@ -1240,8 +1152,7 @@ function obterDataLocalISO(dateObj = new Date()) {
     return new Date(dateObj.getTime() - (dateObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 }
 
-// ================= CONVERSOR DE LINHA DO BANCO (COM EXTRAÇÃO DE TRATATIVA E TIMESTAMPS DE 48H) =================
-
+// ================= CONVERSOR DE LINHA DO BANCO (PRESERVA 100% DOS INDICADORES E PAUSAS) =================
 function converterLinhaBancoParaObjetoGpd(r) {
     let obsBruta = r.observacoes || '';
     let endExtraido = '';
@@ -1252,15 +1163,17 @@ function converterLinhaBancoParaObjetoGpd(r) {
     let tratadoPorExtraido = '';
     let tratadoDataHoraExtraida = '';
     let tratadoTimestampExtraido = 0;
+    let temMarcadorFotos = false;
 
     const posFotos = obsBruta.indexOf('[FOTOS:');
     if (posFotos !== -1) {
+        temMarcadorFotos = true;
         const fimFotos = obsBruta.lastIndexOf(']');
         if (fimFotos > posFotos) {
             const jsonStr = obsBruta.substring(posFotos + 7, fimFotos);
             try {
                 fotosExtraidas = JSON.parse(jsonStr);
-            } catch (e) { console.warn("Erro ao extrair fotos:", e); }
+            } catch (e) {}
             obsBruta = (obsBruta.substring(0, posFotos) + obsBruta.substring(fimFotos + 1)).trim();
         }
     }
@@ -1305,7 +1218,18 @@ function converterLinhaBancoParaObjetoGpd(r) {
 
     const matchPausaInicio = obsBruta.match(/\[PAUSA_INICIO:\s*(\d+)\]/i);
     if (matchPausaInicio) {
+        const tsIni = parseInt(matchPausaInicio[1], 10) || 0;
+        if (r.desfecho === 'PARALISADA' && tsIni > 0) {
+            const minDecorridos = Math.max(1, Math.round((Date.now() - tsIni) / 60000));
+            tempoPausadoExtraido += minDecorridos;
+        }
         obsBruta = obsBruta.replace(matchPausaInicio[0], '').trim();
+    }
+
+    // Se também constar pausa descrita no motivo_desfecho (Ex: "(Pausa acumulada: 15 min)")
+    if (tempoPausadoExtraido === 0 && r.motivo_desfecho) {
+        const mMotPausa = String(r.motivo_desfecho).match(/Pausa acumulada:\s*(\d+)\s*min/i);
+        if (mMotPausa) tempoPausadoExtraido = parseInt(mMotPausa[1], 10) || 0;
     }
 
     const matchLiberou = obsBruta.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
@@ -1334,7 +1258,7 @@ function converterLinhaBancoParaObjetoGpd(r) {
     const objLeve = {
         id: r.id,
         dataRegistro: r.data_registro || '',
-        equipe: r.equipe || '',
+        equipe: (r.equipe || '').toUpperCase().trim(),
         membros: r.membros || '',
         projeto: projNorm,
         imovel: r.imovel || '',
@@ -1342,7 +1266,7 @@ function converterLinhaBancoParaObjetoGpd(r) {
         liberouAcesso: liberouAcessoExtraido,
         tempoPausadoMinutos: tempoPausadoExtraido,
         qtdBlocosProgramados: qtdBlocosExtraida,
-        qtdFotos: fotosNoCofre.length,
+        qtdFotos: fotosNoCofre.length > 0 ? fotosNoCofre.length : (temMarcadorFotos ? 1 : 0),
         tratadoPor: tratadoPorExtraido,
         tratadoDataHora: tratadoDataHoraExtraida,
         tratadoTimestamp: tratadoTimestampExtraido,
@@ -1352,13 +1276,13 @@ function converterLinhaBancoParaObjetoGpd(r) {
         gpsSaida: r.gps_saida || '',
         desfecho: r.desfecho || '',
         motivoDesfecho: r.motivo_desfecho || '',
-        malogros: r.malogros || [],
+        malogros: Array.isArray(r.malogros) ? r.malogros : [],
         responsavel: r.responsavel || '',
         contato: r.contato || '',
         email: r.email || '',
         agendamento: r.agendamento || '',
-        andares: r.andares || '',
-        hps: r.hps || '',
+        andares: Number(r.andares) || 0,
+        hps: Number(r.hps) || 0,
         servicoObra: r.servico_obra || 'SIM',
         observacoes: obsBruta,
         fusoes: Number(r.fusoes) || 0,
@@ -1389,46 +1313,35 @@ function converterLinhaBancoParaObjetoGpd(r) {
     return objLeve;
 }
 
-// ================= ITEM 01 E 02: FAXINA AUTOMÁTICA DE 48H DAS SOLICITAÇÕES TRATADAS =================
-
 async function verificarEExpurgarSolicitacoesVencidas48h() {
     try {
         if (!Array.isArray(registrosSalvos) || registrosSalvos.length === 0) return;
         const agora = Date.now();
-
         const vencidos = registrosSalvos.filter(r =>
             (r.projeto === PROJETO_SOLIC_COMBUSTIVEL || r.projeto === PROJETO_SOLIC_MATERIAL) &&
             r.desfecho === 'TRATADA' &&
             r.tratadoTimestamp > 0 &&
             (agora - r.tratadoTimestamp) >= PRAZO_EXPURGO_48H_MS
         );
-
         if (vencidos.length === 0) return;
-
         const idsVencidos = vencidos.map(v => v.id);
         const setVencidos = new Set(idsVencidos);
-
         await supabaseClient.from('registros_producao').delete().in('id', idsVencidos);
-
         idsVencidos.forEach(id => cacheFotosSobDemanda.delete(id));
         reciclarContagemBytesFotos();
         registrosSalvos = registrosSalvos.filter(r => !setVencidos.has(r.id));
-    } catch (e) {
-        console.warn("Aviso no auto-expurgo de 48h:", e);
-    }
+    } catch (e) {}
 }
-
-// ================= INICIALIZAÇÃO BLINDADA E RÁPIDA COM REAL-TIME WEBSOCKETS =================
 
 window.onload = async function() { 
     const isMobile = ehDispositivoMovel();
 
-    try { reconstruirMapasDeProjetosDinamicos(false); } catch (e) { console.warn(e); }
-    try { popularSelectImprevistos(); } catch (e) { console.warn(e); }
-    try { popularSelectEquipes(); } catch (e) { console.warn(e); }
-    try { popularSelectProjetosGlobal(); } catch (e) { console.warn(e); }
-    try { verificarPermissoesSessao(); } catch (e) { console.warn(e); }
-    try { if (typeof restaurarRascunhoCampo === "function") restaurarRascunhoCampo(); } catch (e) { console.warn(e); }
+    try { reconstruirMapasDeProjetosDinamicos(false); } catch (e) {}
+    try { popularSelectImprevistos(); } catch (e) {}
+    try { popularSelectEquipes(); } catch (e) {}
+    try { popularSelectProjetosGlobal(); } catch (e) {}
+    try { verificarPermissoesSessao(); } catch (e) {}
+    try { if (typeof restaurarRascunhoCampo === "function") restaurarRascunhoCampo(); } catch (e) {}
 
     if (isMobile) {
         const grupoTopo = document.getElementById('grupo-botoes-visao-topo');
@@ -1507,6 +1420,7 @@ window.onload = async function() {
         const formAberto = !document.getElementById('bloco-pos-abertura').classList.contains('hidden');
         if (viewCampoAtiva && equipeAutenticadaSessao && !formAberto) {
             await carregarRegistrosModoCampoLeve();
+            if (typeof atualizarBarraExpedienteCampo === "function") atualizarBarraExpedienteCampo();
             if (typeof verificarImprevistoAtivoEquipeCampo === "function") verificarImprevistoAtivoEquipeCampo();
             if (typeof verificarPendenciasReabertasEProgramadasCampo === "function") verificarPendenciasReabertasEProgramadasCampo(true);
             if (typeof atualizarAbaMinhasAtividadesCampo === "function") atualizarAbaMinhasAtividadesCampo(false);
@@ -1524,17 +1438,8 @@ function aplicarRestricoesInterface() {
     const alertaImprevistos = document.getElementById('alerta-imprevistos-supervisao');
 
     const abasRestritasVisualizador = [
-        'disponibilidade', 
-        'mapa',
-        'combustivel',
-        'solicitacao_material',
-        'imprevistos', 
-        'financeiro', 
-        'equipes', 
-        'opcoes', 
-        'usuarios', 
-        'bonificacao', 
-        'auditoria'
+        'disponibilidade', 'mapa', 'combustivel', 'solicitacao_material',
+        'imprevistos', 'financeiro', 'equipes', 'opcoes', 'usuarios', 'bonificacao', 'auditoria'
     ];
 
     if (nivelUsuarioLogado === 'Visualizador') {
@@ -1546,41 +1451,23 @@ function aplicarRestricoesInterface() {
         if (alertaImprevistos) alertaImprevistos.classList.add('hidden');
 
         abasRestritasVisualizador.forEach(aba => {
-            const btnAba = document.getElementById(`subtab-btn-${aba}`);
-            const viewAba = document.getElementById(`subview-${aba}`);
-            if (btnAba) btnAba.classList.add('hidden');
-            if (viewAba) viewAba.classList.add('hidden');
+            document.getElementById(`subtab-btn-${aba}`)?.classList.add('hidden');
+            document.getElementById(`subview-${aba}`)?.classList.add('hidden');
         });
-
-        const viewAtivVisivel = !document.getElementById('subview-atividades')?.classList.contains('hidden');
-        const viewGrafVisivel = !document.getElementById('subview-graficos')?.classList.contains('hidden');
-        const viewMatVisivel  = !document.getElementById('subview-materiais')?.classList.contains('hidden');
-
-        if (!viewAtivVisivel && !viewGrafVisivel && !viewMatVisivel && typeof mudarSubAbaGestor === "function") {
-            mudarSubAbaGestor('atividades');
-        }
     } else if (nivelUsuarioLogado === 'Operador') {
         if (btnNovoUsuario) btnNovoUsuario.classList.add('hidden');
         if (btnLimparLogs) btnLimparLogs.classList.add('hidden');
         if (btnNovaEquipe) btnNovaEquipe.classList.remove('hidden');
         if (btnImpPlan) btnImpPlan.classList.remove('hidden');
         if (btnBoletimWhats) btnBoletimWhats.classList.remove('hidden');
-
-        abasRestritasVisualizador.forEach(aba => {
-            const btnAba = document.getElementById(`subtab-btn-${aba}`);
-            if (btnAba) btnAba.classList.remove('hidden');
-        });
+        abasRestritasVisualizador.forEach(aba => document.getElementById(`subtab-btn-${aba}`)?.classList.remove('hidden'));
     } else {
         if (btnNovaEquipe) btnNovaEquipe.classList.remove('hidden');
         if (btnNovoUsuario) btnNovoUsuario.classList.remove('hidden');
         if (btnLimparLogs) btnLimparLogs.classList.remove('hidden');
         if (btnImpPlan) btnImpPlan.classList.remove('hidden');
         if (btnBoletimWhats) btnBoletimWhats.classList.remove('hidden');
-
-        abasRestritasVisualizador.forEach(aba => {
-            const btnAba = document.getElementById(`subtab-btn-${aba}`);
-            if (btnAba) btnAba.classList.remove('hidden');
-        });
+        abasRestritasVisualizador.forEach(aba => document.getElementById(`subtab-btn-${aba}`)?.classList.remove('hidden'));
     }
 }
 
@@ -1592,19 +1479,10 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
         try {
             const nuvemUsers = JSON.parse(rowUsuarios.observacoes);
             if (Array.isArray(nuvemUsers) && nuvemUsers.length > 0) {
-                const locais = lerJsonSeguroLocal('gpd_usuarios_cadastrados', []);
-                let houveAdicaoLocal = false;
-                locais.forEach(uLocal => {
-                    if (uLocal && uLocal.email && !nuvemUsers.some(uNuvem => uNuvem.email.toLowerCase() === uLocal.email.toLowerCase())) {
-                        nuvemUsers.push(uLocal);
-                        houveAdicaoLocal = true;
-                    }
-                });
                 usuariosSistema = nuvemUsers;
                 localStorage.setItem('gpd_usuarios_cadastrados', JSON.stringify(usuariosSistema));
-                if (houveAdicaoLocal && permitirUploadInicialConfig) await sincronizarUsuariosNaNuvem();
             }
-        } catch (e) { console.warn("Erro ao ler JSON de usuários da nuvem:", e); }
+        } catch (e) {}
     } else if (permitirUploadInicialConfig) {
         await sincronizarUsuariosNaNuvem();
     }
@@ -1621,7 +1499,7 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
                 }));
                 localStorage.setItem('gpd_equipes_cadastradas', JSON.stringify(equipesSistema));
             }
-        } catch (e) { console.warn("Erro ao ler JSON de equipes da nuvem:", e); }
+        } catch (e) {}
     } else if (equipesSistema.length > 0 && permitirUploadInicialConfig) {
         await sincronizarEquipesNaNuvem();
     }
@@ -1633,21 +1511,13 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
             if (Array.isArray(nuvemOpc.pendencia)) OPCOES_PENDENCIA_PADRAO = nuvemOpc.pendencia;
             if (Array.isArray(nuvemOpc.malogro)) OPCOES_MALOGRO_PADRAO = nuvemOpc.malogro;
             if (Array.isArray(nuvemOpc.imprevisto)) OPCOES_IMPREVISTO_PADRAO = nuvemOpc.imprevisto;
-            if (Array.isArray(nuvemOpc.combustivel) && nuvemOpc.combustivel.length > 0) {
-                OPCOES_COMBUSTIVEL_PADRAO = nuvemOpc.combustivel;
-            }
-            if (Array.isArray(nuvemOpc.materialSolicitacao) && nuvemOpc.materialSolicitacao.length > 0) {
-                OPCOES_MATERIAL_SOLICITACAO = nuvemOpc.materialSolicitacao;
-            }
-            if (Array.isArray(nuvemOpc.gruposProjeto) && nuvemOpc.gruposProjeto.length > 0) {
-                GRUPOS_PROJETO_SISTEMA = nuvemOpc.gruposProjeto;
-            }
-            if (Array.isArray(nuvemOpc.catalogoProjetos) && nuvemOpc.catalogoProjetos.length > 0) {
-                CATALOGO_PROJETOS_SISTEMA = nuvemOpc.catalogoProjetos;
-            }
+            if (Array.isArray(nuvemOpc.combustivel) && nuvemOpc.combustivel.length > 0) OPCOES_COMBUSTIVEL_PADRAO = nuvemOpc.combustivel;
+            if (Array.isArray(nuvemOpc.materialSolicitacao) && nuvemOpc.materialSolicitacao.length > 0) OPCOES_MATERIAL_SOLICITACAO = nuvemOpc.materialSolicitacao;
+            if (Array.isArray(nuvemOpc.gruposProjeto) && nuvemOpc.gruposProjeto.length > 0) GRUPOS_PROJETO_SISTEMA = nuvemOpc.gruposProjeto;
+            if (Array.isArray(nuvemOpc.catalogoProjetos) && nuvemOpc.catalogoProjetos.length > 0) CATALOGO_PROJETOS_SISTEMA = nuvemOpc.catalogoProjetos;
             reconstruirMapasDeProjetosDinamicos(true);
             popularSelectImprevistos();
-        } catch (e) { console.warn("Erro ao ler JSON de opções da nuvem:", e); }
+        } catch (e) {}
     } else if (permitirUploadInicialConfig) {
         await sincronizarOpcoesNaNuvem();
     }
@@ -1657,10 +1527,10 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
         try {
             const nuvemRast = JSON.parse(rowRastreio.observacoes);
             if (nuvemRast && typeof nuvemRast === 'object') {
-                telemetriaEquipes = nuvemRast;
+                telemetriaEquipes = mesclarTelemetriaSemSobrescreverMaisRecente(nuvemRast, telemetriaEquipes);
                 localStorage.setItem('gpd_telemetria_equipes', JSON.stringify(telemetriaEquipes));
             }
-        } catch (e) { console.warn("Erro ao ler JSON de rastreio da nuvem:", e); }
+        } catch (e) {}
     }
 
     const registrosReais = data.filter(r => 
@@ -1689,11 +1559,24 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
     } else {
         const mapa = new Map();
         (registrosSalvos || []).forEach(item => mapa.set(item.id, item));
-        convertidos.forEach(item => mapa.set(item.id, item));
-        registrosSalvos = Array.from(mapa.values()).sort((a, b) => b.id - a.id);
+        convertidos.forEach(item => {
+            const existente = mapa.get(item.id);
+            if (existente) {
+                // Preserva dados já extraídos de observações caso a atualização parcial venha sem a coluna observacoes
+                if (!item.endereco && existente.endereco) item.endereco = existente.endereco;
+                if (!item.liberouAcesso && existente.liberouAcesso) item.liberouAcesso = existente.liberouAcesso;
+                if (!item.tempoPausadoMinutos && existente.tempoPausadoMinutos) item.tempoPausadoMinutos = existente.tempoPausadoMinutos;
+                if (!item.observacoes && existente.observacoes) item.observacoes = existente.observacoes;
+                if (!item.qtdFotos && existente.qtdFotos) item.qtdFotos = existente.qtdFotos;
+            }
+            mapa.set(item.id, item);
+        });
+        registrosSalvos = Array.from(mapa.values()).sort((a, b) => {
+            if (a.dataRegistro !== b.dataRegistro) return (b.dataRegistro || '').localeCompare(a.dataRegistro || '');
+            return (b.id || 0) - (a.id || 0);
+        });
     }
 
-    // Executa silenciosamente a faxina de 48h das solicitações de combustível e material já tratadas
     await verificarEExpurgarSolicitacoesVencidas48h();
     renderizarPainelCapacidadeNuvem();
 }
@@ -1714,7 +1597,7 @@ async function sincronizarDeltaRapidoGestor() {
             .select('*')
             .or(`data_registro.eq.${hojeISO},desfecho.in.(PROGRAMADA,REABERTA,EM ANDAMENTO,PARALISADA,IMPREVISTO,AGUARDANDO TRATATIVA,TRATADA)`)
             .order('id', { ascending: false })
-            .limit(160);
+            .limit(300);
 
         const [resConfig, resRecentes] = await Promise.all([promConfig, promRecentes]);
         const combinados = [...(resConfig.data || []), ...(resRecentes.data || [])];
@@ -1734,33 +1617,32 @@ async function carregarRegistrosModoCampoLeve() {
             .select('*')
             .in('id', [ID_NUVEM_USUARIOS, ID_NUVEM_EQUIPES, ID_NUVEM_OPCOES, ID_NUVEM_RASTREIO]);
 
+        const COLUNAS_LEVES_CAMPO = 'id, data_registro, equipe, membros, projeto, imovel, h_entrada, h_saida, gps_entrada, gps_saida, desfecho, motivo_desfecho, malogros, responsavel, contato, email, agendamento, andares, hps, servico_obra, fusoes, conectores, cabo_rl, cabo_drop, nap, dio, cx_sobrepor, cx_embutida, cx_fosc';
+
         let queryAtiv = supabaseClient
             .from('registros_producao')
-            .select('*')
+            .select(COLUNAS_LEVES_CAMPO)
             .order('id', { ascending: false });
 
         if (eqAtiva) {
-            queryAtiv = queryAtiv.or(`equipe.eq."${eqAtiva}",data_registro.eq.${hojeISO}`).limit(120);
+            queryAtiv = queryAtiv.or(`equipe.eq."${eqAtiva}",data_registro.eq.${hojeISO},desfecho.in.(PROGRAMADA,REABERTA,EM ANDAMENTO,PARALISADA,IMPREVISTO)`).limit(200);
         } else {
-            queryAtiv = queryAtiv.or(`data_registro.eq.${hojeISO},desfecho.in.(PROGRAMADA,REABERTA,EM ANDAMENTO,PARALISADA,IMPREVISTO,AGUARDANDO TRATATIVA,TRATADA)`).limit(120);
+            queryAtiv = queryAtiv.or(`data_registro.eq.${hojeISO},desfecho.in.(PROGRAMADA,REABERTA,EM ANDAMENTO,PARALISADA,IMPREVISTO,AGUARDANDO TRATATIVA,TRATADA)`).limit(200);
         }
 
         const [resConfig, resAtiv] = await Promise.all([promConfig, queryAtiv]);
-
-        const combinados = [
-            ...(resConfig.data || []),
-            ...(resAtiv.data || [])
-        ];
+        const combinados = [...(resConfig.data || []), ...(resAtiv.data || [])];
 
         const mapaUnico = new Map();
         combinados.forEach(item => mapaUnico.set(item.id, item));
 
-        await processarPacoteDadosNuvem(Array.from(mapaUnico.values()), false, true);
+        await processarPacoteDadosNuvem(Array.from(mapaUnico.values()), false, false);
     } catch (err) {
         console.warn("Aviso no carregamento leve 4G:", err);
     }
 }
 
+// CORREÇÃO DO PROBLEMA 03: Paginação completa sem cortar em 1000 registros e mantendo todos os campos!
 async function carregarRegistrosDaNuvem(forcarCompletoGestor = false) {
     const viewGestorVisivel = !document.getElementById('view-gestor')?.classList.contains('hidden');
     if (!forcarCompletoGestor && !viewGestorVisivel) {
@@ -1768,14 +1650,46 @@ async function carregarRegistrosDaNuvem(forcarCompletoGestor = false) {
     }
 
     try {
-        let { data, error } = await supabaseClient
+        // 1. Carrega as linhas de configuração do sistema
+        const { data: rowsConfig } = await supabaseClient
             .from('registros_producao')
             .select('*')
-            .order('id', { ascending: false });
-        
-        if (error) throw error;
-        if (data) {
-            await processarPacoteDadosNuvem(data, true, true);
+            .in('id', [ID_NUVEM_USUARIOS, ID_NUVEM_EQUIPES, ID_NUVEM_OPCOES, ID_NUVEM_RASTREIO]);
+
+        if (rowsConfig) {
+            await processarPacoteDadosNuvem(rowsConfig, true, false);
+        }
+
+        // 2. Carrega todas as páginas de registros de produção (colunas completas exceto fotos pesadas)
+        const COLUNAS_COMPLETAS_SEM_FOTOS = 'id, data_registro, equipe, membros, projeto, imovel, h_entrada, h_saida, gps_entrada, gps_saida, desfecho, motivo_desfecho, malogros, responsavel, contato, email, agendamento, andares, hps, servico_obra, fusoes, conectores, cabo_rl, cabo_drop, nap, dio, cx_sobrepor, cx_embutida, cx_fosc';
+        const TAMANHO_PAGINA = 1000;
+        let todasLinhas = [];
+        let pagina = 0;
+        let continuar = true;
+
+        while (continuar && pagina < 30) {
+            const ini = pagina * TAMANHO_PAGINA;
+            const fim = ini + TAMANHO_PAGINA - 1;
+            const { data: lote, error } = await supabaseClient
+                .from('registros_producao')
+                .select(COLUNAS_COMPLETAS_SEM_FOTOS)
+                .neq('equipe', '__CONFIG_SISTEMA__')
+                .neq('projeto', '__CONFIG_AUDITORIA__')
+                .order('data_registro', { ascending: false })
+                .order('id', { ascending: false })
+                .range(ini, fim);
+
+            if (error || !lote || lote.length === 0) {
+                continuar = false;
+            } else {
+                todasLinhas.push(...lote);
+                if (lote.length < TAMANHO_PAGINA) continuar = false;
+                else pagina++;
+            }
+        }
+
+        if (todasLinhas.length > 0) {
+            await processarPacoteDadosNuvem(todasLinhas, false, false);
             cargaInicialGestorConcluida = true;
         }
     } catch (err) {
@@ -1798,7 +1712,7 @@ async function recarregarDadosGestor(forcarDownloadCompleto = true) {
 
     popularSelectEquipes();
     popularSelectProjetosGlobal();
-    atualizarDashboardGestor();
+    if (typeof atualizarDashboardGestor === "function") await atualizarDashboardGestor();
     atualizarIndicadorVisualRealtime(statusConexaoRealtime);
 
     if (btnAtu) {
@@ -1902,25 +1816,13 @@ function alternarVisao(visao) {
         subtitle.innerText = "Setor Construção MDU • PROCISA RJ";
         popularSelectEquipes();
         atualizarBarraSegurancaPinCampo();
-        if (typeof atualizarBarraExpedienteCampo === "function") {
-            atualizarBarraExpedienteCampo();
-        }
-        if (typeof verificarImprevistoAtivoEquipeCampo === "function") {
-            verificarImprevistoAtivoEquipeCampo();
-        }
-        if (typeof verificarPendenciasReabertasEProgramadasCampo === "function") {
-            verificarPendenciasReabertasEProgramadasCampo(false);
-        }
-        if (typeof atualizarAbaMinhasAtividadesCampo === "function") {
-            atualizarAbaMinhasAtividadesCampo(false);
-        }
-        if (typeof renderizarResumoSolicitacoesCampo === "function") {
-            renderizarResumoSolicitacoesCampo();
-        }
+        if (typeof atualizarBarraExpedienteCampo === "function") atualizarBarraExpedienteCampo();
+        if (typeof verificarImprevistoAtivoEquipeCampo === "function") verificarImprevistoAtivoEquipeCampo();
+        if (typeof verificarPendenciasReabertasEProgramadasCampo === "function") verificarPendenciasReabertasEProgramadasCampo(false);
+        if (typeof atualizarAbaMinhasAtividadesCampo === "function") atualizarAbaMinhasAtividadesCampo(false);
+        if (typeof renderizarResumoSolicitacoesCampo === "function") renderizarResumoSolicitacoesCampo();
     }
 }
-
-// ================= FUNÇÕES DE SESSÃO, EQUIPES E AUDITORIA (ITEM 03: EXCLUSIVO GESTÃO) =================
 
 function verificarPermissoesSessao() {
     if (!usuarioLogado) return;
@@ -1934,7 +1836,6 @@ function verificarPermissoesSessao() {
     }
 }
 
-// ITEM 03: Registra na auditoria APENAS ações feitas no Modo Gestão (usuário logado)
 function registrarLogAuditoria(acao, detalhes) {
     if (!usuarioLogado) return;
     let novoLog = {
