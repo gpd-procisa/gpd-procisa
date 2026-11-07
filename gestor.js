@@ -2994,41 +2994,40 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
-// ================= ABA GRÁFICOS & INDICADORES (COM MELHORIAS 01, 02, 03 E CORREÇÃO DOS MODAIS) =================
+// ================= ABA GRÁFICOS & INDICADORES + CORREÇÕES DE FOTOS, MAPA E VELOCIDADE (PARTE 3 LIMPA E UNIFICADA) =================
 
-let filtrosMultiGraficos = {
+var filtrosMultiGraficos = {
     segmentos: ['TODOS'],
     categorias: ['TODAS'],
     semanas: ['TODAS']
 };
 
-let modoSelecaoMultiplaSemCtrl = false;
-let secoesInibidasGraficos = {
+var modoSelecaoMultiplaSemCtrl = false;
+var secoesInibidasGraficos = {
     consolidados: false,
-    ociosidadeImprevistos: false,
     planilhaDinamica: false,
     geralTecnicos: false,
     evolucaoSegmentos: false,
     picosHorarios: false,
     planilhaHorarios: false,
     rankingOfensores: false,
-    ofensoresSegmentos: false
+    ofensoresSegmentos: false,
+    controlePausas: false,
+    impactoOperacional: false
 };
 
-let estadoModalExpandidoAtual = {
-    ativo: false,
-    tipo: null,
-    idOrigem: null,
-    titulo: ''
-};
+var estadoModalExpandidoAtual = { ativo: false, tipo: null, idOrigem: null, titulo: '' };
+var registroExplosaoCache = new Map();
+var contadorChaveExplosao = 0;
 
-let registroExplosaoCache = new Map();
-let contadorChaveExplosao = 0;
+var chartEvolucaoSegmentosInst = null;
+var chartHorariosPicoNovoInst = null;
+var chartOfensoresRankingInst = null;
+var chartImpactoImprevistosInst = null;
 
-let chartEvolucaoSegmentosInst = null;
-let chartHorariosPicoNovoInst = null;
-let chartOfensoresRankingInst = null;
-let chartCausasImprevistosInst = null;
+var varreduraFotosEmCurso = false;
+var limpezaDuplicadosEmAndamento = false;
+var idsFotosJaVerificadas = new Set();
 
 function registrarListaParaExplosao(titulo, lista) {
     contadorChaveExplosao++;
@@ -3043,7 +3042,301 @@ function dispararExplosaoPorChave(chave) {
     abrirExplosaoPersonalizadaGraficos(pacote.titulo, pacote.lista);
 }
 
-// --- 1. CLASSIFICADOR OFICIAL ---
+// --- 1. DOWNLOAD DE FOTOS VIA BLOB BINÁRIO E LEITURA DE TODOS OS BLOCOS IRMÃOS ---
+window.baixarFotoDireto = function(srcBase64, nomeArquivo = "foto_gpd.jpg") {
+    try {
+        if (!srcBase64) {
+            alert("⚠️ Imagem não disponível para transferência.");
+            return;
+        }
+        if (srcBase64.startsWith('data:')) {
+            const partes = srcBase64.split(',');
+            const mimeMatch = partes[0].match(/:(.*?);/);
+            const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+            const binStr = atob(partes[1]);
+            const len = binStr.length;
+            const arr = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                arr[i] = binStr.charCodeAt(i);
+            }
+            const blob = new Blob([arr], { type: mime });
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = nomeArquivo;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
+        } else {
+            const a = document.createElement('a');
+            a.href = srcBase64;
+            a.download = nomeArquivo;
+            a.target = "_blank";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    } catch (err) {
+        console.error("Erro ao transferir foto:", err);
+        alert("⚠️ Erro ao transferir a foto diretamente.");
+    }
+};
+
+const _origAbrirZoomGestorUnificado = window.abrirZoomFoto;
+window.abrirZoomFoto = function(srcBase64, nomeArquivo = "foto_gpd.jpg") {
+    if (typeof _origAbrirZoomGestorUnificado === 'function') {
+        _origAbrirZoomGestorUnificado(srcBase64, nomeArquivo);
+    }
+    const btnDown = document.getElementById('btn-download-zoom-foto');
+    if (btnDown) {
+        btnDown.removeAttribute('href');
+        btnDown.style.cursor = 'pointer';
+        btnDown.onclick = function(e) {
+            e.preventDefault();
+            window.baixarFotoDireto(srcBase64, nomeArquivo);
+        };
+    }
+};
+
+// Busca sob demanda as fotos e observações de todos os blocos irmãos do imóvel ao clicar na linha
+if (typeof window.abrirDetalhesAtividade === 'function' && !window._hookDetalhesFotosIrmaosV3) {
+    window._hookDetalhesFotosIrmaosV3 = true;
+    const _origDetalhesV3 = window.abrirDetalhesAtividade;
+    window.abrirDetalhesAtividade = async function(item) {
+        if (item && typeof supabaseClient !== 'undefined') {
+            try {
+                const codBase = typeof obterCodigoBaseImovel === 'function' ? obterCodigoBaseImovel(item.imovel) : String(item.imovel || '').split(' - BLOCO')[0].trim();
+                const irmaos = (registrosSalvos || []).filter(r =>
+                    r &&
+                    r.dataRegistro === item.dataRegistro &&
+                    r.equipe === item.equipe &&
+                    r.projeto === item.projeto &&
+                    (typeof obterCodigoBaseImovel === 'function' ? obterCodigoBaseImovel(r.imovel) === codBase : String(r.imovel || '').startsWith(codBase))
+                );
+                const idsBuscar = (irmaos.length > 0 ? irmaos : [item]).map(b => b.id);
+
+                const { data: rowsCompleta } = await supabaseClient
+                    .from('registros_producao')
+                    .select('id, observacoes')
+                    .in('id', idsBuscar);
+
+                if (Array.isArray(rowsCompleta)) {
+                    rowsCompleta.forEach(row => {
+                        const alvo = (registrosSalvos || []).find(r => r.id === row.id) || (row.id === item.id ? item : null);
+                        if (alvo && row.observacoes) {
+                            const obsBruta = row.observacoes;
+                            const mEnd = obsBruta.match(/\[END:\s*([^\]]+)\]/i);
+                            if (mEnd && mEnd[1]) alvo.endereco = mEnd[1].trim();
+                            const mLib = obsBruta.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
+                            if (mLib && mLib[1]) alvo.liberouAcesso = mLib[1].trim();
+                            const mPausa = obsBruta.match(/\[PAUSA_TOTAL:\s*(\d+)\]/i);
+                            if (mPausa && mPausa[1]) alvo.tempoPausadoMinutos = Number(mPausa[1]) || 0;
+                            const mFotos = obsBruta.match(/\[FOTOS:(\[.*?\])\]/);
+                            if (mFotos && mFotos[1]) {
+                                try {
+                                    const arrF = JSON.parse(mFotos[1]);
+                                    if (Array.isArray(arrF)) {
+                                        alvo.fotos = arrF;
+                                        alvo.qtdFotos = arrF.length;
+                                        if (typeof cacheFotosSobDemanda !== 'undefined') cacheFotosSobDemanda.set(alvo.id, arrF);
+                                    }
+                                } catch (e) {}
+                            }
+                        }
+                    });
+                }
+            } catch (e) {}
+        }
+        return _origDetalhesV3.call(this, item);
+    };
+}
+
+// Varredor leve em segundo plano para sinalizar o badge "📷 X foto(s)", endereço e tempo de pausa na Aba Atividades
+async function varrerEnderecosEFotosVisiveis() {
+    if (varreduraFotosEmCurso || typeof supabaseClient === 'undefined') return;
+    const fonte = (Array.isArray(dadosFiltradosAtuais) && dadosFiltradosAtuais.length > 0) ? dadosFiltradosAtuais : (registrosSalvos || []);
+    const pendentes = fonte.filter(r => r && r.id && !idsFotosJaVerificadas.has(r.id)).slice(0, 25);
+    if (pendentes.length === 0) return;
+
+    varreduraFotosEmCurso = true;
+    try {
+        const ids = pendentes.map(r => r.id);
+        ids.forEach(id => idsFotosJaVerificadas.add(id));
+
+        const { data } = await supabaseClient
+            .from('registros_producao')
+            .select('id, observacoes')
+            .in('id', ids);
+
+        if (Array.isArray(data)) {
+            let houveMudanca = false;
+            data.forEach(row => {
+                if (!row.observacoes) return;
+                const reg = (registrosSalvos || []).find(r => r.id === row.id);
+                if (!reg) return;
+
+                const mEnd = row.observacoes.match(/\[END:\s*([^\]]+)\]/i);
+                if (mEnd && mEnd[1] && !reg.endereco) {
+                    reg.endereco = mEnd[1].trim();
+                    houveMudanca = true;
+                }
+                const mLib = row.observacoes.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
+                if (mLib && mLib[1] && !reg.liberouAcesso) {
+                    reg.liberouAcesso = mLib[1].trim();
+                }
+                const mPausa = row.observacoes.match(/\[PAUSA_TOTAL:\s*(\d+)\]/i);
+                if (mPausa && mPausa[1] && !reg.tempoPausadoMinutos) {
+                    reg.tempoPausadoMinutos = Number(mPausa[1]) || 0;
+                    houveMudanca = true;
+                }
+                if (row.observacoes.includes('[FOTOS:')) {
+                    const qtdEst = (row.observacoes.match(/data:image\//g) || []).length;
+                    if (qtdEst > 0 && reg.qtdFotos !== qtdEst) {
+                        reg.qtdFotos = qtdEst;
+                        houveMudanca = true;
+                    }
+                }
+            });
+
+            if (houveMudanca && typeof atualizarDashboardGestor === 'function') {
+                await atualizarDashboardGestor(false);
+            }
+        }
+    } catch (e) {} finally {
+        varreduraFotosEmCurso = false;
+        const restantes = ((Array.isArray(dadosFiltradosAtuais) ? dadosFiltradosAtuais : [])).some(r => r && r.id && !idsFotosJaVerificadas.has(r.id));
+        if (restantes) {
+            setTimeout(varrerEnderecosEFotosVisiveis, 600);
+        }
+    }
+}
+
+// --- 2. CONTROLE DO MAPA EM TEMPO REAL E BOTÃO DE LIMPAR TRAVADOS ---
+window.injetarBotaoLimparMapaFixo = function() {
+    const subMapa = document.getElementById('subview-mapa');
+    if (subMapa && !document.getElementById('barra-topo-limpar-mapa-travados')) {
+        const barra = document.createElement('div');
+        barra.id = 'barra-topo-limpar-mapa-travados';
+        barra.className = 'bg-slate-900 text-white p-3 rounded-xl mb-3 flex flex-wrap justify-between items-center gap-2 shadow border-b-2 border-amber-400';
+        barra.innerHTML = `
+            <div class="text-xs">
+                <span class="font-black text-amber-300 uppercase">🗺️ Controle de Sinais do Mapa em Tempo Real</span>
+                <span class="block text-[10px] text-slate-300">Técnicos que já encerraram o expediente saem automaticamente do mapa. Se algum aparelho ficou travado, limpe abaixo:</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="recarregarMapaETelemetriaAgora()" class="bg-blue-700 hover:bg-blue-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow transition">
+                    🔄 Sincronizar Turnos
+                </button>
+                <button type="button" onclick="limparSinaisAntigosDoMapaGestor()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-3.5 py-1.5 rounded-lg shadow transition">
+                    🧹 Limpar Sinais Inativos / Travados
+                </button>
+            </div>
+        `;
+        subMapa.insertBefore(barra, subMapa.firstChild);
+    }
+
+    const lblCont = document.getElementById('lbl-contador-pinos-mapa');
+    if (lblCont && lblCont.parentNode && !document.getElementById('btn-limpar-sinais-mapa')) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'btn-limpar-sinais-mapa';
+        btn.onclick = window.limparSinaisAntigosDoMapaGestor;
+        btn.className = 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-3 py-1.5 rounded-lg shadow-sm transition ml-2';
+        btn.innerHTML = '🧹 Limpar Sinais Travados';
+        lblCont.parentNode.appendChild(btn);
+    }
+};
+
+window.recarregarMapaETelemetriaAgora = async function() {
+    if (typeof carregarTelemetriaDaNuvem === 'function') {
+        await carregarTelemetriaDaNuvem();
+    }
+    if (typeof renderizarPainelDisponibilidade === 'function') {
+        renderizarPainelDisponibilidade();
+    }
+};
+
+window.limparSinaisAntigosDoMapaGestor = async function() {
+    if (typeof usuarioPodeEditarGestor === 'function' && !usuarioPodeEditarGestor()) {
+        alert("⚠️ Apenas gestores (Master ou Operador) podem limpar sinais do mapa.");
+        return;
+    }
+    if (!confirm("🧹 LIMPAR TÉCNICOS TRAVADOS NO MAPA\n\nDeseja dar baixa no mapa em todos os técnicos que NÃO estão com atividade 'EM ANDAMENTO' neste momento?")) return;
+
+    const hojeISO = obterDataLocalISO();
+    const horaAgora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    if (typeof carregarTelemetriaDaNuvem === 'function') {
+        try { await carregarTelemetriaDaNuvem(); } catch (e) {}
+    }
+
+    const emAtendimentoAgora = new Set(
+        (registrosSalvos || [])
+            .filter(r => r && r.dataRegistro === hojeISO && ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'IMPREVISTO'].includes(r.desfecho))
+            .flatMap(r => [String(r.equipe || '').toUpperCase().trim(), ...(typeof extrairApoiosDoRegistro === 'function' ? extrairApoiosDoRegistro(r) : [])])
+    );
+
+    const todasEquipesNomes = new Set([
+        ...Object.keys(telemetriaEquipes || {}),
+        ...(equipesSistema || []).map(e => e.nome)
+    ]);
+
+    for (const nomeEq of todasEquipesNomes) {
+        if (!nomeEq) continue;
+        const ch = nomeEq.toUpperCase().trim();
+        if (!emAtendimentoAgora.has(ch)) {
+            const infoAnt = (telemetriaEquipes && telemetriaEquipes[nomeEq]) ? telemetriaEquipes[nomeEq] : {};
+            const novoStatus = {
+                ...infoAnt,
+                equipe: nomeEq,
+                data: hojeISO,
+                statusTurno: 'ENCERRADO',
+                horaInicio: infoAnt.horaInicio || '08:00',
+                horaFim: horaAgora,
+                horaUltimoSinal: horaAgora,
+                timestampUltimoSinal: Date.now()
+            };
+            telemetriaEquipes[nomeEq] = novoStatus;
+            if (typeof sincronizarTelemetriaNaNuvem === 'function') {
+                await sincronizarTelemetriaNaNuvem(nomeEq, novoStatus);
+            }
+        }
+    }
+
+    if (typeof renderizarPainelDisponibilidade === 'function') {
+        renderizarPainelDisponibilidade();
+    }
+    alert(`✅ Limpeza concluída! Permaneceram no mapa apenas os técnicos que estão em atendimento ativo agora.`);
+};
+
+if (typeof window.inicializarOuAtualizarMapaRastreio === 'function' && !window._hookFiltroMapaEncerradosV3) {
+    window._hookFiltroMapaEncerradosV3 = true;
+    const _origMapaV3 = window.inicializarOuAtualizarMapaRastreio;
+    window.inicializarOuAtualizarMapaRastreio = function(listaPinos) {
+        window.injetarBotaoLimparMapaFixo();
+        const hojeISO = obterDataLocalISO();
+
+        const pinosValidos = (listaPinos || []).filter(p => {
+            const tel = (telemetriaEquipes && telemetriaEquipes[p.nome] && telemetriaEquipes[p.nome].data === hojeISO) ? telemetriaEquipes[p.nome] : null;
+            const temObraAbertaAgora = (registrosSalvos || []).some(r =>
+                r && r.dataRegistro === hojeISO &&
+                ['EM ANDAMENTO', 'PARALISADA', 'REABERTA', 'IMPREVISTO'].includes(r.desfecho) &&
+                (String(r.equipe || '').toUpperCase().trim() === String(p.nome || '').toUpperCase().trim() ||
+                 (typeof extrairApoiosDoRegistro === 'function' && extrairApoiosDoRegistro(r).includes(String(p.nome || '').toUpperCase().trim())))
+            );
+
+            if (temObraAbertaAgora) return true;
+            if (tel && tel.statusTurno === 'ENCERRADO') return false;
+            if (!tel || tel.statusTurno !== 'DISPONIVEL') return false;
+            return true;
+        });
+
+        return _origMapaV3.call(this, pinosValidos);
+    };
+}
+
+// --- 3. TAXONOMIA E ESTRUTURA DA ABA GRÁFICOS ---
 function classificarRegistroNovaTaxonomia(reg) {
     const p = String(reg?.projeto || '').toUpperCase().trim();
     const macroOrig = typeof obterMacroGrupoProjeto === 'function' ? String(obterMacroGrupoProjeto(p)).toUpperCase() : '';
@@ -3222,21 +3515,20 @@ function mostrarTodasSecoesGraficos() {
 function aplicarVisibilidadeSecoesInibidas() {
     const mapaNomes = {
         consolidados: '1. Consolidados Topo',
-        ociosidadeImprevistos: '2. Ociosidade & Imprevistos',
-        planilhaDinamica: '3. Planilha Dinâmica',
-        geralTecnicos: '4. Atendidas por Técnico',
-        evolucaoSegmentos: '5. Gráfico Evolução',
-        picosHorarios: '6. Gráfico Picos Horários',
-        planilhaHorarios: '7. Planilha Horários',
-        rankingOfensores: '8. Ranking Ofensores',
-        ofensoresSegmentos: '9. Malogros Construção x Expansão'
+        planilhaDinamica: '2. Planilha Dinâmica',
+        geralTecnicos: '3. Atendidas por Técnico',
+        evolucaoSegmentos: '4. Gráfico Evolução',
+        picosHorarios: '5. Gráfico Picos Horários',
+        planilhaHorarios: '6. Planilha Horários',
+        rankingOfensores: '7. Ranking Ofensores',
+        ofensoresSegmentos: '8. Malogros Construção x Expansão',
+        controlePausas: '9. Controle de Pausas',
+        impactoOperacional: '10. Impacto Operacional'
     };
 
     Object.entries(secoesInibidasGraficos).forEach(([chave, oculto]) => {
         const elSecao = document.getElementById(`secao-bloco-${chave}`);
-        if (elSecao) {
-            elSecao.classList.toggle('hidden', oculto);
-        }
+        if (elSecao) elSecao.classList.toggle('hidden', oculto);
     });
 
     const barraChips = document.getElementById('barra-chips-inibicao-secoes');
@@ -3252,22 +3544,24 @@ function aplicarVisibilidadeSecoesInibidas() {
     }
 }
 
-// --- CONSTRUÇÃO DO LAYOUT DA ABA GRÁFICOS ---
 function construirLayoutExclusivoAbaGraficos() {
     otimizarCabecalhoAzulLinhaUnica();
     const containerGraficos = document.getElementById('subview-graficos');
-    if (!containerGraficos || containerGraficos.dataset.layoutReconstruidoV16 === 'true') return;
+    if (!containerGraficos || containerGraficos.dataset.layoutReconstruidoV21 === 'true') return;
 
-    containerGraficos.dataset.layoutReconstruidoV16 = 'true';
-    containerGraficos.className = 'space-y-4 pb-10';
+    const btnGraficos = document.getElementById('subtab-btn-graficos');
+    const deveFicarOculta = !btnGraficos || !btnGraficos.classList.contains('bg-blue-900');
+
+    containerGraficos.dataset.layoutReconstruidoV21 = 'true';
+    containerGraficos.className = `space-y-4 pb-10 ${deveFicarOculta ? 'hidden' : ''}`.trim();
 
     containerGraficos.innerHTML = `
-        <!-- BARRA DE TOPO -->
+        <!-- BARRA DE TOPO + EXPORTAÇÃO -->
         <div class="bg-slate-900 text-white p-3.5 rounded-2xl shadow-lg border-b-4 border-cyan-400 space-y-2.5">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                 <div>
                     <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Painel Analítico Interativo</span>
-                    <h2 class="text-sm sm:text-base font-black tracking-tight mt-0.5">📊 Indicadores de Produtividade, Ociosidade, Imprevistos & Ofensores</h2>
+                    <h2 class="text-sm sm:text-base font-black tracking-tight mt-0.5">📊 Indicadores de Produtividade, Segmentos & Ofensores</h2>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <button type="button" onclick="mostrarTodasSecoesGraficos()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 font-bold text-[11px] px-3 py-1.5 rounded-xl transition">
@@ -3281,17 +3575,16 @@ function construirLayoutExclusivoAbaGraficos() {
                     </button>
                 </div>
             </div>
-
             <div id="container-seletores-globais-topo"></div>
         </div>
 
-        <!-- BARRA DE BOTÕES PARA INIBIR/EXIBIR -->
+        <!-- BARRA DE INIBIÇÃO DE BLOCOS -->
         <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-2">
             <span class="text-[10px] font-black text-slate-700 uppercase">👁️ Exibição na Tela (Clique para Inibir / Mostrar):</span>
             <div id="barra-chips-inibicao-secoes" class="flex flex-wrap gap-1.5"></div>
         </div>
 
-        <!-- BLOCO 1: CONSOLIDADOS SUPERIORES -->
+        <!-- 1. CONSOLIDADOS SUPERIORES -->
         <div id="secao-bloco-consolidados" class="space-y-1.5">
             <div class="flex justify-between items-center px-1">
                 <span class="text-[11px] font-black text-slate-700 uppercase">📌 Consolidados por Segmento e Porcentagem das Categorias</span>
@@ -3300,76 +3593,12 @@ function construirLayoutExclusivoAbaGraficos() {
             <div id="painel-consolidado-topo-segmentos" class="grid grid-cols-1 lg:grid-cols-3 gap-4"></div>
         </div>
 
-        <!-- BLOCO NOVO (MELHORIAS 01 E 02): INDICADORES DE OCIOSIDADE (PARALISAÇÃO) & TEMPO EM IMPREVISTOS -->
-        <div id="secao-bloco-ociosidadeImprevistos" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <!-- MELHORIA 01: INDICADOR DE OCIOSIDADE / TEMPO DE PARALISAÇÃO -->
-            <div class="bg-white rounded-2xl shadow-md border-2 border-orange-200 overflow-hidden flex flex-col">
-                <div class="bg-orange-900 text-white p-3.5 flex justify-between items-center border-b-4 border-orange-400">
-                    <div>
-                        <span class="bg-orange-300 text-orange-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Melhoria 01 • Controle de Pausas</span>
-                        <h3 class="font-black text-xs sm:text-sm mt-0.5">⏸️ Indicador de Ociosidade & Tempo de Paralisação</h3>
-                    </div>
-                    <div class="flex gap-1">
-                        <button type="button" onclick="expandirTabelaModal('tbody-ranking-ociosidade-tecnicos', 'Indicador de Ociosidade e Tempo de Paralisação')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">🔍 Expandir</button>
-                        <button type="button" onclick="alternarInibicaoSecaoGrafico('ociosidadeImprevistos')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2 py-1 rounded">🚫</button>
-                    </div>
-                </div>
-                <div id="kpis-resumo-ociosidade" class="grid grid-cols-3 gap-2 p-3 bg-orange-50/70 border-b border-orange-200 text-center"></div>
-                <div class="overflow-y-auto max-h-[320px] flex-1">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
-                            <tr>
-                                <th class="p-2.5 text-center">#</th>
-                                <th class="p-2.5">Técnico / Categoria</th>
-                                <th class="p-2.5 text-center">Ativ. c/ Pausa</th>
-                                <th class="p-2.5 text-center bg-orange-900 text-orange-100">Tempo Total Paralisado</th>
-                                <th class="p-2.5 text-right">Média / Pausa</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody-ranking-ociosidade-tecnicos" class="divide-y divide-slate-200"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- MELHORIA 02: INDICADOR DE TEMPO EM IMPREVISTOS E MAIORES CAUSAS -->
-            <div class="bg-white rounded-2xl shadow-md border-2 border-amber-300 overflow-hidden flex flex-col">
-                <div class="bg-amber-950 text-white p-3.5 flex justify-between items-center border-b-4 border-amber-400">
-                    <div>
-                        <span class="bg-amber-300 text-amber-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Melhoria 02 • Impacto Operacional</span>
-                        <h3 class="font-black text-xs sm:text-sm mt-0.5">⚠️ Tempo em Imprevistos & Maiores Causas</h3>
-                    </div>
-                    <div class="flex gap-1">
-                        <button type="button" onclick="expandirGraficoModal('canvasCausasImprevistos', 'Gráfico: Maiores Causas de Imprevistos (Tempo & Ocorrências)')" class="bg-amber-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">📊 Gráfico</button>
-                        <button type="button" onclick="expandirTabelaModal('tbody-causas-imprevistos-graficos', 'Indicador de Tempo em Imprevistos e Maiores Causas')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">🔍 Planilha</button>
-                    </div>
-                </div>
-                <div id="kpis-resumo-imprevistos-tempo" class="grid grid-cols-3 gap-2 p-3 bg-amber-50/70 border-b border-amber-200 text-center"></div>
-                <div class="p-2.5 h-44 border-b border-slate-200">
-                    <canvas id="canvasCausasImprevistos"></canvas>
-                </div>
-                <div class="overflow-y-auto max-h-[210px] flex-1">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
-                            <tr>
-                                <th class="p-2 text-center">#</th>
-                                <th class="p-2">Causa / Motivo do Imprevisto</th>
-                                <th class="p-2 text-center">Ocorrências</th>
-                                <th class="p-2 text-center bg-amber-900 text-amber-100">Tempo Perdido</th>
-                                <th class="p-2 text-right">% do Tempo</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody-causas-imprevistos-graficos" class="divide-y divide-slate-200"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- BLOCO 2: PLANILHA DINÂMICA DE PRODUTIVIDADE -->
+        <!-- 2. PLANILHA DINÂMICA DE PRODUTIVIDADE -->
         <div id="secao-bloco-planilhaDinamica" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
             <div class="bg-slate-900 text-white p-3.5 flex flex-wrap justify-between items-center gap-2">
                 <div>
-                    <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Apenas Atividades Concluídas</span>
-                    <h3 class="font-black text-sm sm:text-base mt-0.5">📋 Planilha Dinâmica de Executados, Dias Trabalhados, Produtividade, HPs e Ociosidade</h3>
+                    <span class="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Produtividade • Apenas Concluídas</span>
+                    <h3 class="font-black text-sm sm:text-base mt-0.5">📋 Planilha Dinâmica de Executados, Dias Trabalhados, Produtividade e HPs</h3>
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="expandirTabelaModal('tbody-planilha-dinamica-oficial', 'Planilha Dinâmica de Produtividade')" class="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow">
@@ -3386,13 +3615,13 @@ function construirLayoutExclusivoAbaGraficos() {
                     <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
                         <tr>
                             <th class="p-3 text-center">#</th>
-                            <th class="p-3">Técnico / Categoria</th>
+                            <th class="p-3">Técnico / Equipe</th>
                             <th class="p-3 text-center bg-emerald-900 text-emerald-100">Nº Atividades Executadas</th>
                             <th class="p-3 text-center">Dias Trabalhados</th>
                             <th class="p-3 text-center bg-blue-900 text-cyan-200 font-black">Produtividade (Exec / Dia)</th>
                             <th class="p-3 text-center bg-indigo-900 text-indigo-100">Quantidade de HP</th>
                             <th class="p-3 text-center bg-purple-900 text-purple-100 font-black">HP / DIA</th>
-                            <th class="p-3 text-center bg-orange-900 text-orange-100">⏸️ Paralisação</th>
+                            <th class="p-3 text-center bg-orange-900 text-orange-100">⏸️ Tempo Paralisado</th>
                         </tr>
                     </thead>
                     <tbody id="tbody-planilha-dinamica-oficial" class="divide-y divide-slate-200"></tbody>
@@ -3400,12 +3629,12 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- BLOCO 3: PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO -->
+        <!-- 3. PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO -->
         <div id="secao-bloco-geralTecnicos" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
             <div class="bg-blue-950 text-white p-3.5 flex flex-wrap justify-between items-center gap-2">
                 <div>
                     <span class="bg-cyan-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Resultado Geral por Técnico</span>
-                    <h3 class="font-black text-sm sm:text-base mt-0.5">👷 Quantidade de Atividades Atendidas (Concluídas, Malogros, Apoios e Pausas)</h3>
+                    <h3 class="font-black text-sm sm:text-base mt-0.5">👷 Quantidade de Atividades Atendidas (Concluídas, Malogros e Apoios)</h3>
                 </div>
                 <div class="flex items-center gap-2">
                     <button type="button" onclick="expandirTabelaModal('tbody-geral-atendidas-tecnico', 'Atividades Atendidas por Técnico')" class="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-[11px] px-3 py-1.5 rounded-lg shadow">
@@ -3421,14 +3650,13 @@ function construirLayoutExclusivoAbaGraficos() {
                     <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0 z-10">
                         <tr>
                             <th class="p-2.5 text-center">#</th>
-                            <th class="p-2.5">Técnico / Categoria</th>
+                            <th class="p-2.5">Técnico / Equipe</th>
                             <th class="p-2.5 text-center bg-blue-900/80">Construção MDU<br><span class="text-[9px] font-normal text-blue-200">(Ativ / Const / Vist)</span></th>
                             <th class="p-2.5 text-center bg-indigo-900/80">Expansão MDU<br><span class="text-[9px] font-normal text-indigo-200">(Ativ / Const)</span></th>
                             <th class="p-2.5 text-center bg-purple-900/80">Mailing<br><span class="text-[9px] font-normal text-purple-200">(Ativ / Const)</span></th>
                             <th class="p-2.5 text-center bg-emerald-800 text-white font-black">🟢 Concluídas</th>
                             <th class="p-2.5 text-center bg-red-800 text-white font-black">🔴 Malogros</th>
                             <th class="p-2.5 text-center bg-fuchsia-800 text-white font-black">🤝 Apoios</th>
-                            <th class="p-2.5 text-center bg-orange-800 text-orange-100 font-bold">⏸️ Pausa</th>
                             <th class="p-2.5 text-center bg-slate-950 text-cyan-300 font-black">Total Atendidas</th>
                         </tr>
                     </thead>
@@ -3437,7 +3665,7 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- BLOCO 4: GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS -->
+        <!-- 4. GRÁFICO DE EVOLUÇÃO DOS SEGMENTOS -->
         <div id="secao-bloco-evolucaoSegmentos" class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3">
             <div class="flex flex-wrap justify-between items-center gap-2 border-b pb-2.5">
                 <div>
@@ -3458,7 +3686,7 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- BLOCOS 5 E 6: PICOS DE HORÁRIOS E PLANILHA DE FAIXAS HORÁRIAS -->
+        <!-- 5 E 6. PICOS DE HORÁRIOS E PLANILHA DE FAIXAS HORÁRIAS -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div id="secao-bloco-picosHorarios" class="bg-white rounded-2xl shadow-md border border-slate-200 p-4 space-y-3 flex flex-col justify-between">
                 <div>
@@ -3469,7 +3697,7 @@ function construirLayoutExclusivoAbaGraficos() {
                         </div>
                         <div class="flex gap-1">
                             <button type="button" onclick="expandirGraficoModal('canvasHorariosPicoOficial', 'Gráfico de Picos de Horários')" class="bg-blue-900 text-white text-[10px] font-black px-2.5 py-1 rounded-lg">🔍 Expandir</button>
-                            <button type="button" onclick="alternarInibicaoSecaoGrafico('picosHorarios')" class="bg-red-50 text-red-700 border border-red-200 text-[10px] font-bold px-2.5 py-1 rounded-lg">🚫 Inibir</button>
+                            <button type="button" onclick="alternarInibicaoSecaoGrafico('picosHorarios')" class="bg-red-50 text-red-700 border border-red-200 text-[10px] font-bold px-2 py-1 rounded-lg">🚫 Inibir</button>
                         </div>
                     </div>
                     <div id="cards-extremos-horarios-tecnicos" class="grid grid-cols-1 sm:grid-cols-3 gap-2 my-3"></div>
@@ -3487,7 +3715,7 @@ function construirLayoutExclusivoAbaGraficos() {
                     </div>
                     <div class="flex gap-1">
                         <button type="button" onclick="expandirTabelaModal('tbody-horarios-pico-planilha', 'Horários com Mais Atividades Abertas e Fechadas')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">🔍 Expandir</button>
-                        <button type="button" onclick="alternarInibicaoSecaoGrafico('planilhaHorarios')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2.5 py-1 rounded">🚫 Inibir</button>
+                        <button type="button" onclick="alternarInibicaoSecaoGrafico('planilhaHorarios')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2 py-1 rounded">🚫 Inibir</button>
                     </div>
                 </div>
                 <div class="overflow-y-auto max-h-[360px]">
@@ -3506,7 +3734,7 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- BLOCOS 7 E 8: RANKING DE OFENSORES + CONSTRUÇÃO MDU x EXPANSÃO MDU -->
+        <!-- 7 E 8. RANKING DE OFENSORES + CONSTRUÇÃO MDU x EXPANSÃO MDU -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div id="secao-bloco-rankingOfensores" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
                 <div class="bg-red-950 text-white p-3.5 flex justify-between items-center">
@@ -3569,31 +3797,96 @@ function construirLayoutExclusivoAbaGraficos() {
                 </div>
             </div>
         </div>
+
+        <!-- 9 E 10 (NO FIM DA ABA): CONTROLE DE PAUSAS & IMPACTO OPERACIONAL (SEM OS TEXTOS MELHORIA 01 / MELHORIA 02) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
+            <!-- CONTROLE DE PAUSAS -->
+            <div id="secao-bloco-controlePausas" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+                <div class="bg-orange-950 text-white p-3.5 flex justify-between items-center">
+                    <div>
+                        <span class="bg-orange-300 text-orange-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">CONTROLE DE PAUSAS</span>
+                        <h3 class="font-bold text-xs sm:text-sm mt-0.5">⏸️ Indicador de Ociosidade e Tempo de Paralisação por Técnico</h3>
+                    </div>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="expandirTabelaModal('tbody-ranking-ociosidade-pausas', 'Controle de Pausas e Ociosidade por Técnico')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2.5 py-1 rounded">
+                            🔍 Expandir
+                        </button>
+                        <button type="button" onclick="alternarInibicaoSecaoGrafico('controlePausas')" class="bg-red-900 text-red-100 text-[10px] font-bold px-2 py-1 rounded">
+                            🚫 Inibir
+                        </button>
+                    </div>
+                </div>
+                <div id="kpis-controle-pausas-topo" class="grid grid-cols-3 gap-2 p-3 bg-orange-50/60 border-b border-orange-200 text-xs"></div>
+                <div class="overflow-y-auto max-h-[380px]">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0">
+                            <tr>
+                                <th class="p-2.5 text-center">#</th>
+                                <th class="p-2.5">Técnico / Equipe</th>
+                                <th class="p-2.5 text-center">Ativ. c/ Pausa</th>
+                                <th class="p-2.5 text-center bg-orange-900 text-orange-100 font-black">Tempo Total Paralisado</th>
+                                <th class="p-2.5 text-center">Média / Pausa</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-ranking-ociosidade-pausas" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- IMPACTO OPERACIONAL -->
+            <div id="secao-bloco-impactoOperacional" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+                <div class="bg-slate-900 text-white p-3.5 flex justify-between items-center border-b-2 border-red-500">
+                    <div>
+                        <span class="bg-red-400 text-slate-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">IMPACTO OPERACIONAL</span>
+                        <h3 class="font-bold text-xs sm:text-sm mt-0.5">⚠️ Tempo Perdido em Imprevistos e Maiores Causas</h3>
+                    </div>
+                    <div class="flex gap-1">
+                        <button type="button" onclick="expandirGraficoModal('canvasImpactoImprevistos', 'Impacto Operacional — Maiores Causas de Imprevistos')" class="bg-amber-400 text-slate-950 font-black text-[10px] px-2 py-1 rounded">📊 Gráfico</button>
+                        <button type="button" onclick="expandirTabelaModal('tbody-impacto-imprevistos-causas', 'Impacto Operacional — Tempo em Imprevistos')" class="bg-cyan-400 text-slate-950 font-black text-[10px] px-2 py-1 rounded">🔍 Planilha</button>
+                        <button type="button" onclick="alternarInibicaoSecaoGrafico('impactoOperacional')" class="bg-red-800 text-white text-[10px] font-bold px-2 py-1 rounded">🚫</button>
+                    </div>
+                </div>
+                <div id="kpis-impacto-imprevistos-topo" class="grid grid-cols-3 gap-2 p-3 bg-red-50/50 border-b border-red-200 text-xs"></div>
+                <div class="p-3 h-44 border-b">
+                    <canvas id="canvasImpactoImprevistos"></canvas>
+                </div>
+                <div class="overflow-y-auto max-h-[240px]">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead class="bg-slate-800 text-white uppercase text-[10px] sticky top-0">
+                            <tr>
+                                <th class="p-2.5">Causa do Imprevisto</th>
+                                <th class="p-2.5 text-center">Ocorrências</th>
+                                <th class="p-2.5 text-center bg-red-900 text-white font-black">Tempo Perdido</th>
+                                <th class="p-2.5 text-right">% do Tempo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-impacto-imprevistos-causas" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     `;
 
     aplicarVisibilidadeSecoesInibidas();
 }
 
-// --- MODO EXPLOSÃO ---
 function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset) {
     const modal = document.getElementById('modal-explosao');
     const corpo = document.getElementById('tabela-explosao-corpo');
     if (!modal || !corpo) return;
 
     modal.style.zIndex = "95";
-
     document.getElementById('modal-explosao-titulo').innerText = `💥 Explosão de Dados: ${tituloExplosao} (${listaRegistrosSubset.length} reg.)`;
     corpo.innerHTML = "";
 
     if (listaRegistrosSubset.length === 0) {
-        corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registro encontrado para este recorte.</td></tr>`;
+        corpo.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">Nenhum registo encontrado para este recorte.</td></tr>`;
     } else {
         listaRegistrosSubset.forEach(item => {
             const tax = classificarRegistroNovaTaxonomia(item);
             const sem = obterNumeroSemanaFormatado(item.dataRegistro);
-            const apoios = extrairApoiosDoRegistro(item);
+            const apoios = typeof extrairApoiosDoRegistro === 'function' ? extrairApoiosDoRegistro(item) : [];
             const badgeAp = apoios.length > 0 ? `<div class="text-[9px] font-black text-purple-800">🤝 Apoio: ${apoios.join(', ')}</div>` : '';
-            const badgePausa = Number(item.tempoPausadoMinutos) > 0 ? `<div class="text-[9px] font-bold text-orange-700">⏸️ Paralisado: ${item.tempoPausadoMinutos}m</div>` : '';
             const detalheInfo = (item.malogros && item.malogros.length > 0) ? item.malogros.join(' + ') : (item.motivoDesfecho || 'Concluído');
 
             corpo.innerHTML += `
@@ -3602,7 +3895,7 @@ function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset
                     <td class="p-2.5"><div class="font-bold text-slate-800">${item.imovel}</div><div class="text-[10px] text-slate-500">📍 ${item.endereco || '-'}</div></td>
                     <td class="p-2.5 font-semibold text-blue-900">${item.equipe} ${obterCategoriaDiscretaTecnicoHtml(item.equipe)}${badgeAp}</td>
                     <td class="p-2.5"><span class="bg-slate-800 text-cyan-300 font-black px-2 py-0.5 rounded text-[10px]">${tax.segmento}</span><div class="text-[10px] font-bold text-slate-600 mt-0.5">Categoria: ${tax.categoria}</div></td>
-                    <td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] ${obterClasseCorDesfecho(item.desfecho)}">${item.desfecho}</span><div class="text-[9px] mt-0.5">HPs: <b>${item.hps || 0}</b></div>${badgePausa}</td>
+                    <td class="p-2.5"><span class="font-bold px-2 py-0.5 rounded text-[10px] ${obterClasseCorDesfecho(item.desfecho)}">${item.desfecho}</span><div class="text-[9px] mt-0.5">HPs: <b>${item.hps || 0}</b></div></td>
                     <td class="p-2.5 text-slate-600">${detalheInfo}</td>
                 </tr>
             `;
@@ -3611,22 +3904,33 @@ function abrirExplosaoPersonalizadaGraficos(tituloExplosao, listaRegistrosSubset
     modal.classList.remove('hidden');
 }
 
-// --- EXPANDIR TABELAS E GRÁFICOS COM BOTÃO FECHAR GARANTIDO ---
-function vincularBotoesFecharModaisExpansao() {
-    document.querySelectorAll('#modal-expandir-grafico button, #modal-expandir-tabela button').forEach(btn => {
-        const txt = (btn.innerText || '').toUpperCase();
-        const onclk = (btn.getAttribute('onclick') || '');
-        if (txt.includes('FECHAR') || txt.includes('✕') || onclk.includes('fecharModal')) {
-            if (btn.closest('#modal-expandir-grafico')) {
-                btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); fecharModalGraficoExpandido(); };
-            } else if (btn.closest('#modal-expandir-tabela')) {
-                btn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); fecharModalTabelaExpandida(); };
+function limparBotoesFecharDuplicadosModal(modalEl, funcaoFechar) {
+    if (!modalEl) return;
+    modalEl.onclick = function(ev) {
+        if (ev.target === modalEl) funcaoFechar();
+    };
+    const botoes = Array.from(modalEl.querySelectorAll('button'));
+    let botaoTopoJaVisto = false;
+    botoes.forEach(btn => {
+        const txt = (btn.innerText || '').trim().toUpperCase();
+        const attr = (btn.getAttribute('onclick') || '');
+        const ehBotaoFechar = txt === '✕' || txt === 'X' || txt.includes('FECHAR') || attr.includes('fecharModal');
+        if (ehBotaoFechar) {
+            btn.type = 'button';
+            btn.onclick = function(e) {
+                e.stopPropagation();
+                funcaoFechar();
+            };
+            const noCabecalho = btn.closest('.bg-slate-900, .bg-blue-900, .bg-indigo-950, .border-b');
+            if (noCabecalho && (txt === '✕' || txt === 'X' || txt.includes('FECHAR'))) {
+                if (botaoTopoJaVisto) btn.remove();
+                else botaoTopoJaVisto = true;
             }
         }
     });
 }
 
-function expandirTabelaModal(idTbodyOrigem, tituloJanela) {
+window.expandirTabelaModal = function(idTbodyOrigem, tituloJanela) {
     const modal = document.getElementById('modal-expandir-tabela');
     const titulo = document.getElementById('modal-tabela-expandida-titulo');
     const container = document.getElementById('container-tabela-expandida');
@@ -3664,11 +3968,11 @@ function expandirTabelaModal(idTbodyOrigem, tituloJanela) {
     if (tbodyClone) tbodyClone.removeAttribute('id');
 
     container.appendChild(tabelaClone);
+    limparBotoesFecharDuplicadosModal(modal, window.fecharModalTabelaExpandida);
     modal.classList.remove('hidden');
-    vincularBotoesFecharModaisExpansao();
-}
+};
 
-function expandirGraficoModal(idCanvasOrigem, tituloJanela) {
+window.expandirGraficoModal = function(idCanvasOrigem, tituloJanela) {
     const modal = document.getElementById('modal-expandir-grafico');
     const titulo = document.getElementById('modal-grafico-expandido-titulo');
     const canvasOrigem = document.getElementById(idCanvasOrigem);
@@ -3690,13 +3994,17 @@ function expandirGraficoModal(idCanvasOrigem, tituloJanela) {
     }
     boxSeletoresGraf.innerHTML = obterHtmlBarraSeletoresInterativos();
 
+    limparBotoesFecharDuplicadosModal(modal, window.fecharModalGraficoExpandido);
     modal.classList.remove('hidden');
-    vincularBotoesFecharModaisExpansao();
 
     const chartOriginal = Chart.getChart(canvasOrigem);
     if (!chartOriginal) return;
+
+    const instAnterior = Chart.getChart(canvasAlvo);
+    if (instAnterior) { try { instAnterior.destroy(); } catch (e) {} }
     if (typeof graficoExpandidoInstancia !== 'undefined' && graficoExpandidoInstancia) {
         try { graficoExpandidoInstancia.destroy(); } catch (e) {}
+        graficoExpandidoInstancia = null;
     }
 
     graficoExpandidoInstancia = new Chart(canvasAlvo, {
@@ -3714,37 +4022,18 @@ function expandirGraficoModal(idCanvasOrigem, tituloJanela) {
             }
         }
     });
-}
+};
 
 function atualizarConteudoModalExpandidoAoVivo() {
     if (!estadoModalExpandidoAtual.ativo) return;
     if (estadoModalExpandidoAtual.tipo === 'tabela') {
-        expandirTabelaModal(estadoModalExpandidoAtual.idOrigem, estadoModalExpandidoAtual.titulo);
+        window.expandirTabelaModal(estadoModalExpandidoAtual.idOrigem, estadoModalExpandidoAtual.titulo);
     } else if (estadoModalExpandidoAtual.tipo === 'grafico') {
-        expandirGraficoModal(estadoModalExpandidoAtual.idOrigem, estadoModalExpandidoAtual.titulo);
+        window.expandirGraficoModal(estadoModalExpandidoAtual.idOrigem, estadoModalExpandidoAtual.titulo);
     }
 }
 
-// --- CÁLCULO DE DURAÇÃO DE IMPREVISTO EM MINUTOS ---
-function calcularDuracaoImprevistoMinutos(imp) {
-    const minIn = converterHorarioParaMinutos(imp.hEntrada);
-    let minOut = converterHorarioParaMinutos(imp.hSaida);
-    if (minIn === null) return 0;
-    if (minOut === null) {
-        const hojeISO = obterDataLocalISO();
-        if (imp.dataRegistro === hojeISO && imp.desfecho === 'IMPREVISTO') {
-            const agora = new Date();
-            minOut = (agora.getHours() * 60) + agora.getMinutes();
-        } else {
-            return 0;
-        }
-    }
-    const diff = minOut - minIn;
-    return (diff > 0 && diff <= 720) ? diff : 0;
-}
-
-// --- RENDERIZADOR PRINCIPAL DA ABA GRÁFICOS ---
-function renderizarAbaGraficosCompletaOficial() {
+window.renderizarAbaGraficosCompletaOficial = function() {
     otimizarCabecalhoAzulLinhaUnica();
     construirLayoutExclusivoAbaGraficos();
     registroExplosaoCache.clear();
@@ -3757,9 +4046,7 @@ function renderizarAbaGraficosCompletaOficial() {
 
     const ehDesfechoConcluido = (d) => ['CONCLUIDA', 'CONCLUÍDA'].includes(String(d || '').toUpperCase().trim());
 
-    // Base completa sem perdas de registos
-    const fonteBase = (Array.isArray(dadosFiltradosAtuais) && dadosFiltradosAtuais.length > 0) ? dadosFiltradosAtuais : [];
-    const basePeriodoBruta = fonteBase.filter(r =>
+    const basePeriodoBruta = (dadosFiltradosAtuais || []).filter(r =>
         r &&
         r.equipe !== '__CONFIG_SISTEMA__' &&
         r.projeto !== '__CONFIG_AUDITORIA__' &&
@@ -3776,20 +4063,6 @@ function renderizarAbaGraficosCompletaOficial() {
 
     const baseFiltradaSelecao = basePeriodoBruta.filter(registroPassaNosFiltrosGlobaisGraficos);
     const concluidasFiltradasSelecao = baseFiltradaSelecao.filter(r => r.desfecho === 'CONCLUIDA');
-
-    // Todas as atividades do filtro (incluindo as atualmente PARALISADAS/EM ANDAMENTO que já acumularam tempo de pausa)
-    const todasAtividadesParaPausa = fonteBase.filter(r =>
-        r &&
-        r.equipe !== '__CONFIG_SISTEMA__' &&
-        r.projeto !== '__CONFIG_AUDITORIA__' &&
-        r.projeto !== 'IMPREVISTO / ATRASO' &&
-        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
-        r.projeto !== PROJETO_SOLIC_MATERIAL
-    ).map(r => ({
-        ...r,
-        _tax: classificarRegistroNovaTaxonomia(r),
-        _semana: obterNumeroSemanaFormatado(r.dataRegistro)
-    })).filter(registroPassaNosFiltrosGlobaisGraficos);
 
     // 1. CONSOLIDADOS SUPERIORES
     const painelTopo = document.getElementById('painel-consolidado-topo-segmentos');
@@ -3855,191 +4128,7 @@ function renderizarAbaGraficosCompletaOficial() {
         }).join('');
     }
 
-    // ================= MELHORIA 01: RENDERIZAÇÃO DO INDICADOR DE OCIOSIDADE (TEMPO DE PARALISAÇÃO) =================
-    const mapaPausaPorTec = {};
-    let totalMinutosParalisadosGeral = 0;
-    let totalAtividadesComPausaGeral = 0;
-    const listaRegistrosComPausa = [];
-
-    todasAtividadesParaPausa.forEach(r => {
-        const minPausa = Number(r.tempoPausadoMinutos) || 0;
-        if (minPausa > 0 || r.desfecho === 'PARALISADA') {
-            const nome = r.equipe || 'NÃO IDENTIFICADO';
-            if (!mapaPausaPorTec[nome]) {
-                mapaPausaPorTec[nome] = { nome, qtdPausas: 0, minutosTotal: 0, registros: [] };
-            }
-            mapaPausaPorTec[nome].qtdPausas++;
-            mapaPausaPorTec[nome].minutosTotal += minPausa;
-            mapaPausaPorTec[nome].registros.push(r);
-
-            totalMinutosParalisadosGeral += minPausa;
-            totalAtividadesComPausaGeral++;
-            listaRegistrosComPausa.push(r);
-        }
-    });
-
-    const boxKpiOciosidade = document.getElementById('kpis-resumo-ociosidade');
-    if (boxKpiOciosidade) {
-        const mediaPorPausa = totalAtividadesComPausaGeral > 0 ? Math.round(totalMinutosParalisadosGeral / totalAtividadesComPausaGeral) : 0;
-        const chExpOciosidade = registrarListaParaExplosao('Atividades com Tempo de Paralisação / Ociosidade', listaRegistrosComPausa);
-
-        boxKpiOciosidade.innerHTML = `
-            <div onclick="dispararExplosaoPorChave('${chExpOciosidade}')" class="bg-white p-2 rounded-xl border border-orange-200 cursor-pointer hover:border-orange-500">
-                <span class="text-[9px] font-black text-orange-900 uppercase block">⏸️ Tempo Total Parado</span>
-                <span class="text-base font-black text-orange-700">${formatarDuracaoTexto(totalMinutosParalisadosGeral)}</span>
-            </div>
-            <div onclick="dispararExplosaoPorChave('${chExpOciosidade}')" class="bg-white p-2 rounded-xl border border-orange-200 cursor-pointer hover:border-orange-500">
-                <span class="text-[9px] font-black text-slate-600 uppercase block">📋 Ativ. Paralisadas</span>
-                <span class="text-base font-black text-slate-800">${totalAtividadesComPausaGeral} ativ.</span>
-            </div>
-            <div class="bg-white p-2 rounded-xl border border-orange-200">
-                <span class="text-[9px] font-black text-amber-800 uppercase block">⏱️ Média por Pausa</span>
-                <span class="text-base font-black text-amber-700">${formatarDuracaoTexto(mediaPorPausa)}</span>
-            </div>
-        `;
-    }
-
-    const tbodyOciosidade = document.getElementById('tbody-ranking-ociosidade-tecnicos');
-    if (tbodyOciosidade) {
-        tbodyOciosidade.innerHTML = "";
-        const listaOciosidadeOrd = Object.values(mapaPausaPorTec).sort((a, b) => b.minutosTotal - a.minutosTotal || b.qtdPausas - a.qtdPausas);
-
-        if (listaOciosidadeOrd.length === 0) {
-            tbodyOciosidade.innerHTML = `<tr><td colspan="5" class="p-5 text-center text-slate-400">Nenhuma atividade com tempo de paralisação registrada no período.</td></tr>`;
-        } else {
-            listaOciosidadeOrd.forEach((item, idx) => {
-                const mediaTec = item.qtdPausas > 0 ? Math.round(item.minutosTotal / item.qtdPausas) : 0;
-                const chExpTecPausa = registrarListaParaExplosao(`Paralisações de ${item.nome}`, item.registros);
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-orange-50/60 cursor-pointer transition";
-                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chExpTecPausa}')`);
-                tr.innerHTML = `
-                    <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
-                    <td class="p-2.5 font-black text-slate-800 underline decoration-dotted">${item.nome} ${obterCategoriaDiscretaTecnicoHtml(item.nome)}</td>
-                    <td class="p-2.5 text-center font-bold text-slate-700">${item.qtdPausas}</td>
-                    <td class="p-2.5 text-center font-black text-orange-800 bg-orange-50/70">${formatarDuracaoTexto(item.minutosTotal)}</td>
-                    <td class="p-2.5 text-right font-mono font-bold text-slate-600">${formatarDuracaoTexto(mediaTec)}</td>
-                `;
-                tbodyOciosidade.appendChild(tr);
-            });
-        }
-    }
-
-    // ================= MELHORIA 02: RENDERIZAÇÃO DO TEMPO EM IMPREVISTOS & MAIORES CAUSAS =================
-    const semsFiltro = filtrosMultiGraficos.semanas;
-    const imprevistosFiltrados = (listaImprevistosAtuais || []).filter(imp => {
-        const semImp = obterNumeroSemanaFormatado(imp.dataRegistro);
-        return semsFiltro.includes('TODAS') || semsFiltro.includes(semImp);
-    });
-
-    const mapaCausasImp = {};
-    let totalMinutosImprevistos = 0;
-    let totalOcorrenciasImp = imprevistosFiltrados.length;
-
-    imprevistosFiltrados.forEach(imp => {
-        const durMin = calcularDuracaoImprevistoMinutos(imp);
-        totalMinutosImprevistos += durMin;
-
-        const causas = (Array.isArray(imp.malogros) && imp.malogros.length > 0)
-            ? imp.malogros
-            : [imp.motivoDesfecho || 'IMPREVISTO NÃO ESPECIFICADO'];
-
-        causas.forEach(c => {
-            const ch = String(c || 'OUTROS').trim().toUpperCase();
-            if (!mapaCausasImp[ch]) {
-                mapaCausasImp[ch] = { causa: ch, qtd: 0, minutos: 0, registros: [] };
-            }
-            mapaCausasImp[ch].qtd++;
-            mapaCausasImp[ch].minutos += durMin;
-            mapaCausasImp[ch].registros.push(imp);
-        });
-    });
-
-    const listaCausasImpOrd = Object.values(mapaCausasImp).sort((a, b) => b.minutos - a.minutos || b.qtd - a.qtd);
-
-    const boxKpiImp = document.getElementById('kpis-resumo-imprevistos-tempo');
-    if (boxKpiImp) {
-        const maiorCausaNome = listaCausasImpOrd.length > 0 ? listaCausasImpOrd[0].causa : 'Nenhuma';
-        const chExpTodosImp = registrarListaParaExplosao('Todos os Imprevistos do Período', imprevistosFiltrados);
-
-        boxKpiImp.innerHTML = `
-            <div onclick="dispararExplosaoPorChave('${chExpTodosImp}')" class="bg-white p-2 rounded-xl border border-amber-200 cursor-pointer hover:border-amber-500">
-                <span class="text-[9px] font-black text-amber-900 uppercase block">⏳ Tempo em Imprevistos</span>
-                <span class="text-base font-black text-red-700">${formatarDuracaoTexto(totalMinutosImprevistos)}</span>
-            </div>
-            <div onclick="dispararExplosaoPorChave('${chExpTodosImp}')" class="bg-white p-2 rounded-xl border border-amber-200 cursor-pointer hover:border-amber-500">
-                <span class="text-[9px] font-black text-slate-600 uppercase block">⚠️ Total Ocorrências</span>
-                <span class="text-base font-black text-slate-800">${totalOcorrenciasImp} reg.</span>
-            </div>
-            <div class="bg-white p-2 rounded-xl border border-amber-200">
-                <span class="text-[9px] font-black text-amber-900 uppercase block">🚨 Maior Causa</span>
-                <span class="text-[11px] font-black text-amber-950 truncate block mt-0.5" title="${maiorCausaNome}">${maiorCausaNome}</span>
-            </div>
-        `;
-    }
-
-    const ctxImp = document.getElementById('canvasCausasImprevistos')?.getContext('2d');
-    if (ctxImp) {
-        if (chartCausasImprevistosInst) chartCausasImprevistosInst.destroy();
-        const topCausas = listaCausasImpOrd.slice(0, 6);
-        chartCausasImprevistosInst = new Chart(ctxImp, {
-            type: 'bar',
-            data: {
-                labels: topCausas.length > 0 ? topCausas.map(c => c.causa) : ['Sem imprevistos'],
-                datasets: [
-                    {
-                        label: 'Tempo Perdido (Minutos)',
-                        data: topCausas.map(c => c.minutos),
-                        backgroundColor: '#d97706',
-                        borderRadius: 4
-                    },
-                    {
-                        label: 'Nº Ocorrências',
-                        data: topCausas.map(c => c.qtd),
-                        backgroundColor: '#dc2626',
-                        borderRadius: 4
-                    }
-                ]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                onClick: (e, el) => {
-                    if (el.length > 0 && topCausas[el[0].index]) {
-                        const alvo = topCausas[el[0].index];
-                        abrirExplosaoPersonalizadaGraficos(`Imprevisto: ${alvo.causa}`, alvo.registros);
-                    }
-                }
-            }
-        });
-    }
-
-    const tbodyImpCausas = document.getElementById('tbody-causas-imprevistos-graficos');
-    if (tbodyImpCausas) {
-        tbodyImpCausas.innerHTML = "";
-        if (listaCausasImpOrd.length === 0) {
-            tbodyImpCausas.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Nenhum imprevisto reportado no período.</td></tr>`;
-        } else {
-            listaCausasImpOrd.forEach((c, idx) => {
-                const percTempo = totalMinutosImprevistos > 0 ? ((c.minutos / totalMinutosImprevistos) * 100).toFixed(1) : (totalOcorrenciasImp > 0 ? ((c.qtd / totalOcorrenciasImp) * 100).toFixed(1) : '0.0');
-                const chExpCausa = registrarListaParaExplosao(`Causa de Imprevisto: ${c.causa}`, c.registros);
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-amber-50/60 cursor-pointer transition";
-                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chExpCausa}')`);
-                tr.innerHTML = `
-                    <td class="p-2 text-center font-bold text-slate-400">${idx + 1}º</td>
-                    <td class="p-2 font-black text-amber-950 underline decoration-dotted">${c.causa}</td>
-                    <td class="p-2 text-center font-bold text-slate-800">${c.qtd}</td>
-                    <td class="p-2 text-center font-black text-red-700 bg-amber-50/70">${formatarDuracaoTexto(c.minutos)}</td>
-                    <td class="p-2 text-right font-black text-amber-800">${percTempo}%</td>
-                `;
-                tbodyImpCausas.appendChild(tr);
-            });
-        }
-    }
-
-    // ================= 2. PLANILHA DINÂMICA DE PRODUTIVIDADE (COM CATEGORIA DISCRETA E PARALISAÇÃO) =================
+    // 2. PLANILHA DINÂMICA DE PRODUTIVIDADE
     const barraPercCat = document.getElementById('barra-porcentagem-categorias-din');
     if (barraPercCat) {
         const totDin = concluidasFiltradasSelecao.length;
@@ -4065,23 +4154,17 @@ function renderizarAbaGraficosCompletaOficial() {
     const equipesVisiveis = typeof obterEquipesVisiveisUsuarioAtual === 'function' ? obterEquipesVisiveisUsuarioAtual(true) : (equipesSistema || []).filter(e => e.status === 'Ativo');
     const mapaDin = {};
     equipesVisiveis.forEach(eq => {
-        mapaDin[eq.nome] = { nome: eq.nome, executados: 0, hps: 0, pausaMin: 0, diasSet: new Set(), registros: [] };
+        mapaDin[eq.nome] = { nome: eq.nome, executados: 0, hps: 0, minPausa: 0, diasSet: new Set(), registros: [] };
     });
 
     concluidasFiltradasSelecao.forEach(r => {
         const nome = r.equipe || 'NÃO IDENTIFICADO';
-        if (!mapaDin[nome]) mapaDin[nome] = { nome, executados: 0, hps: 0, pausaMin: 0, diasSet: new Set(), registros: [] };
+        if (!mapaDin[nome]) mapaDin[nome] = { nome, executados: 0, hps: 0, minPausa: 0, diasSet: new Set(), registros: [] };
         mapaDin[nome].executados++;
         mapaDin[nome].hps += Number(r.hps) || 0;
+        mapaDin[nome].minPausa += Number(r.tempoPausadoMinutos) || 0;
         if (r.dataRegistro) mapaDin[nome].diasSet.add(r.dataRegistro);
         mapaDin[nome].registros.push(r);
-    });
-
-    todasAtividadesParaPausa.forEach(r => {
-        const nome = r.equipe || 'NÃO IDENTIFICADO';
-        if (mapaDin[nome]) {
-            mapaDin[nome].pausaMin += Number(r.tempoPausadoMinutos) || 0;
-        }
     });
 
     const listaDinamica = Object.values(mapaDin).map(item => {
@@ -4103,7 +4186,7 @@ function renderizarAbaGraficosCompletaOficial() {
         listaDinamica.forEach((t, idx) => {
             somaExec += t.executados;
             somaHps += t.hps;
-            somaPausa += t.pausaMin;
+            somaPausa += t.minPausa;
             t.diasSet.forEach(d => diasGlobaisSet.add(d));
             const chaveExp = registrarListaParaExplosao(`Executadas por ${t.nome}`, t.registros);
 
@@ -4112,13 +4195,13 @@ function renderizarAbaGraficosCompletaOficial() {
             tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExp}')`);
             tr.innerHTML = `
                 <td class="p-3 text-center font-bold text-slate-400">${idx + 1}º</td>
-                <td class="p-3 font-black text-blue-950"><span class="underline decoration-dotted">${t.nome}</span> ${obterCategoriaDiscretaTecnicoHtml(t.nome)}</td>
+                <td class="p-3 font-black text-blue-950"><span class="underline decoration-dotted">${t.nome}</span>${obterCategoriaDiscretaTecnicoHtml(t.nome)}</td>
                 <td class="p-3 text-center font-black text-emerald-700 bg-emerald-50/70 text-sm">${t.executados}</td>
                 <td class="p-3 text-center font-mono font-bold text-slate-700">${t.dias}</td>
                 <td class="p-3 text-center font-black text-blue-950 bg-blue-50/80 text-sm">${t.produtividade.toFixed(2)}</td>
                 <td class="p-3 text-center font-black text-indigo-900 bg-indigo-50/60">${t.hps}</td>
                 <td class="p-3 text-center font-black text-purple-900 bg-purple-50/60">${t.hpDia.toFixed(1)}</td>
-                <td class="p-3 text-center font-bold ${t.pausaMin > 0 ? 'text-orange-700 bg-orange-50/60' : 'text-slate-400'}">${t.pausaMin > 0 ? formatarDuracaoTexto(t.pausaMin) : '-'}</td>
+                <td class="p-3 text-center font-bold text-orange-800 bg-orange-50/50">${t.minPausa > 0 ? `${t.minPausa} min` : '-'}</td>
             `;
             tbodyDin.appendChild(tr);
         });
@@ -4130,18 +4213,18 @@ function renderizarAbaGraficosCompletaOficial() {
 
         tbodyDin.innerHTML += `
             <tr onclick="dispararExplosaoPorChave('${chaveExpTot}')" class="bg-slate-900 text-white font-black text-xs cursor-pointer hover:bg-slate-800">
-                <td colspan="2" class="p-3 text-right uppercase underline decoration-dotted">Total Consolidado da Seleção (Clique p/ Explosão):</td>
+                <td colspan="2" class="p-3 text-right uppercase underline decoration-dotted">Total Consolidado da Seleção:</td>
                 <td class="p-3 text-center text-emerald-300 text-sm">${somaExec}</td>
                 <td class="p-3 text-center font-mono">${diasGlobais} d</td>
                 <td class="p-3 text-center text-cyan-300 text-sm">${prodGlobal}</td>
                 <td class="p-3 text-center text-indigo-200">${somaHps}</td>
                 <td class="p-3 text-center text-purple-200">${hpDiaGlobal}</td>
-                <td class="p-3 text-center text-orange-300">${formatarDuracaoTexto(somaPausa)}</td>
+                <td class="p-3 text-center text-orange-300">${somaPausa} min</td>
             </tr>
         `;
     }
 
-    // ================= 3. PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO (COM CATEGORIA DISCRETA) =================
+    // 3. PLANILHA GERAL DE ATIVIDADES ATENDIDAS POR TÉCNICO
     const mapaGeralTec = {};
     equipesVisiveis.forEach(eq => {
         mapaGeralTec[eq.nome] = {
@@ -4149,7 +4232,7 @@ function renderizarAbaGraficosCompletaOficial() {
             cMduAtiv: 0, cMduConst: 0, cMduVist: 0,
             eMduAtiv: 0, eMduConst: 0,
             mailAtiv: 0, mailConst: 0,
-            concluidas: 0, malogros: 0, apoios: 0, pausaMin: 0, totalAtendidas: 0,
+            concluidas: 0, malogros: 0, apoios: 0, totalAtendidas: 0,
             registros: []
         };
     });
@@ -4161,12 +4244,11 @@ function renderizarAbaGraficosCompletaOficial() {
         if (!mapaGeralTec[nome]) {
             mapaGeralTec[nome] = {
                 nome, cMduAtiv: 0, cMduConst: 0, cMduVist: 0, eMduAtiv: 0, eMduConst: 0, mailAtiv: 0, mailConst: 0,
-                concluidas: 0, malogros: 0, apoios: 0, pausaMin: 0, totalAtendidas: 0, registros: []
+                concluidas: 0, malogros: 0, apoios: 0, totalAtendidas: 0, registros: []
             };
         }
         const item = mapaGeralTec[nome];
         item.totalAtendidas++;
-        item.pausaMin += Number(r.tempoPausadoMinutos) || 0;
         item.registros.push(r);
 
         if (r.desfecho === 'CONCLUIDA') item.concluidas++;
@@ -4184,26 +4266,29 @@ function renderizarAbaGraficosCompletaOficial() {
             else item.mailConst++;
         }
 
-        extrairApoiosDoRegistro(r).forEach(apNome => {
-            if (!mapaGeralTec[apNome]) {
-                mapaGeralTec[apNome] = {
-                    nome: apNome, cMduAtiv: 0, cMduConst: 0, cMduVist: 0, eMduAtiv: 0, eMduConst: 0, mailAtiv: 0, mailConst: 0,
-                    concluidas: 0, malogros: 0, apoios: 0, pausaMin: 0, totalAtendidas: 0, registros: []
-                };
-            }
-            const chAp = `${r.dataRegistro}_${obterCodigoBaseImovel(r.imovel)}_${apNome}`;
-            if (!setApoiosUnicosGeral.has(chAp)) {
-                setApoiosUnicosGeral.add(chAp);
-                mapaGeralTec[apNome].apoios++;
-                mapaGeralTec[apNome].registros.push(r);
-            }
-        });
+        if (typeof extrairApoiosDoRegistro === 'function') {
+            extrairApoiosDoRegistro(r).forEach(apNome => {
+                if (!mapaGeralTec[apNome]) {
+                    mapaGeralTec[apNome] = {
+                        nome: apNome, cMduAtiv: 0, cMduConst: 0, cMduVist: 0, eMduAtiv: 0, eMduConst: 0, mailAtiv: 0, mailConst: 0,
+                        concluidas: 0, malogros: 0, apoios: 0, totalAtendidas: 0, registros: []
+                    };
+                }
+                const codBase = typeof obterCodigoBaseImovel === 'function' ? obterCodigoBaseImovel(r.imovel) : r.imovel;
+                const chAp = `${r.dataRegistro}_${codBase}_${apNome}`;
+                if (!setApoiosUnicosGeral.has(chAp)) {
+                    setApoiosUnicosGeral.add(chAp);
+                    mapaGeralTec[apNome].apoios++;
+                    mapaGeralTec[apNome].registros.push(r);
+                }
+            });
+        }
     });
 
     const tbodyGeralAtend = document.getElementById('tbody-geral-atendidas-tecnico');
     if (tbodyGeralAtend) {
         tbodyGeralAtend.innerHTML = "";
-        let totConc = 0, totMal = 0, totAp = 0, totPausaG = 0, totAtend = 0;
+        let totConc = 0, totMal = 0, totAp = 0, totAtend = 0;
 
         Object.values(mapaGeralTec)
             .sort((a, b) => b.concluidas - a.concluidas || b.totalAtendidas - a.totalAtendidas || b.apoios - a.apoios)
@@ -4211,7 +4296,6 @@ function renderizarAbaGraficosCompletaOficial() {
                 totConc += t.concluidas;
                 totMal += t.malogros;
                 totAp += t.apoios;
-                totPausaG += t.pausaMin;
                 totAtend += t.totalAtendidas;
                 const chaveExp = registrarListaParaExplosao(`Atendidas por ${t.nome}`, t.registros);
 
@@ -4220,14 +4304,13 @@ function renderizarAbaGraficosCompletaOficial() {
                 tr.setAttribute('onclick', `dispararExplosaoPorChave('${chaveExp}')`);
                 tr.innerHTML = `
                     <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
-                    <td class="p-2.5 font-black text-slate-800"><span class="underline decoration-dotted">${t.nome}</span> ${obterCategoriaDiscretaTecnicoHtml(t.nome)}</td>
+                    <td class="p-2.5 font-black text-slate-800"><span class="underline decoration-dotted">${t.nome}</span>${obterCategoriaDiscretaTecnicoHtml(t.nome)}</td>
                     <td class="p-2.5 text-center font-semibold bg-blue-50/40"><span class="text-emerald-700 font-bold">${t.cMduAtiv}</span> / <span class="text-blue-800 font-bold">${t.cMduConst}</span> / <span class="text-purple-800 font-bold">${t.cMduVist}</span></td>
                     <td class="p-2.5 text-center font-semibold bg-indigo-50/40"><span class="text-emerald-700 font-bold">${t.eMduAtiv}</span> / <span class="text-indigo-800 font-bold">${t.eMduConst}</span></td>
                     <td class="p-2.5 text-center font-semibold bg-purple-50/40"><span class="text-emerald-700 font-bold">${t.mailAtiv}</span> / <span class="text-purple-800 font-bold">${t.mailConst}</span></td>
                     <td class="p-2.5 text-center font-black text-emerald-700 bg-emerald-50/80 text-sm">${t.concluidas}</td>
                     <td class="p-2.5 text-center font-black text-red-700 bg-red-50/80 text-sm">${t.malogros}</td>
                     <td class="p-2.5 text-center font-black text-fuchsia-800 bg-fuchsia-50/80">${t.apoios > 0 ? `🤝 ${t.apoios}` : '0'}</td>
-                    <td class="p-2.5 text-center font-bold ${t.pausaMin > 0 ? 'text-orange-700 bg-orange-50/60' : 'text-slate-400'}">${t.pausaMin > 0 ? `${t.pausaMin}m` : '-'}</td>
                     <td class="p-2.5 text-center font-black text-slate-900 bg-slate-100 text-sm">${t.totalAtendidas}</td>
                 `;
                 tbodyGeralAtend.appendChild(tr);
@@ -4236,11 +4319,10 @@ function renderizarAbaGraficosCompletaOficial() {
         const chaveExpGeral = registrarListaParaExplosao(`Todas Atividades Atendidas na Seleção`, baseFiltradaSelecao);
         tbodyGeralAtend.innerHTML += `
             <tr onclick="dispararExplosaoPorChave('${chaveExpGeral}')" class="bg-slate-900 text-white font-black text-xs cursor-pointer hover:bg-slate-800">
-                <td colspan="5" class="p-2.5 text-right uppercase underline decoration-dotted">Total Geral na Seleção (Clique p/ Explosão):</td>
+                <td colspan="5" class="p-2.5 text-right uppercase underline decoration-dotted">Total Geral na Seleção:</td>
                 <td class="p-2.5 text-center text-emerald-300">${totConc}</td>
                 <td class="p-2.5 text-center text-red-300">${totMal}</td>
                 <td class="p-2.5 text-center text-fuchsia-300">🤝 ${totAp}</td>
-                <td class="p-2.5 text-center text-orange-300">${formatarDuracaoTexto(totPausaG)}</td>
                 <td class="p-2.5 text-center text-cyan-300">${totAtend}</td>
             </tr>
         `;
@@ -4299,8 +4381,8 @@ function renderizarAbaGraficosCompletaOficial() {
     let tecMaisTempo = { nome: '-', duracaoTxt: '--h --m', durMin: -1, imovel: '', reg: null };
 
     baseFiltradaSelecao.forEach(r => {
-        const minIn = converterHorarioParaMinutos(r.hEntrada);
-        const minOut = converterHorarioParaMinutos(r.hSaida);
+        const minIn = typeof converterHorarioParaMinutos === 'function' ? converterHorarioParaMinutos(r.hEntrada) : null;
+        const minOut = typeof converterHorarioParaMinutos === 'function' ? converterHorarioParaMinutos(r.hSaida) : null;
         const pausa = Number(r.tempoPausadoMinutos) || 0;
 
         if (minIn !== null) {
@@ -4326,7 +4408,8 @@ function renderizarAbaGraficosCompletaOficial() {
         if (minIn !== null && minOut !== null && minOut >= minIn) {
             const durLiq = Math.max(0, (minOut - minIn) - pausa);
             if (durLiq > 0 && durLiq <= 840 && durLiq > tecMaisTempo.durMin) {
-                tecMaisTempo = { nome: r.equipe, duracaoTxt: formatarDuracaoTexto(durLiq), durMin: durLiq, imovel: r.imovel, reg: r };
+                const txtDur = typeof formatarDuracaoTexto === 'function' ? formatarDuracaoTexto(durLiq) : `${durLiq}m`;
+                tecMaisTempo = { nome: r.equipe, duracaoTxt: txtDur, durMin: durLiq, imovel: r.imovel, reg: r };
             }
         }
     });
@@ -4336,17 +4419,17 @@ function renderizarAbaGraficosCompletaOficial() {
         boxExtremos.innerHTML = `
             <div onclick="${tecMaisCedo.reg ? `abrirDetalhesAtividade(registrosSalvos.find(x => x.id === ${tecMaisCedo.reg.id}))` : ''}" class="bg-blue-50 border border-blue-200 p-2.5 rounded-xl cursor-pointer hover:border-blue-500 transition">
                 <span class="text-[9px] font-black text-blue-800 uppercase block">🌅 Abriu Mais Cedo</span>
-                <div class="font-black text-blue-950 text-xs truncate mt-0.5">${tecMaisCedo.nome} ${tecMaisCedo.nome !== '-' ? obterCategoriaDiscretaTecnicoHtml(tecMaisCedo.nome) : ''}</div>
+                <div class="font-black text-blue-950 text-xs truncate mt-0.5">${tecMaisCedo.nome}</div>
                 <div class="text-[11px] font-mono font-bold text-emerald-700">Às ${tecMaisCedo.hora} ${tecMaisCedo.imovel ? `(${tecMaisCedo.imovel})` : ''}</div>
             </div>
             <div onclick="${tecMaisTarde.reg ? `abrirDetalhesAtividade(registrosSalvos.find(x => x.id === ${tecMaisTarde.reg.id}))` : ''}" class="bg-indigo-50 border border-indigo-200 p-2.5 rounded-xl cursor-pointer hover:border-indigo-500 transition">
                 <span class="text-[9px] font-black text-indigo-800 uppercase block">🌙 Fechou Mais Tarde</span>
-                <div class="font-black text-indigo-950 text-xs truncate mt-0.5">${tecMaisTarde.nome} ${tecMaisTarde.nome !== '-' ? obterCategoriaDiscretaTecnicoHtml(tecMaisTarde.nome) : ''}</div>
+                <div class="font-black text-indigo-950 text-xs truncate mt-0.5">${tecMaisTarde.nome}</div>
                 <div class="text-[11px] font-mono font-bold text-indigo-700">Às ${tecMaisTarde.hora} ${tecMaisTarde.imovel ? `(${tecMaisTarde.imovel})` : ''}</div>
             </div>
             <div onclick="${tecMaisTempo.reg ? `abrirDetalhesAtividade(registrosSalvos.find(x => x.id === ${tecMaisTempo.reg.id}))` : ''}" class="bg-amber-50 border border-amber-200 p-2.5 rounded-xl cursor-pointer hover:border-amber-500 transition">
                 <span class="text-[9px] font-black text-amber-900 uppercase block">⏱️ Maior Tempo na Atividade</span>
-                <div class="font-black text-amber-950 text-xs truncate mt-0.5">${tecMaisTempo.nome} ${tecMaisTempo.nome !== '-' ? obterCategoriaDiscretaTecnicoHtml(tecMaisTempo.nome) : ''}</div>
+                <div class="font-black text-amber-950 text-xs truncate mt-0.5">${tecMaisTempo.nome}</div>
                 <div class="text-[11px] font-mono font-bold text-amber-800">${tecMaisTempo.duracaoTxt} ${tecMaisTempo.imovel ? `(${tecMaisTempo.imovel})` : ''}</div>
             </div>
         `;
@@ -4397,7 +4480,7 @@ function renderizarAbaGraficosCompletaOficial() {
         faixasOrdenadas.sort((a, b) => b.total - a.total || b.abertas - a.abertas);
 
         if (faixasOrdenadas.length === 0) {
-            tbodyHorarios.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Sem registros de horário na seleção atual.</td></tr>`;
+            tbodyHorarios.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Sem registos de horário na seleção atual.</td></tr>`;
         } else {
             faixasOrdenadas.forEach(f => {
                 const chaveExpH = registrarListaParaExplosao(`Movimentações das ${f.label}`, registrosPorHora[f.hora]);
@@ -4487,7 +4570,7 @@ function renderizarAbaGraficosCompletaOficial() {
     if (tbodyOfGeral) {
         tbodyOfGeral.innerHTML = "";
         if (listaOfensoresOrd.length === 0) {
-            tbodyOfGeral.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado na seleção atual.</td></tr>`;
+            tbodyOfGeral.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registado na seleção atual.</td></tr>`;
         } else {
             listaOfensoresOrd.forEach((o, idx) => {
                 const perc = totalOcorrenciasGeral > 0 ? ((o.total / totalOcorrenciasGeral) * 100).toFixed(1) : '0.0';
@@ -4545,7 +4628,7 @@ function renderizarAbaGraficosCompletaOficial() {
         const ofensoresConstExp = listaOfensoresOrd.filter(o => (o.constMdu + o.expMdu) > 0);
 
         if (ofensoresConstExp.length === 0) {
-            tbodyOfSeg.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registrado em Construção MDU ou Expansão MDU na seleção.</td></tr>`;
+            tbodyOfSeg.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum malogro registado em Construção MDU ou Expansão MDU na seleção.</td></tr>`;
         } else {
             ofensoresConstExp.forEach(o => {
                 const somaLinha = o.constMdu + o.expMdu;
@@ -4567,10 +4650,175 @@ function renderizarAbaGraficosCompletaOficial() {
             });
         }
     }
-}
+
+    // 9. CONTROLE DE PAUSAS (NO FIM DA ABA)
+    const mapaPausasTec = {};
+    let totalAtivPausadas = 0;
+    let totalMinutosPausadosGlobal = 0;
+
+    baseFiltradaSelecao.forEach(r => {
+        const pMin = Number(r.tempoPausadoMinutos) || 0;
+        if (pMin > 0) {
+            const nome = r.equipe || 'NÃO IDENTIFICADO';
+            if (!mapaPausasTec[nome]) mapaPausasTec[nome] = { nome, qtdPausas: 0, minTotal: 0, registros: [] };
+            mapaPausasTec[nome].qtdPausas++;
+            mapaPausasTec[nome].minTotal += pMin;
+            mapaPausasTec[nome].registros.push(r);
+            totalAtivPausadas++;
+            totalMinutosPausadosGlobal += pMin;
+        }
+    });
+
+    const kpisPausas = document.getElementById('kpis-controle-pausas-topo');
+    if (kpisPausas) {
+        const mediaGlobalPausa = totalAtivPausadas > 0 ? Math.round(totalMinutosPausadosGlobal / totalAtivPausadas) : 0;
+        const txtTotalPausa = typeof formatarDuracaoTexto === 'function' && totalMinutosPausadosGlobal > 0 ? formatarDuracaoTexto(totalMinutosPausadosGlobal) : `${totalMinutosPausadosGlobal} min`;
+        kpisPausas.innerHTML = `
+            <div class="bg-white p-2 rounded-xl border border-orange-200 text-center">
+                <span class="text-[9px] font-bold text-slate-500 uppercase block">Atividades c/ Pausa</span>
+                <span class="font-black text-orange-950 text-sm">${totalAtivPausadas}</span>
+            </div>
+            <div class="bg-white p-2 rounded-xl border border-orange-200 text-center">
+                <span class="text-[9px] font-bold text-slate-500 uppercase block">Tempo Total Paralisado</span>
+                <span class="font-black text-orange-700 text-sm">${txtTotalPausa}</span>
+            </div>
+            <div class="bg-white p-2 rounded-xl border border-orange-200 text-center">
+                <span class="text-[9px] font-bold text-slate-500 uppercase block">Média por Paralisação</span>
+                <span class="font-black text-slate-800 text-sm">${mediaGlobalPausa} min</span>
+            </div>
+        `;
+    }
+
+    const tbodyPausas = document.getElementById('tbody-ranking-ociosidade-pausas');
+    if (tbodyPausas) {
+        tbodyPausas.innerHTML = "";
+        const listaPausas = Object.values(mapaPausasTec).sort((a, b) => b.minTotal - a.minTotal);
+        if (listaPausas.length === 0) {
+            tbodyPausas.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Nenhuma atividade teve tempo de paralisação registado no filtro atual.</td></tr>`;
+        } else {
+            listaPausas.forEach((p, idx) => {
+                const mediaP = Math.round(p.minTotal / p.qtdPausas);
+                const txtTot = typeof formatarDuracaoTexto === 'function' ? formatarDuracaoTexto(p.minTotal) : `${p.minTotal} min`;
+                const chExpP = registrarListaParaExplosao(`Atividades Paralisadas: ${p.nome}`, p.registros);
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-orange-50/60 cursor-pointer";
+                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chExpP}')`);
+                tr.innerHTML = `
+                    <td class="p-2.5 text-center font-bold text-slate-400">${idx + 1}º</td>
+                    <td class="p-2.5 font-black text-slate-800"><span class="underline decoration-dotted">${p.nome}</span>${obterCategoriaDiscretaTecnicoHtml(p.nome)}</td>
+                    <td class="p-2.5 text-center font-bold text-slate-700">${p.qtdPausas}</td>
+                    <td class="p-2.5 text-center font-black text-orange-800 bg-orange-50/70">${txtTot} (${p.minTotal}m)</td>
+                    <td class="p-2.5 text-center font-mono font-bold text-slate-600">${mediaP} min</td>
+                `;
+                tbodyPausas.appendChild(tr);
+            });
+        }
+    }
+
+    // 10. IMPACTO OPERACIONAL (NO FIM DA ABA)
+    const listaImprevistosRef = Array.isArray(listaImprevistosAtuais) ? listaImprevistosAtuais : [];
+    const mapaCausasImp = {};
+    let totalMinutosImprevistos = 0;
+
+    listaImprevistosRef.forEach(imp => {
+        const minIn = typeof converterHorarioParaMinutos === 'function' ? converterHorarioParaMinutos(imp.hEntrada) : null;
+        let minOut = typeof converterHorarioParaMinutos === 'function' ? converterHorarioParaMinutos(imp.hSaida) : null;
+        if (minOut === null && imp.desfecho === 'IMPREVISTO') {
+            const ag = new Date();
+            minOut = (ag.getHours() * 60) + ag.getMinutes();
+        }
+        const dur = (minIn !== null && minOut !== null && minOut >= minIn) ? Math.max(1, minOut - minIn) : 30;
+        totalMinutosImprevistos += dur;
+
+        const causas = (Array.isArray(imp.malogros) && imp.malogros.length > 0) ? imp.malogros : [imp.motivoDesfecho || 'IMPREVISTO GERAL'];
+        causas.forEach(c => {
+            const ch = String(c || 'OUTROS').trim().toUpperCase();
+            if (!mapaCausasImp[ch]) mapaCausasImp[ch] = { causa: ch, qtd: 0, minutos: 0, registros: [] };
+            mapaCausasImp[ch].qtd++;
+            mapaCausasImp[ch].minutos += dur;
+            mapaCausasImp[ch].registros.push(imp);
+        });
+    });
+
+    const listaCausasOrd = Object.values(mapaCausasImp).sort((a, b) => b.minutos - a.minutos || b.qtd - a.qtd);
+
+    const kpisImp = document.getElementById('kpis-impacto-imprevistos-topo');
+    if (kpisImp) {
+        const mediaImp = listaImprevistosRef.length > 0 ? Math.round(totalMinutosImprevistos / listaImprevistosRef.length) : 0;
+        const txtTotImp = typeof formatarDuracaoTexto === 'function' && totalMinutosImprevistos > 0 ? formatarDuracaoTexto(totalMinutosImprevistos) : `${totalMinutosImprevistos} min`;
+        kpisImp.innerHTML = `
+            <div class="bg-white p-2 rounded-xl border border-red-200 text-center">
+                <span class="text-[9px] font-bold text-slate-500 uppercase block">Total de Imprevistos</span>
+                <span class="font-black text-red-950 text-sm">${listaImprevistosRef.length}</span>
+            </div>
+            <div class="bg-white p-2 rounded-xl border border-red-200 text-center">
+                <span class="text-[9px] font-bold text-slate-500 uppercase block">Tempo Perdido Total</span>
+                <span class="font-black text-red-700 text-sm">${txtTotImp}</span>
+            </div>
+            <div class="bg-white p-2 rounded-xl border border-red-200 text-center">
+                <span class="text-[9px] font-bold text-slate-500 uppercase block">Média / Imprevisto</span>
+                <span class="font-black text-slate-800 text-sm">${mediaImp} min</span>
+            </div>
+        `;
+    }
+
+    const ctxImp = document.getElementById('canvasImpactoImprevistos')?.getContext('2d');
+    if (ctxImp) {
+        if (chartImpactoImprevistosInst) chartImpactoImprevistosInst.destroy();
+        const topC = listaCausasOrd.slice(0, 6);
+        chartImpactoImprevistosInst = new Chart(ctxImp, {
+            type: 'bar',
+            data: {
+                labels: topC.length > 0 ? topC.map(c => c.causa) : ['Sem imprevistos'],
+                datasets: [{
+                    label: 'Minutos Perdidos',
+                    data: topC.map(c => c.minutos),
+                    backgroundColor: '#b91c1c',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                onClick: (e, el) => {
+                    if (el.length > 0 && topC[el[0].index]) {
+                        const alvo = topC[el[0].index];
+                        abrirExplosaoPersonalizadaGraficos(`Imprevisto: ${alvo.causa}`, alvo.registros);
+                    }
+                }
+            }
+        });
+    }
+
+    const tbodyImpCausas = document.getElementById('tbody-impacto-imprevistos-causas');
+    if (tbodyImpCausas) {
+        tbodyImpCausas.innerHTML = "";
+        if (listaCausasOrd.length === 0) {
+            tbodyImpCausas.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Nenhum imprevisto registado no período.</td></tr>`;
+        } else {
+            listaCausasOrd.forEach(c => {
+                const percT = totalMinutosImprevistos > 0 ? ((c.minutos / totalMinutosImprevistos) * 100).toFixed(1) : '0.0';
+                const txtM = typeof formatarDuracaoTexto === 'function' ? formatarDuracaoTexto(c.minutos) : `${c.minutos}m`;
+                const chExpC = registrarListaParaExplosao(`Imprevisto: ${c.causa}`, c.registros);
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-red-50/60 cursor-pointer";
+                tr.setAttribute('onclick', `dispararExplosaoPorChave('${chExpC}')`);
+                tr.innerHTML = `
+                    <td class="p-2.5 font-bold text-slate-800 underline decoration-dotted">${c.causa}</td>
+                    <td class="p-2.5 text-center font-bold text-slate-700">${c.qtd}</td>
+                    <td class="p-2.5 text-center font-black text-red-800 bg-red-50/70">${txtM} (${c.minutos}m)</td>
+                    <td class="p-2.5 text-right font-black text-red-700">${percT}%</td>
+                `;
+                tbodyImpCausas.appendChild(tr);
+            });
+        }
+    }
+};
 
 // --- EXPORTAÇÃO EXCEL OFICIAL ---
-function exportarPlanilhaDinamicaOficialExcel() {
+window.exportarPlanilhaDinamicaOficialExcel = function() {
     const baseBruta = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
         r &&
         r.equipe !== '__CONFIG_SISTEMA__' &&
@@ -4587,7 +4835,7 @@ function exportarPlanilhaDinamicaOficialExcel() {
     })).filter(registroPassaNosFiltrosGlobaisGraficos);
 
     if (baseBruta.length === 0) {
-        alert("⚠️ Nenhum registro finalizado na seleção atual para exportar.");
+        alert("⚠️ Nenhum registo finalizado na seleção atual para exportar.");
         return;
     }
 
@@ -4628,9 +4876,9 @@ function exportarPlanilhaDinamicaOficialExcel() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-}
+};
 
-exportarExcel = exportarPlanilhaDinamicaOficialExcel;
+window.exportarExcel = window.exportarPlanilhaDinamicaOficialExcel;
 
 copiarBoletimGestorWhatsApp = function() {
     const lista = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
@@ -4638,7 +4886,7 @@ copiarBoletimGestorWhatsApp = function() {
     );
 
     if (lista.length === 0) {
-        alert("⚠️ Nenhum registro encontrado no filtro atual para gerar o Boletim.");
+        alert("⚠️ Nenhum registo encontrado no filtro atual para gerar o Boletim.");
         return;
     }
 
@@ -4666,95 +4914,104 @@ copiarBoletimGestorWhatsApp = function() {
     copiarTextoAreaTransferencia(texto, "✅ Boletim Executivo copiado para o WhatsApp!");
 };
 
+// Limpa rascunhos "EM ANDAMENTO" fantasmas quando a mesma atividade já consta finalizada no dia
+async function removerApenasAberturasFantasmas() {
+    if (limpezaDuplicadosEmAndamento || (typeof modoConsultaBackupAtivo !== 'undefined' && modoConsultaBackupAtivo)) return;
+    if (!Array.isArray(registrosSalvos) || registrosSalvos.length === 0) return;
+
+    limpezaDuplicadosEmAndamento = true;
+    try {
+        const chavesFinalizadasHoje = new Set();
+        const idsFantasmasParaApagar = new Set();
+
+        const obterBaseCod = (str) => {
+            let c = String(str || '').toUpperCase().trim();
+            const i = c.lastIndexOf(' - BLOCO');
+            return i !== -1 ? c.substring(0, i).trim() : c;
+        };
+
+        registrosSalvos.forEach(r => {
+            if (!r || r.equipe === '__CONFIG_SISTEMA__' || r.projeto === '__CONFIG_AUDITORIA__') return;
+            if (['CONCLUIDA', 'CONCLUÍDA', 'PENDENTE', 'MALOGRADA'].includes(String(r.desfecho || '').toUpperCase().trim())) {
+                const dt = String(r.dataRegistro || '').trim();
+                const eq = String(r.equipe || '').toUpperCase().trim();
+                const codBase = obterBaseCod(r.imovel);
+                const hIn = String(r.hEntrada || '').trim();
+                chavesFinalizadasHoje.add(`${dt}|${eq}|${codBase}|${hIn}`);
+            }
+        });
+
+        registrosSalvos.forEach(r => {
+            if (!r) return;
+            if (['EM ANDAMENTO', 'PARALISADA'].includes(r.desfecho)) {
+                const dt = String(r.dataRegistro || '').trim();
+                const eq = String(r.equipe || '').toUpperCase().trim();
+                const codBase = obterBaseCod(r.imovel);
+                const hIn = String(r.hEntrada || '').trim();
+
+                if (chavesFinalizadasHoje.has(`${dt}|${eq}|${codBase}|${hIn}`)) {
+                    idsFantasmasParaApagar.add(r.id);
+                }
+            }
+        });
+
+        if (idsFantasmasParaApagar.size > 0) {
+            registrosSalvos = registrosSalvos.filter(r => !idsFantasmasParaApagar.has(r.id));
+            if (typeof supabaseClient !== 'undefined') {
+                await supabaseClient.from('registros_producao').delete().in('id', Array.from(idsFantasmasParaApagar));
+            }
+        }
+    } catch (e) {} finally {
+        limpezaDuplicadosEmAndamento = false;
+    }
+}
+
+if (typeof window.atualizarDashboardGestor === 'function' && !window._hookDashUnificadoV3) {
+    window._hookDashUnificadoV3 = true;
+    const _origAtuDashV3 = window.atualizarDashboardGestor;
+    window.atualizarDashboardGestor = async function(...args) {
+        await removerApenasAberturasFantasmas();
+        const res = await _origAtuDashV3.apply(this, args);
+        try {
+            window.injetarBotaoLimparMapaFixo();
+            setTimeout(() => {
+                if (typeof varrerEnderecosEFotosVisiveis === 'function') varrerEnderecosEFotosVisiveis();
+            }, 250);
+        } catch (e) {}
+        return res;
+    };
+}
+
 setTimeout(() => {
     otimizarCabecalhoAzulLinhaUnica();
     inicializarMelhoriasVisuaisGestor();
     construirLayoutExclusivoAbaGraficos();
-    vincularBotoesFecharModaisExpansao();
-    renderizarAbaGraficosCompletaOficial();
+    window.injetarBotaoLimparMapaFixo();
+    window.renderizarAbaGraficosCompletaOficial();
 }, 400);
 
-// ================= PATCH DE ESTABILIDADE E PRESERVAÇÃO DE CONTAGEM REAL (GESTOR.JS) =================
-(function() {
-    let limpezaDuplicadosEmAndamento = false;
+setInterval(() => {
+    const viewGestor = document.getElementById('view-gestor');
+    const gestorVisivel = viewGestor && !viewGestor.classList.contains('hidden');
+    const blocoAcoesGestor = document.getElementById('header-gestor-acoes');
+    const subBarraGestor = document.getElementById('header-gestor-subbarra');
 
-    function blindarVisibilidadeSubAbasGestor() {
+    if (!gestorVisivel) {
+        if (blocoAcoesGestor) blocoAcoesGestor.classList.add('hidden');
+        if (subBarraGestor) subBarraGestor.classList.add('hidden');
+    } else {
+        otimizarCabecalhoAzulLinhaUnica();
+        window.injetarBotaoLimparMapaFixo();
         const subGraficos = document.getElementById('subview-graficos');
         const btnGraficos = document.getElementById('subtab-btn-graficos');
-        if (!subGraficos || !btnGraficos) return;
-
-        const abaGraficosEstaAtiva = btnGraficos.classList.contains('bg-blue-900');
-        if (!abaGraficosEstaAtiva) {
-            subGraficos.classList.add('hidden');
-            subGraficos.style.setProperty('display', 'none', 'important');
-        } else {
-            subGraficos.classList.remove('hidden');
-            subGraficos.style.removeProperty('display');
-        }
-    }
-
-    // Remove APENAS rascunhos "EM ANDAMENTO" fantasmas quando a mesma atividade já foi concluída, NUNCA apagando blocos concluídos legítimos
-    async function removerApenasAberturasFantasmas() {
-        if (limpezaDuplicadosEmAndamento || (typeof modoConsultaBackupAtivo !== 'undefined' && modoConsultaBackupAtivo)) return;
-        if (!Array.isArray(registrosSalvos) || registrosSalvos.length === 0) return;
-
-        limpezaDuplicadosEmAndamento = true;
-        try {
-            const chavesFinalizadasHoje = new Set();
-            const idsFantasmasParaApagar = new Set();
-
-            const obterBaseCod = (str) => {
-                let c = String(str || '').toUpperCase().trim();
-                const i = c.lastIndexOf(' - BLOCO');
-                return i !== -1 ? c.substring(0, i).trim() : c;
-            };
-
-            registrosSalvos.forEach(r => {
-                if (!r || r.equipe === '__CONFIG_SISTEMA__' || r.projeto === '__CONFIG_AUDITORIA__') return;
-                if (['CONCLUIDA', 'CONCLUÍDA', 'PENDENTE', 'MALOGRADA'].includes(String(r.desfecho || '').toUpperCase().trim())) {
-                    const dt = String(r.dataRegistro || '').trim();
-                    const eq = String(r.equipe || '').toUpperCase().trim();
-                    const codBase = obterBaseCod(r.imovel);
-                    const hIn = String(r.hEntrada || '').trim();
-                    chavesFinalizadasHoje.add(`${dt}|${eq}|${codBase}|${hIn}`);
-                }
-            });
-
-            registrosSalvos.forEach(r => {
-                if (!r) return;
-                if (['EM ANDAMENTO', 'PARALISADA'].includes(r.desfecho)) {
-                    const dt = String(r.dataRegistro || '').trim();
-                    const eq = String(r.equipe || '').toUpperCase().trim();
-                    const codBase = obterBaseCod(r.imovel);
-                    const hIn = String(r.hEntrada || '').trim();
-
-                    if (chavesFinalizadasHoje.has(`${dt}|${eq}|${codBase}|${hIn}`)) {
-                        idsFantasmasParaApagar.add(r.id);
-                    }
-                }
-            });
-
-            if (idsFantasmasParaApagar.size > 0) {
-                registrosSalvos = registrosSalvos.filter(r => !idsFantasmasParaApagar.has(r.id));
-                if (typeof supabaseClient !== 'undefined') {
-                    await supabaseClient.from('registros_producao').delete().in('id', Array.from(idsFantasmasParaApagar));
-                }
+        if (subGraficos && btnGraficos) {
+            if (!btnGraficos.classList.contains('bg-blue-900')) {
+                subGraficos.classList.add('hidden');
+                subGraficos.style.setProperty('display', 'none', 'important');
+            } else {
+                subGraficos.classList.remove('hidden');
+                subGraficos.style.removeProperty('display');
             }
-        } catch (e) {} finally {
-            limpezaDuplicadosEmAndamento = false;
         }
     }
-
-    if (typeof window.atualizarDashboardGestor === 'function') {
-        const _origAtuDash = window.atualizarDashboardGestor;
-        window.atualizarDashboardGestor = async function(...args) {
-            await removerApenasAberturasFantasmas();
-            const res = await _origAtuDash.apply(this, args);
-            blindarVisibilidadeSubAbasGestor();
-            vincularBotoesFecharModaisExpansao();
-            return res;
-        };
-    }
-
-    setInterval(blindarVisibilidadeSubAbasGestor, 400);
-})();
+}, 450);
