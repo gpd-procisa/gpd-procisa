@@ -425,7 +425,6 @@ function obterBadgeSetorHtml(setorCampo) {
     }).join('') + `</div>`;
 }
 
-// Função utilitária para exibir discretamente a categoria do técnico na aba Gráficos (Melhoria 03)
 function obterBadgeDiscretoCategoriaTecnico(nomeEquipe) {
     const chave = String(nomeEquipe || '').trim().toUpperCase();
     const eqObj = (equipesSistema || []).find(e => String(e.nome || '').trim().toUpperCase() === chave);
@@ -734,7 +733,6 @@ async function sincronizarOpcoesNaNuvem() {
     }
 }
 
-// CORREÇÃO DO PROBLEMA 02: Merge inteligente por Timestamp e proteção contra sobrescrita de rotas de outros técnicos!
 function mesclarTelemetriaSemSobrescreverMaisRecente(mapaNuvem, mapaLocal) {
     const resultado = { ...(mapaNuvem || {}) };
     Object.entries(mapaLocal || {}).forEach(([eq, infoLoc]) => {
@@ -752,7 +750,6 @@ function mesclarTelemetriaSemSobrescreverMaisRecente(mapaNuvem, mapaLocal) {
         if (dataLoc > dataNuv) {
             resultado[eq] = infoLoc;
         } else if (dataLoc === dataNuv) {
-            // Se na nuvem consta DISPONIVEL hoje e localmente está ENCERRADO mas com timestamp antigo, preserva DISPONIVEL!
             if (infoNuv.statusTurno === 'DISPONIVEL' && infoLoc.statusTurno === 'ENCERRADO' && tsLoc <= tsNuv) {
                 resultado[eq] = infoNuv;
             } else if (tsLoc > tsNuv) {
@@ -798,7 +795,6 @@ async function sincronizarTelemetriaNaNuvem(nomeEquipe = null, dadosEquipe = nul
             }
         }
 
-        // Nunca permite que o cache local de um aparelho sobrescreva outros técnicos na nuvem
         telemetriaEquipes = mesclarTelemetriaSemSobrescreverMaisRecente(mapaNuvem, telemetriaEquipes);
 
         if (nomeEquipe && dadosEquipe) {
@@ -1226,7 +1222,6 @@ function converterLinhaBancoParaObjetoGpd(r) {
         obsBruta = obsBruta.replace(matchPausaInicio[0], '').trim();
     }
 
-    // Se também constar pausa descrita no motivo_desfecho (Ex: "(Pausa acumulada: 15 min)")
     if (tempoPausadoExtraido === 0 && r.motivo_desfecho) {
         const mMotPausa = String(r.motivo_desfecho).match(/Pausa acumulada:\s*(\d+)\s*min/i);
         if (mMotPausa) tempoPausadoExtraido = parseInt(mMotPausa[1], 10) || 0;
@@ -1429,6 +1424,7 @@ window.onload = async function() {
     }, 35000);
 };
 
+// PERFIL VISUALIZADOR (CLIENTE) PADRONIZADO E BLINDADO
 function aplicarRestricoesInterface() {
     const btnNovaEquipe = document.getElementById('btn-nova-equipe');
     const btnNovoUsuario = document.getElementById('btn-novo-usuario');
@@ -1438,11 +1434,14 @@ function aplicarRestricoesInterface() {
     const alertaImprevistos = document.getElementById('alerta-imprevistos-supervisao');
 
     const abasRestritasVisualizador = [
-        'disponibilidade', 'mapa', 'combustivel', 'solicitacao_material',
+        'combustivel', 'solicitacao_material',
         'imprevistos', 'financeiro', 'equipes', 'opcoes', 'usuarios', 'bonificacao', 'auditoria'
     ];
+    const abasPermitidasVisualizador = ['atividades', 'disponibilidade', 'mapa', 'graficos', 'materiais'];
 
-    if (nivelUsuarioLogado === 'Visualizador') {
+    const nivNorm = String(nivelUsuarioLogado || 'Visualizador').toLowerCase().trim();
+
+    if (nivNorm === 'visualizador') {
         if (btnNovaEquipe) btnNovaEquipe.classList.add('hidden');
         if (btnNovoUsuario) btnNovoUsuario.classList.add('hidden');
         if (btnLimparLogs) btnLimparLogs.classList.add('hidden');
@@ -1454,20 +1453,23 @@ function aplicarRestricoesInterface() {
             document.getElementById(`subtab-btn-${aba}`)?.classList.add('hidden');
             document.getElementById(`subview-${aba}`)?.classList.add('hidden');
         });
-    } else if (nivelUsuarioLogado === 'Operador') {
+        abasPermitidasVisualizador.forEach(aba => {
+            document.getElementById(`subtab-btn-${aba}`)?.classList.remove('hidden');
+        });
+    } else if (nivNorm === 'operador') {
         if (btnNovoUsuario) btnNovoUsuario.classList.add('hidden');
         if (btnLimparLogs) btnLimparLogs.classList.add('hidden');
         if (btnNovaEquipe) btnNovaEquipe.classList.remove('hidden');
         if (btnImpPlan) btnImpPlan.classList.remove('hidden');
         if (btnBoletimWhats) btnBoletimWhats.classList.remove('hidden');
-        abasRestritasVisualizador.forEach(aba => document.getElementById(`subtab-btn-${aba}`)?.classList.remove('hidden'));
+        [...abasRestritasVisualizador, ...abasPermitidasVisualizador].forEach(aba => document.getElementById(`subtab-btn-${aba}`)?.classList.remove('hidden'));
     } else {
         if (btnNovaEquipe) btnNovaEquipe.classList.remove('hidden');
         if (btnNovoUsuario) btnNovoUsuario.classList.remove('hidden');
         if (btnLimparLogs) btnLimparLogs.classList.remove('hidden');
         if (btnImpPlan) btnImpPlan.classList.remove('hidden');
         if (btnBoletimWhats) btnBoletimWhats.classList.remove('hidden');
-        abasRestritasVisualizador.forEach(aba => document.getElementById(`subtab-btn-${aba}`)?.classList.remove('hidden'));
+        [...abasRestritasVisualizador, ...abasPermitidasVisualizador].forEach(aba => document.getElementById(`subtab-btn-${aba}`)?.classList.remove('hidden'));
     }
 }
 
@@ -1562,7 +1564,6 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
         convertidos.forEach(item => {
             const existente = mapa.get(item.id);
             if (existente) {
-                // Preserva dados já extraídos de observações caso a atualização parcial venha sem a coluna observacoes
                 if (!item.endereco && existente.endereco) item.endereco = existente.endereco;
                 if (!item.liberouAcesso && existente.liberouAcesso) item.liberouAcesso = existente.liberouAcesso;
                 if (!item.tempoPausadoMinutos && existente.tempoPausadoMinutos) item.tempoPausadoMinutos = existente.tempoPausadoMinutos;
@@ -1581,12 +1582,15 @@ async function processarPacoteDadosNuvem(data, permitirUploadInicialConfig = fal
     renderizarPainelCapacidadeNuvem();
 }
 
+// SINCRONIZADOR DELTA ULTRA-RÁPIDO (SEM PUXAR FOTOS BASE64 PESADAS NO LOOP DE 30s)
 async function sincronizarDeltaRapidoGestor() {
     if (!cargaInicialGestorConcluida || !registrosSalvos || registrosSalvos.length === 0) {
         return await carregarRegistrosDaNuvem(true);
     }
     try {
         const hojeISO = obterDataLocalISO();
+        const COLUNAS_LEVES_DELTA = 'id, data_registro, equipe, membros, projeto, imovel, h_entrada, h_saida, gps_entrada, gps_saida, desfecho, motivo_desfecho, malogros, responsavel, contato, email, agendamento, andares, hps, servico_obra, fusoes, conectores, cabo_rl, cabo_drop, nap, dio, cx_sobrepor, cx_embutida, cx_fosc';
+
         const promConfig = supabaseClient
             .from('registros_producao')
             .select('*')
@@ -1594,7 +1598,9 @@ async function sincronizarDeltaRapidoGestor() {
 
         const promRecentes = supabaseClient
             .from('registros_producao')
-            .select('*')
+            .select(COLUNAS_LEVES_DELTA)
+            .neq('equipe', '__CONFIG_SISTEMA__')
+            .neq('projeto', '__CONFIG_AUDITORIA__')
             .or(`data_registro.eq.${hojeISO},desfecho.in.(PROGRAMADA,REABERTA,EM ANDAMENTO,PARALISADA,IMPREVISTO,AGUARDANDO TRATATIVA,TRATADA)`)
             .order('id', { ascending: false })
             .limit(300);
@@ -1642,7 +1648,6 @@ async function carregarRegistrosModoCampoLeve() {
     }
 }
 
-// CORREÇÃO DO PROBLEMA 03: Paginação completa sem cortar em 1000 registros e mantendo todos os campos!
 async function carregarRegistrosDaNuvem(forcarCompletoGestor = false) {
     const viewGestorVisivel = !document.getElementById('view-gestor')?.classList.contains('hidden');
     if (!forcarCompletoGestor && !viewGestorVisivel) {
@@ -1650,7 +1655,6 @@ async function carregarRegistrosDaNuvem(forcarCompletoGestor = false) {
     }
 
     try {
-        // 1. Carrega as linhas de configuração do sistema
         const { data: rowsConfig } = await supabaseClient
             .from('registros_producao')
             .select('*')
@@ -1660,7 +1664,6 @@ async function carregarRegistrosDaNuvem(forcarCompletoGestor = false) {
             await processarPacoteDadosNuvem(rowsConfig, true, false);
         }
 
-        // 2. Carrega todas as páginas de registros de produção (colunas completas exceto fotos pesadas)
         const COLUNAS_COMPLETAS_SEM_FOTOS = 'id, data_registro, equipe, membros, projeto, imovel, h_entrada, h_saida, gps_entrada, gps_saida, desfecho, motivo_desfecho, malogros, responsavel, contato, email, agendamento, andares, hps, servico_obra, fusoes, conectores, cabo_rl, cabo_drop, nap, dio, cx_sobrepor, cx_embutida, cx_fosc';
         const TAMANHO_PAGINA = 1000;
         let todasLinhas = [];
@@ -1691,6 +1694,9 @@ async function carregarRegistrosDaNuvem(forcarCompletoGestor = false) {
         if (todasLinhas.length > 0) {
             await processarPacoteDadosNuvem(todasLinhas, false, false);
             cargaInicialGestorConcluida = true;
+            if (typeof historicoCompletoGestorJaBaixado !== 'undefined') {
+                historicoCompletoGestorJaBaixado = true;
+            }
         }
     } catch (err) {
         console.error("Erro ao carregar dados completos do Supabase:", err);
