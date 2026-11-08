@@ -93,14 +93,16 @@ function normalizarChaveNome(str) {
         .trim();
 }
 
-// ================= MELHORIA 03: ETIQUETA DISCRETA DE CATEGORIA DO TÉCNICO =================
-function obterCategoriaDiscretaTecnicoHtml(nomeEquipe) {
+// ================= MELHORIA 03: ETIQUETA DISCRETA COLORIDA DE CATEGORIA DO TÉCNICO =================
+function obterCategoriaDiscretaTecnicoHtml(nomeEquipe, apenasTexto = false) {
     const eqObj = (typeof equipesSistema !== 'undefined' && Array.isArray(equipesSistema))
         ? equipesSistema.find(e => normalizarChaveNome(e.nome) === normalizarChaveNome(nomeEquipe))
         : null;
     const setores = typeof obterArraySetores === 'function'
         ? obterArraySetores(eqObj ? eqObj.setor : 'Instalador')
         : ['Instalador'];
+
+    if (apenasTexto) return setores.join(' + ');
 
     const badges = setores.map(s => {
         let cor = 'bg-slate-100 text-slate-600 border-slate-200';
@@ -942,7 +944,7 @@ function baixarBackupIntegralJSON() {
 
     if (listaExportar.length === 0) { alert("⚠️ Nenhum registo encontrado no período."); return; }
     const pacoteBackup = {
-        sistema: "GPD MDU PROCISA RJ", versaoBackup: "8.1", dataExportacao: new Date().toISOString(), exportadoPor: usuarioLogado,
+        sistema: "GPD MDU PROCISA RJ", versaoBackup: "8.2", dataExportacao: new Date().toISOString(), exportadoPor: usuarioLogado,
         configuracoes: {
             equipes: equipesSistema, usuarios: usuariosSistema, gruposProjeto: GRUPOS_PROJETO_SISTEMA,
             catalogoProjetos: CATALOGO_PROJETOS_SISTEMA, opcoesCombustivel: OPCOES_COMBUSTIVEL_PADRAO,
@@ -1077,7 +1079,7 @@ function gerarRelatorioVisualImpressaoPDF() {
     setTimeout(() => { window.print(); }, 300);
 }
 
-// ================= MAPA EM TEMPO REAL E BLINDAGEM CONTRA ROTA ENCERRADA INDEVIDAMENTE (PROBLEMA 02) =================
+// ================= MAPA EM TEMPO REAL E BLINDAGEM CONTRA ROTA ENCERRADA INDEVIDAMENTE =================
 function converterHorarioParaMinutos(strHora) {
     if (!strHora || typeof strHora !== 'string' || !strHora.includes(':')) return null;
     const partes = strHora.trim().split(':');
@@ -1167,7 +1169,6 @@ function calcularMinutosDesdeUltimoSinal(melhorSinal, tel) {
     return 0;
 }
 
-// PROBLEMA 02 CORRIGIDO: Protege o turno do técnico contra encerramentos acidentais pelo painel se houver atividade aberta
 async function encerrarTurnoTecnicoPeloGestor(nomeEq) {
     if (!usuarioPodeEditarGestor()) return;
     const hojeISO = obterDataLocalISO();
@@ -1293,7 +1294,6 @@ function alternarVisualizacaoBlocosAgrupados(idElemento, btnEl) {
         btnEl.className = "mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition";
     }
 }
-
 // ================= TRANSFERÊNCIA, REABERTURA, IMPORTAÇÃO E PAINEL DE DISPONIBILIDADE =================
 async function autorizarReaberturaCampo(id) {
     if (!usuarioPodeEditarGestor()) { alert("⚠️ Apenas Gestores podem autorizar a reabertura."); return; }
@@ -1546,7 +1546,10 @@ function renderizarPainelDisponibilidade() {
                 gpsStr = `<div class="space-y-0.5"><div class="text-[9px] font-bold ${deveAparecerNoMapa ? 'text-emerald-800' : 'text-slate-500'}">🕒 Às ${horaSinal || '--:--'} • ${melhorSinal.origem}</div><a href="https://www.google.com/maps/search/?api=1&query=${latFinal},${lngFinal}" target="_blank" class="text-blue-600 underline font-mono text-[10px]">🗺️ ${coordFormatada}</a></div>`;
 
                 if (deveAparecerNoMapa) {
-                    acaoHtml = `<div class="flex items-center gap-1"><button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2.5 py-1 rounded">🎯 Ver no Mapa</button></div>`;
+                    const btnBaixar = usuarioPodeEditarGestor()
+                        ? `<button type="button" onclick="encerrarTurnoTecnicoPeloGestor('${eq.nome}')" title="Encerrar turno deste técnico e removê-lo do mapa" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-[10px] px-2 py-1 rounded">🔴 Baixar</button>`
+                        : '';
+                    acaoHtml = `<div class="flex items-center gap-1"><button type="button" onclick="focarTecnicoNoMapa(${latFinal}, ${lngFinal}, '${eq.nome}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-[10px] px-2 py-1 rounded">🎯 Mapa</button>${btnBaixar}</div>`;
                     listaPinosParaMapa.push({
                         nome: eq.nome, lat: latFinal, lng: lngFinal, corHex: corPinoHex,
                         iconeEmoji: iconeEmojiPino, statusTexto: statusTextoPuro, turnoTexto: turnoTextoPuro,
@@ -1570,7 +1573,7 @@ function renderizarPainelDisponibilidade() {
     } catch (e) { console.warn("Erro disponibilidade:", e); }
 }
 
-// ================= PROBLEMA 03 CORRIGIDO: PAGINAÇÃO TOTAL DE REGISTROS DO SUPABASE (SEM CORTE EM 1000/2000) =================
+// ================= PAGINAÇÃO TOTAL DE REGISTROS DO SUPABASE (SEM DUPLO DOWNLOAD) =================
 function converterLinhaLeveParaObjetoGpd(row) {
     if (typeof converterLinhaBancoParaObjetoGpd === "function") {
         const obj = converterLinhaBancoParaObjetoGpd({ ...row, observacoes: row.observacoes || "" });
@@ -1660,6 +1663,12 @@ async function baixarTodoHistoricoPaginadoSupabase() {
 
 async function garantirCargaNuvemGestor(forcarRecarga = false) {
     if (modoConsultaBackupAtivo) return;
+
+    // Evita duplo download se nuvem.js já carregou os dados iniciais
+    if (!forcarRecarga && typeof cargaInicialGestorConcluida !== 'undefined' && cargaInicialGestorConcluida && Array.isArray(registrosSalvos) && registrosSalvos.length > 0) {
+        historicoCompletoGestorJaBaixado = true;
+        return;
+    }
 
     if ((forcarRecarga || !historicoCompletoGestorJaBaixado || !cargaInicialGestorConcluida) && !sincronizandoRegistrosMobileEmCurso) {
         sincronizandoRegistrosMobileEmCurso = true;
@@ -1753,7 +1762,8 @@ function aplicarFiltroSelectEquipesEBannerFiscal() {
         <span class="text-[10px] text-cyan-300 font-mono">${fiscalAtivo.email}</span>
     `;
 }
-// ================= ATUALIZAÇÃO CENTRAL DO DASHBOARD (CONTABILIZAÇÃO FIEL E SEM CORTES) =================
+
+// ================= ATUALIZAÇÃO CENTRAL DO DASHBOARD =================
 async function atualizarDashboardGestor(forcarRecargaMobile = false) {
     inicializarMelhoriasVisuaisGestor();
     await garantirCargaNuvemGestor(forcarRecargaMobile);
@@ -2994,7 +3004,7 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
-// ================= ABA GRÁFICOS & INDICADORES + CORREÇÕES DE FOTOS, MAPA E VELOCIDADE (PARTE 3 LIMPA E UNIFICADA) =================
+// ================= ABA GRÁFICOS & INDICADORES + CORREÇÕES DE FOTOS, MAPA E PERFIL VISUALIZADOR (PARTE 3 FINAL) =================
 
 var filtrosMultiGraficos = {
     segmentos: ['TODOS'],
@@ -3152,11 +3162,11 @@ if (typeof window.abrirDetalhesAtividade === 'function' && !window._hookDetalhes
     };
 }
 
-// Varredor leve em segundo plano para sinalizar o badge "📷 X foto(s)", endereço e tempo de pausa na Aba Atividades
+// Varredor leve em segundo plano (Sem loop de redesenho de gráficos!)
 async function varrerEnderecosEFotosVisiveis() {
     if (varreduraFotosEmCurso || typeof supabaseClient === 'undefined') return;
     const fonte = (Array.isArray(dadosFiltradosAtuais) && dadosFiltradosAtuais.length > 0) ? dadosFiltradosAtuais : (registrosSalvos || []);
-    const pendentes = fonte.filter(r => r && r.id && !idsFotosJaVerificadas.has(r.id)).slice(0, 25);
+    const pendentes = fonte.filter(r => r && r.id && !idsFotosJaVerificadas.has(r.id)).slice(0, 40);
     if (pendentes.length === 0) return;
 
     varreduraFotosEmCurso = true;
@@ -3169,8 +3179,8 @@ async function varrerEnderecosEFotosVisiveis() {
             .select('id, observacoes')
             .in('id', ids);
 
+        let houveMudanca = false;
         if (Array.isArray(data)) {
-            let houveMudanca = false;
             data.forEach(row => {
                 if (!row.observacoes) return;
                 const reg = (registrosSalvos || []).find(r => r.id === row.id);
@@ -3198,27 +3208,32 @@ async function varrerEnderecosEFotosVisiveis() {
                     }
                 }
             });
+        }
 
-            if (houveMudanca && typeof atualizarDashboardGestor === 'function') {
-                await atualizarDashboardGestor(false);
-            }
+        const aindaFaltamNaTela = ((Array.isArray(dadosFiltradosAtuais) ? dadosFiltradosAtuais : [])).some(r => r && r.id && !idsFotosJaVerificadas.has(r.id));
+        if (aindaFaltamNaTela) {
+            varreduraFotosEmCurso = false;
+            setTimeout(varrerEnderecosEFotosVisiveis, 300);
+            return;
+        }
+
+        if (houveMudanca && typeof atualizarDashboardGestor === 'function') {
+            await atualizarDashboardGestor(false);
         }
     } catch (e) {} finally {
         varreduraFotosEmCurso = false;
-        const restantes = ((Array.isArray(dadosFiltradosAtuais) ? dadosFiltradosAtuais : [])).some(r => r && r.id && !idsFotosJaVerificadas.has(r.id));
-        if (restantes) {
-            setTimeout(varrerEnderecosEFotosVisiveis, 600);
-        }
     }
 }
 
-// --- 2. CONTROLE DO MAPA EM TEMPO REAL E BOTÃO DE LIMPAR TRAVADOS ---
+// --- 2. CONTROLE DO MAPA EM TEMPO REAL E BOTÃO DE LIMPAR TRAVADOS (OCULTO PARA VISUALIZADOR) ---
 window.injetarBotaoLimparMapaFixo = function() {
+    const podeEditar = typeof usuarioPodeEditarGestor === 'function' ? usuarioPodeEditarGestor() : false;
     const subMapa = document.getElementById('subview-mapa');
+
     if (subMapa && !document.getElementById('barra-topo-limpar-mapa-travados')) {
         const barra = document.createElement('div');
         barra.id = 'barra-topo-limpar-mapa-travados';
-        barra.className = 'bg-slate-900 text-white p-3 rounded-xl mb-3 flex flex-wrap justify-between items-center gap-2 shadow border-b-2 border-amber-400';
+        barra.className = `bg-slate-900 text-white p-3 rounded-xl mb-3 flex flex-wrap justify-between items-center gap-2 shadow border-b-2 border-amber-400 ${!podeEditar ? 'hidden' : ''}`;
         barra.innerHTML = `
             <div class="text-xs">
                 <span class="font-black text-amber-300 uppercase">🗺️ Controle de Sinais do Mapa em Tempo Real</span>
@@ -3234,6 +3249,8 @@ window.injetarBotaoLimparMapaFixo = function() {
             </div>
         `;
         subMapa.insertBefore(barra, subMapa.firstChild);
+    } else if (document.getElementById('barra-topo-limpar-mapa-travados')) {
+        document.getElementById('barra-topo-limpar-mapa-travados').classList.toggle('hidden', !podeEditar);
     }
 
     const lblCont = document.getElementById('lbl-contador-pinos-mapa');
@@ -3242,9 +3259,11 @@ window.injetarBotaoLimparMapaFixo = function() {
         btn.type = 'button';
         btn.id = 'btn-limpar-sinais-mapa';
         btn.onclick = window.limparSinaisAntigosDoMapaGestor;
-        btn.className = 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-3 py-1.5 rounded-lg shadow-sm transition ml-2';
+        btn.className = `bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-3 py-1.5 rounded-lg shadow-sm transition ml-2 ${!podeEditar ? 'hidden' : ''}`;
         btn.innerHTML = '🧹 Limpar Sinais Travados';
         lblCont.parentNode.appendChild(btn);
+    } else if (document.getElementById('btn-limpar-sinais-mapa')) {
+        document.getElementById('btn-limpar-sinais-mapa').classList.toggle('hidden', !podeEditar);
     }
 };
 
@@ -3798,7 +3817,7 @@ function construirLayoutExclusivoAbaGraficos() {
             </div>
         </div>
 
-        <!-- 9 E 10 (NO FIM DA ABA): CONTROLE DE PAUSAS & IMPACTO OPERACIONAL (SEM OS TEXTOS MELHORIA 01 / MELHORIA 02) -->
+        <!-- 9 E 10 (NO FIM DA ABA): CONTROLE DE PAUSAS & IMPACTO OPERACIONAL -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
             <!-- CONTROLE DE PAUSAS -->
             <div id="secao-bloco-controlePausas" class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
@@ -4849,8 +4868,7 @@ window.exportarPlanilhaDinamicaOficialExcel = function() {
 
     baseBruta.forEach(r => {
         const ap = extrairApoiosDoRegistro(r).join(', ') || '-';
-        const eqObj = (equipesSistema || []).find(e => normalizarChaveNome(e.nome) === normalizarChaveNome(r.equipe));
-        const catTec = eqObj ? formatarSetoresString(eqObj.setor) : 'Instalador';
+        const catTec = obterCategoriaDiscretaTecnicoHtml(r.equipe, true);
         html += `<tr>
             <td>${r._semana}</td>
             <td>${r.dataRegistro}</td>
@@ -4990,6 +5008,7 @@ setTimeout(() => {
     window.renderizarAbaGraficosCompletaOficial();
 }, 400);
 
+// Vigilância contínua de isolamento entre Modo Campo, Modo Gestor e Perfil Visualizador (Cliente)
 setInterval(() => {
     const viewGestor = document.getElementById('view-gestor');
     const gestorVisivel = viewGestor && !viewGestor.classList.contains('hidden');
@@ -5002,6 +5021,16 @@ setInterval(() => {
     } else {
         otimizarCabecalhoAzulLinhaUnica();
         window.injetarBotaoLimparMapaFixo();
+
+        // Blindagem contínua do Perfil Visualizador (Cliente)
+        const ehVis = (typeof obterNivelNormalizadoGestor === 'function' && obterNivelNormalizadoGestor() === 'visualizador');
+        if (ehVis) {
+            document.getElementById('btn-importar-planilha')?.classList.add('hidden');
+            document.getElementById('btn-boletim-whats-gestor')?.classList.add('hidden');
+            document.getElementById('btn-limpar-sinais-mapa')?.classList.add('hidden');
+            document.getElementById('barra-topo-limpar-mapa-travados')?.classList.add('hidden');
+        }
+
         const subGraficos = document.getElementById('subview-graficos');
         const btnGraficos = document.getElementById('subtab-btn-graficos');
         if (subGraficos && btnGraficos) {
