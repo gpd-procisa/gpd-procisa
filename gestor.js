@@ -5044,3 +5044,99 @@ setInterval(() => {
         }
     }
 }, 450);
+// ================= FILTRO DE ISOLAMENTO DE USUÁRIO DE TESTE (AAAAAATESTE) =================
+(function() {
+    function ehTecnicoDeTeste(nome) {
+        const ch = typeof normalizarChaveNome === 'function'
+            ? normalizarChaveNome(nome)
+            : String(nome || '').toUpperCase().trim();
+        return ch === 'AAAAAATESTE' || ch.includes('AAAAAATESTE');
+    }
+
+    function limparTesteDosRegistros(lista) {
+        if (!Array.isArray(lista)) return [];
+        return lista.filter(r => {
+            if (!r) return false;
+            // Ignora qualquer atividade em que o titular seja AAAAAATESTE
+            if (ehTecnicoDeTeste(r.equipe)) return false;
+
+            // Caso AAAAAATESTE tenha sido marcado como apoio em outra equipe, remove o nome dele do apoio
+            if (r.membros && String(r.membros).toUpperCase().includes('AAAAAATESTE')) {
+                r.membros = String(r.membros)
+                    .replace(/AAAAAATESTE\s*,?\s*/gi, '')
+                    .replace(/,\s*$/, '')
+                    .replace(/^APOIO:\s*$/i, r.equipe || '')
+                    .trim();
+            }
+            return true;
+        });
+    }
+
+    // 1. Oculta AAAAAATESTE das listas de indicadores, disponibilidade, mapas e gráficos (mantendo visível apenas na aba Equipes para gestão de cadastro/PIN)
+    if (typeof window.obterEquipesVisiveisUsuarioAtual === 'function') {
+        const _origObterEquipes = window.obterEquipesVisiveisUsuarioAtual;
+        window.obterEquipesVisiveisUsuarioAtual = function(apenasAtivas = false) {
+            const lista = _origObterEquipes.call(this, apenasAtivas);
+            return (lista || []).filter(e => !ehTecnicoDeTeste(e?.nome));
+        };
+    }
+
+    // 2. Intercepta o enriquecimento de dados do Dashboard (Atividades, Materiais, Financeiro, Bonificação, KPIs e Gráficos)
+    if (typeof window.enriquecerStatusMacroEBairro === 'function') {
+        const _origEnriquecer = window.enriquecerStatusMacroEBairro;
+        window.enriquecerStatusMacroEBairro = function(listaRegistros) {
+            const semTeste = limparTesteDosRegistros(listaRegistros);
+            return _origEnriquecer.call(this, semTeste);
+        };
+    }
+
+    // 3. Garante que Imprevistos, Combustível, Solicitações de Material, Gráficos e Exportações Excel nunca contabilizem AAAAAATESTE
+    const _origRenderGraficosTeste = window.renderizarAbaGraficosCompletaOficial;
+    if (typeof _origRenderGraficosTeste === 'function') {
+        window.renderizarAbaGraficosCompletaOficial = function(...args) {
+            if (Array.isArray(dadosFiltradosAtuais)) {
+                dadosFiltradosAtuais = limparTesteDosRegistros(dadosFiltradosAtuais);
+            }
+            if (Array.isArray(listaImprevistosAtuais)) {
+                listaImprevistosAtuais = limparTesteDosRegistros(listaImprevistosAtuais);
+            }
+            if (Array.isArray(listaSolicitacoesCombustivelAtuais)) {
+                listaSolicitacoesCombustivelAtuais = limparTesteDosRegistros(listaSolicitacoesCombustivelAtuais);
+            }
+            if (Array.isArray(listaSolicitacoesMaterialAtuais)) {
+                listaSolicitacoesMaterialAtuais = limparTesteDosRegistros(listaSolicitacoesMaterialAtuais);
+            }
+            return _origRenderGraficosTeste.apply(this, args);
+        };
+    }
+
+    // 4. Blinda também a Exportação Excel e o Boletim WhatsApp caso sejam acionados diretamente
+    const _origExportarExcelTeste = window.exportarPlanilhaDinamicaOficialExcel;
+    if (typeof _origExportarExcelTeste === 'function') {
+        window.exportarPlanilhaDinamicaOficialExcel = function(...args) {
+            if (Array.isArray(dadosFiltradosAtuais)) dadosFiltradosAtuais = limparTesteDosRegistros(dadosFiltradosAtuais);
+            const bkpSalvos = Array.isArray(registrosSalvos) ? [...registrosSalvos] : [];
+            registrosSalvos = limparTesteDosRegistros(registrosSalvos);
+            try {
+                return _origExportarExcelTeste.apply(this, args);
+            } finally {
+                registrosSalvos = bkpSalvos;
+            }
+        };
+        window.exportarExcel = window.exportarPlanilhaDinamicaOficialExcel;
+    }
+
+    const _origBoletimTeste = window.copiarBoletimGestorWhatsApp;
+    if (typeof _origBoletimTeste === 'function') {
+        window.copiarBoletimGestorWhatsApp = function(...args) {
+            if (Array.isArray(dadosFiltradosAtuais)) dadosFiltradosAtuais = limparTesteDosRegistros(dadosFiltradosAtuais);
+            const bkpSalvos = Array.isArray(registrosSalvos) ? [...registrosSalvos] : [];
+            registrosSalvos = limparTesteDosRegistros(registrosSalvos);
+            try {
+                return _origBoletimTeste.apply(this, args);
+            } finally {
+                registrosSalvos = bkpSalvos;
+            }
+        };
+    }
+})();
