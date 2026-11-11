@@ -5140,3 +5140,223 @@ setInterval(() => {
         };
     }
 })();
+// ================= DOWNLOAD EM LOTE DE TODAS AS FOTOS DA ATIVIDADE (TABELA + MODAL DETALHES) =================
+(function() {
+    let baixandoLoteFotos = false;
+
+    // 1. Baixa todas as fotos do modal de detalhes aberto atualmente (mantendo os botões individuais)
+    window.baixarTodasFotosDoModalAtual = async function(btnEl) {
+        if (baixandoLoteFotos) return;
+        const item = typeof itemDetalheAtualModal !== 'undefined' ? itemDetalheAtualModal : null;
+        const fotos = (item && Array.isArray(item.fotos)) ? item.fotos : [];
+
+        if (fotos.length === 0) {
+            alert("⚠️ Nenhuma foto encontrada neste registro para baixar.");
+            return;
+        }
+
+        baixandoLoteFotos = true;
+        const txtOriginal = btnEl ? btnEl.innerHTML : '';
+        const codBase = typeof obterCodigoBaseImovel === 'function'
+            ? obterCodigoBaseImovel(item.imovel)
+            : String(item.imovel || 'imovel').split(' - BLOCO')[0].trim();
+        const codigoLimpo = (codBase || 'imovel').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+        try {
+            for (let i = 0; i < fotos.length; i++) {
+                if (btnEl) {
+                    btnEl.disabled = true;
+                    btnEl.innerHTML = `⏳ Baixando ${i + 1} de ${fotos.length}...`;
+                }
+                const nomeArq = `${codigoLimpo}_foto_${i + 1}.jpg`;
+                window.baixarFotoDireto(fotos[i], nomeArq);
+                // Pausa de 350ms entre cada foto para o Chrome/Edge permitir múltiplos downloads seguidos
+                await new Promise(r => setTimeout(r, 350));
+            }
+        } finally {
+            baixandoLoteFotos = false;
+            if (btnEl) {
+                btnEl.disabled = false;
+                btnEl.innerHTML = `✅ ${fotos.length} foto(s) baixada(s)!`;
+                setTimeout(() => { if (btnEl) btnEl.innerHTML = txtOriginal; }, 2500);
+            }
+        }
+    };
+
+    // 2. Baixa todas as fotos diretamente pela linha da tabela na Aba Atividades (busca na nuvem se necessário)
+    window.baixarTodasFotosPorIdAtividade = async function(idReg, event, btnEl) {
+        if (event) event.stopPropagation();
+        if (baixandoLoteFotos) return;
+
+        const reg = (registrosSalvos || []).find(r => r && r.id === idReg);
+        if (!reg) return;
+
+        baixandoLoteFotos = true;
+        const txtOrig = btnEl ? btnEl.innerHTML : '';
+        if (btnEl) {
+            btnEl.disabled = true;
+            btnEl.innerHTML = `⏳ Buscando...`;
+        }
+
+        try {
+            const codBase = typeof obterCodigoBaseImovel === 'function'
+                ? obterCodigoBaseImovel(reg.imovel)
+                : String(reg.imovel || '').split(' - BLOCO')[0].trim();
+
+            const ehObraNormal = reg.projeto !== 'IMPREVISTO / ATRASO' &&
+                                 reg.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+                                 reg.projeto !== PROJETO_SOLIC_MATERIAL;
+
+            let blocosIrmaos = [reg];
+            if (ehObraNormal && codBase) {
+                const encontrados = (registrosSalvos || []).filter(r =>
+                    r &&
+                    r.dataRegistro === reg.dataRegistro &&
+                    r.equipe === reg.equipe &&
+                    r.projeto === reg.projeto &&
+                    (typeof obterCodigoBaseImovel === 'function' ? obterCodigoBaseImovel(r.imovel) === codBase : String(r.imovel || '').startsWith(codBase))
+                ).sort((a, b) => (a.imovel || '').localeCompare(b.imovel || ''));
+                if (encontrados.length > 0) blocosIrmaos = encontrados;
+            }
+
+            // Garante que as fotos de todos os blocos irmãos sejam carregadas da nuvem sob demanda
+            if (typeof supabaseClient !== 'undefined') {
+                const idsBuscar = blocosIrmaos.map(b => b.id);
+                const { data: rows } = await supabaseClient
+                    .from('registros_producao')
+                    .select('id, observacoes')
+                    .in('id', idsBuscar);
+
+                if (Array.isArray(rows)) {
+                    rows.forEach(row => {
+                        const alvo = blocosIrmaos.find(b => b.id === row.id);
+                        if (alvo && row.observacoes && row.observacoes.includes('[FOTOS:')) {
+                            const mFotos = row.observacoes.match(/\[FOTOS:(\[.*?\])\]/);
+                            if (mFotos && mFotos[1]) {
+                                try {
+                                    const arrF = JSON.parse(mFotos[1]);
+                                    if (Array.isArray(arrF)) {
+                                        alvo.fotos = arrF;
+                                        alvo.qtdFotos = arrF.length;
+                                        if (typeof cacheFotosSobDemanda !== 'undefined') cacheFotosSobDemanda.set(alvo.id, arrF);
+                                    }
+                                } catch (e) {}
+                            }
+                        }
+                    });
+                }
+            }
+
+            const todasFotos = [];
+            for (const b of blocosIrmaos) {
+                let f = Array.isArray(b.fotos) && b.fotos.length > 0 ? b.fotos : [];
+                if (f.length === 0 && typeof obterFotosSobDemandaDoRegistro === 'function') {
+                    f = await obterFotosSobDemandaDoRegistro(b.id);
+                }
+                todasFotos.push(...f);
+            }
+
+            if (todasFotos.length === 0) {
+                alert("⚠️ Nenhuma foto localizada na nuvem para este registro.");
+                return;
+            }
+
+            const codigoLimpo = (codBase || 'imovel').replace(/[^a-zA-Z0-9_-]/g, '_');
+            for (let i = 0; i < todasFotos.length; i++) {
+                if (btnEl) btnEl.innerHTML = `⬇️ ${i + 1}/${todasFotos.length}...`;
+                window.baixarFotoDireto(todasFotos[i], `${codigoLimpo}_foto_${i + 1}.jpg`);
+                await new Promise(r => setTimeout(r, 350));
+            }
+
+            if (btnEl) {
+                btnEl.innerHTML = `✅ Baixadas!`;
+                setTimeout(() => { if (btnEl) btnEl.innerHTML = txtOrig; }, 2200);
+            }
+        } catch (err) {
+            console.error("Erro ao baixar lote de fotos:", err);
+            alert("⚠️ Erro ao baixar lote de fotos.");
+            if (btnEl) btnEl.innerHTML = txtOrig;
+        } finally {
+            baixandoLoteFotos = false;
+            if (btnEl) btnEl.disabled = false;
+        }
+    };
+
+    // 3. Injeta o botão "⬇️ Baixar Todas as Fotos" dentro do Modal de Detalhes sempre que houver fotos
+    const _origAbrirDetalhesLote = window.abrirDetalhesAtividade;
+    if (typeof _origAbrirDetalhesLote === 'function') {
+        window.abrirDetalhesAtividade = async function(item) {
+            const res = await _origAbrirDetalhesLote.apply(this, arguments);
+            try {
+                const conteudo = document.getElementById('modal-detalhes-conteudo');
+                const fotosAtuais = (typeof itemDetalheAtualModal !== 'undefined' && itemDetalheAtualModal && Array.isArray(itemDetalheAtualModal.fotos))
+                    ? itemDetalheAtualModal.fotos
+                    : [];
+
+                if (conteudo && fotosAtuais.length > 0) {
+                    const titulosH4 = Array.from(conteudo.querySelectorAll('h4'));
+                    const h4Fotos = titulosH4.find(h => (h.innerText || '').includes('Fotos Anexadas'));
+                    if (h4Fotos && !document.getElementById('btn-baixar-todas-fotos-modal')) {
+                        const barraTopoGaleria = document.createElement('div');
+                        barraTopoGaleria.className = 'flex flex-wrap justify-between items-center gap-2 pb-1.5 border-b border-indigo-200';
+                        h4Fotos.parentNode.insertBefore(barraTopoGaleria, h4Fotos);
+                        barraTopoGaleria.appendChild(h4Fotos);
+
+                        const btnTodas = document.createElement('button');
+                        btnTodas.type = 'button';
+                        btnTodas.id = 'btn-baixar-todas-fotos-modal';
+                        btnTodas.onclick = function() { window.baixarTodasFotosDoModalAtual(this); };
+                        btnTodas.className = 'bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer';
+                        btnTodas.innerHTML = `⬇️ Baixar Todas as Fotos (${fotosAtuais.length})`;
+                        barraTopoGaleria.appendChild(btnTodas);
+                    }
+                }
+            } catch (e) {}
+            return res;
+        };
+    }
+
+    // 4. Injeta o botão rápido "⬇️ Baixar Todas" ao lado do badge "📷 X foto(s)" na tabela da Aba Atividades
+    function injetarBotoesBaixarTodasNaTabelaAtividades() {
+        const corpoAtiv = document.getElementById('tabela-gestor-corpo');
+        if (!corpoAtiv) return;
+
+        const badgesFotos = Array.from(corpoAtiv.querySelectorAll('span')).filter(sp =>
+            (sp.innerText || '').includes('📷') && (sp.innerText || '').includes('foto(s)') && !sp.dataset.btnLoteInjetado
+        );
+
+        badgesFotos.forEach(badge => {
+            badge.dataset.btnLoteInjetado = 'true';
+            const tr = badge.closest('tr');
+            if (!tr) return;
+
+            // Descobre o ID do registro na linha (via botões de ação ou buscando pelo código do imóvel na linha)
+            let idReg = null;
+            const btnComId = tr.querySelector('button[onclick*="("]');
+            if (btnComId) {
+                const m = (btnComId.getAttribute('onclick') || '').match(/\((\d+)/);
+                if (m && m[1]) idReg = Number(m[1]);
+            }
+            if (!idReg) {
+                const txtImovel = tr.querySelector('td .font-black')?.innerText || '';
+                const codLimpo = txtImovel.split('(')[0].trim();
+                const encontrado = (dadosFiltradosAtuais || registrosSalvos || []).find(r => r && String(r.imovel || '').startsWith(codLimpo) && Number(r.qtdFotos) > 0);
+                if (encontrado) idReg = encontrado.id;
+            }
+
+            if (idReg) {
+                const btnRapido = document.createElement('button');
+                btnRapido.type = 'button';
+                btnRapido.title = 'Baixar todas as fotos desta atividade de uma só vez';
+                btnRapido.className = 'ml-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-0.5 rounded-md text-[10px] inline-flex items-center gap-1 shadow-sm transition';
+                btnRapido.innerHTML = '⬇️ Baixar Todas';
+                btnRapido.onclick = function(ev) {
+                    window.baixarTodasFotosPorIdAtividade(idReg, ev, this);
+                };
+                badge.insertAdjacentElement('afterend', btnRapido);
+            }
+        });
+    }
+
+    setInterval(injetarBotoesBaixarTodasNaTabelaAtividades, 700);
+})();
