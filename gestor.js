@@ -4988,8 +4988,8 @@ window.renderizarAbaGraficosCompletaOficial = function() {
     }
 };
 
-// --- 4. EXPORTAÇÃO EXCEL OFICIAL (COM TODOS OS MATERIAIS SEPARADOS POR BLOCO E ISOLAMENTO DO USUÁRIO TESTE) ---
-window.exportarPlanilhaDinamicaOficialExcel = async function() {
+// --- EXPORTAÇÃO EXCEL OFICIAL (COM TODOS OS MATERIAIS SEPARADOS POR BLOCO E ISOLAMENTO DE TESTE) ---
+window.exportarPlanilhaDinamicaOficialExcel = function() {
     const baseBruta = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
         r &&
         !normalizarChaveNome(r.equipe).includes('AAAAAATESTE') &&
@@ -5011,24 +5011,9 @@ window.exportarPlanilhaDinamicaOficialExcel = async function() {
         return;
     }
 
-    // Como registrosSalvos já contém 100% dos blocos paginados (cada bloco foi gravado em linha individual no banco),
-    // garantimos a ordenação cronológica e por bloco sem duplicar chamadas pesadas à nuvem
-    const chavesUnicas = new Set();
-    const registrosExpandidosExcel = [];
-
-    baseBruta.forEach(reg => {
-        const ch = `${reg.id}_${reg.imovel}`;
-        if (!chavesUnicas.has(ch)) {
-            chavesUnicas.add(ch);
-            registrosExpandidosExcel.push(reg);
-        }
-    });
-
-    registrosExpandidosExcel.sort((a, b) => {
+    // Garante a ordenação cronológica e agrupamento correto dos blocos
+    baseBruta.sort((a, b) => {
         if (a.dataRegistro !== b.dataRegistro) return (b.dataRegistro || '').localeCompare(a.dataRegistro || '');
-        const codA = obterCodigoBaseImovel(a.imovel);
-        const codB = obterCodigoBaseImovel(b.imovel);
-        if (codA !== codB) return codA.localeCompare(codB);
         return (a.imovel || '').localeCompare(b.imovel || '');
     });
 
@@ -5062,14 +5047,18 @@ window.exportarPlanilhaDinamicaOficialExcel = async function() {
             <th>DETALHES / OFENSORES</th>
         </tr>`;
 
-    registrosExpandidosExcel.forEach(r => {
-        const ap = extrairApoiosDoRegistro(r).join(', ') || '-';
-        const catTec = obterCategoriaDiscretaTecnicoHtml(r.equipe, true);
-        const detalhesStr = (Array.isArray(r.malogros) && r.malogros.length > 0)
-            ? r.malogros.join(' + ')
+    baseBruta.forEach(r => {
+        const ap = typeof extrairApoiosDoRegistro === 'function' ? extrairApoiosDoRegistro(r).join(', ') || '-' : '-';
+        const catTec = typeof obterCategoriaDiscretaTecnicoHtml === 'function' ? obterCategoriaDiscretaTecnicoHtml(r.equipe, true) : 'Instalador';
+        
+        const detalhesStr = (Array.isArray(r.malogros) && r.malogros.length > 0) 
+            ? r.malogros.join(' + ') 
             : (r.motivoDesfecho || r.observacoes || '-');
 
-        const pausaExibir = Number(r.tempoPausadoMinutos) || 0;
+        // Garante que a pausa só seja impressa no "BLOCO 1" (ou se não for um condomínio) para não duplicar o tempo total ocioso no Excel
+        const pausaExibir = (String(r.imovel).includes('BLOCO 1') || !String(r.imovel).includes('BLOCO')) 
+            ? (Number(r.tempoPausadoMinutos) || 0) 
+            : 0;
 
         html += `<tr>
             <td>${r._semana}</td>
