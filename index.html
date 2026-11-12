@@ -22,7 +22,29 @@
     <meta name="apple-mobile-web-app-title" content="GPD Campo">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1055/1055687.png">
 
+    <style>
+        /* Ocultar barras de rolagem para menus deslizantes no smartphone (Carrossel) */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* ================= AJUSTE SUPREMO PARA SMARTPHONE (MODO GESTOR) ================= */
+        /* Impede que as colunas das tabelas sejam esmagadas na vertical em telas pequenas */
+        @media (max-width: 768px) {
+            #view-gestor table th, 
+            #view-gestor table td { 
+                white-space: nowrap !important; 
+                padding-left: 12px !important;
+                padding-right: 12px !important;
+            }
+            /* Suaviza o deslize horizontal em tabelas longas (iOS/Android) */
+            .overflow-x-auto {
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+    </style>
+
     <script>
+      // Registo automático do Service Worker
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').then((reg) => {
@@ -78,134 +100,140 @@
                 <!-- Linha 2 e Linha 3 do Cabeçalho Azul (Exclusivas do Modo Gestor) -->
                 <div id="header-gestor-acoes" class="pt-2 border-t border-blue-800/80 space-y-2 hidden">
                     
-                    <!-- Sub-linha A: Pesquisa Global e Botões de Ação -->
-                    <div class="flex flex-col lg:flex-row justify-between items-center gap-2">
-                        <div class="w-full lg:w-80">
-                            <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, bairro, endereço, equipe..." class="w-full text-xs text-slate-800 border border-blue-700 rounded-lg px-3 py-1.5 outline-none bg-white focus:ring-2 focus:ring-cyan-400 transition">
+                    <!-- Botão Exclusivo para Smartphone (Expande/Retrai Filtros) -->
+                    <button type="button" onclick="document.getElementById('bloco-filtros-gestor').classList.toggle('hidden')" class="sm:hidden w-full bg-blue-950 hover:bg-blue-800 border border-blue-700 text-white font-bold text-[11px] px-3 py-2 rounded-lg shadow-sm flex justify-between items-center transition mb-1">
+                        <span>🔍 Exibir Filtros, Datas e Pesquisa</span>
+                        <span>▼</span>
+                    </button>
+
+                    <!-- Bloco de Filtros (Oculto no Mobile por padrão, visível no Desktop) -->
+                    <div id="bloco-filtros-gestor" class="hidden sm:block space-y-2">
+                        <!-- Sub-linha A: Pesquisa Global e Botões de Ação -->
+                        <div class="flex flex-col lg:flex-row justify-between items-center gap-2">
+                            <div class="w-full lg:w-80">
+                                <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, bairro, endereço, equipe..." class="w-full text-xs text-slate-800 border border-blue-700 rounded-lg px-3 py-1.5 outline-none bg-white focus:ring-2 focus:ring-cyan-400 transition">
+                            </div>
+                            <div class="flex flex-wrap gap-1.5 w-full lg:w-auto justify-end items-center">
+                                <span id="lbl-status-autosync" class="text-[10px] bg-blue-950 text-cyan-200 px-2.5 py-1.5 rounded-lg border border-blue-800 font-mono">
+                                    ⏱️ Sync (180s): <b id="txt-hora-sync" class="text-white">Ativo</b>
+                                </span>
+                                <button onclick="abrirModalImportarPlanilha()" id="btn-importar-planilha" class="bg-purple-600 hover:bg-purple-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1" title="Enviar carga de atividades via planilha para os técnicos">
+                                    📤 Importar Carga (Planilha)
+                                </button>
+                                <button onclick="copiarBoletimGestorWhatsApp()" id="btn-boletim-whats-gestor" class="bg-green-600 hover:bg-green-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
+                                    📲 Boletim WhatsApp
+                                </button>
+                                <button onclick="exportarExcel()" id="btn-baixar-excel-gestor" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
+                                    📥 Baixar Relatório por Grupos (Excel)
+                                </button>
+                                <button onclick="recarregarDadosGestor()" id="btn-atualizar-registros-gestor" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 text-[11px] px-3 py-1.5 rounded-lg font-black shadow-sm transition flex items-center gap-1">
+                                    🔄 Atualizar Registros
+                                </button>
+                            </div>
                         </div>
-                        <div class="flex flex-wrap gap-1.5 w-full lg:w-auto justify-end items-center">
-                            <span id="lbl-status-autosync" class="text-[10px] bg-blue-950 text-cyan-200 px-2.5 py-1.5 rounded-lg border border-blue-800 font-mono">
-                                ⏱️ Sync (180s): <b id="txt-hora-sync" class="text-white">Ativo</b>
-                            </span>
-                            <button onclick="abrirModalImportarPlanilha()" id="btn-importar-planilha" class="bg-purple-600 hover:bg-purple-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1" title="Enviar carga de atividades via planilha para os técnicos">
-                                📤 Importar Carga (Planilha)
-                            </button>
-                            <button onclick="copiarBoletimGestorWhatsApp()" id="btn-boletim-whats-gestor" class="bg-green-600 hover:bg-green-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
-                                📲 Boletim WhatsApp
-                            </button>
-                            <button onclick="exportarExcel()" id="btn-baixar-excel-gestor" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm transition flex items-center gap-1">
-                                📥 Baixar Relatório por Grupos (Excel)
-                            </button>
-                            <button onclick="recarregarDadosGestor()" id="btn-atualizar-registros-gestor" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 text-[11px] px-3 py-1.5 rounded-lg font-black shadow-sm transition flex items-center gap-1">
-                                🔄 Atualizar Registros
-                            </button>
+
+                        <!-- Sub-linha B Integrada no Cabeçalho Azul em APENAS 1 LINHA -->
+                        <div class="bg-blue-950/90 border border-blue-800 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+                            <div class="flex items-center gap-1 shrink-0">
+                                <span class="text-[10px] font-black text-cyan-300 uppercase whitespace-nowrap mr-0.5">⚡ Período:</span>
+                                <button onclick="aplicarAtalhoPeriodo('hoje')" title="Filtrar apenas registros de hoje" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 font-black text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap shadow-sm">📅 Hoje</button>
+                                <button onclick="aplicarAtalhoPeriodo('ontem')" title="Filtrar registros de ontem" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">Ontem</button>
+                                <button onclick="aplicarAtalhoPeriodo('7dias')" title="Filtrar registros dos últimos 7 dias" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">7 Dias</button>
+                                <button onclick="aplicarAtalhoPeriodo('mes')" title="Filtrar registros do mês atual" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">Este Mês</button>
+                                <button onclick="aplicarAtalhoPeriodo('tudo')" title="Mostrar todo o histórico disponível" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">🔄 Tudo</button>
+                            </div>
+
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <div class="flex items-center gap-1 bg-white border border-blue-400 rounded-lg px-2 py-0.5">
+                                    <span class="text-[10px] font-bold text-slate-500">De:</span>
+                                    <input type="date" id="gestor-filtro-data-inicio" onchange="atualizarDashboardGestor()" class="w-[102px] text-[11px] bg-transparent outline-none font-semibold text-slate-800">
+                                </div>
+                                <div class="flex items-center gap-1 bg-white border border-blue-400 rounded-lg px-2 py-0.5">
+                                    <span class="text-[10px] font-bold text-slate-500">Até:</span>
+                                    <input type="date" id="gestor-filtro-data-fim" onchange="atualizarDashboardGestor()" class="w-[102px] text-[11px] bg-transparent outline-none font-semibold text-slate-800">
+                                </div>
+                                <select id="gestor-filtro-equipe" onchange="atualizarDashboardGestor()" class="w-40 text-[11px] border border-blue-400 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-800 truncate">
+                                    <option value="">👥 Todas as Equipes</option>
+                                </select>
+                                <select id="gestor-filtro-projeto" onchange="atualizarDashboardGestor()" class="w-40 text-[11px] border border-blue-400 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-800 truncate">
+                                    <option value="">🏗️ Todos os Projetos</option>
+                                </select>
+                                <select id="gestor-filtro-desfecho" onchange="atualizarDashboardGestor()" class="w-36 text-[11px] border-2 border-cyan-400 rounded-lg px-2 py-1 bg-cyan-50 outline-none font-bold text-blue-950 truncate">
+                                    <option value="">🎯 Todos os Status</option>
+                                    <option value="PROGRAMADA">📋 Programadas (Carga)</option>
+                                    <option value="EM ANDAMENTO">🔵 Em Andamento</option>
+                                    <option value="PARALISADA">⏸️ Paralisadas</option>
+                                    <option value="REABERTA">🔄 Reabertas p/ Edição</option>
+                                    <option value="CONCLUIDA">🟢 Executado (Concluídas)</option>
+                                    <option value="PENDENTE">🟡 Pendentes</option>
+                                    <option value="MALOGRADA">🔴 Malogradas</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-
-                    <!-- Sub-linha B Integrada no Cabeçalho Azul em APENAS 1 LINHA -->
-                    <div class="bg-blue-950/90 border border-blue-800 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
-                        <div class="flex items-center gap-1 shrink-0">
-                            <span class="text-[10px] font-black text-cyan-300 uppercase whitespace-nowrap mr-0.5">⚡ Período:</span>
-                            <button onclick="aplicarAtalhoPeriodo('hoje')" title="Filtrar apenas registros de hoje" class="bg-cyan-500 hover:bg-cyan-400 text-blue-950 font-black text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap shadow-sm">📅 Hoje</button>
-                            <button onclick="aplicarAtalhoPeriodo('ontem')" title="Filtrar registros de ontem" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">Ontem</button>
-                            <button onclick="aplicarAtalhoPeriodo('7dias')" title="Filtrar registros dos últimos 7 dias" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">7 Dias</button>
-                            <button onclick="aplicarAtalhoPeriodo('mes')" title="Filtrar registros do mês atual" class="bg-blue-900 hover:bg-blue-800 text-cyan-100 border border-blue-700 font-semibold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">Este Mês</button>
-                            <button onclick="aplicarAtalhoPeriodo('tudo')" title="Mostrar todo o histórico disponível" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">🔄 Tudo</button>
-                        </div>
-
-                        <div class="flex items-center gap-1.5 shrink-0">
-                            <div class="flex items-center gap-1 bg-white border border-blue-400 rounded-lg px-2 py-0.5">
-                                <span class="text-[10px] font-bold text-slate-500">De:</span>
-                                <input type="date" id="gestor-filtro-data-inicio" onchange="atualizarDashboardGestor()" class="w-[102px] text-[11px] bg-transparent outline-none font-semibold text-slate-800">
-                            </div>
-                            <div class="flex items-center gap-1 bg-white border border-blue-400 rounded-lg px-2 py-0.5">
-                                <span class="text-[10px] font-bold text-slate-500">Até:</span>
-                                <input type="date" id="gestor-filtro-data-fim" onchange="atualizarDashboardGestor()" class="w-[102px] text-[11px] bg-transparent outline-none font-semibold text-slate-800">
-                            </div>
-                            <select id="gestor-filtro-equipe" onchange="atualizarDashboardGestor()" class="w-40 text-[11px] border border-blue-400 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-800 truncate">
-                                <option value="">👥 Todas as Equipes</option>
-                            </select>
-                            <select id="gestor-filtro-projeto" onchange="atualizarDashboardGestor()" class="w-40 text-[11px] border border-blue-400 rounded-lg px-2 py-1 bg-white outline-none font-semibold text-slate-800 truncate">
-                                <option value="">🏗️ Todos os Projetos</option>
-                            </select>
-                            <select id="gestor-filtro-desfecho" onchange="atualizarDashboardGestor()" class="w-36 text-[11px] border-2 border-cyan-400 rounded-lg px-2 py-1 bg-cyan-50 outline-none font-bold text-blue-950 truncate">
-                                <option value="">🎯 Todos os Status</option>
-                                <option value="PROGRAMADA">📋 Programadas (Carga)</option>
-                                <option value="EM ANDAMENTO">🔵 Em Andamento</option>
-                                <option value="PARALISADA">⏸️ Paralisadas</option>
-                                <option value="REABERTA">🔄 Reabertas p/ Edição</option>
-                                <option value="CONCLUIDA">🟢 Executado (Concluídas)</option>
-                                <option value="PENDENTE">🟡 Pendentes</option>
-                                <option value="MALOGRADA">🔴 Malogradas</option>
-                            </select>
-                        </div>
-                    </div>
-
                 </div>
             </header>
 
-            <!-- Sub-Cabeçalho Fixo do Gestor -->
-            <div id="header-gestor-subbarra" class="bg-slate-100 border-b border-slate-300 px-4 py-1.5 hidden">
-                <div class="flex flex-wrap justify-between items-center gap-1.5">
+            <!-- Sub-Cabeçalho Fixo do Gestor (Transformado em Carrossel Mobile) -->
+            <div id="header-gestor-subbarra" class="bg-slate-100 border-b border-slate-300 px-2 sm:px-4 py-2 hidden">
+                <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 w-full snap-x">
                     
-                    <div class="flex flex-wrap gap-1 items-center">
-                        <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1">
-                            📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
-                        </button>
-                        <button onclick="mudarSubAbaGestor('disponibilidade')" id="subtab-btn-disponibilidade" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            📡 Disponibilidade (<span id="badge-aba-indisp" class="text-red-600 font-black">0 indisp.</span>)
-                        </button>
-                        <button onclick="mudarSubAbaGestor('mapa')" id="subtab-btn-mapa" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            🗺️ Mapa (<span id="badge-aba-mapa" class="text-emerald-600 font-black">0 no mapa</span>)
-                        </button>
-                        <button onclick="mudarSubAbaGestor('combustivel')" id="subtab-btn-combustivel" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            ⛽ Combustível (<span id="badge-aba-combustivel" class="text-orange-600 font-black">0 pend.</span>)
-                        </button>
-                        <button onclick="mudarSubAbaGestor('solicitacao_material')" id="subtab-btn-solicitacao_material" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            🧰 Solic. Material (<span id="badge-aba-solic-material" class="text-indigo-600 font-black">0 pend.</span>)
-                        </button>
-                        <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            📊 Gráficos & Produtividade
-                        </button>
-                        <button onclick="mudarSubAbaGestor('imprevistos')" id="subtab-btn-imprevistos" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            ⚠️ Imprevistos (<span id="badge-aba-imprevistos">0</span>)
-                        </button>
-                        <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            📦 Consumo Materiais
-                        </button>
-                        <button onclick="mudarSubAbaGestor('financeiro')" id="subtab-btn-financeiro" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            💰 Medição Financeira
-                        </button>
-                        <button onclick="mudarSubAbaGestor('equipes')" id="subtab-btn-equipes" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            🛠️ Equipes
-                        </button>
-                        <button onclick="mudarSubAbaGestor('opcoes')" id="subtab-btn-opcoes" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            ⚙️ Opções
-                        </button>
-                        <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            👥 Usuários
-                        </button>
-                        <button onclick="mudarSubAbaGestor('bonificacao')" id="subtab-btn-bonificacao" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            🏆 Bonificação
-                        </button>
-                        <button onclick="mudarSubAbaGestor('auditoria')" id="subtab-btn-auditoria" class="px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
-                            🛡️ Auditoria
-                        </button>
-                    </div>
+                    <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1">
+                        📋 Atividades (<span id="badge-aba-andamento" class="text-cyan-300">0 ativas</span>)
+                    </button>
+                    <button onclick="mudarSubAbaGestor('disponibilidade')" id="subtab-btn-disponibilidade" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        📡 Disponibilidade (<span id="badge-aba-indisp" class="text-red-600 font-black">0 indisp.</span>)
+                    </button>
+                    <button onclick="mudarSubAbaGestor('mapa')" id="subtab-btn-mapa" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        🗺️ Mapa (<span id="badge-aba-mapa" class="text-emerald-600 font-black">0 no mapa</span>)
+                    </button>
+                    <button onclick="mudarSubAbaGestor('combustivel')" id="subtab-btn-combustivel" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        ⛽ Combustível (<span id="badge-aba-combustivel" class="text-orange-600 font-black">0 pend.</span>)
+                    </button>
+                    <button onclick="mudarSubAbaGestor('solicitacao_material')" id="subtab-btn-solicitacao_material" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        🧰 Solic. Material (<span id="badge-aba-solic-material" class="text-indigo-600 font-black">0 pend.</span>)
+                    </button>
+                    <button onclick="mudarSubAbaGestor('graficos')" id="subtab-btn-graficos" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        📊 Gráficos & Produtividade
+                    </button>
+                    <button onclick="mudarSubAbaGestor('imprevistos')" id="subtab-btn-imprevistos" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        ⚠️ Imprevistos (<span id="badge-aba-imprevistos">0</span>)
+                    </button>
+                    <button onclick="mudarSubAbaGestor('materiais')" id="subtab-btn-materiais" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        📦 Consumo Materiais
+                    </button>
+                    <button onclick="mudarSubAbaGestor('financeiro')" id="subtab-btn-financeiro" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        💰 Medição Financeira
+                    </button>
+                    <button onclick="mudarSubAbaGestor('equipes')" id="subtab-btn-equipes" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        🛠️ Equipes
+                    </button>
+                    <button onclick="mudarSubAbaGestor('opcoes')" id="subtab-btn-opcoes" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        ⚙️ Opções
+                    </button>
+                    <button onclick="mudarSubAbaGestor('usuarios')" id="subtab-btn-usuarios" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        👥 Usuários
+                    </button>
+                    <button onclick="mudarSubAbaGestor('bonificacao')" id="subtab-btn-bonificacao" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        🏆 Bonificação
+                    </button>
+                    <button onclick="mudarSubAbaGestor('auditoria')" id="subtab-btn-auditoria" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1">
+                        🛡️ Auditoria
+                    </button>
 
-                    <div class="flex items-center gap-1.5 ml-auto shrink-0">
-                        <button type="button" onclick="mudarSubAbaGestor('mapa')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
-                            🗺️ Abrir Mapa em Tempo Real
-                        </button>
-                        <button type="button" onclick="recarregarDadosGestor()" class="bg-blue-900 hover:bg-blue-950 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 whitespace-nowrap">
-                            🔄 Atualizar Status
-                        </button>
-                    </div>
+                    <!-- Linha divisória vertical invisível para separar os botões extras da direita -->
+                    <div class="w-px h-6 bg-slate-300 mx-1 shrink-0"></div>
+
+                    <button type="button" onclick="mudarSubAbaGestor('mapa')" id="btn-atalho-mapa-mobile" class="whitespace-nowrap shrink-0 snap-start bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1 hidden">
+                        🗺️ Abrir Mapa Real-Time
+                    </button>
+                    <button type="button" onclick="recarregarDadosGestor()" class="whitespace-nowrap shrink-0 snap-start bg-blue-900 hover:bg-blue-950 text-white font-bold text-[11px] px-3 py-1 rounded-lg shadow-sm transition flex items-center gap-1">
+                        🔄 Atualizar Status
+                    </button>
 
                 </div>
             </div>
         </div>
-
         <!-- ================= CORPO ROLÁVEL DO MODO GESTOR ================= -->
         <main id="view-gestor" class="flex-1 p-4 sm:p-5 bg-slate-50 space-y-5 hidden">
             
