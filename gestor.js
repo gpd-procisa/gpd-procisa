@@ -2954,13 +2954,13 @@ function mudarSubAbaGestor(aba) {
         const btn = document.getElementById(`subtab-btn-${s}`);
         if (btn) {
             const ocultoVisualizador = (ehVisualizador && !abasPermitidasVisualizador.includes(s));
-            btn.className = `px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1 ${ocultoVisualizador ? 'hidden' : ''}`;
+            btn.className = `whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-white text-slate-700 hover:bg-slate-200 border border-slate-200 flex items-center gap-1 ${ocultoVisualizador ? 'hidden' : ''}`;
         }
     });
 
     document.getElementById(`subview-${aba}`)?.classList.remove('hidden');
     const targetBtn = document.getElementById(`subtab-btn-${aba}`);
-    if (targetBtn) targetBtn.className = "px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1";
+    if (targetBtn) targetBtn.className = "whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1";
 
     const divBotoesDisp = document.getElementById('botoes-atalho-exclusivos-disponibilidade');
     if (divBotoesDisp) {
