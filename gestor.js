@@ -20,12 +20,17 @@ let filtrosMultiplosAtivos = { equipes: [], setores: [], macrogrupos: [], projet
 
 const TEMPO_MAXIMO_SINAL_ROTA_MINUTOS = 480; // Janela ampliada (8h) para não remover do mapa nem dar baixa indevida em rota
 
-// ================= CORREÇÃO PROBLEMA 04: FECHO DOS MODAIS DE EXPANSÃO (TELA CHEIA) =================
+// ================= FECHO DOS MODAIS DE EXPANSÃO (TELA CHEIA) =================
 function fecharModalGraficoExpandido() {
     const modal = document.getElementById('modal-expandir-grafico');
     if (modal) modal.classList.add('hidden');
     if (typeof estadoModalExpandidoAtual !== 'undefined') {
         estadoModalExpandidoAtual.ativo = false;
+    }
+    const canvasAlvo = document.getElementById('canvasGraficoExpandido');
+    if (canvasAlvo && typeof Chart !== 'undefined') {
+        const instExistente = Chart.getChart(canvasAlvo);
+        if (instExistente) { try { instExistente.destroy(); } catch (e) {} }
     }
     if (typeof graficoExpandidoInstancia !== 'undefined' && graficoExpandidoInstancia) {
         try { graficoExpandidoInstancia.destroy(); } catch (e) {}
@@ -93,7 +98,7 @@ function normalizarChaveNome(str) {
         .trim();
 }
 
-// ================= MELHORIA 03: ETIQUETA DISCRETA COLORIDA DE CATEGORIA DO TÉCNICO =================
+// ================= ETIQUETA DISCRETA COLORIDA DE CATEGORIA DO TÉCNICO =================
 function obterCategoriaDiscretaTecnicoHtml(nomeEquipe, apenasTexto = false) {
     const eqObj = (typeof equipesSistema !== 'undefined' && Array.isArray(equipesSistema))
         ? equipesSistema.find(e => normalizarChaveNome(e.nome) === normalizarChaveNome(nomeEquipe))
@@ -248,6 +253,8 @@ function registroPertenceAoUsuarioLogado(reg, setFiscal = undefined) {
 function obterEquipesVisiveisUsuarioAtual(apenasAtivas = false) {
     const setFiscal = obterSetEquipesDoFiscalLogado();
     return (equipesSistema || []).filter(e => {
+        if (!e || !e.nome) return false;
+        if (normalizarChaveNome(e.nome).includes('AAAAAATESTE')) return false;
         if (apenasAtivas && e.status !== 'Ativo') return false;
         if (setFiscal && !setFiscal.has(normalizarChaveNome(e.nome))) return false;
         return true;
@@ -267,7 +274,7 @@ function extrairApoiosDoRegistro(reg) {
             const sub = p.replace(/^APOIO:/i, '').trim();
             sub.split(',').forEach(nome => {
                 const n = nome.trim().toUpperCase();
-                if (n && n !== titular && !validados.includes(n)) validados.push(n);
+                if (n && n !== titular && !n.includes('AAAAAATESTE') && !validados.includes(n)) validados.push(n);
             });
         });
     }
@@ -286,7 +293,7 @@ function extrairApoiosPendentesDoRegistro(reg) {
                 const sub = p.replace(/^APOIO_PENDENTE:/i, '').trim();
                 sub.split(',').forEach(nome => {
                     const n = nome.trim().toUpperCase();
-                    if (n && n !== titular && !pendentes.includes(n)) pendentes.push(n);
+                    if (n && n !== titular && !n.includes('AAAAAATESTE') && !pendentes.includes(n)) pendentes.push(n);
                 });
             }
         });
@@ -458,6 +465,7 @@ function enriquecerStatusMacroEBairro(listaRegistros) {
     const mapaPrimeiraDataImovel = {};
     const ordenadosCronologico = [...(registrosSalvos || [])].filter(r =>
         r &&
+        !normalizarChaveNome(r.equipe).includes('AAAAAATESTE') &&
         r.projeto !== 'IMPREVISTO / ATRASO' &&
         r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
         r.projeto !== PROJETO_SOLIC_MATERIAL &&
@@ -474,28 +482,30 @@ function enriquecerStatusMacroEBairro(listaRegistros) {
         }
     });
 
-    return (listaRegistros || []).map(r => {
-        const codBase = obterCodigoBaseImovel(r.imovel);
-        const obsSuperior = ((r.observacoes || '') + ' ' + (r.motivoDesfecho || '')).toUpperCase();
-        let statusMacro = 'PROGRAMADO';
-        if (obsSuperior.includes('RETORNO') || obsSuperior.includes('REINCID')) {
-            statusMacro = 'RETORNO';
-        } else if (codBase && mapaPrimeiraDataImovel[codBase] && r.dataRegistro > mapaPrimeiraDataImovel[codBase].data) {
-            statusMacro = 'RETORNO';
-        }
-        const listaApoios = extrairApoiosDoRegistro(r);
-        return {
-            ...r,
-            codigoImovelBase: codBase,
-            apoiosConjunto: listaApoios,
-            statusMacroPlanilha: statusMacro,
-            bairroPlanilha: extrairBairroDoEndereco(r.endereco),
-            semanaPlanilha: obterSemanaDoMes(r.dataRegistro),
-            servicoPlanilha: obterMacroServicoPlanilha(r.projeto),
-            subgrupoFOuOnGoing: obterSubgrupoFOuOnGoing(r.projeto),
-            statusBinarioPlanilha: r.desfecho === 'CONCLUIDA' ? 'EXECUTADO' : 'N EXECUTADO'
-        };
-    });
+    return (listaRegistros || [])
+        .filter(r => r && !normalizarChaveNome(r.equipe).includes('AAAAAATESTE'))
+        .map(r => {
+            const codBase = obterCodigoBaseImovel(r.imovel);
+            const obsSuperior = ((r.observacoes || '') + ' ' + (r.motivoDesfecho || '')).toUpperCase();
+            let statusMacro = 'PROGRAMADO';
+            if (obsSuperior.includes('RETORNO') || obsSuperior.includes('REINCID')) {
+                statusMacro = 'RETORNO';
+            } else if (codBase && mapaPrimeiraDataImovel[codBase] && r.dataRegistro > mapaPrimeiraDataImovel[codBase].data) {
+                statusMacro = 'RETORNO';
+            }
+            const listaApoios = extrairApoiosDoRegistro(r);
+            return {
+                ...r,
+                codigoImovelBase: codBase,
+                apoiosConjunto: listaApoios,
+                statusMacroPlanilha: statusMacro,
+                bairroPlanilha: extrairBairroDoEndereco(r.endereco),
+                semanaPlanilha: obterSemanaDoMes(r.dataRegistro),
+                servicoPlanilha: obterMacroServicoPlanilha(r.projeto),
+                subgrupoFOuOnGoing: obterSubgrupoFOuOnGoing(r.projeto),
+                statusBinarioPlanilha: r.desfecho === 'CONCLUIDA' ? 'EXECUTADO' : 'N EXECUTADO'
+            };
+        });
 }
 
 // ================= SINCRONIZAÇÃO DE AUDITORIA NA NUVEM =================
@@ -545,7 +555,7 @@ function aplicarTooltipsExplicativosGlobais() {
         'btn-sair-gestor': 'Encerrar a sessão atual do gestor e bloquear o acesso administrativo',
         'btn-importar-planilha': 'Importar planilha CSV ou colar linhas do Excel para distribuir atividades programadas',
         'btn-boletim-whats-gestor': 'Copiar resumo executivo formatado com blocos e apoios organizados para colar no WhatsApp',
-        'btn-baixar-excel-gestor': 'Baixar planilha Excel (.xls) oficial',
+        'btn-baixar-excel-gestor': 'Baixar planilha Excel (.xls) oficial com materiais separados por bloco',
         'btn-atualizar-registros-gestor': 'Buscar imediatamente na nuvem todas as novas atividades, fotos e posições de GPS'
     };
     Object.entries(mapaTooltips).forEach(([id, texto]) => { const el = document.getElementById(id); if (el) el.title = texto; });
@@ -1434,6 +1444,7 @@ function renderizarPainelDisponibilidade() {
 
         const todosRegsHoje = (registrosSalvos || []).filter(r =>
             r &&
+            !normalizarChaveNome(r.equipe).includes('AAAAAATESTE') &&
             r.dataRegistro === hojeISO &&
             r.equipe !== '__CONFIG_SISTEMA__' &&
             r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
@@ -1664,7 +1675,6 @@ async function baixarTodoHistoricoPaginadoSupabase() {
 async function garantirCargaNuvemGestor(forcarRecarga = false) {
     if (modoConsultaBackupAtivo) return;
 
-    // Evita duplo download se nuvem.js já carregou os dados iniciais
     if (!forcarRecarga && typeof cargaInicialGestorConcluida !== 'undefined' && cargaInicialGestorConcluida && Array.isArray(registrosSalvos) && registrosSalvos.length > 0) {
         historicoCompletoGestorJaBaixado = true;
         return;
@@ -1763,7 +1773,7 @@ function aplicarFiltroSelectEquipesEBannerFiscal() {
     `;
 }
 
-// ================= ATUALIZAÇÃO CENTRAL DO DASHBOARD =================
+// ================= ATUALIZAÇÃO CENTRAL DO DASHBOARD (COM DOWNLOAD DE FOTOS EM LOTE E ISOLAMENTO DE TESTE) =================
 async function atualizarDashboardGestor(forcarRecargaMobile = false) {
     inicializarMelhoriasVisuaisGestor();
     await garantirCargaNuvemGestor(forcarRecargaMobile);
@@ -1791,6 +1801,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
 
     let filtradosBase = (registrosSalvos || []).filter(item => {
         if (!item || item.equipe === "__CONFIG_SISTEMA__" || item.projeto === "__CONFIG_AUDITORIA__") return false;
+        if (normalizarChaveNome(item.equipe).includes('AAAAAATESTE')) return false;
 
         if (setFiscalRestrito && !registroPertenceAoUsuarioLogado(item, setFiscalRestrito)) {
             return false;
@@ -1942,7 +1953,7 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
 
     if (filtrados.length === 0) {
         if (corpoAtiv) {
-            const totalVisivel = (registrosSalvos || []).filter(r => r && r.equipe !== "__CONFIG_SISTEMA__" && r.projeto !== "__CONFIG_AUDITORIA__" && registroPertenceAoUsuarioLogado(r, setFiscalRestrito)).length;
+            const totalVisivel = (registrosSalvos || []).filter(r => r && !normalizarChaveNome(r.equipe).includes('AAAAAATESTE') && r.equipe !== "__CONFIG_SISTEMA__" && r.projeto !== "__CONFIG_AUDITORIA__" && registroPertenceAoUsuarioLogado(r, setFiscalRestrito)).length;
             const dicaFiltro = totalVisivel > 0
                 ? `<div class="mt-2"><button type="button" onclick="aplicarAtalhoPeriodo('tudo')" class="bg-blue-900 text-white font-bold text-[11px] px-3 py-1.5 rounded-lg shadow-sm">🔄 Mostrar Todos os ${totalVisivel} Registros do Histórico</button></div>`
                 : '';
@@ -2029,7 +2040,13 @@ async function atualizarDashboardGestor(forcarRecargaMobile = false) {
                 const macroGrupo = obterMacroGrupoProjeto(grupo.projeto);
                 const badgeGrupoCor = macroGrupo === 'PROJETO F' ? 'bg-indigo-100 text-indigo-900 border border-indigo-300' : 'bg-cyan-50 text-cyan-900 border border-cyan-200';
                 const tagsOpcoesHtml = todasOpcoesGrupo.length > 0 ? `<div class="mt-1 flex flex-wrap gap-1">${todasOpcoesGrupo.map(op => `<span class="text-[9px] bg-slate-200 text-slate-800 px-1.5 py-0.5 rounded font-bold">${op}</span>`).join('')}</div>` : '';
-                const badgeFotosHtml = totalFotosGrupo > 0 ? `<span class="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-300 font-bold px-2 py-0.5 rounded-md text-[10px] inline-block">📷 ${totalFotosGrupo} foto(s)</span>` : '';
+
+                // Badge de Fotos + Botão de Download em Lote direto na tabela
+                const badgeFotosHtml = totalFotosGrupo > 0
+                    ? `<span class="ml-1 bg-indigo-100 text-indigo-800 border border-indigo-300 font-bold px-2 py-0.5 rounded-md text-[10px] inline-block">📷 ${totalFotosGrupo} foto(s)</span>
+                       <button type="button" onclick="baixarTodasFotosPorIdAtividade(${itemMaster.id}, event, this)" title="Baixar todas as fotos desta atividade de uma só vez" class="ml-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-0.5 rounded-md text-[10px] inline-flex items-center gap-1 shadow-sm transition">⬇️ Baixar Todas</button>`
+                    : '';
+
                 const botaoExpandirBlocos = qtdBlocosNoGrupo > 1 ? `<button type="button" onclick="event.stopPropagation(); alternarVisualizacaoBlocosAgrupados('${idGrupoUnico}', this)" class="mt-1.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm flex items-center gap-1 transition">📂 Expandir Blocos (${qtdBlocosNoGrupo})</button>` : '';
 
                 trPrincipal.innerHTML = `
@@ -2377,6 +2394,43 @@ async function abrirDetalhesAtividade(item) {
         if (encontrados.length > 0) blocosIrmaos = encontrados;
     }
 
+    // Busca sob demanda na nuvem as observações e fotos de todos os blocos irmãos
+    if (typeof supabaseClient !== 'undefined') {
+        try {
+            const idsBuscar = blocosIrmaos.map(b => b.id);
+            const { data: rowsCompleta } = await supabaseClient
+                .from('registros_producao')
+                .select('id, observacoes')
+                .in('id', idsBuscar);
+
+            if (Array.isArray(rowsCompleta)) {
+                rowsCompleta.forEach(row => {
+                    const alvo = blocosIrmaos.find(r => r.id === row.id);
+                    if (alvo && row.observacoes) {
+                        const obsBruta = row.observacoes;
+                        const mEnd = obsBruta.match(/\[END:\s*([^\]]+)\]/i);
+                        if (mEnd && mEnd[1]) alvo.endereco = mEnd[1].trim();
+                        const mLib = obsBruta.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
+                        if (mLib && mLib[1]) alvo.liberouAcesso = mLib[1].trim();
+                        const mPausa = obsBruta.match(/\[PAUSA_TOTAL:\s*(\d+)\]/i);
+                        if (mPausa && mPausa[1]) alvo.tempoPausadoMinutos = Number(mPausa[1]) || 0;
+                        const mFotos = obsBruta.match(/\[FOTOS:(\[.*?\])\]/);
+                        if (mFotos && mFotos[1]) {
+                            try {
+                                const arrF = JSON.parse(mFotos[1]);
+                                if (Array.isArray(arrF)) {
+                                    alvo.fotos = arrF;
+                                    alvo.qtdFotos = arrF.length;
+                                    if (typeof cacheFotosSobDemanda !== 'undefined') cacheFotosSobDemanda.set(alvo.id, arrF);
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                });
+            }
+        } catch (e) {}
+    }
+
     const temMultiplosBlocos = blocosIrmaos.length > 1;
     document.getElementById('modal-detalhes-titulo').innerText = temMultiplosBlocos
         ? `Detalhes do Imóvel: ${codBase} (${blocosIrmaos.length} Blocos)`
@@ -2546,7 +2600,16 @@ async function abrirDetalhesAtividade(item) {
             const nomeArq = `${codigoLimpo}_foto_${idx + 1}.jpg`;
             return `<div class="bg-white p-2 rounded-xl border border-indigo-200 shadow-sm flex flex-col items-center gap-1.5"><img src="${fSrc}" onclick="abrirZoomFoto('${fSrc}', '${nomeArq}')" class="w-full h-28 object-cover rounded-lg cursor-pointer hover:opacity-90 transition border"><div class="flex gap-1 w-full"><button type="button" onclick="abrirZoomFoto('${fSrc}', '${nomeArq}')" class="flex-1 bg-indigo-50 text-indigo-900 font-bold text-[10px] py-1 rounded">🔍 Ampliar</button><button type="button" onclick="baixarFotoDireto('${fSrc}', '${nomeArq}')" class="flex-1 bg-emerald-600 text-white font-bold text-[10px] py-1 rounded">⬇️ Baixar</button></div></div>`;
         }).join('');
-        galeriaFotosHtml = `<div class="bg-indigo-50/70 p-3 rounded-lg border border-indigo-200 space-y-2"><h4 class="font-bold text-indigo-950 text-xs uppercase">📷 Fotos Anexadas (${todasFotosAcumuladas.length})</h4><div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">${cardsFotos}</div></div>`;
+        galeriaFotosHtml = `
+            <div class="bg-indigo-50/70 p-3 rounded-lg border border-indigo-200 space-y-2.5">
+                <div class="flex flex-wrap justify-between items-center gap-2 pb-1.5 border-b border-indigo-200">
+                    <h4 class="font-bold text-indigo-950 text-xs uppercase">📷 Fotos Anexadas (${todasFotosAcumuladas.length})</h4>
+                    <button type="button" id="btn-baixar-todas-fotos-modal" onclick="baixarTodasFotosDoModalAtual(this)" class="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+                        ⬇️ Baixar Todas as Fotos (${todasFotosAcumuladas.length})
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">${cardsFotos}</div>
+            </div>`;
     }
 
     const malogrosStr = (item.malogros && item.malogros.length > 0) ? item.malogros.join(' + ') : '';
@@ -2595,7 +2658,7 @@ function atualizarResumoContagemCarteirasFiscais() {
     if (!container) return;
 
     container.innerHTML = CATALOGO_FISCAIS_MDU.map(f => {
-        const qtd = (equipesSistema || []).filter(e => e.status === 'Ativo' && obterEmailFiscalDaEquipe(e) === f.email).length;
+        const qtd = (equipesSistema || []).filter(e => e.status === 'Ativo' && !normalizarChaveNome(e.nome).includes('AAAAAATESTE') && obterEmailFiscalDaEquipe(e) === f.email).length;
         return `
             <div class="bg-indigo-900/70 border border-indigo-700/80 px-3 py-2 rounded-xl flex justify-between items-center">
                 <div>
@@ -3004,7 +3067,7 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
-// ================= ABA GRÁFICOS & INDICADORES + CORREÇÕES DE FOTOS, MAPA E PERFIL VISUALIZADOR (PARTE 3 FINAL) =================
+// ================= ABA GRÁFICOS & INDICADORES + FOTOS EM LOTE, EXCEL COM MATERIAIS POR BLOCO E ISOLAMENTO DE TESTE (PARTE 3 FINAL) =================
 
 var filtrosMultiGraficos = {
     segmentos: ['TODOS'],
@@ -3037,6 +3100,7 @@ var chartImpactoImprevistosInst = null;
 
 var varreduraFotosEmCurso = false;
 var limpezaDuplicadosEmAndamento = false;
+var baixandoLoteFotos = false;
 var idsFotosJaVerificadas = new Set();
 
 function registrarListaParaExplosao(titulo, lista) {
@@ -3052,7 +3116,7 @@ function dispararExplosaoPorChave(chave) {
     abrirExplosaoPersonalizadaGraficos(pacote.titulo, pacote.lista);
 }
 
-// --- 1. DOWNLOAD DE FOTOS VIA BLOB BINÁRIO E LEITURA DE TODOS OS BLOCOS IRMÃOS ---
+// --- 1. DOWNLOAD DE FOTOS INDIVIDUAL E EM LOTE VIA BLOB BINÁRIO ---
 window.baixarFotoDireto = function(srcBase64, nomeArquivo = "foto_gpd.jpg") {
     try {
         if (!srcBase64) {
@@ -3109,60 +3173,141 @@ window.abrirZoomFoto = function(srcBase64, nomeArquivo = "foto_gpd.jpg") {
     }
 };
 
-// Busca sob demanda as fotos e observações de todos os blocos irmãos do imóvel ao clicar na linha
-if (typeof window.abrirDetalhesAtividade === 'function' && !window._hookDetalhesFotosIrmaosV3) {
-    window._hookDetalhesFotosIrmaosV3 = true;
-    const _origDetalhesV3 = window.abrirDetalhesAtividade;
-    window.abrirDetalhesAtividade = async function(item) {
-        if (item && typeof supabaseClient !== 'undefined') {
-            try {
-                const codBase = typeof obterCodigoBaseImovel === 'function' ? obterCodigoBaseImovel(item.imovel) : String(item.imovel || '').split(' - BLOCO')[0].trim();
-                const irmaos = (registrosSalvos || []).filter(r =>
-                    r &&
-                    r.dataRegistro === item.dataRegistro &&
-                    r.equipe === item.equipe &&
-                    r.projeto === item.projeto &&
-                    (typeof obterCodigoBaseImovel === 'function' ? obterCodigoBaseImovel(r.imovel) === codBase : String(r.imovel || '').startsWith(codBase))
-                );
-                const idsBuscar = (irmaos.length > 0 ? irmaos : [item]).map(b => b.id);
+window.baixarTodasFotosDoModalAtual = async function(btnEl) {
+    if (baixandoLoteFotos) return;
+    const item = typeof itemDetalheAtualModal !== 'undefined' ? itemDetalheAtualModal : null;
+    const fotos = (item && Array.isArray(item.fotos)) ? item.fotos : [];
 
-                const { data: rowsCompleta } = await supabaseClient
-                    .from('registros_producao')
-                    .select('id, observacoes')
-                    .in('id', idsBuscar);
+    if (fotos.length === 0) {
+        alert("⚠️ Nenhuma foto encontrada neste registo para transferir.");
+        return;
+    }
 
-                if (Array.isArray(rowsCompleta)) {
-                    rowsCompleta.forEach(row => {
-                        const alvo = (registrosSalvos || []).find(r => r.id === row.id) || (row.id === item.id ? item : null);
-                        if (alvo && row.observacoes) {
-                            const obsBruta = row.observacoes;
-                            const mEnd = obsBruta.match(/\[END:\s*([^\]]+)\]/i);
-                            if (mEnd && mEnd[1]) alvo.endereco = mEnd[1].trim();
-                            const mLib = obsBruta.match(/\[LIBEROU_ACESSO:\s*([^\]]+)\]/i);
-                            if (mLib && mLib[1]) alvo.liberouAcesso = mLib[1].trim();
-                            const mPausa = obsBruta.match(/\[PAUSA_TOTAL:\s*(\d+)\]/i);
-                            if (mPausa && mPausa[1]) alvo.tempoPausadoMinutos = Number(mPausa[1]) || 0;
-                            const mFotos = obsBruta.match(/\[FOTOS:(\[.*?\])\]/);
-                            if (mFotos && mFotos[1]) {
-                                try {
-                                    const arrF = JSON.parse(mFotos[1]);
-                                    if (Array.isArray(arrF)) {
-                                        alvo.fotos = arrF;
-                                        alvo.qtdFotos = arrF.length;
-                                        if (typeof cacheFotosSobDemanda !== 'undefined') cacheFotosSobDemanda.set(alvo.id, arrF);
-                                    }
-                                } catch (e) {}
-                            }
-                        }
-                    });
-                }
-            } catch (e) {}
+    baixandoLoteFotos = true;
+    const txtOriginal = btnEl ? btnEl.innerHTML : '';
+    const codBase = typeof obterCodigoBaseImovel === 'function'
+        ? obterCodigoBaseImovel(item.imovel)
+        : String(item.imovel || 'imovel').split(' - BLOCO')[0].trim();
+    const codigoLimpo = (codBase || 'imovel').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    try {
+        for (let i = 0; i < fotos.length; i++) {
+            if (btnEl) {
+                btnEl.disabled = true;
+                btnEl.innerHTML = `⏳ Transferindo ${i + 1} de ${fotos.length}...`;
+            }
+            const nomeArq = `${codigoLimpo}_foto_${i + 1}.jpg`;
+            window.baixarFotoDireto(fotos[i], nomeArq);
+            await new Promise(r => setTimeout(r, 350));
         }
-        return _origDetalhesV3.call(this, item);
-    };
-}
+    } finally {
+        baixandoLoteFotos = false;
+        if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerHTML = `✅ ${fotos.length} foto(s) transferida(s)!`;
+            setTimeout(() => { if (btnEl) btnEl.innerHTML = txtOriginal; }, 2500);
+        }
+    }
+};
 
-// Varredor leve em segundo plano (Sem loop de redesenho de gráficos!)
+window.baixarTodasFotosPorIdAtividade = async function(idReg, event, btnEl) {
+    if (event) event.stopPropagation();
+    if (baixandoLoteFotos) return;
+
+    const reg = (registrosSalvos || []).find(r => r && r.id === idReg);
+    if (!reg) return;
+
+    baixandoLoteFotos = true;
+    const txtOrig = btnEl ? btnEl.innerHTML : '';
+    if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.innerHTML = `⏳ Buscando...`;
+    }
+
+    try {
+        const codBase = typeof obterCodigoBaseImovel === 'function'
+            ? obterCodigoBaseImovel(reg.imovel)
+            : String(reg.imovel || '').split(' - BLOCO')[0].trim();
+
+        const ehObraNormal = reg.projeto !== 'IMPREVISTO / ATRASO' &&
+                             reg.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+                             reg.projeto !== PROJETO_SOLIC_MATERIAL;
+
+        let blocosIrmaos = [reg];
+        if (ehObraNormal && codBase) {
+            const encontrados = (registrosSalvos || []).filter(r =>
+                r &&
+                r.dataRegistro === reg.dataRegistro &&
+                r.equipe === reg.equipe &&
+                r.projeto === reg.projeto &&
+                (typeof obterCodigoBaseImovel === 'function' ? obterCodigoBaseImovel(r.imovel) === codBase : String(r.imovel || '').startsWith(codBase))
+            ).sort((a, b) => (a.imovel || '').localeCompare(b.imovel || ''));
+            if (encontrados.length > 0) blocosIrmaos = encontrados;
+        }
+
+        if (typeof supabaseClient !== 'undefined') {
+            const idsBuscar = blocosIrmaos.map(b => b.id);
+            const { data: rows } = await supabaseClient
+                .from('registros_producao')
+                .select('id, observacoes')
+                .in('id', idsBuscar);
+
+            if (Array.isArray(rows)) {
+                rows.forEach(row => {
+                    const alvo = blocosIrmaos.find(b => b.id === row.id);
+                    if (alvo && row.observacoes && row.observacoes.includes('[FOTOS:')) {
+                        const mFotos = row.observacoes.match(/\[FOTOS:(\[.*?\])\]/);
+                        if (mFotos && mFotos[1]) {
+                            try {
+                                const arrF = JSON.parse(mFotos[1]);
+                                if (Array.isArray(arrF)) {
+                                    alvo.fotos = arrF;
+                                    alvo.qtdFotos = arrF.length;
+                                    if (typeof cacheFotosSobDemanda !== 'undefined') cacheFotosSobDemanda.set(alvo.id, arrF);
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                });
+            }
+        }
+
+        const todasFotos = [];
+        for (const b of blocosIrmaos) {
+            let f = Array.isArray(b.fotos) && b.fotos.length > 0 ? b.fotos : [];
+            if (f.length === 0 && typeof obterFotosSobDemandaDoRegistro === 'function') {
+                f = await obterFotosSobDemandaDoRegistro(b.id);
+            }
+            todasFotos.push(...f);
+        }
+
+        if (todasFotos.length === 0) {
+            alert("⚠️ Nenhuma foto localizada na nuvem para este registo.");
+            return;
+        }
+
+        const codigoLimpo = (codBase || 'imovel').replace(/[^a-zA-Z0-9_-]/g, '_');
+        for (let i = 0; i < todasFotos.length; i++) {
+            if (btnEl) btnEl.innerHTML = `⬇️ ${i + 1}/${todasFotos.length}...`;
+            window.baixarFotoDireto(todasFotos[i], `${codigoLimpo}_foto_${i + 1}.jpg`);
+            await new Promise(r => setTimeout(r, 350));
+        }
+
+        if (btnEl) {
+            btnEl.innerHTML = `✅ Transferidas!`;
+            setTimeout(() => { if (btnEl) btnEl.innerHTML = txtOrig; }, 2200);
+        }
+    } catch (err) {
+        console.error("Erro ao transferir lote de fotos:", err);
+        alert("⚠️ Erro ao transferir lote de fotos.");
+        if (btnEl) btnEl.innerHTML = txtOrig;
+    } finally {
+        baixandoLoteFotos = false;
+        if (btnEl) btnEl.disabled = false;
+    }
+};
+
+// Varredor leve em segundo plano para sinalizar o badge "📷 X foto(s)", endereço e tempo de pausa na Aba Atividades
 async function varrerEnderecosEFotosVisiveis() {
     if (varreduraFotosEmCurso || typeof supabaseClient === 'undefined') return;
     const fonte = (Array.isArray(dadosFiltradosAtuais) && dadosFiltradosAtuais.length > 0) ? dadosFiltradosAtuais : (registrosSalvos || []);
@@ -3225,7 +3370,7 @@ async function varrerEnderecosEFotosVisiveis() {
     }
 }
 
-// --- 2. CONTROLE DO MAPA EM TEMPO REAL E BOTÃO DE LIMPAR TRAVADOS (OCULTO PARA VISUALIZADOR) ---
+// --- 2. CONTROLE DO MAPA EM TEMPO REAL E BOTÃO DE LIMPAR TRAVADOS ---
 window.injetarBotaoLimparMapaFixo = function() {
     const podeEditar = typeof usuarioPodeEditarGestor === 'function' ? usuarioPodeEditarGestor() : false;
     const subMapa = document.getElementById('subview-mapa');
@@ -3337,6 +3482,7 @@ if (typeof window.inicializarOuAtualizarMapaRastreio === 'function' && !window._
         const hojeISO = obterDataLocalISO();
 
         const pinosValidos = (listaPinos || []).filter(p => {
+            if (normalizarChaveNome(p.nome).includes('AAAAAATESTE')) return false;
             const tel = (telemetriaEquipes && telemetriaEquipes[p.nome] && telemetriaEquipes[p.nome].data === hojeISO) ? telemetriaEquipes[p.nome] : null;
             const temObraAbertaAgora = (registrosSalvos || []).some(r =>
                 r && r.dataRegistro === hojeISO &&
@@ -3587,7 +3733,7 @@ function construirLayoutExclusivoAbaGraficos() {
                         👁️ Mostrar Todos os Blocos
                     </button>
                     <button type="button" onclick="exportarPlanilhaDinamicaOficialExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-1.5 rounded-xl shadow flex items-center gap-1.5 transition">
-                        📥 Baixar Planilha (.XLS)
+                        📥 Baixar Planilha c/ Materiais (.XLS)
                     </button>
                     <button type="button" onclick="gerarRelatorioVisualImpressaoPDF()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-3.5 py-1.5 rounded-xl shadow flex items-center gap-1.5 transition">
                         🖨️ Imprimir / Salvar PDF
@@ -4067,6 +4213,7 @@ window.renderizarAbaGraficosCompletaOficial = function() {
 
     const basePeriodoBruta = (dadosFiltradosAtuais || []).filter(r =>
         r &&
+        !normalizarChaveNome(r.equipe).includes('AAAAAATESTE') &&
         r.equipe !== '__CONFIG_SISTEMA__' &&
         r.projeto !== '__CONFIG_AUDITORIA__' &&
         r.projeto !== 'IMPREVISTO / ATRASO' &&
@@ -4170,7 +4317,7 @@ window.renderizarAbaGraficosCompletaOficial = function() {
         `;
     }
 
-    const equipesVisiveis = typeof obterEquipesVisiveisUsuarioAtual === 'function' ? obterEquipesVisiveisUsuarioAtual(true) : (equipesSistema || []).filter(e => e.status === 'Ativo');
+    const equipesVisiveis = obterEquipesVisiveisUsuarioAtual(true);
     const mapaDin = {};
     equipesVisiveis.forEach(eq => {
         mapaDin[eq.nome] = { nome: eq.nome, executados: 0, hps: 0, minPausa: 0, diasSet: new Set(), registros: [] };
@@ -4178,6 +4325,7 @@ window.renderizarAbaGraficosCompletaOficial = function() {
 
     concluidasFiltradasSelecao.forEach(r => {
         const nome = r.equipe || 'NÃO IDENTIFICADO';
+        if (normalizarChaveNome(nome).includes('AAAAAATESTE')) return;
         if (!mapaDin[nome]) mapaDin[nome] = { nome, executados: 0, hps: 0, minPausa: 0, diasSet: new Set(), registros: [] };
         mapaDin[nome].executados++;
         mapaDin[nome].hps += Number(r.hps) || 0;
@@ -4260,6 +4408,7 @@ window.renderizarAbaGraficosCompletaOficial = function() {
 
     baseFiltradaSelecao.forEach(r => {
         const nome = r.equipe || 'NÃO IDENTIFICADO';
+        if (normalizarChaveNome(nome).includes('AAAAAATESTE')) return;
         if (!mapaGeralTec[nome]) {
             mapaGeralTec[nome] = {
                 nome, cMduAtiv: 0, cMduConst: 0, cMduVist: 0, eMduAtiv: 0, eMduConst: 0, mailAtiv: 0, mailConst: 0,
@@ -4287,6 +4436,7 @@ window.renderizarAbaGraficosCompletaOficial = function() {
 
         if (typeof extrairApoiosDoRegistro === 'function') {
             extrairApoiosDoRegistro(r).forEach(apNome => {
+                if (normalizarChaveNome(apNome).includes('AAAAAATESTE')) return;
                 if (!mapaGeralTec[apNome]) {
                     mapaGeralTec[apNome] = {
                         nome: apNome, cMduAtiv: 0, cMduConst: 0, cMduVist: 0, eMduAtiv: 0, eMduConst: 0, mailAtiv: 0, mailConst: 0,
@@ -4679,6 +4829,7 @@ window.renderizarAbaGraficosCompletaOficial = function() {
         const pMin = Number(r.tempoPausadoMinutos) || 0;
         if (pMin > 0) {
             const nome = r.equipe || 'NÃO IDENTIFICADO';
+            if (normalizarChaveNome(nome).includes('AAAAAATESTE')) return;
             if (!mapaPausasTec[nome]) mapaPausasTec[nome] = { nome, qtdPausas: 0, minTotal: 0, registros: [] };
             mapaPausasTec[nome].qtdPausas++;
             mapaPausasTec[nome].minTotal += pMin;
@@ -4735,7 +4886,8 @@ window.renderizarAbaGraficosCompletaOficial = function() {
     }
 
     // 10. IMPACTO OPERACIONAL (NO FIM DA ABA)
-    const listaImprevistosRef = Array.isArray(listaImprevistosAtuais) ? listaImprevistosAtuais : [];
+    const listaImprevistosRef = (Array.isArray(listaImprevistosAtuais) ? listaImprevistosAtuais : [])
+        .filter(imp => imp && !normalizarChaveNome(imp.equipe).includes('AAAAAATESTE'));
     const mapaCausasImp = {};
     let totalMinutosImprevistos = 0;
 
@@ -4836,10 +4988,11 @@ window.renderizarAbaGraficosCompletaOficial = function() {
     }
 };
 
-// --- EXPORTAÇÃO EXCEL OFICIAL ---
-window.exportarPlanilhaDinamicaOficialExcel = function() {
+// --- 4. EXPORTAÇÃO EXCEL OFICIAL (COM TODOS OS MATERIAIS SEPARADOS POR BLOCO E ISOLAMENTO DO USUÁRIO TESTE) ---
+window.exportarPlanilhaDinamicaOficialExcel = async function() {
     const baseBruta = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
         r &&
+        !normalizarChaveNome(r.equipe).includes('AAAAAATESTE') &&
         r.equipe !== '__CONFIG_SISTEMA__' &&
         r.projeto !== '__CONFIG_AUDITORIA__' &&
         r.projeto !== 'IMPREVISTO / ATRASO' &&
@@ -4858,17 +5011,66 @@ window.exportarPlanilhaDinamicaOficialExcel = function() {
         return;
     }
 
+    // Como registrosSalvos já contém 100% dos blocos paginados (cada bloco foi gravado em linha individual no banco),
+    // garantimos a ordenação cronológica e por bloco sem duplicar chamadas pesadas à nuvem
+    const chavesUnicas = new Set();
+    const registrosExpandidosExcel = [];
+
+    baseBruta.forEach(reg => {
+        const ch = `${reg.id}_${reg.imovel}`;
+        if (!chavesUnicas.has(ch)) {
+            chavesUnicas.add(ch);
+            registrosExpandidosExcel.push(reg);
+        }
+    });
+
+    registrosExpandidosExcel.sort((a, b) => {
+        if (a.dataRegistro !== b.dataRegistro) return (b.dataRegistro || '').localeCompare(a.dataRegistro || '');
+        const codA = obterCodigoBaseImovel(a.imovel);
+        const codB = obterCodigoBaseImovel(b.imovel);
+        if (codA !== codB) return codA.localeCompare(codB);
+        return (a.imovel || '').localeCompare(b.imovel || '');
+    });
+
     let html = `<table border="1">
         <tr style="background-color:#0f172a;color:#ffffff;font-weight:bold;font-size:13px;">
-            <th colspan="12">RELATÓRIO OFICIAL DE INDICADORES GPD — SEGMENTOS, PRODUTIVIDADE & OCIOSIDADE (${obterDataLocalISO()})</th>
+            <th colspan="23">RELATÓRIO OFICIAL DE INDICADORES GPD — PRODUÇÃO E MATERIAIS SEPARADOS POR BLOCO (${obterDataLocalISO()})</th>
         </tr>
         <tr style="background-color:#cbd5e1;font-weight:bold;">
-            <th>SEMANA</th><th>DATA</th><th>TÉCNICO / EQUIPE</th><th>CATEGORIA TÉCNICO</th><th>APOIO CONJUNTO</th><th>SEGMENTO</th><th>CATEGORIA</th><th>IMÓVEL / BLOCO</th><th>ENDEREÇO</th><th>HPs</th><th>PARALISAÇÃO (MIN)</th><th>RESULTADO</th>
+            <th>SEMANA</th>
+            <th>DATA</th>
+            <th>TÉCNICO / EQUIPE</th>
+            <th>CATEGORIA TÉCNICO</th>
+            <th>APOIO CONJUNTO</th>
+            <th>SEGMENTO</th>
+            <th>CATEGORIA</th>
+            <th>IMÓVEL / BLOCO DETALHADO</th>
+            <th>ENDEREÇO</th>
+            <th>ANDARES</th>
+            <th>HPs</th>
+            <th>PARALISAÇÃO (MIN)</th>
+            <th>CABO RL (m)</th>
+            <th>CABO DROP (m)</th>
+            <th>CONECTORES</th>
+            <th>FUSÕES</th>
+            <th>NAP</th>
+            <th>DIO</th>
+            <th>CX SOBREPOR</th>
+            <th>CX EMBUTIDA</th>
+            <th>CX FOSC</th>
+            <th>RESULTADO (STATUS)</th>
+            <th>DETALHES / OFENSORES</th>
         </tr>`;
 
-    baseBruta.forEach(r => {
+    registrosExpandidosExcel.forEach(r => {
         const ap = extrairApoiosDoRegistro(r).join(', ') || '-';
         const catTec = obterCategoriaDiscretaTecnicoHtml(r.equipe, true);
+        const detalhesStr = (Array.isArray(r.malogros) && r.malogros.length > 0)
+            ? r.malogros.join(' + ')
+            : (r.motivoDesfecho || r.observacoes || '-');
+
+        const pausaExibir = Number(r.tempoPausadoMinutos) || 0;
+
         html += `<tr>
             <td>${r._semana}</td>
             <td>${r.dataRegistro}</td>
@@ -4877,11 +5079,22 @@ window.exportarPlanilhaDinamicaOficialExcel = function() {
             <td>${ap}</td>
             <td><b>${r._tax.segmento}</b></td>
             <td><b>${r._tax.categoria}</b></td>
-            <td>${r.imovel}</td>
+            <td><b>${r.imovel}</b></td>
             <td>${r.endereco || '-'}</td>
+            <td>${r.andares || 0}</td>
             <td>${r.hps || 0}</td>
-            <td>${Number(r.tempoPausadoMinutos) || 0}</td>
+            <td>${pausaExibir}</td>
+            <td>${r.caboRL || 0}</td>
+            <td>${r.caboDrop || 0}</td>
+            <td>${r.conectores || 0}</td>
+            <td>${r.fusoes || 0}</td>
+            <td>${r.nap || 0}</td>
+            <td>${r.dio || 0}</td>
+            <td>${r.cxSobrepor || 0}</td>
+            <td>${r.cxEmbutida || 0}</td>
+            <td>${r.cxFosc || 0}</td>
             <td><b>${r.desfecho}</b></td>
+            <td>${detalhesStr}</td>
         </tr>`;
     });
 
@@ -4890,7 +5103,7 @@ window.exportarPlanilhaDinamicaOficialExcel = function() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `INDICADORES_GPD_SEGMENTOS_${obterDataLocalISO()}.xls`;
+    a.download = `INDICADORES_GPD_PRODUCAO_E_MATERIAIS_${obterDataLocalISO()}.xls`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -4900,7 +5113,14 @@ window.exportarExcel = window.exportarPlanilhaDinamicaOficialExcel;
 
 copiarBoletimGestorWhatsApp = function() {
     const lista = (dadosFiltradosAtuais && dadosFiltradosAtuais.length > 0 ? dadosFiltradosAtuais : registrosSalvos).filter(r =>
-        r && r.projeto !== 'IMPREVISTO / ATRASO' && r.projeto !== PROJETO_SOLIC_COMBUSTIVEL && r.projeto !== PROJETO_SOLIC_MATERIAL && r.equipe !== "__CONFIG_SISTEMA__" && r.projeto !== "__CONFIG_AUDITORIA__" && registroPertenceAoUsuarioLogado(r)
+        r &&
+        !normalizarChaveNome(r.equipe).includes('AAAAAATESTE') &&
+        r.projeto !== 'IMPREVISTO / ATRASO' &&
+        r.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
+        r.projeto !== PROJETO_SOLIC_MATERIAL &&
+        r.equipe !== "__CONFIG_SISTEMA__" &&
+        r.projeto !== "__CONFIG_AUDITORIA__" &&
+        registroPertenceAoUsuarioLogado(r)
     );
 
     if (lista.length === 0) {
@@ -5022,7 +5242,6 @@ setInterval(() => {
         otimizarCabecalhoAzulLinhaUnica();
         window.injetarBotaoLimparMapaFixo();
 
-        // Blindagem contínua do Perfil Visualizador (Cliente)
         const ehVis = (typeof obterNivelNormalizadoGestor === 'function' && obterNivelNormalizadoGestor() === 'visualizador');
         if (ehVis) {
             document.getElementById('btn-importar-planilha')?.classList.add('hidden');
@@ -5044,319 +5263,3 @@ setInterval(() => {
         }
     }
 }, 450);
-// ================= FILTRO DE ISOLAMENTO DE USUÁRIO DE TESTE (AAAAAATESTE) =================
-(function() {
-    function ehTecnicoDeTeste(nome) {
-        const ch = typeof normalizarChaveNome === 'function'
-            ? normalizarChaveNome(nome)
-            : String(nome || '').toUpperCase().trim();
-        return ch === 'AAAAAATESTE' || ch.includes('AAAAAATESTE');
-    }
-
-    function limparTesteDosRegistros(lista) {
-        if (!Array.isArray(lista)) return [];
-        return lista.filter(r => {
-            if (!r) return false;
-            // Ignora qualquer atividade em que o titular seja AAAAAATESTE
-            if (ehTecnicoDeTeste(r.equipe)) return false;
-
-            // Caso AAAAAATESTE tenha sido marcado como apoio em outra equipe, remove o nome dele do apoio
-            if (r.membros && String(r.membros).toUpperCase().includes('AAAAAATESTE')) {
-                r.membros = String(r.membros)
-                    .replace(/AAAAAATESTE\s*,?\s*/gi, '')
-                    .replace(/,\s*$/, '')
-                    .replace(/^APOIO:\s*$/i, r.equipe || '')
-                    .trim();
-            }
-            return true;
-        });
-    }
-
-    // 1. Oculta AAAAAATESTE das listas de indicadores, disponibilidade, mapas e gráficos (mantendo visível apenas na aba Equipes para gestão de cadastro/PIN)
-    if (typeof window.obterEquipesVisiveisUsuarioAtual === 'function') {
-        const _origObterEquipes = window.obterEquipesVisiveisUsuarioAtual;
-        window.obterEquipesVisiveisUsuarioAtual = function(apenasAtivas = false) {
-            const lista = _origObterEquipes.call(this, apenasAtivas);
-            return (lista || []).filter(e => !ehTecnicoDeTeste(e?.nome));
-        };
-    }
-
-    // 2. Intercepta o enriquecimento de dados do Dashboard (Atividades, Materiais, Financeiro, Bonificação, KPIs e Gráficos)
-    if (typeof window.enriquecerStatusMacroEBairro === 'function') {
-        const _origEnriquecer = window.enriquecerStatusMacroEBairro;
-        window.enriquecerStatusMacroEBairro = function(listaRegistros) {
-            const semTeste = limparTesteDosRegistros(listaRegistros);
-            return _origEnriquecer.call(this, semTeste);
-        };
-    }
-
-    // 3. Garante que Imprevistos, Combustível, Solicitações de Material, Gráficos e Exportações Excel nunca contabilizem AAAAAATESTE
-    const _origRenderGraficosTeste = window.renderizarAbaGraficosCompletaOficial;
-    if (typeof _origRenderGraficosTeste === 'function') {
-        window.renderizarAbaGraficosCompletaOficial = function(...args) {
-            if (Array.isArray(dadosFiltradosAtuais)) {
-                dadosFiltradosAtuais = limparTesteDosRegistros(dadosFiltradosAtuais);
-            }
-            if (Array.isArray(listaImprevistosAtuais)) {
-                listaImprevistosAtuais = limparTesteDosRegistros(listaImprevistosAtuais);
-            }
-            if (Array.isArray(listaSolicitacoesCombustivelAtuais)) {
-                listaSolicitacoesCombustivelAtuais = limparTesteDosRegistros(listaSolicitacoesCombustivelAtuais);
-            }
-            if (Array.isArray(listaSolicitacoesMaterialAtuais)) {
-                listaSolicitacoesMaterialAtuais = limparTesteDosRegistros(listaSolicitacoesMaterialAtuais);
-            }
-            return _origRenderGraficosTeste.apply(this, args);
-        };
-    }
-
-    // 4. Blinda também a Exportação Excel e o Boletim WhatsApp caso sejam acionados diretamente
-    const _origExportarExcelTeste = window.exportarPlanilhaDinamicaOficialExcel;
-    if (typeof _origExportarExcelTeste === 'function') {
-        window.exportarPlanilhaDinamicaOficialExcel = function(...args) {
-            if (Array.isArray(dadosFiltradosAtuais)) dadosFiltradosAtuais = limparTesteDosRegistros(dadosFiltradosAtuais);
-            const bkpSalvos = Array.isArray(registrosSalvos) ? [...registrosSalvos] : [];
-            registrosSalvos = limparTesteDosRegistros(registrosSalvos);
-            try {
-                return _origExportarExcelTeste.apply(this, args);
-            } finally {
-                registrosSalvos = bkpSalvos;
-            }
-        };
-        window.exportarExcel = window.exportarPlanilhaDinamicaOficialExcel;
-    }
-
-    const _origBoletimTeste = window.copiarBoletimGestorWhatsApp;
-    if (typeof _origBoletimTeste === 'function') {
-        window.copiarBoletimGestorWhatsApp = function(...args) {
-            if (Array.isArray(dadosFiltradosAtuais)) dadosFiltradosAtuais = limparTesteDosRegistros(dadosFiltradosAtuais);
-            const bkpSalvos = Array.isArray(registrosSalvos) ? [...registrosSalvos] : [];
-            registrosSalvos = limparTesteDosRegistros(registrosSalvos);
-            try {
-                return _origBoletimTeste.apply(this, args);
-            } finally {
-                registrosSalvos = bkpSalvos;
-            }
-        };
-    }
-})();
-// ================= DOWNLOAD EM LOTE DE TODAS AS FOTOS DA ATIVIDADE (TABELA + MODAL DETALHES) =================
-(function() {
-    let baixandoLoteFotos = false;
-
-    // 1. Baixa todas as fotos do modal de detalhes aberto atualmente (mantendo os botões individuais)
-    window.baixarTodasFotosDoModalAtual = async function(btnEl) {
-        if (baixandoLoteFotos) return;
-        const item = typeof itemDetalheAtualModal !== 'undefined' ? itemDetalheAtualModal : null;
-        const fotos = (item && Array.isArray(item.fotos)) ? item.fotos : [];
-
-        if (fotos.length === 0) {
-            alert("⚠️ Nenhuma foto encontrada neste registro para baixar.");
-            return;
-        }
-
-        baixandoLoteFotos = true;
-        const txtOriginal = btnEl ? btnEl.innerHTML : '';
-        const codBase = typeof obterCodigoBaseImovel === 'function'
-            ? obterCodigoBaseImovel(item.imovel)
-            : String(item.imovel || 'imovel').split(' - BLOCO')[0].trim();
-        const codigoLimpo = (codBase || 'imovel').replace(/[^a-zA-Z0-9_-]/g, '_');
-
-        try {
-            for (let i = 0; i < fotos.length; i++) {
-                if (btnEl) {
-                    btnEl.disabled = true;
-                    btnEl.innerHTML = `⏳ Baixando ${i + 1} de ${fotos.length}...`;
-                }
-                const nomeArq = `${codigoLimpo}_foto_${i + 1}.jpg`;
-                window.baixarFotoDireto(fotos[i], nomeArq);
-                // Pausa de 350ms entre cada foto para o Chrome/Edge permitir múltiplos downloads seguidos
-                await new Promise(r => setTimeout(r, 350));
-            }
-        } finally {
-            baixandoLoteFotos = false;
-            if (btnEl) {
-                btnEl.disabled = false;
-                btnEl.innerHTML = `✅ ${fotos.length} foto(s) baixada(s)!`;
-                setTimeout(() => { if (btnEl) btnEl.innerHTML = txtOriginal; }, 2500);
-            }
-        }
-    };
-
-    // 2. Baixa todas as fotos diretamente pela linha da tabela na Aba Atividades (busca na nuvem se necessário)
-    window.baixarTodasFotosPorIdAtividade = async function(idReg, event, btnEl) {
-        if (event) event.stopPropagation();
-        if (baixandoLoteFotos) return;
-
-        const reg = (registrosSalvos || []).find(r => r && r.id === idReg);
-        if (!reg) return;
-
-        baixandoLoteFotos = true;
-        const txtOrig = btnEl ? btnEl.innerHTML : '';
-        if (btnEl) {
-            btnEl.disabled = true;
-            btnEl.innerHTML = `⏳ Buscando...`;
-        }
-
-        try {
-            const codBase = typeof obterCodigoBaseImovel === 'function'
-                ? obterCodigoBaseImovel(reg.imovel)
-                : String(reg.imovel || '').split(' - BLOCO')[0].trim();
-
-            const ehObraNormal = reg.projeto !== 'IMPREVISTO / ATRASO' &&
-                                 reg.projeto !== PROJETO_SOLIC_COMBUSTIVEL &&
-                                 reg.projeto !== PROJETO_SOLIC_MATERIAL;
-
-            let blocosIrmaos = [reg];
-            if (ehObraNormal && codBase) {
-                const encontrados = (registrosSalvos || []).filter(r =>
-                    r &&
-                    r.dataRegistro === reg.dataRegistro &&
-                    r.equipe === reg.equipe &&
-                    r.projeto === reg.projeto &&
-                    (typeof obterCodigoBaseImovel === 'function' ? obterCodigoBaseImovel(r.imovel) === codBase : String(r.imovel || '').startsWith(codBase))
-                ).sort((a, b) => (a.imovel || '').localeCompare(b.imovel || ''));
-                if (encontrados.length > 0) blocosIrmaos = encontrados;
-            }
-
-            // Garante que as fotos de todos os blocos irmãos sejam carregadas da nuvem sob demanda
-            if (typeof supabaseClient !== 'undefined') {
-                const idsBuscar = blocosIrmaos.map(b => b.id);
-                const { data: rows } = await supabaseClient
-                    .from('registros_producao')
-                    .select('id, observacoes')
-                    .in('id', idsBuscar);
-
-                if (Array.isArray(rows)) {
-                    rows.forEach(row => {
-                        const alvo = blocosIrmaos.find(b => b.id === row.id);
-                        if (alvo && row.observacoes && row.observacoes.includes('[FOTOS:')) {
-                            const mFotos = row.observacoes.match(/\[FOTOS:(\[.*?\])\]/);
-                            if (mFotos && mFotos[1]) {
-                                try {
-                                    const arrF = JSON.parse(mFotos[1]);
-                                    if (Array.isArray(arrF)) {
-                                        alvo.fotos = arrF;
-                                        alvo.qtdFotos = arrF.length;
-                                        if (typeof cacheFotosSobDemanda !== 'undefined') cacheFotosSobDemanda.set(alvo.id, arrF);
-                                    }
-                                } catch (e) {}
-                            }
-                        }
-                    });
-                }
-            }
-
-            const todasFotos = [];
-            for (const b of blocosIrmaos) {
-                let f = Array.isArray(b.fotos) && b.fotos.length > 0 ? b.fotos : [];
-                if (f.length === 0 && typeof obterFotosSobDemandaDoRegistro === 'function') {
-                    f = await obterFotosSobDemandaDoRegistro(b.id);
-                }
-                todasFotos.push(...f);
-            }
-
-            if (todasFotos.length === 0) {
-                alert("⚠️ Nenhuma foto localizada na nuvem para este registro.");
-                return;
-            }
-
-            const codigoLimpo = (codBase || 'imovel').replace(/[^a-zA-Z0-9_-]/g, '_');
-            for (let i = 0; i < todasFotos.length; i++) {
-                if (btnEl) btnEl.innerHTML = `⬇️ ${i + 1}/${todasFotos.length}...`;
-                window.baixarFotoDireto(todasFotos[i], `${codigoLimpo}_foto_${i + 1}.jpg`);
-                await new Promise(r => setTimeout(r, 350));
-            }
-
-            if (btnEl) {
-                btnEl.innerHTML = `✅ Baixadas!`;
-                setTimeout(() => { if (btnEl) btnEl.innerHTML = txtOrig; }, 2200);
-            }
-        } catch (err) {
-            console.error("Erro ao baixar lote de fotos:", err);
-            alert("⚠️ Erro ao baixar lote de fotos.");
-            if (btnEl) btnEl.innerHTML = txtOrig;
-        } finally {
-            baixandoLoteFotos = false;
-            if (btnEl) btnEl.disabled = false;
-        }
-    };
-
-    // 3. Injeta o botão "⬇️ Baixar Todas as Fotos" dentro do Modal de Detalhes sempre que houver fotos
-    const _origAbrirDetalhesLote = window.abrirDetalhesAtividade;
-    if (typeof _origAbrirDetalhesLote === 'function') {
-        window.abrirDetalhesAtividade = async function(item) {
-            const res = await _origAbrirDetalhesLote.apply(this, arguments);
-            try {
-                const conteudo = document.getElementById('modal-detalhes-conteudo');
-                const fotosAtuais = (typeof itemDetalheAtualModal !== 'undefined' && itemDetalheAtualModal && Array.isArray(itemDetalheAtualModal.fotos))
-                    ? itemDetalheAtualModal.fotos
-                    : [];
-
-                if (conteudo && fotosAtuais.length > 0) {
-                    const titulosH4 = Array.from(conteudo.querySelectorAll('h4'));
-                    const h4Fotos = titulosH4.find(h => (h.innerText || '').includes('Fotos Anexadas'));
-                    if (h4Fotos && !document.getElementById('btn-baixar-todas-fotos-modal')) {
-                        const barraTopoGaleria = document.createElement('div');
-                        barraTopoGaleria.className = 'flex flex-wrap justify-between items-center gap-2 pb-1.5 border-b border-indigo-200';
-                        h4Fotos.parentNode.insertBefore(barraTopoGaleria, h4Fotos);
-                        barraTopoGaleria.appendChild(h4Fotos);
-
-                        const btnTodas = document.createElement('button');
-                        btnTodas.type = 'button';
-                        btnTodas.id = 'btn-baixar-todas-fotos-modal';
-                        btnTodas.onclick = function() { window.baixarTodasFotosDoModalAtual(this); };
-                        btnTodas.className = 'bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] px-3 py-1.5 rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer';
-                        btnTodas.innerHTML = `⬇️ Baixar Todas as Fotos (${fotosAtuais.length})`;
-                        barraTopoGaleria.appendChild(btnTodas);
-                    }
-                }
-            } catch (e) {}
-            return res;
-        };
-    }
-
-    // 4. Injeta o botão rápido "⬇️ Baixar Todas" ao lado do badge "📷 X foto(s)" na tabela da Aba Atividades
-    function injetarBotoesBaixarTodasNaTabelaAtividades() {
-        const corpoAtiv = document.getElementById('tabela-gestor-corpo');
-        if (!corpoAtiv) return;
-
-        const badgesFotos = Array.from(corpoAtiv.querySelectorAll('span')).filter(sp =>
-            (sp.innerText || '').includes('📷') && (sp.innerText || '').includes('foto(s)') && !sp.dataset.btnLoteInjetado
-        );
-
-        badgesFotos.forEach(badge => {
-            badge.dataset.btnLoteInjetado = 'true';
-            const tr = badge.closest('tr');
-            if (!tr) return;
-
-            // Descobre o ID do registro na linha (via botões de ação ou buscando pelo código do imóvel na linha)
-            let idReg = null;
-            const btnComId = tr.querySelector('button[onclick*="("]');
-            if (btnComId) {
-                const m = (btnComId.getAttribute('onclick') || '').match(/\((\d+)/);
-                if (m && m[1]) idReg = Number(m[1]);
-            }
-            if (!idReg) {
-                const txtImovel = tr.querySelector('td .font-black')?.innerText || '';
-                const codLimpo = txtImovel.split('(')[0].trim();
-                const encontrado = (dadosFiltradosAtuais || registrosSalvos || []).find(r => r && String(r.imovel || '').startsWith(codLimpo) && Number(r.qtdFotos) > 0);
-                if (encontrado) idReg = encontrado.id;
-            }
-
-            if (idReg) {
-                const btnRapido = document.createElement('button');
-                btnRapido.type = 'button';
-                btnRapido.title = 'Baixar todas as fotos desta atividade de uma só vez';
-                btnRapido.className = 'ml-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-0.5 rounded-md text-[10px] inline-flex items-center gap-1 shadow-sm transition';
-                btnRapido.innerHTML = '⬇️ Baixar Todas';
-                btnRapido.onclick = function(ev) {
-                    window.baixarTodasFotosPorIdAtividade(idReg, ev, this);
-                };
-                badge.insertAdjacentElement('afterend', btnRapido);
-            }
-        });
-    }
-
-    setInterval(injetarBotoesBaixarTodasNaTabelaAtividades, 700);
-})();
