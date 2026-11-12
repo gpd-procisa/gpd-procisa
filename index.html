@@ -758,5 +758,838 @@
 
         </main>
 
-        <!-- ================= MODO CAMPO ================= -->
-        <!-- (Restante do HTML não listado para poupar espaço) -->
+        <!-- ================= MODO CAMPO (ULTRA-LEVE PARA SMARTPHONE) ================= -->
+        <main id="view-campo" class="flex-1 p-4 bg-slate-50 flex justify-center items-start sm:items-center">
+            <div class="w-full max-w-md bg-white shadow-lg rounded-2xl p-4 space-y-4 border border-slate-200">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <h2 class="font-bold text-slate-800 text-sm">GPD - Lançamento de Campo</h2>
+                            <span id="badge-modo-leve-4g" class="bg-emerald-100 text-emerald-800 text-[9px] font-black px-1.5 py-0.5 rounded border border-emerald-300">⚡ 4G Leve</span>
+                        </div>
+                        <p class="text-[10px] text-blue-900 font-bold">Construção MDU - PROCISA RJ</p>
+                    </div>
+                    <span class="text-[11px] bg-blue-50 text-blue-900 px-2.5 py-1 rounded-lg font-bold" id="current-user-team">Selecione Equipe</span>
+                </div>
+
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] font-black text-slate-600 uppercase">⚡ Solicitações Rápidas à Gestão (24h):</span>
+                        <span class="text-[9px] text-slate-400">Exclusão auto. 48h após tratada</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="abrirModalSolicitacaoCombustivelCampo()" class="bg-orange-600 hover:bg-orange-700 text-white font-black py-2.5 px-2 rounded-xl text-[11px] transition shadow-sm flex items-center justify-center gap-1">
+                            ⛽ Solicitar Combustível
+                        </button>
+                        <button type="button" onclick="abrirModalSolicitacaoMaterialCampo()" class="bg-indigo-700 hover:bg-indigo-800 text-white font-black py-2.5 px-2 rounded-xl text-[11px] transition shadow-sm flex items-center justify-center gap-1">
+                            🧰 Solicitar Material
+                        </button>
+                    </div>
+                    <div id="box-status-solicitacoes-campo" class="space-y-1 pt-1 hidden"></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <button type="button" id="btn-aba-campo-lancamento" onclick="mudarSubAbaCampo('lancamento')" class="py-2 px-3 rounded-lg font-bold text-xs transition bg-blue-900 text-white shadow-sm flex items-center justify-center gap-1.5">
+                        🚀 Atendimento
+                    </button>
+                    <button type="button" id="btn-aba-campo-painel" onclick="mudarSubAbaCampo('painel')" class="py-2 px-3 rounded-lg font-bold text-xs transition bg-white text-slate-700 hover:bg-slate-200 flex items-center justify-center gap-1.5">
+                        📋 Minhas Atividades (<span id="badge-qtd-minhas-ativ">0</span>)
+                    </button>
+                </div>
+
+                <div id="subview-campo-lancamento" class="space-y-4">
+
+                    <div id="box-reabertas-campo" class="bg-purple-50 border-2 border-purple-400 p-3.5 rounded-xl space-y-2 hidden shadow-sm">
+                        <div class="flex items-start gap-2">
+                            <span class="text-lg">🔄</span>
+                            <div>
+                                <h4 class="text-xs font-black text-purple-950 uppercase">Atividade Liberada para Edição pelo Gestor!</h4>
+                                <p class="text-[11px] text-purple-800">Clique abaixo para retomar os dados, corrigir ou anexar novas fotos:</p>
+                            </div>
+                        </div>
+                        <div id="lista-reabertas-campo" class="space-y-1.5 pt-1"></div>
+                    </div>
+
+                    <div id="box-programadas-campo" class="bg-cyan-50 border-2 border-cyan-400 p-3.5 rounded-xl space-y-2 hidden shadow-sm">
+                        <div class="flex items-start gap-2">
+                            <span class="text-lg">📋</span>
+                            <div>
+                                <h4 class="text-xs font-black text-cyan-950 uppercase">Suas Atividades Programadas pela Gestão</h4>
+                                <p class="text-[11px] text-cyan-800">Clique em Iniciar para carregar o imóvel e a quantidade de blocos automaticamente:</p>
+                            </div>
+                        </div>
+                        <div id="lista-programadas-campo" class="space-y-1.5 pt-1 max-h-56 overflow-y-auto"></div>
+                    </div>
+
+                    <div id="box-imprevisto-ativo-campo" class="bg-amber-50 border-2 border-amber-400 p-3.5 rounded-xl space-y-2.5 hidden shadow-sm">
+                        <div class="flex items-start gap-2">
+                            <span class="text-lg">⚠️</span>
+                            <div>
+                                <h4 class="text-xs font-black text-amber-950 uppercase">Você está com Imprevisto em Aberto!</h4>
+                                <p class="text-[11px] text-amber-800 mt-0.5" id="lbl-info-imprevisto-ativo">Motivo: -</p>
+                                <p class="text-[10px] text-amber-700 italic mt-0.5">💡 Ele será encerrado automaticamente assim que você iniciar qualquer atividade ou clicar abaixo.</p>
+                            </div>
+                        </div>
+                        <button onclick="finalizarImprevistoCampo()" id="btn-finalizar-imprevisto-campo" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-1.5">
+                            ✅ Resolver Imprevisto e Ficar Disponível
+                        </button>
+                    </div>
+
+                    <div id="box-ultimo-resumo-whats" class="bg-emerald-50 border border-emerald-300 p-3 rounded-xl space-y-2 hidden">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[11px] font-bold text-emerald-900">✅ Atendimento Salvo com Sucesso!</span>
+                            <button onclick="document.getElementById('box-ultimo-resumo-whats').classList.add('hidden')" class="text-emerald-700 font-bold text-xs">✕</button>
+                        </div>
+                        <button onclick="copiarUltimoResumoCampoWhatsApp()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg text-xs transition shadow-sm flex items-center justify-center gap-1.5">
+                            📲 Copiar Resumo para WhatsApp
+                        </button>
+                    </div>
+
+                    <div id="form-campo-container" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Equipe / Técnico</label>
+                            <select id="sel-equipe" onchange="aoSelecionarEquipeCampo()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none">
+                                <option value="">Selecione a Equipe...</option>
+                            </select>
+                            <div id="barra-seguranca-pin-campo" class="mt-1.5 flex items-center justify-between bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] hidden"></div>
+                        </div>
+
+                        <div id="box-controle-expediente-campo" class="p-3 rounded-xl border-2 border-slate-200 bg-slate-50 space-y-2 hidden">
+                            <div class="flex justify-between items-center">
+                                <span class="text-[11px] font-black text-slate-800 uppercase flex items-center gap-1.5">
+                                    <span id="dot-rastreio-campo" class="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block"></span>
+                                    <span id="lbl-status-expediente-campo">Turno / Expediente Não Iniciado</span>
+                                </span>
+                                <span id="lbl-hora-inicio-expediente" class="text-[10px] font-mono bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-600">Início: --:--</span>
+                            </div>
+                            <p id="lbl-info-rastreio-gps" class="text-[10px] text-slate-500 leading-tight">
+                                Clique abaixo ao sair para campo para ficar Disponível no painel e transmitir sua posição em rota.
+                            </p>
+                            <button type="button" id="btn-iniciar-expediente-campo" onclick="iniciarExpedienteRastreioCampo()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-1.5">
+                                🟢 Iniciar Expediente / Ficar Disponível em Rota
+                            </button>
+                            <button type="button" id="btn-encerrar-expediente-campo" onclick="encerrarExpedienteRastreioCampo()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-1.5 hidden">
+                                🔴 Encerrar Expediente do Dia
+                            </button>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs font-semibold text-slate-600">Projeto / Atividade</label>
+                                <span id="badge-setor-campo" class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">Selecione o técnico</span>
+                            </div>
+                            <select id="sel-projeto" onchange="mudarTipoProjeto(); salvarRascunhoCampo()" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 bg-white outline-none font-bold text-blue-950">
+                                <option value="">Selecione primeiro o técnico acima...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Cód. Imóvel</label>
+                            <input type="text" id="inp-imovel" oninput="salvarRascunhoCampo()" placeholder="Ex: 848465405" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 outline-none">
+                        </div>
+
+                        <div class="pt-2 flex flex-col gap-2.5">
+                            <button onclick="fazerCheckIn()" id="btn-checkin" class="w-full bg-blue-900 hover:bg-blue-950 text-white font-bold py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
+                                🚀 Iniciar Atividade no Imóvel (Status: Em Andamento)
+                            </button>
+                            <button onclick="abrirModalImprevisto()" type="button" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2">
+                                ⚠️ Informar Imprevisto / Atraso (Sem Atividade)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="bloco-pos-abertura" oninput="salvarRascunhoCampo()" onchange="salvarRascunhoCampo()" class="space-y-3 hidden">
+                        <div class="bg-blue-50 p-3 rounded-xl border border-blue-200 text-xs space-y-2">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="inline-block w-2 h-2 rounded-full bg-blue-600 animate-ping" id="dot-status-execucao"></span>
+                                        <span class="font-black text-blue-950 uppercase text-[11px]" id="lbl-status-execucao-campo">Status: Em Andamento no Painel</span>
+                                    </div>
+                                    <p class="mt-1"><strong>Imóvel:</strong> <span id="lbl-imovel-aberto" class="font-bold text-blue-900">-</span></p>
+                                    <p><strong>Entrada:</strong> <span id="lbl-h-entrada">-</span> <span id="lbl-tempo-pausado-acumulado" class="text-[10px] font-bold text-orange-700 ml-1"></span></p>
+                                    <p><strong>GPS Real:</strong> <span id="lbl-gps-entrada" class="font-mono text-[10px] text-emerald-700 font-bold">-</span></p>
+                                </div>
+                                <button type="button" onclick="cancelarCheckinAberto()" class="text-[10px] bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 px-2 py-1 rounded font-bold">
+                                    ✕ Cancelar
+                                </button>
+                            </div>
+
+                            <div class="pt-2 border-t border-blue-200/80 flex flex-col gap-2">
+                                <button type="button" id="btn-paralisar-atividade" onclick="paralisarAtividadeAtualCampo()" class="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-lg text-xs transition shadow-sm flex items-center justify-center gap-1.5">
+                                    ⏸️ Paralisar Atividade Temporariamente
+                                </button>
+                                <div id="banner-atividade-paralisada-ativa" class="bg-orange-100 border-2 border-orange-400 p-2.5 rounded-lg space-y-2 hidden">
+                                    <div class="text-[11px] text-orange-950 font-bold flex items-center justify-between">
+                                        <span>⏸️ ATIVIDADE PARALISADA</span>
+                                        <span id="lbl-hora-inicio-pausa" class="font-mono text-[10px] bg-orange-200 px-1.5 py-0.5 rounded">Desde --:--</span>
+                                    </div>
+                                    <p id="lbl-motivo-pausa-atual" class="text-[10px] text-orange-900 italic">Motivo: -</p>
+                                    <button type="button" onclick="retomarAtividadeParalisadaCampo()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 rounded-lg text-xs transition shadow-sm flex items-center justify-center gap-1.5">
+                                        ▶️ Retomar Atividade Agora
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="corpo-formulario-blocos-campo" class="space-y-3 border-t pt-3">
+                            <h3 class="font-bold text-xs text-slate-800 uppercase" id="titulo-form-dinamico">1. Dados Gerais do Condomínio / Imóvel</h3>
+                            
+                            <div class="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                <div>
+                                    <label class="block text-[11px] font-bold text-slate-800">📍 Endereço e Bairro do Atendimento <span class="text-red-600">* (Obrigatório)</span></label>
+                                    <input type="text" id="form-endereco" placeholder="Ex: Rua Conde de Bonfim 450 - TIJUCA" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div class="bg-amber-50/70 p-2 rounded-lg border border-amber-300">
+                                    <label class="block text-[11px] font-black text-amber-950">🔑 Liberou o Acesso <span class="text-red-600">* (Obrigatório)</span></label>
+                                    <input type="text" id="form-liberou-acesso" placeholder="Nome/função de quem liberou o acesso no local..." class="w-full text-xs font-semibold border border-amber-300 rounded-lg p-2 bg-white outline-none mt-0.5 focus:ring-2 focus:ring-amber-500">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-600">Responsável (Síndico / Administração)</label>
+                                    <input type="text" id="form-responsavel" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none">
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div><label class="block text-[11px] font-semibold text-slate-600">Contato / Tel</label><input type="text" id="form-contato" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none"></div>
+                                    <div><label class="block text-[11px] font-semibold text-slate-600">E-mail</label><input type="email" id="form-email" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-none"></div>
+                                </div>
+
+                                <div class="pt-2 border-t border-slate-200 flex items-center justify-between gap-3">
+                                    <div>
+                                        <label class="block text-xs font-black text-blue-950 uppercase">🏢 Quantidade de Blocos:</label>
+                                        <span class="text-[10px] text-slate-500">Cada bloco comporta até 10 fotos, materiais e desfecho</span>
+                                    </div>
+                                    <input type="number" id="inp-qtd-blocos" min="1" max="20" value="1" onchange="alterarQuantidadeBlocos(this.value)" class="w-20 text-center font-black text-sm border-2 border-blue-600 rounded-xl p-2 bg-white text-blue-950 outline-none">
+                                </div>
+                            </div>
+
+                            <div id="container-blocos-dinamicos" class="space-y-4"></div>
+
+                            <button onclick="salvarRegistro()" id="btn-salvar-final" class="w-full bg-blue-900 hover:bg-blue-950 text-white font-medium py-3 rounded-xl text-sm transition shadow-md">
+                                💾 Finalizar e Salvar Atendimento
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="subview-campo-painel" class="space-y-3 hidden">
+                    <div class="bg-blue-50 border border-blue-200 p-3 rounded-xl flex justify-between items-center">
+                        <div>
+                            <h3 class="text-xs font-black text-blue-950 uppercase">📋 Minhas Atividades no Painel</h3>
+                            <p class="text-[10px] text-blue-800">Controle de atividades programadas, em andamento, paralisadas, reabertas e realizadas hoje</p>
+                        </div>
+                        <button type="button" onclick="atualizarAbaMinhasAtividadesCampo(true)" class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm">
+                            🔄 Atualizar
+                        </button>
+                    </div>
+                    <div id="lista-minhas-atividades-campo" class="space-y-2.5 max-h-[65vh] overflow-y-auto pr-1"></div>
+                </div>
+
+                <div id="rodape-acesso-gestor-mobile" class="pt-2 border-t border-slate-100 text-center hidden">
+                    <button type="button" onclick="tentarAcessarGestor()" class="text-[10px] text-slate-400 hover:text-blue-800 underline">
+                        🔒 Acesso Restrito: Abrir Painel Gestor no Celular
+                    </button>
+                </div>
+
+            </div>
+        </main>
+
+    </div>
+
+    <!-- ================= MODAIS DO SISTEMA ================= -->
+
+    <!-- MODAL DE SOLICITAÇÃO DE RECARGA DE COMBUSTÍVEL EXTRA -->
+    <div id="modal-solic-combustivel" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[76]">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
+            <div class="bg-orange-600 text-white p-4 flex justify-between items-center">
+                <div>
+                    <span class="bg-white text-orange-900 font-black text-[9px] px-2 py-0.5 rounded uppercase">Frota • Campo</span>
+                    <h3 class="font-bold text-sm mt-0.5">⛽ Solicitação de Recarga de Combustível Extra</h3>
+                </div>
+                <button onclick="fecharModalSolicitacaoCombustivelCampo()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
+                <div class="bg-orange-50 p-2.5 rounded-xl border border-orange-200 text-[11px] text-orange-950">
+                    👷 <b>Técnico:</b> <span id="lbl-tec-solic-comb" class="font-black">-</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block font-black text-slate-800 mb-1">🚗 Placa do Veículo <span class="text-red-600">* (Obrig.)</span></label>
+                        <input type="text" id="inp-comb-placa" placeholder="Ex: RJA-4B21" class="w-full border-2 border-orange-300 rounded-xl p-2 uppercase font-black text-slate-900 outline-none focus:border-orange-600">
+                    </div>
+                    <div>
+                        <label class="block font-black text-slate-800 mb-1">🔢 KM Atual <span class="text-red-600">* (Obrig.)</span></label>
+                        <input type="number" id="inp-comb-km" placeholder="Ex: 58420" class="w-full border-2 border-orange-300 rounded-xl p-2 font-black text-slate-900 outline-none focus:border-orange-600">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">💬 Motivo da Solicitação (Opcional):</label>
+                    <select id="sel-comb-motivo-sugerido" onchange="aoSelecionarMotivoSugeridoCombustivel(this.value)" class="w-full border border-slate-300 rounded-lg p-2 bg-slate-50 mb-1.5 text-[11px] font-semibold text-slate-700">
+                        <option value="">Selecione um motivo rápido ou digite abaixo...</option>
+                    </select>
+                    <input type="text" id="inp-comb-motivo" placeholder="Descreva o motivo se desejar (não obrigatório)..." class="w-full border border-slate-300 rounded-lg p-2 outline-none">
+                </div>
+
+                <div class="space-y-2.5 pt-2 border-t border-slate-200">
+                    <h4 class="font-black text-slate-800 uppercase text-[11px]">📷 Fotos Comprobatórias</h4>
+
+                    <div class="bg-red-50/60 p-2.5 rounded-xl border border-red-200 flex items-center justify-between gap-2">
+                        <div>
+                            <span class="font-black text-red-950 text-[11px] block">1. Foto: Painel do Carro <span class="text-red-600">* (Obrigatória)</span></span>
+                            <span class="text-[10px] text-slate-500" id="status-foto-comb-painel">Nenhuma foto anexada</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <img id="prev-foto-comb-painel" src="" class="w-10 h-10 object-cover rounded border border-red-300 hidden">
+                            <label class="bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg cursor-pointer shadow-sm whitespace-nowrap">
+                                📷 Fotografar
+                                <input type="file" accept="image/*" capture="environment" onchange="processarFotoSlotCombustivel('painel', this)" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="bg-red-50/60 p-2.5 rounded-xl border border-red-200 flex items-center justify-between gap-2">
+                        <div>
+                            <span class="font-black text-red-950 text-[11px] block">2. Foto: Mapa de Bordo <span class="text-red-600">* (Obrigatória)</span></span>
+                            <span class="text-[10px] text-slate-500" id="status-foto-comb-mapa">Nenhuma foto anexada</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <img id="prev-foto-comb-mapa" src="" class="w-10 h-10 object-cover rounded border border-red-300 hidden">
+                            <label class="bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg cursor-pointer shadow-sm whitespace-nowrap">
+                                📷 Fotografar
+                                <input type="file" accept="image/*" capture="environment" onchange="processarFotoSlotCombustivel('mapa', this)" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+                        <div>
+                            <span class="font-bold text-slate-800 text-[11px] block">3. Foto: Cartão de Combustível <span class="text-slate-400">(Opcional)</span></span>
+                            <span class="text-[10px] text-slate-500" id="status-foto-comb-cartao">Opcional</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <img id="prev-foto-comb-cartao" src="" class="w-10 h-10 object-cover rounded border border-slate-300 hidden">
+                            <label class="bg-slate-700 hover:bg-slate-800 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg cursor-pointer shadow-sm whitespace-nowrap">
+                                📷 Anexar
+                                <input type="file" accept="image/*" onchange="processarFotoSlotCombustivel('cartao', this)" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-slate-100 p-3 border-t flex justify-end gap-2">
+                <button type="button" onclick="fecharModalSolicitacaoCombustivelCampo()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-xl font-bold">Cancelar</button>
+                <button type="button" onclick="enviarSolicitacaoCombustivelCampo()" id="btn-enviar-solic-comb" class="bg-orange-600 hover:bg-orange-700 text-white text-xs px-4 py-2 rounded-xl font-black shadow-md">
+                    🚀 Enviar Solicitação de Recarga
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE SOLICITAÇÃO DE MATERIAL EM CAMPO -->
+    <div id="modal-solic-material" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[76]">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
+            <div class="bg-indigo-800 text-white p-4 flex justify-between items-center">
+                <div>
+                    <span class="bg-cyan-400 text-indigo-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Almoxarifado • Campo</span>
+                    <h3 class="font-bold text-sm mt-0.5">🧰 Solicitação de Material</h3>
+                </div>
+                <button onclick="fecharModalSolicitacaoMaterialCampo()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
+                <div class="bg-indigo-50 p-2.5 rounded-xl border border-indigo-200 text-[11px] text-indigo-950 flex justify-between items-center">
+                    <span>👷 <b>Técnico:</b> <b id="lbl-tec-solic-mat">-</b></span>
+                    <span class="text-[10px] text-indigo-700">Informe a qtd. ao lado de cada item</span>
+                </div>
+
+                <div id="lista-itens-solic-material-campo" class="space-y-1.5 max-h-64 overflow-y-auto pr-1 divide-y divide-slate-100 border border-slate-200 rounded-xl p-2.5 bg-slate-50"></div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">📝 Observações / Urgência (Opcional):</label>
+                    <input type="text" id="inp-obs-solic-material" placeholder="Ex: Material para obra de amanhã, buscar na base..." class="w-full border border-slate-300 rounded-lg p-2 outline-none">
+                </div>
+            </div>
+            <div class="bg-slate-100 p-3 border-t flex justify-end gap-2">
+                <button type="button" onclick="fecharModalSolicitacaoMaterialCampo()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-xl font-bold">Cancelar</button>
+                <button type="button" onclick="enviarSolicitacaoMaterialCampo()" id="btn-enviar-solic-mat" class="bg-indigo-800 hover:bg-indigo-900 text-white text-xs px-4 py-2 rounded-xl font-black shadow-md">
+                    🚀 Enviar Pedido de Material
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE TRANSFERÊNCIA / MOVIMENTAÇÃO DE ATIVIDADE ENTRE TÉCNICOS -->
+    <div id="modal-transferir-atividade" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[72]">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div class="bg-indigo-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm">🔀 Movimentar / Transferir Atividade</h3>
+                <button onclick="fecharModalTransferirAtividade()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 space-y-3 text-xs text-slate-700">
+                <input type="hidden" id="transf-reg-id">
+                <div class="bg-indigo-50 p-3 rounded-xl border border-indigo-200 space-y-1">
+                    <div><strong>Imóvel:</strong> <span id="transf-lbl-imovel" class="font-black text-indigo-950">-</span></div>
+                    <div><strong>Projeto:</strong> <span id="transf-lbl-projeto" class="font-bold">-</span></div>
+                    <div><strong>Status Atual:</strong> <span id="transf-lbl-status" class="font-bold text-blue-800">-</span></div>
+                    <div><strong>Técnico Atual:</strong> <span id="transf-lbl-atual" class="font-bold text-red-700">-</span></div>
+                </div>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Selecione o Novo Técnico Destino:*</label>
+                    <select id="sel-tecnico-destino-transf" class="w-full border-2 border-indigo-300 rounded-xl p-2.5 bg-white outline-none font-bold text-blue-950"></select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Motivo / Observação da Movimentação (Opcional):</label>
+                    <input type="text" id="inp-motivo-transf" class="w-full border border-slate-300 rounded-lg p-2 outline-none" placeholder="Ex: Apoio operacional, remanejamento de rota...">
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalTransferirAtividade()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="confirmarTransferenciaAtividade()" class="bg-indigo-700 hover:bg-indigo-800 text-white text-xs px-4 py-2 rounded-lg font-bold shadow-sm">
+                    ✅ Confirmar Transferência
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE EXPANSÃO DE GRÁFICO EM TELA CHEIA -->
+    <div id="modal-expandir-grafico" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center p-2 sm:p-6 hidden z-[65]">
+        <div class="bg-white w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col h-[88vh]">
+            <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-cyan-400">
+                <div>
+                    <span class="bg-cyan-400 text-blue-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Modo Apresentação Executiva</span>
+                    <h3 class="font-bold text-sm sm:text-base mt-0.5" id="modal-grafico-expandido-titulo">Visualização Ampliada do Gráfico</h3>
+                </div>
+                <button onclick="fecharModalGraficoExpandido()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow">
+                    ✕ Fechar Tela Cheia
+                </button>
+            </div>
+            <div class="p-4 sm:p-6 flex-1 bg-slate-50 flex flex-col justify-center items-center relative">
+                <div class="w-full h-full bg-white p-4 rounded-xl border border-slate-200 shadow-inner relative">
+                    <canvas id="canvasGraficoExpandido"></canvas>
+                </div>
+            </div>
+            <div class="bg-white px-5 py-2.5 border-t flex justify-between items-center text-[11px] text-slate-500">
+                <span>💡 Clique nas barras ou fatias do gráfico ampliado para explodir a listagem de imóveis.</span>
+                <button onclick="fecharModalGraficoExpandido()" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-4 py-1.5 rounded-lg font-bold">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE EXPANSÃO DE TABELA EM TELA CHEIA -->
+    <div id="modal-expandir-tabela" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center p-2 sm:p-6 hidden z-[66]">
+        <div class="bg-white w-full max-w-7xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col h-[90vh]">
+            <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-cyan-400">
+                <div>
+                    <span class="bg-cyan-400 text-blue-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Modo Apresentação Executiva • Tabela Ampliada</span>
+                    <h3 class="font-bold text-sm sm:text-base mt-0.5" id="modal-tabela-expandida-titulo">Visualização Ampliada da Tabela</h3>
+                </div>
+                <button onclick="fecharModalTabelaExpandida()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition shadow">
+                    ✕ Fechar Tela Cheia
+                </button>
+            </div>
+            <div class="p-4 sm:p-6 flex-1 bg-slate-50 overflow-auto">
+                <div id="container-tabela-expandida" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto"></div>
+            </div>
+            <div class="bg-white px-5 py-2.5 border-t flex justify-between items-center text-[11px] text-slate-500">
+                <span>💡 Clique em qualquer linha interativa da tabela ampliada para explodir os detalhes dos imóveis.</span>
+                <button onclick="fecharModalTabelaExpandida()" class="bg-slate-700 hover:bg-slate-800 text-white text-xs px-4 py-1.5 rounded-lg font-bold">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE IMPORTAÇÃO DE CARGA DE ATIVIDADES VIA PLANILHA -->
+    <div id="modal-importar-planilha" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
+            <div class="bg-purple-800 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm">📤 Importar Planilha Completa de Atividades para os Técnicos</h3>
+                <button onclick="fecharModalImportarPlanilha()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
+                <div class="bg-purple-50 border border-purple-200 p-3 rounded-xl space-y-2">
+                    <div class="flex flex-wrap justify-between items-center gap-2">
+                        <span class="font-bold text-purple-950">📋 Carga Programada com Quantidade de Blocos:</span>
+                        <button onclick="baixarModeloPlanilhaCSV()" class="bg-purple-700 hover:bg-purple-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm">
+                            ⬇️ Baixar Planilha Modelo Completa (.CSV)
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-purple-900 leading-relaxed">
+                        Baixe a planilha modelo acima, preencha no Excel e envie o arquivo (ou copie e cole as linhas abaixo). O campo <b>QTD_BLOCOS</b> alterará automaticamente o número de blocos a serem preenchidos pelo técnico no Modo Campo!
+                    </p>
+                    <p class="text-[10px] font-mono bg-white p-2 rounded border border-purple-200 text-slate-700 leading-relaxed">
+                        Ordem das 11 Colunas:<br>
+                        <b>1. IMOVEL ; 2. ENDERECO ; 3. PROJETO ; 4. TECNICO ; <span class="bg-purple-200 text-purple-950 px-1 rounded">5. QTD_BLOCOS</span> ; 6. ANDARES ; 7. HPS ; 8. RESPONSAVEL ; 9. CONTATO ; 10. EMAIL ; 11. OBSERVACOES</b>
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Opção 1: Selecionar Arquivo (.CSV ou .TXT separado por ponto-e-vírgula):</label>
+                    <input type="file" id="inp-arquivo-planilha" accept=".csv,.txt" onchange="lerArquivoPlanilhaUpload(this)" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-slate-50">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Opção 2: Ou cole aqui as linhas copiadas direto do Excel (1 imóvel por linha):</label>
+                    <textarea id="txt-linhas-planilha" rows="6" class="w-full font-mono text-[11px] border border-slate-300 rounded-xl p-2.5 outline-none" placeholder="848465405;Rua Conde de Bonfim 450 - TIJUCA;VISTORIA;ANDREO FAGUNDES;2;10;40;Sr. Carlos;21 99888-7766;sindico@cond.com;Condomínio com 2 blocos"></textarea>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalImportarPlanilha()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="processarImportacaoPlanilha()" id="btn-confirmar-importacao" class="bg-purple-700 hover:bg-purple-800 text-white text-xs px-4 py-2 rounded-lg font-bold shadow-sm">
+                    🚀 Enviar Atividades para os Técnicos
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-imprevisto" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div class="bg-amber-500 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm">⚠️ Informar Imprevisto / Atraso</h3>
+                <button onclick="fecharModalImprevisto()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 space-y-3 text-xs">
+                <p class="text-[11px] text-slate-600 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                    Ao registrar um imprevisto, o seu status no painel mudará para <b>Indisponível</b>. Assim que você iniciar qualquer atividade em campo (ou clicar em Resolver), o imprevisto será encerrado automaticamente!
+                </p>
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Motivo do Imprevisto / Atraso:*</label>
+                    <select id="sel-motivo-imprevisto" class="w-full border border-slate-300 rounded-lg p-2.5 bg-white outline-none font-semibold text-slate-800"></select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Observações / Detalhes Adicionais:</label>
+                    <textarea id="inp-detalhe-imprevisto" rows="3" class="w-full border border-slate-300 rounded-lg p-2 outline-none" placeholder="Descreva brevemente a situação (opcional)..."></textarea>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalImprevisto()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="enviarImprevisto()" id="btn-enviar-imprevisto" class="bg-amber-500 hover:bg-amber-600 text-white text-xs px-4 py-2 rounded-lg font-bold shadow-sm">📍 Capturar GPS e Iniciar Imprevisto</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUPER MODAL DE EDIÇÃO COMPLETA -->
+    <div id="modal-edicao" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center p-2 sm:p-4 hidden z-50">
+        <div class="bg-white w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[94vh]">
+            <div class="bg-blue-900 text-white px-5 py-3.5 flex justify-between items-center border-b-4 border-cyan-400">
+                <div>
+                    <span class="bg-cyan-400 text-blue-950 font-black text-[9px] px-2 py-0.5 rounded uppercase">Edição Completa Master / Operador</span>
+                    <h3 class="font-bold text-sm sm:text-base mt-0.5">✏️ Editar Registro, Pendências, Malogros, Imprevistos e Fotos</h3>
+                </div>
+                <button onclick="fecharModalEdicao()" class="text-white font-bold text-lg hover:text-red-300">✕</button>
+            </div>
+            
+            <div class="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs text-slate-700">
+                <input type="hidden" id="edit-reg-id">
+
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+                    <h4 class="font-black text-blue-950 uppercase text-[11px] border-b border-slate-200 pb-1">1. Identificação, Equipe e Status Principal</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div>
+                            <label class="block font-bold mb-1">📅 Data do Registro</label>
+                            <input type="date" id="edit-reg-data" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none font-semibold">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block font-bold mb-1">👷 Equipe / Técnico Responsável</label>
+                            <select id="edit-reg-equipe" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none font-bold text-blue-950"></select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                            <label class="block font-bold mb-1">🏗️ Projeto / Tipo de Registro</label>
+                            <select id="edit-reg-projeto" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none font-bold text-slate-800"></select>
+                        </div>
+                        <div>
+                            <label class="block font-bold mb-1">🎯 Status / Desfecho (Altera as opções abaixo)</label>
+                            <select id="edit-reg-desfecho" onchange="aoMudarDesfechoModalEdicao()" class="w-full border-2 border-blue-400 rounded-lg p-2 bg-blue-50/40 outline-none font-black text-blue-950">
+                                <option value="PROGRAMADA">PROGRAMADA (Carga)</option>
+                                <option value="EM ANDAMENTO">EM ANDAMENTO</option>
+                                <option value="PARALISADA">PARALISADA</option>
+                                <option value="REABERTA">REABERTA (Liberada p/ Técnico)</option>
+                                <option value="CONCLUIDA">CONCLUIDA (Executado)</option>
+                                <option value="PENDENTE">PENDENTE (Não Executado)</option>
+                                <option value="MALOGRADA">MALOGRADA (Não Executado)</option>
+                                <option value="IMPREVISTO">IMPREVISTO (Ativo)</option>
+                                <option value="IMPREVISTO RESOLVIDO">IMPREVISTO RESOLVIDO</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div>
+                            <label class="block font-bold mb-1">🏢 Cód. Imóvel / Bloco</label>
+                            <input type="text" id="edit-reg-imovel" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none font-bold">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block font-bold mb-1">📍 Endereço e Bairro (Ex: Rua X, 100 - COPACABANA)</label>
+                            <input type="text" id="edit-reg-endereco" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                        <div class="sm:col-span-2">
+                            <label class="block font-bold text-amber-950 mb-1">🔑 Liberou o Acesso</label>
+                            <input type="text" id="edit-reg-liberou-acesso" class="w-full border border-amber-300 rounded-lg p-2 outline-none bg-amber-50/50 font-semibold">
+                        </div>
+                        <div>
+                            <label class="block font-semibold mb-1">Responsável Local</label>
+                            <input type="text" id="edit-reg-responsavel" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none">
+                        </div>
+                        <div>
+                            <label class="block font-semibold mb-1">Contato / Tel</label>
+                            <input type="text" id="edit-reg-contato" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50/50 p-3.5 rounded-xl border border-blue-200 space-y-3">
+                    <h4 class="font-black text-blue-950 uppercase text-[11px] border-b border-blue-200 pb-1">2. Horários, Pausas, GPS e Estrutura do Imóvel</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-bold">🟢 Hora Entrada</label>
+                            <input type="text" id="edit-reg-h-entrada" placeholder="08:30" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-mono text-center">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold">🔴 Hora Saída</label>
+                            <input type="text" id="edit-reg-h-saida" placeholder="12:00" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-mono text-center">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-orange-800">⏸️ Pausa (min)</label>
+                            <input type="number" id="edit-reg-pausa" min="0" class="w-full border border-orange-300 rounded-lg p-1.5 bg-white font-bold text-center text-orange-900">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold">🏢 Nº Andares</label>
+                            <input type="number" id="edit-reg-andares" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-bold text-center">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold">🔌 Nº de HPs</label>
+                            <input type="number" id="edit-reg-hps" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-bold text-center">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold">Serviço Obra?</label>
+                            <select id="edit-reg-servico-obra" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-bold">
+                                <option value="SIM">SIM</option>
+                                <option value="NÃO">NÃO</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-[10px] font-semibold">📍 GPS Entrada</label>
+                            <input type="text" id="edit-reg-gps-entrada" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-mono text-[11px]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold">📍 GPS Saída</label>
+                            <input type="text" id="edit-reg-gps-saida" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white font-mono text-[11px]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold">✉️ E-mail do Condomínio</label>
+                            <input type="email" id="edit-reg-email" class="w-full border border-slate-300 rounded-lg p-1.5 bg-white text-[11px]">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50/60 p-3.5 rounded-xl border-2 border-amber-300 space-y-2.5">
+                    <div class="flex flex-wrap justify-between items-center gap-2 border-b border-amber-200 pb-1.5">
+                        <h4 class="font-black text-amber-950 uppercase text-[11px]" id="lbl-titulo-opcoes-modal-edicao">
+                            3. Opções de Pendência / Ofensores de Malogro / Motivos de Imprevisto
+                        </h4>
+                        <div class="flex items-center gap-1.5">
+                            <input type="text" id="inp-nova-opcao-rapida-edicao" placeholder="+ Incluir opção customizada..." class="text-[11px] border border-amber-400 rounded-lg px-2 py-1 bg-white outline-none w-48">
+                            <button type="button" onclick="incluirOpcaoCustomizadaNoModalEdicao()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm">
+                                + Incluir e Marcar
+                            </button>
+                        </div>
+                    </div>
+                    <div id="container-checkboxes-edicao" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-1.5 bg-white p-2.5 rounded-xl border border-amber-200 max-h-44 overflow-y-auto"></div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                        <div>
+                            <label class="block font-bold text-slate-800 mb-1">💬 Detalhamento / Motivo do Desfecho (Pendência, Malogro ou Imprevisto):</label>
+                            <textarea id="edit-reg-motivo-desfecho" rows="2" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none" placeholder="Descreva o motivo ou justificativa..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-slate-800 mb-1">📝 Observações Gerais da Atividade:</label>
+                            <textarea id="edit-reg-observacoes" rows="2" class="w-full border border-slate-300 rounded-lg p-2 bg-white outline-none" placeholder="Observações complementares..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-200 space-y-2">
+                    <h4 class="font-black text-emerald-950 uppercase text-[11px] border-b border-emerald-200 pb-1">4. Materiais e Caixas Utilizados</h4>
+                    <div class="grid grid-cols-3 sm:grid-cols-9 gap-2">
+                        <div><label class="block text-[9px] font-bold">Cabo RL (m)</label><input type="number" id="edit-reg-cabo-rl" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">Conectores</label><input type="number" id="edit-reg-conectores" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">Cabo Drop</label><input type="number" id="edit-reg-cabo-drop" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">NAP</label><input type="number" id="edit-reg-nap" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">DIO</label><input type="number" id="edit-reg-dio" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">Fusões</label><input type="number" id="edit-reg-fusoes" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">Sobrepor</label><input type="number" id="edit-reg-cx-sobrepor" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">Embutida</label><input type="number" id="edit-reg-cx-embutida" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                        <div><label class="block text-[9px] font-bold">Cx. FOSC</label><input type="number" id="edit-reg-cx-fosc" class="w-full border rounded-lg p-1.5 bg-white text-center font-bold"></div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <h4 class="font-black text-slate-800 uppercase text-[11px]">📷 5. Fotos Anexadas (<span id="lbl-qtd-fotos-edicao">0</span>/10)</h4>
+                        <label class="bg-blue-900 hover:bg-blue-950 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg cursor-pointer shadow-sm transition">
+                            + Adicionar Fotos
+                            <input type="file" accept="image/*" multiple onchange="adicionarFotosNoModalEdicao(this)" class="hidden">
+                        </label>
+                    </div>
+                    <div id="container-fotos-modal-edicao" class="flex flex-wrap gap-2 pt-1"></div>
+                </div>
+
+            </div>
+
+            <div class="bg-slate-100 px-5 py-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalEdicao()" class="bg-slate-300 hover:bg-slate-400 text-slate-800 text-xs px-4 py-2 rounded-xl font-bold">Cancelar</button>
+                <button onclick="salvarEdicaoRegistro()" id="btn-salvar-modal-edicao" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-5 py-2 rounded-xl font-black shadow-md">
+                    💾 Salvar Todas as Alterações
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE EXPLOSÃO -->
+    <div id="modal-explosao" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-[70]">
+        <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm" id="modal-explosao-titulo">Detalhamento da Categoria</h3>
+                <button onclick="fecharModalExplosao()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4 text-xs text-slate-700">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
+                                <th class="p-2.5">Data / Semana</th>
+                                <th class="p-2.5">Imóvel / Bairro & Endereço</th>
+                                <th class="p-2.5">Técnico / Equipe</th>
+                                <th class="p-2.5">Grupo / Subgrupo (F vs ON GOING)</th>
+                                <th class="p-2.5">Desfecho / HPs</th>
+                                <th class="p-2.5">Detalhes / Ofensores</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-explosao-corpo" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end">
+                <button onclick="fecharModalExplosao()" class="bg-slate-600 hover:bg-slate-700 text-white text-xs px-4 py-2 rounded-lg font-medium">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE DETALHES -->
+    <div id="modal-detalhes" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm" id="modal-detalhes-titulo">Detalhes da Atividade</h3>
+                <button onclick="fecharModalDetalhes()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-6 overflow-y-auto space-y-4 text-xs text-slate-700" id="modal-detalhes-conteudo"></div>
+            <div class="bg-slate-50 p-3 border-t flex justify-between items-center">
+                <button onclick="copiarDetalheModalWhatsApp()" class="bg-green-600 hover:bg-green-700 text-white text-xs px-4 py-2 rounded-lg font-bold flex items-center gap-1.5">
+                    📲 Copiar para WhatsApp
+                </button>
+                <button onclick="fecharModalDetalhes()" class="bg-slate-600 hover:bg-slate-700 text-white text-xs px-4 py-2 rounded-lg font-medium">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE ZOOM DE FOTO -->
+    <div id="modal-zoom-foto" class="fixed inset-0 bg-black/85 backdrop-blur-sm flex flex-col justify-center items-center p-4 hidden z-[85]">
+        <div class="w-full max-w-3xl flex justify-between items-center text-white mb-3 px-2">
+            <span class="font-bold text-sm" id="lbl-titulo-zoom-foto">📷 Visualização da Foto</span>
+            <div class="flex items-center gap-2">
+                <a id="btn-download-zoom-foto" href="#" download="foto_gpd.jpg" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-md flex items-center gap-1.5">
+                    ⬇️ Baixar Foto
+                </a>
+                <button onclick="fecharZoomFoto()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl">✕ Fechar</button>
+            </div>
+        </div>
+        <div class="bg-slate-900 p-2 rounded-2xl border border-slate-700 max-h-[80vh] overflow-auto flex justify-center items-center">
+            <img id="img-zoom-alvo" src="" alt="Foto da atividade" class="max-h-[75vh] w-auto rounded-xl object-contain">
+        </div>
+    </div>
+
+    <!-- MODAL DE EQUIPE -->
+    <div id="modal-equipe" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm" id="modal-equipe-titulo">Cadastrar Nova Equipe</h3>
+                <button onclick="fecharModalEquipe()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 space-y-4 text-xs">
+                <input type="hidden" id="edit-equipe-id">
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Nome do Técnico / Equipe</label>
+                    <input type="text" id="inp-nome-equipe" class="w-full border rounded-lg p-2.5 outline-none uppercase" placeholder="NOME COMPLETO">
+                </div>
+                
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1.5">Setor de Atuação (Marcação Múltipla Habilitada):</label>
+                    <input type="hidden" id="inp-setor-equipe" value="Instalador">
+                    <div class="grid grid-cols-3 gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                        <button type="button" id="btn-chave-vistoriador" onclick="alternarChaveSetorEquipe('Vistoriador')" class="py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600">
+                            🔍 Vistoriador
+                        </button>
+                        <button type="button" id="btn-chave-instalador" onclick="alternarChaveSetorEquipe('Instalador')" class="py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 bg-blue-900 text-white shadow-sm">
+                            🛠️ Instalador
+                        </button>
+                        <button type="button" id="btn-chave-ativador" onclick="alternarChaveSetorEquipe('Ativador')" class="py-2.5 px-2 rounded-lg font-bold text-[11px] transition flex items-center justify-center gap-1 text-slate-600">
+                            ⚡ Ativador
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Status (Ativo / Inativo)</label>
+                    <select id="sel-status-equipe" class="w-full border rounded-lg p-2.5 bg-white outline-none">
+                        <option value="Ativo">Ativo</option>
+                        <option value="Inativo">Inativo</option>
+                    </select>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalEquipe()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="salvarOuAtualizarEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE USUÁRIO -->
+    <div id="modal-usuario" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4 hidden z-50">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+            <div class="bg-blue-900 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-sm" id="modal-user-titulo">Cadastrar Novo Usuário</h3>
+                <button onclick="fecharModalUsuario()" class="text-white font-bold text-lg">✕</button>
+            </div>
+            <div class="p-4 space-y-3 text-xs">
+                <input type="hidden" id="edit-user-id">
+                <div><label class="block font-semibold text-slate-600 mb-1">Nome Completo</label><input type="text" id="novo-user-nome" class="w-full border rounded-lg p-2 outline-none"></div>
+                <div><label class="block font-semibold text-slate-600 mb-1">E-mail Corporativo</label><input type="email" id="novo-user-email" class="w-full border rounded-lg p-2 outline-none" placeholder="usuario@procisa.com.br"></div>
+                <div><label class="block font-semibold text-slate-600 mb-1">Senha de Acesso</label><input type="text" id="novo-user-senha" class="w-full border rounded-lg p-2 outline-none" placeholder="Digite a nova senha"></div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Nível de Permissão</label>
+                    <select id="novo-user-nivel" class="w-full border rounded-lg p-2 bg-white outline-none">
+                        <option value="Visualizador">Visualizador</option>
+                        <option value="Operador">Operador</option>
+                        <option value="Master">Master</option>
+                    </select>
+                </div>
+            </div>
+            <div class="bg-slate-50 p-3 border-t flex justify-end gap-2">
+                <button onclick="fecharModalUsuario()" class="bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-medium">Cancelar</button>
+                <button onclick="salvarOuAtualizarUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-4 py-2 rounded-lg font-medium">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- IMPORTAÇÃO DOS MÓDULOS EXTERNOS -->
+    <script src="nuvem.js"></script>
+    <script src="campo.js"></script>
+    <script src="gestor.js"></script>
+</body>
+</html>
