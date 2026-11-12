@@ -23,6 +23,14 @@
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/1055/1055687.png">
 
     <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
         /* Ocultar barras de rolagem para menus deslizantes no smartphone (Carrossel) */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -56,16 +64,16 @@
       }
     </script>
 </head>
-<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-start p-0 sm:p-4">
+<body class="bg-slate-50 min-h-screen w-full flex flex-col m-0 p-0">
 
-    <!-- Container Principal -->
-    <div class="w-full max-w-7xl bg-white shadow-2xl sm:rounded-2xl flex flex-col border border-slate-200 min-h-[95vh]">
+    <!-- Container Principal em 100% da Tela (Sem bordas externas nem rolagem dupla) -->
+    <div class="w-full bg-white flex flex-col min-h-screen">
         
         <!-- ================= BLOCO SUPERIOR FIXO / CONGELADO NA ROLAGEM ================= -->
-        <div class="sticky top-0 z-40 shadow-md sm:rounded-t-2xl bg-white">
+        <div class="sticky top-0 z-40 shadow-md bg-white w-full">
             
             <!-- Cabeçalho Azul Compacto -->
-            <header class="bg-blue-900 text-white px-4 py-2.5 sm:px-5 sm:py-3 border-b-4 border-cyan-400 sm:rounded-t-2xl space-y-2">
+            <header class="bg-blue-900 text-white px-4 py-2.5 sm:px-6 sm:py-3 border-b-4 border-cyan-400 space-y-2 w-full">
                 
                 <!-- Linha 1 do Cabeçalho -->
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
@@ -110,7 +118,7 @@
                     <div id="bloco-filtros-gestor" class="hidden sm:block space-y-2">
                         <!-- Sub-linha A: Pesquisa Global e Botões de Ação -->
                         <div class="flex flex-col lg:flex-row justify-between items-center gap-2">
-                            <div class="w-full lg:w-80">
+                            <div class="w-full lg:w-96">
                                 <input type="text" id="inp-busca-global" oninput="atualizarDashboardGestor()" placeholder="🔍 Pesquisar por imóvel, bairro, endereço, equipe..." class="w-full text-xs text-slate-800 border border-blue-700 rounded-lg px-3 py-1.5 outline-none bg-white focus:ring-2 focus:ring-cyan-400 transition">
                             </div>
                             <div class="flex flex-wrap gap-1.5 w-full lg:w-auto justify-end items-center">
@@ -132,7 +140,7 @@
                             </div>
                         </div>
 
-                        <!-- Sub-linha B Integrada no Cabeçalho Azul em APENAS 1 LINHA -->
+                        <!-- Sub-linha B Integrada no Cabeçalho Azul -->
                         <div class="bg-blue-950/90 border border-blue-800 px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible no-scrollbar">
                             <div class="flex items-center gap-1 shrink-0">
                                 <span class="text-[10px] font-black text-cyan-300 uppercase whitespace-nowrap mr-0.5">⚡ Período:</span>
@@ -143,7 +151,7 @@
                                 <button onclick="aplicarAtalhoPeriodo('tudo')" title="Mostrar todo o histórico disponível" class="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold text-[10px] px-2 py-1 rounded-md transition whitespace-nowrap">🔄 Tudo</button>
                             </div>
 
-                            <div class="flex items-center gap-1.5 shrink-0">
+                            <div class="flex items-center gap-1.5 shrink-0 sm:flex-wrap">
                                 <div class="flex items-center gap-1 bg-white border border-blue-400 rounded-lg px-2 py-0.5">
                                     <span class="text-[10px] font-bold text-slate-500">De:</span>
                                     <input type="date" id="gestor-filtro-data-inicio" onchange="atualizarDashboardGestor()" class="w-[102px] text-[11px] bg-transparent outline-none font-semibold text-slate-800">
@@ -174,8 +182,8 @@
                 </div>
             </header>
 
-            <!-- Sub-Cabeçalho Fixo do Gestor (Transformado em Carrossel Mobile e Quebra no Desktop) -->
-            <div id="header-gestor-subbarra" class="bg-slate-100 border-b border-slate-300 px-2 sm:px-4 py-2 hidden">
+            <!-- Sub-Cabeçalho Fixo do Gestor (Carrossel no Mobile e Quebra Automática no Desktop) -->
+            <div id="header-gestor-subbarra" class="bg-slate-100 border-b border-slate-300 px-2 sm:px-6 py-2 hidden w-full">
                 <div class="flex items-center gap-1.5 overflow-x-auto sm:flex-wrap sm:overflow-visible no-scrollbar pb-1 w-full snap-x">
                     
                     <button onclick="mudarSubAbaGestor('atividades')" id="subtab-btn-atividades" class="whitespace-nowrap shrink-0 snap-start px-2.5 py-1 text-[11px] font-bold rounded-lg transition bg-blue-900 text-white shadow-sm flex items-center gap-1">
@@ -225,8 +233,8 @@
             </div>
         </div>
 
-        <!-- ================= CORPO ROLÁVEL DO MODO GESTOR ================= -->
-        <main id="view-gestor" class="flex-1 p-4 sm:p-5 bg-slate-50 space-y-5 hidden">
+        <!-- ================= CORPO DO MODO GESTOR (ROLAGEM ÚNICA NATIVA DA PÁGINA) ================= -->
+        <main id="view-gestor" class="flex-1 p-3 sm:p-6 bg-slate-50 space-y-5 hidden w-full">
             
             <!-- Alerta de Imprevistos -->
             <div id="alerta-imprevistos-supervisao" class="bg-amber-50 border-l-4 border-amber-500 p-3.5 rounded-xl shadow-sm hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -251,14 +259,14 @@
             </div>
 
             <!-- Sub-Aba: Atividades -->
-            <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div id="subview-atividades" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden w-full">
                 <div class="p-3.5 bg-slate-50 border-b border-slate-200 font-bold text-slate-800 text-xs sm:text-sm flex flex-wrap justify-between items-center gap-2">
                   <span>📋 Atividades em Campo, Programadas e Finalizadas (Imóveis multi-bloco agrupados automaticamente)</span>
                     <span class="text-xs font-bold bg-blue-100 text-blue-900 px-2.5 py-1 rounded-lg" id="contador-resultados">0 registros</span>
                 </div>
-                <div class="overflow-x-auto max-h-[68vh]">
+                <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse text-xs">
-                        <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                        <thead class="bg-slate-100 shadow-sm">
                             <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b">
                                 <th class="p-2.5">Data / Imóvel / Endereço</th>
                                 <th class="p-2.5">Equipe / Setor</th>
@@ -275,7 +283,7 @@
             </div>
 
             <!-- SUB-ABA: SOLICITAÇÕES DE RECARGA DE COMBUSTÍVEL EXTRA -->
-            <div id="subview-combustivel" class="bg-white rounded-xl shadow-sm border-2 border-orange-200 overflow-hidden hidden">
+            <div id="subview-combustivel" class="bg-white rounded-xl shadow-sm border-2 border-orange-200 overflow-hidden hidden w-full">
                 <div class="p-4 bg-orange-50/70 border-b border-orange-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <h3 class="font-black text-orange-950 text-sm uppercase flex items-center gap-1.5">
@@ -287,9 +295,9 @@
                     </div>
                     <span class="text-xs font-black bg-orange-200 text-orange-950 px-3 py-1 rounded-lg whitespace-nowrap" id="contador-solic-combustivel">0 solicitações</span>
                 </div>
-                <div class="overflow-x-auto max-h-[65vh]">
+                <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse text-xs">
-                        <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                        <thead class="bg-slate-100 shadow-sm">
                             <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b">
                                 <th class="p-2.5">Data / Hora</th>
                                 <th class="p-2.5">Técnico / Equipe</th>
@@ -306,7 +314,7 @@
             </div>
 
             <!-- SUB-ABA: SOLICITAÇÕES DE MATERIAL -->
-            <div id="subview-solicitacao_material" class="bg-white rounded-xl shadow-sm border-2 border-indigo-200 overflow-hidden hidden">
+            <div id="subview-solicitacao_material" class="bg-white rounded-xl shadow-sm border-2 border-indigo-200 overflow-hidden hidden w-full">
                 <div class="p-4 bg-indigo-50/70 border-b border-indigo-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <h3 class="font-black text-indigo-950 text-sm uppercase flex items-center gap-1.5">
@@ -318,9 +326,9 @@
                     </div>
                     <span class="text-xs font-black bg-indigo-200 text-indigo-950 px-3 py-1 rounded-lg whitespace-nowrap" id="contador-solic-material">0 solicitações</span>
                 </div>
-                <div class="overflow-x-auto max-h-[65vh]">
+                <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse text-xs">
-                        <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                        <thead class="bg-slate-100 shadow-sm">
                             <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b">
                                 <th class="p-2.5">Data / Hora</th>
                                 <th class="p-2.5">Técnico / Equipe</th>
@@ -336,7 +344,7 @@
             </div>
 
             <!-- Sub-Aba: Disponibilidade -->
-            <div id="subview-disponibilidade" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden flex flex-col">
+            <div id="subview-disponibilidade" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden flex flex-col w-full">
                 <div class="p-3 bg-white border-b border-slate-200 space-y-2.5 shrink-0">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                         <div class="flex flex-wrap items-baseline gap-2">
@@ -377,9 +385,9 @@
                     </div>
                 </div>
 
-                <div class="overflow-y-auto overflow-x-auto max-h-[60vh]">
+                <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse text-xs">
-                        <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                        <thead class="bg-slate-100 shadow-sm">
                             <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b border-slate-300">
                                 <th class="py-2 px-3">Técnico / Equipe</th>
                                 <th class="py-2 px-3">Setor de Atuação</th>
@@ -396,7 +404,7 @@
             </div>
 
             <!-- SUB-ABA: MAPA EM TEMPO REAL -->
-            <div id="subview-mapa" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden p-4 space-y-4">
+            <div id="subview-mapa" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden p-4 space-y-4 w-full">
                 <div class="border-b pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <h3 class="font-bold text-slate-800 text-base">🗺️ Mapa de Monitoramento GPS das Equipes em Tempo Real</h3>
@@ -427,7 +435,7 @@
                     <span class="text-[10px] text-slate-500">💡 Clique sobre qualquer pino no mapa para ver detalhes da ocupação e abrir no Google Maps</span>
                 </div>
 
-                <div id="mapa-rastreio-equipes" class="w-full h-[540px] rounded-xl border-2 border-slate-300 z-10 shadow-inner"></div>
+                <div id="mapa-rastreio-equipes" class="w-full h-[600px] rounded-xl border-2 border-slate-300 z-10 shadow-inner"></div>
 
                 <div class="space-y-1.5">
                     <span class="text-[10px] font-black text-slate-500 uppercase block">⚡ Clique em um técnico abaixo para dar zoom imediato na rua onde ele está:</span>
@@ -436,7 +444,7 @@
             </div>
 
             <!-- Sub-Aba: Imprevistos -->
-            <div id="subview-imprevistos" class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden hidden">
+            <div id="subview-imprevistos" class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden hidden w-full">
                 <div class="p-4 border-b border-amber-200 bg-amber-50/60 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <h3 class="font-bold text-amber-950 text-sm">⚠️ Relatório de Imprevistos e Atrasos Operacionais (Apartado das Obras)</h3>
@@ -444,9 +452,9 @@
                     </div>
                     <span class="text-xs font-bold bg-amber-200 text-amber-950 px-3 py-1 rounded-lg" id="contador-imprevistos">0 imprevistos</span>
                 </div>
-                <div class="overflow-x-auto max-h-[65vh]">
+                <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse text-xs">
-                        <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                        <thead class="bg-slate-100 shadow-sm">
                             <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b">
                                 <th class="p-2.5">Data / Horários</th>
                                 <th class="p-2.5">Equipe / Técnico</th>
@@ -463,10 +471,10 @@
             </div>
 
             <!-- ================= SUB-ABA: GRÁFICOS & PRODUTIVIDADE ================= -->
-            <div id="subview-graficos" class="space-y-6 hidden"></div>
+            <div id="subview-graficos" class="space-y-6 hidden w-full"></div>
 
             <!-- Sub-Aba: Materiais -->
-            <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
+            <div id="subview-materiais" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4 w-full">
                 <div class="flex justify-between items-center border-b pb-3">
                     <h3 class="font-bold text-slate-800 text-sm">📦 Relatório Consolidado de Materiais & Caixas Utilizados (Separado por Grupo: Vistoria, Construção e Ativação)</h3>
                     <span class="text-xs font-normal text-slate-500" id="contador-materiais">0 registros</span>
@@ -511,9 +519,9 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto max-h-[60vh]">
+                <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse text-xs">
-                        <thead class="sticky top-0 z-20 bg-slate-100 shadow-sm">
+                        <thead class="bg-slate-100 shadow-sm">
                             <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-[9px] tracking-wider border-b">
                                 <th class="p-2.5">Imóvel / Data</th>
                                 <th class="p-2.5">Técnico / Projeto (F vs. ON GOING)</th>
@@ -534,7 +542,7 @@
             </div>
 
             <!-- Sub-Aba: Financeiro -->
-            <div id="subview-financeiro" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4">
+            <div id="subview-financeiro" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden space-y-4 p-4 w-full">
                 <div class="flex flex-col sm:flex-row justify-between items-center border-b pb-3 gap-3">
                     <div>
                         <h3 class="font-bold text-slate-800 text-base">💰 Medição Financeira de Produção (Separada por Grupo)</h3>
@@ -551,7 +559,7 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
@@ -569,7 +577,7 @@
             </div>
 
             <!-- Sub-Aba: Equipes -->
-            <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
+            <div id="subview-equipes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden w-full">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
                         <h3 class="font-bold text-slate-800 text-sm">🛠️ Gestão de Equipes / Técnicos Separada por Grupo (Vistoria, Construção e Ativação)</h3>
@@ -577,7 +585,7 @@
                     </div>
                     <button onclick="abrirModalEquipe()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-nova-equipe">+ Nova Equipe</button>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
@@ -594,7 +602,7 @@
             </div>
 
             <!-- Sub-Aba: Opções -->
-            <div id="subview-opcoes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-5 hidden">
+            <div id="subview-opcoes" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-5 hidden w-full">
                 <div class="border-b pb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <h3 class="font-bold text-slate-800 text-sm">⚙️ Gestão de Opções, Projetos, Grupos, Combustível, Materiais e Capacidade da Nuvem</h3>
@@ -680,7 +688,7 @@
             </div>
 
             <!-- Sub-Aba: Usuários -->
-            <div id="subview-usuarios" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
+            <div id="subview-usuarios" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden w-full">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
                         <h3 class="font-bold text-slate-800 text-sm">👥 Controle de Acesso e Usuários (Sincronizado na Nuvem)</h3>
@@ -688,7 +696,7 @@
                     </div>
                     <button onclick="abrirModalUsuario()" class="bg-blue-900 hover:bg-blue-950 text-white text-xs px-3 py-2 rounded-lg font-medium" id="btn-novo-usuario">+ Novo Usuário</button>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
@@ -704,7 +712,7 @@
             </div>
 
             <!-- Sub-Aba: Bonificação -->
-            <div id="subview-bonificacao" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6 hidden">
+            <div id="subview-bonificacao" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6 hidden w-full">
                 <div class="border-b pb-3 flex justify-between items-center">
                     <h3 class="font-bold text-slate-800 text-base">🏆 Dashboard de Bonificação e Metas</h3>
                     <span class="text-xs text-slate-500">Cálculo baseado nas entregas do período filtrado</span>
@@ -730,7 +738,7 @@
             </div>
 
             <!-- Sub-Aba: Auditoria -->
-            <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden">
+            <div id="subview-auditoria" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-4 hidden w-full">
                 <div class="border-b pb-2 flex justify-between items-center">
                     <div>
                         <h3 class="font-bold text-slate-800 text-sm">🛡️ Trilha de Auditoria Exclusiva da Gestão e Monitor de Armazenamento</h3>
@@ -741,7 +749,7 @@
 
                 <div id="painel-capacidade-auditoria" class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 space-y-2.5"></div>
 
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto w-full">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
                             <tr class="bg-slate-100 text-slate-700 uppercase font-semibold text-[10px] tracking-wider border-b">
@@ -759,7 +767,7 @@
         </main>
 
         <!-- ================= MODO CAMPO (ULTRA-LEVE PARA SMARTPHONE) ================= -->
-        <main id="view-campo" class="flex-1 p-4 bg-slate-50 flex justify-center items-start sm:items-center">
+        <main id="view-campo" class="flex-1 p-4 bg-slate-50 flex justify-center items-start sm:items-center w-full">
             <div class="w-full max-w-md bg-white shadow-lg rounded-2xl p-4 space-y-4 border border-slate-200">
                 <div class="flex justify-between items-center border-b pb-2">
                     <div>
