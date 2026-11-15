@@ -5245,8 +5245,7 @@ setInterval(() => {
         }
     }
 }, 450);
-
-// ================= MÓDULO FORECAST MDU COMPLETO (AGRUPAMENTO E RATEIO POR ID SEM DUPLICAR BLOCOS) =================
+// ================= MÓDULO FORECAST MDU COMPLETO (REGRAS REAIS: MALOGRADA ZERADA S/ MATERIAL E TRAVA DE MÉTRICAS) =================
 (function() {
     const LPU_PADRAO_FORECAST = {
         VISTORIA:    { codigo: "VIST-01", desc: "Vistoria Técnica MDU", unidade: "UN", valor: 167.52 },
@@ -5262,21 +5261,20 @@ setInterval(() => {
     };
 
     let parametrosEstimativaMdu = JSON.parse(localStorage.getItem('gpd_param_forecast_mdu') || 'null') || {
-        metrosRlPorAndar: 4.5,
-        metrosRlBasePorBloco: 25,
-        hpsPorNap: 8,
+        metrosRlPorAndar: 4.0,
+        metrosRlBasePorBloco: 15,
+        andaresPorNap: 3,
         fusoesPorNap: 2,
-        fusoesPorDio: 12,
-        conectoresPorNap: 8,
-        metrosDropPorAtivacao: 35
+        fusoesPorDio: 6,
+        conectoresPorNap: 4,
+        metrosDropPorAtivacao: 30
     };
 
     let carteiraExtraSimulada = JSON.parse(localStorage.getItem('gpd_carteira_forecast_extra') || '[]');
-    let modoExibicaoForecast = localStorage.getItem('gpd_modo_exib_forecast') || 'AGRUPADO_ID'; // 'AGRUPADO_ID' ou 'RATEADO_BLOCO'
+    let modoExibicaoForecast = localStorage.getItem('gpd_modo_exib_forecast') || 'AGRUPADO_ID';
 
     function extrairIdRaizImovelForecast(strImovel) {
         let s = String(strImovel || '').toUpperCase().trim();
-        // Remove sufixos como " - BLOCO X", " BLOCO X", " - BL X" para encontrar o ID único do condomínio
         s = s.replace(/\s*-\s*BLOCO.*$/i, '').replace(/\s+BLOCO.*$/i, '').replace(/\s*-\s*BL\s*\d+.*$/i, '').trim();
         return s || 'SEM_ID';
     }
@@ -5290,13 +5288,37 @@ setInterval(() => {
         return LPU_PADRAO_FORECAST[chaveInterna]?.valor || 0;
     }
 
-    // Calcula o valor REALIZADO de uma linha individual (baseado nos materiais reais daquele bloco)
-    function calcularValorRealizadoRegistro(reg) {
-        if (!reg) return { total: 0, detalhe: {} };
-        const proj = String(reg.projeto || '').toUpperCase();
-        const ehVistoria = proj.includes('VISTORIA');
+    // Verifica se o registro tem qualquer material ou fusão real lançada pelo técnico
+    function registroPossuiMaterialOuFusaoLancada(reg) {
+        if (!reg) return false;
+        const somaItens =
+            (Number(reg.caboRL) || 0) +
+            (Number(reg.caboDrop) || 0) +
+            (Number(reg.conectores) || 0) +
+            (Number(reg.fusoes) || 0) +
+            (Number(reg.nap) || 0) +
+            (Number(reg.dio) || 0) +
+            (Number(reg.cxSobrepor) || 0) +
+            (Number(reg.cxEmbutida) || 0) +
+            (Number(reg.cxFosc) || 0);
+        return somaItens > 0;
+    }
 
-        const qtdVist = (ehVistoria && ['CONCLUIDA', 'CONCLUÍDA'].includes(String(reg.desfecho || '').toUpperCase())) ? 1 : 0;
+    // Calcula o valor REALIZADO de uma linha individual (baseado estritamente no que foi instalado/fusionado)
+    function calcularValorRealizadoRegistro(reg) {
+        if (!reg) return { total: 0, temMaterial: false, resumoReal: 'Sem material' };
+        const proj = String(reg.projeto || '').toUpperCase();
+        const desf = String(reg.desfecho || '').toUpperCase().trim();
+        const ehConcluida = ['CONCLUIDA', 'CONCLUÍDA'].includes(desf);
+        const ehVistoria = proj.includes('VISTORIA');
+        const temMat = registroPossuiMaterialOuFusaoLancada(reg);
+
+        // REGRA DO GESTOR: Se for MALOGRADA ou PENDENTE, só tem valor se houver registro real de instalação ou fusão!
+        if (!ehConcluida && !temMat) {
+            return { total: 0, temMaterial: false, resumoReal: 'Malograda/Pendente s/ consumo (R$ 0,00)' };
+        }
+
+        const qtdVist = (ehVistoria && ehConcluida) ? 1 : 0;
         const qtdRL = Number(reg.caboRL) || 0;
         const qtdDrop = Number(reg.caboDrop) || 0;
         const qtdCon = Number(reg.conectores) || 0;
@@ -5319,76 +5341,108 @@ setInterval(() => {
         const vFosc = qtdFosc * obterPrecoUnitarioLpu('CX_FOSC', 'CX FOSC');
 
         const total = vVist + vRL + vDrop + vCon + vFus + vNap + vDio + vSob + vEmb + vFosc;
+
+        const partes = [];
+        if (qtdVist > 0) partes.push(`1 Vist`);
+        if (qtdRL > 0) partes.push(`${qtdRL}m RL`);
+        if (qtdDrop > 0) partes.push(`${qtdDrop}m Drop`);
+        if (qtdNap > 0) partes.push(`${qtdNap} NAP`);
+        if (qtdDio > 0) partes.push(`${qtdDio} DIO`);
+        if (qtdFus > 0) partes.push(`${qtdFus} Fus`);
+        if (qtdCon > 0) partes.push(`${qtdCon} Con`);
+        if (qtdSob + qtdEmb + qtdFosc > 0) partes.push(`${qtdSob + qtdEmb + qtdFosc} Cx`);
+
         return {
             total,
-            detalhe: { qtdVist, qtdRL, qtdDrop, qtdCon, qtdFus, qtdNap, qtdDio, qtdSob, qtdEmb, qtdFosc }
+            temMaterial: temMat || qtdVist > 0,
+            resumoReal: partes.length > 0 ? `Real: ${partes.join(', ')}` : 'Sem material lançado (R$ 0,00)'
         };
     }
 
-    // Calcula o Forecast Único do Condomínio/ID (para não multiplicar o valor cheio por cada bloco lançado)
-    function calcularForecastUnicoDoGrupoId(grupo) {
-        const primeiro = grupo.itens[0];
-        const proj = String(primeiro.projeto || 'CONSTRUÇÃO ON GOING').toUpperCase();
-        const qtdBlocosReaisNoGrupo = grupo.itens.length;
+    // Calcula a previsão (Forecast) APENAS para atividades Programadas ou Em Execução
+    function calcularEstimativaProgramadaPorBloco(blocoItem) {
+        const proj = String(blocoItem.projeto || 'CONSTRUÇÃO ON GOING').toUpperCase();
+        const desf = String(blocoItem.desfecho || 'PROGRAMADA').toUpperCase().trim();
+        const realInfo = calcularValorRealizadoRegistro(blocoItem);
 
-        // Se for apenas 1 linha programada que ainda não foi desmembrada, respeita qtdBlocosProgramados
-        const qtdBlocosConsiderada = qtdBlocosReaisNoGrupo > 1
-            ? qtdBlocosReaisNoGrupo
-            : Math.max(1, Number(primeiro.qtdBlocosProgramados) || Number(primeiro.blocos) || 1);
-
-        // Andares e HPs de referência do ID (evita somar HPs repetidos se o técnico manteve 20 HPs do prédio em cada bloco)
-        const todosAndaresIguais = grupo.itens.every(i => Number(i.andares) === Number(primeiro.andares));
-        const todosHpsIguais = grupo.itens.every(i => Number(i.hps) === Number(primeiro.hps));
-
-        const andaresBase = Number(primeiro.andares) || 5;
-        const hpsBase = Number(primeiro.hps) || 20;
-
-        const andaresTotaisId = (!todosAndaresIguais && qtdBlocosReaisNoGrupo > 1)
-            ? grupo.itens.reduce((acc, i) => acc + (Number(i.andares) || 0), 0)
-            : andaresBase;
-
-        const hpsTotaisId = (!todosHpsIguais && qtdBlocosReaisNoGrupo > 1)
-            ? grupo.itens.reduce((acc, i) => acc + (Number(i.hps) || 0), 0)
-            : hpsBase;
-
-        if (proj.includes('VISTORIA')) {
-            const totalVist = obterPrecoUnitarioLpu('VISTORIA', 'VISTORIA');
+        // 1. Se for MALOGRADA ou PENDENTE: Forecast é ZERO (ou apenas o material real caso tenha feito alguma fusão/instalação)
+        if (['MALOGRADA', 'PENDENTE'].includes(desf)) {
             return {
-                totalId: totalVist,
-                qtdBlocos: qtdBlocosConsiderada,
-                resumoId: `${qtdBlocosConsiderada} Bl | Vistoria MDU`
+                previsto: realInfo.total,
+                realizado: realInfo.total,
+                resumo: realInfo.temMaterial ? `Parcial em Malogro (${realInfo.resumoReal})` : `Atividade ${desf} — Sem valor a inserir (R$ 0,00)`
             };
         }
 
-        let estRL = 0, estDrop = 0, estNap = 0, estDio = 0, estFus = 0, estCon = 0, estCx = 0;
-
-        if (proj.includes('ATIVAÇÃO') || proj.includes('ATIVACAO')) {
-            estDrop = parametrosEstimativaMdu.metrosDropPorAtivacao;
-            estCon = 4;
-            estFus = 4;
-        } else {
-            // Fórmula estrutural única do ID (Condomínio)
-            estRL = parametrosEstimativaMdu.metrosRlBasePorBloco + (andaresTotaisId * parametrosEstimativaMdu.metrosRlPorAndar);
-            estNap = Math.max(1, Math.ceil(hpsTotaisId / parametrosEstimativaMdu.hpsPorNap));
-            estDio = 1;
-            estFus = (estNap * parametrosEstimativaMdu.fusoesPorNap) + (estDio * parametrosEstimativaMdu.fusoesPorDio);
-            estCon = estNap * parametrosEstimativaMdu.conectoresPorNap;
-            estCx = Math.ceil(andaresTotaisId / 2);
+        // 2. Se já está CONCLUÍDA: não usa estimativa teórica maluca de HPs; o valor é o que foi realmente instalado!
+        if (['CONCLUIDA', 'CONCLUÍDA'].includes(desf)) {
+            return {
+                previsto: realInfo.total,
+                realizado: realInfo.total,
+                resumo: realInfo.resumoReal
+            };
         }
 
-        const totalEstId =
+        // 3. Se está PROGRAMADA ou EM ANDAMENTO: se já lançou material parcial em campo, usa o maior entre o lançado e a estimativa realista
+        if (proj.includes('VISTORIA')) {
+            const vVist = obterPrecoUnitarioLpu('VISTORIA', 'VISTORIA');
+            return {
+                previsto: vVist,
+                realizado: 0,
+                resumo: `Previsto: 1 Vistoria Técnica`
+            };
+        }
+
+        if (proj.includes('ATIVAÇÃO') || proj.includes('ATIVACAO')) {
+            const estDrop = parametrosEstimativaMdu.metrosDropPorAtivacao;
+            const estCon = 2;
+            const estFus = 2;
+            const totAtiv =
+                (estDrop * obterPrecoUnitarioLpu('CABO_DROP', 'CABO DROP')) +
+                (estCon * obterPrecoUnitarioLpu('CONECTORES', 'CONECTORES')) +
+                (estFus * obterPrecoUnitarioLpu('FUSOES', 'FUSÕES'));
+            return {
+                previsto: Math.max(totAtiv, realInfo.total),
+                realizado: 0,
+                resumo: `Previsto Ativação: ${estDrop}m Drop, ${estFus} Fus, ${estCon} Con`
+            };
+        }
+
+        // Se for EXPANSÃO (CONSTRUÇÃO NAP LOTADA): é apenas ampliação de NAP (1 NAP + 2 Fusões + 4 Conectores + 15m cabo), nunca um prédio inteiro!
+        if (proj.includes('NAP LOTADA')) {
+            const estRL = 15;
+            const estNap = 1;
+            const estFus = 2;
+            const estCon = 4;
+            const totNapLotada =
+                (estRL * obterPrecoUnitarioLpu('CABO_RL', 'CABO RL')) +
+                (estNap * obterPrecoUnitarioLpu('NAP', 'NAP')) +
+                (estFus * obterPrecoUnitarioLpu('FUSOES', 'FUSÕES')) +
+                (estCon * obterPrecoUnitarioLpu('CONECTORES', 'CONECTORES'));
+            return {
+                previsto: Math.max(totNapLotada, realInfo.total),
+                realizado: 0,
+                resumo: `Previsto NAP Lotada: 1 NAP, ${estFus} Fus, ${estCon} Con`
+            };
+        }
+
+        // Construção MDU / Projeto F (Programada ou Em Andamento) — Trava contra erro de digitação de HPs (ex: 747 HPs)
+        const andaresValidos = Math.min(30, Math.max(1, Number(blocoItem.andares) || 4));
+        const estRL = parametrosEstimativaMdu.metrosRlBasePorBloco + (andaresValidos * parametrosEstimativaMdu.metrosRlPorAndar);
+        const estNap = Math.max(1, Math.ceil(andaresValidos / Math.max(1, parametrosEstimativaMdu.andaresPorNap || 3)));
+        const estFus = (estNap * parametrosEstimativaMdu.fusoesPorNap);
+        const estCon = estNap * parametrosEstimativaMdu.conectoresPorNap;
+
+        const totalEst =
             (estRL * obterPrecoUnitarioLpu('CABO_RL', 'CABO RL')) +
-            (estDrop * obterPrecoUnitarioLpu('CABO_DROP', 'CABO DROP')) +
             (estCon * obterPrecoUnitarioLpu('CONECTORES', 'CONECTORES')) +
             (estFus * obterPrecoUnitarioLpu('FUSOES', 'FUSÕES')) +
-            (estNap * obterPrecoUnitarioLpu('NAP', 'NAP')) +
-            (estDio * obterPrecoUnitarioLpu('DIO', 'DIO')) +
-            (estCx * obterPrecoUnitarioLpu('CX_SOBREPOR', 'CX SOBREPOR'));
+            (estNap * obterPrecoUnitarioLpu('NAP', 'NAP'));
 
         return {
-            totalId: totalEstId,
-            qtdBlocos: qtdBlocosConsiderada,
-            resumoId: `${qtdBlocosConsiderada} Bl | ${andaresTotaisId} And | ${hpsTotaisId} HPs (Est ID: ${Math.round(estRL)}m RL, ${estNap} NAP, ${estFus} Fus)`
+            previsto: Math.max(totalEst, realInfo.total),
+            realizado: 0,
+            resumo: `Previsto (${andaresValidos} And): ${Math.round(estRL)}m RL, ${estNap} NAP, ${estFus} Fus`
         };
     }
 
@@ -5398,10 +5452,9 @@ setInterval(() => {
         window.atualizarPainelForecastMdu();
     };
 
-    window.alternarDetalhesBlocosForecast = function(idLinhaSecundaria, btnEl) {
+    window.alternarDetalhesBlocosForecast = function(idLinhaSecundaria) {
         const tr = document.getElementById(idLinhaSecundaria);
-        if (!tr) return;
-        tr.classList.toggle('hidden');
+        if (tr) tr.classList.toggle('hidden');
     };
 
     function injetarPainelForecastNoFinanceiro() {
@@ -5417,21 +5470,21 @@ setInterval(() => {
                 <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
                     <div>
                         <div class="flex items-center gap-2">
-                            <span class="bg-emerald-400 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded uppercase tracking-wider">Cálculo Unificado por ID</span>
-                            <span class="text-xs text-cyan-300 font-mono">Sem duplicação entre blocos</span>
+                            <span class="bg-emerald-400 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded uppercase tracking-wider">Métricas Reais de Campo</span>
+                            <span class="text-xs text-cyan-300 font-mono">Malogradas sem material = R$ 0,00</span>
                         </div>
-                        <h3 class="text-base sm:text-lg font-black mt-1">📈 Forecast MDU — Previsão Consolidada por ID vs. Produção Realizada dos Blocos</h3>
-                        <p class="text-[11px] text-slate-300">O Forecast é calculado uma única vez por ID de Imóvel (ou rateado proporcionalmente por bloco) e comparado com a soma real executada em todos os blocos.</p>
+                        <h3 class="text-base sm:text-lg font-black mt-1">📈 Forecast MDU — Carteira Planejada vs. Medição Realizada (Materiais & Fusões)</h3>
+                        <p class="text-[11px] text-slate-300">Atividades Malogradas/Pendentes são zeradas automaticamente (só entram se houver instalação ou fusão lançada na ficha).</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <button type="button" onclick="abrirModalImportarForecastPlanilha()" class="bg-purple-600 hover:bg-purple-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1.5 transition">
                             📤 Importar / Simular Planilha Forecast
                         </button>
                         <button type="button" onclick="abrirModalParametrosForecastLpu()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 font-bold text-xs px-3 py-2 rounded-xl transition">
-                            ⚙️ Índices LPU & Estimativa
+                            ⚙️ Índices de Estimativa
                         </button>
                         <button type="button" onclick="exportarRelatorioForecastExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1.5 transition">
-                            📥 Exportar Forecast x Real (.XLS)
+                            📥 Exportar Forecast (.XLS)
                         </button>
                     </div>
                 </div>
@@ -5439,34 +5492,34 @@ setInterval(() => {
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                     <div class="bg-slate-800/90 border border-slate-700 p-3.5 rounded-xl flex flex-col justify-between">
                         <div class="flex justify-between items-start">
-                            <span class="text-[10px] font-black text-cyan-300 uppercase">1. Forecast Total (Por ID Único)</span>
+                            <span class="text-[10px] font-black text-cyan-300 uppercase">1. Forecast Válido (Sem Malogros)</span>
                             <span class="text-xs bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded font-bold" id="fc-badge-qtd-imoveis">0 IDs</span>
                         </div>
                         <div class="text-xl sm:text-2xl font-black text-white mt-1.5" id="fc-card-valor-previsto">R$ 0,00</div>
-                        <div class="text-[10px] text-slate-400 mt-1" id="fc-card-sub-previsto">Sem duplicar blocos do mesmo condomínio</div>
+                        <div class="text-[10px] text-slate-400 mt-1" id="fc-card-sub-previsto">Soma de Concluídas + Em Andamento + Programadas</div>
                     </div>
 
                     <div class="bg-blue-950/90 border border-blue-700 p-3.5 rounded-xl flex flex-col justify-between">
                         <div class="flex justify-between items-start">
-                            <span class="text-[10px] font-black text-blue-300 uppercase">2. Em Execução Agora (Live)</span>
-                            <span class="text-xs bg-blue-900 text-blue-200 px-2 py-0.5 rounded font-bold animate-pulse" id="fc-badge-qtd-andamento">0 ativas</span>
+                            <span class="text-[10px] font-black text-blue-300 uppercase">2. Em Execução / Programadas</span>
+                            <span class="text-xs bg-blue-900 text-blue-200 px-2 py-0.5 rounded font-bold" id="fc-badge-qtd-andamento">0 abertas</span>
                         </div>
                         <div class="text-xl sm:text-2xl font-black text-cyan-300 mt-1.5" id="fc-card-valor-andamento">R$ 0,00</div>
-                        <div class="text-[10px] text-blue-200 mt-1">Potencial das equipes atuando neste momento</div>
+                        <div class="text-[10px] text-blue-200 mt-1">Previsão das obras na fila ou em andamento</div>
                     </div>
 
                     <div class="bg-emerald-950/90 border border-emerald-700 p-3.5 rounded-xl flex flex-col justify-between">
                         <div class="flex justify-between items-start">
-                            <span class="text-[10px] font-black text-emerald-300 uppercase">3. Realizado Consolidado (Soma Blocos)</span>
+                            <span class="text-[10px] font-black text-emerald-300 uppercase">3. Realizado Consolidado</span>
                             <span class="text-xs bg-emerald-900 text-emerald-200 px-2 py-0.5 rounded font-bold" id="fc-badge-qtd-concluidas">0 concl.</span>
                         </div>
                         <div class="text-xl sm:text-2xl font-black text-emerald-400 mt-1.5" id="fc-card-valor-realizado">R$ 0,00</div>
-                        <div class="text-[10px] text-emerald-200 mt-1">Soma real dos materiais de todos os blocos</div>
+                        <div class="text-[10px] text-emerald-200 mt-1">Cálculo exato das instalações e fusões lançadas</div>
                     </div>
 
                     <div class="bg-indigo-950/90 border border-indigo-700 p-3.5 rounded-xl flex flex-col justify-between">
                         <div class="flex justify-between items-start">
-                            <span class="text-[10px] font-black text-amber-300 uppercase">4. Conversão do Forecast</span>
+                            <span class="text-[10px] font-black text-amber-300 uppercase">4. Conversão da Carteira</span>
                             <span class="text-xs bg-amber-400 text-slate-950 px-2 py-0.5 rounded font-black" id="fc-badge-perc-atingimento">0.0%</span>
                         </div>
                         <div class="text-xl sm:text-2xl font-black text-amber-300 mt-1.5" id="fc-card-valor-gap">R$ 0,00</div>
@@ -5480,25 +5533,24 @@ setInterval(() => {
             <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div class="p-3 bg-slate-100 border-b border-slate-200 flex flex-wrap justify-between items-center gap-2">
                     <div>
-                        <h4 class="font-black text-slate-800 text-xs sm:text-sm uppercase">📊 Acompanhamento Forecast Planejado vs. Realizado dos Blocos</h4>
-                        <p class="text-[11px] text-slate-500">Alterne entre ver o ID consolidado (soma todos os blocos do imóvel contra 1 único Forecast) ou ver rateado por bloco:</p>
+                        <h4 class="font-black text-slate-800 text-xs sm:text-sm uppercase">📊 Detalhamento por Imóvel / Bloco (Apenas Materiais Reais nas Concluídas e Malogradas Zeradas)</h4>
+                        <p class="text-[11px] text-slate-500">Por padrão, atividades Malogradas sem consumo não poluem a conta. Você pode exibi-las no filtro ao lado caso queira auditar:</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <div class="inline-flex bg-slate-200 p-1 rounded-xl border border-slate-300">
                             <button type="button" id="btn-fc-modo-agrupado" onclick="alternarModoExibicaoForecast('AGRUPADO_ID')" class="px-3 py-1 rounded-lg text-[11px] font-black transition">
-                                🏢 Agrupar por ID (Soma Blocos)
+                                🏢 Agrupar por ID
                             </button>
                             <button type="button" id="btn-fc-modo-rateado" onclick="alternarModoExibicaoForecast('RATEADO_BLOCO')" class="px-3 py-1 rounded-lg text-[11px] font-black transition">
-                                🧱 Dividir Forecast p/ Bloco
+                                🧱 Mostrar Bloco a Bloco
                             </button>
                         </div>
 
                         <select id="fc-filtro-status-interno" onchange="atualizarPainelForecastMdu()" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white font-bold text-slate-700">
-                            <option value="TODOS">🎯 Todos os Status</option>
-                            <option value="PROGRAMADA">📋 Programadas / Planilha</option>
-                            <option value="ANDAMENTO">🔵 Em Execução Agora</option>
-                            <option value="CONCLUIDA">🟢 Concluídas (Realizado)</option>
-                            <option value="PERDA">🔴 Pendentes / Malogradas</option>
+                            <option value="VALIDAS">✅ Apenas Válidas (Sem Malogradas Zeradas)</option>
+                            <option value="CONCLUIDA">🟢 Apenas Concluídas / Com Material</option>
+                            <option value="ABERTAS">🔵 Apenas Programadas / Em Execução</option>
+                            <option value="TODOS">👁️ Mostrar Todas (Incluir Malogradas R$ 0,00)</option>
                         </select>
                         <button type="button" onclick="limparSimulacaoExtraForecast()" id="btn-limpar-simulacao-fc" class="hidden bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-[11px] px-2.5 py-1.5 rounded-lg">
                             🗑️ Limpar Simulação
@@ -5510,13 +5562,13 @@ setInterval(() => {
                         <thead class="bg-slate-800 text-white uppercase text-[10px]">
                             <tr>
                                 <th class="p-2.5">Data / Origem</th>
-                                <th class="p-2.5">ID Imóvel / Blocos Vinculados</th>
+                                <th class="p-2.5">ID Imóvel / Bloco</th>
                                 <th class="p-2.5">Técnico(s) / Equipe</th>
-                                <th class="p-2.5">Projeto / Estrutura Base do ID</th>
+                                <th class="p-2.5">Projeto & Racional do Cálculo</th>
                                 <th class="p-2.5 text-center">Status</th>
                                 <th class="p-2.5 text-right bg-slate-900 text-cyan-300">Forecast Previsto (R$)</th>
-                                <th class="p-2.5 text-right bg-emerald-950 text-emerald-300">Realizado Soma Blocos (R$)</th>
-                                <th class="p-2.5 text-right">Diferença / Desvio Real</th>
+                                <th class="p-2.5 text-right bg-emerald-950 text-emerald-300">Realizado Campo (R$)</th>
+                                <th class="p-2.5 text-right">Situação Financeira</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-forecast-mdu-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
@@ -5533,7 +5585,6 @@ setInterval(() => {
         const corpo = document.getElementById('tabela-forecast-mdu-corpo');
         if (!corpo) return;
 
-        // Atualiza botões de modo
         const btnAgr = document.getElementById('btn-fc-modo-agrupado');
         const btnRat = document.getElementById('btn-fc-modo-rateado');
         if (btnAgr && btnRat) {
@@ -5546,7 +5597,7 @@ setInterval(() => {
             }
         }
 
-        const filtroStatus = document.getElementById('fc-filtro-status-interno')?.value || 'TODOS';
+        const filtroStatus = document.getElementById('fc-filtro-status-interno')?.value || 'VALIDAS';
         const btnLimparSim = document.getElementById('btn-limpar-simulacao-fc');
         if (btnLimparSim) btnLimparSim.classList.toggle('hidden', carteiraExtraSimulada.length === 0);
 
@@ -5565,225 +5616,205 @@ setInterval(() => {
             ...carteiraExtraSimulada.map(s => ({ ...s, _origem: 'PLANILHA SIMULADA' }))
         ];
 
-        // PASSO CRÍTICO: Agrupa todos os blocos que pertencem ao mesmo ID Raiz + Projeto (Ex: todos os blocos de 500810546)
-        const gruposPorId = {};
-        unificados.forEach(item => {
-            const idRaiz = extrairIdRaizImovelForecast(item.imovel);
-            const projNorm = String(item.projeto || 'CONSTRUÇÃO ON GOING').toUpperCase().trim();
-            const chaveId = `${idRaiz}__${projNorm}`;
+        // Avalia cada registro individualmente com a nova regra estrita
+        const itensAvaliados = unificados.map(item => {
+            const desf = String(item.desfecho || 'PROGRAMADA').toUpperCase().trim();
+            const ehConc = ['CONCLUIDA', 'CONCLUÍDA'].includes(desf);
+            const ehAberta = ['PROGRAMADA', 'EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(desf) || item._origem === 'PLANILHA SIMULADA';
+            const ehMalogroOuPend = ['MALOGRADA', 'PENDENTE'].includes(desf);
 
-            if (!gruposPorId[chaveId]) {
-                gruposPorId[chaveId] = {
-                    idRaiz,
-                    projeto: projNorm,
-                    endereco: item.endereco || '',
-                    dataMaisRecente: item.dataRegistro || '',
-                    origem: item._origem,
-                    itens: []
-                };
-            }
-            if (item.dataRegistro && item.dataRegistro > gruposPorId[chaveId].dataMaisRecente) {
-                gruposPorId[chaveId].dataMaisRecente = item.dataRegistro;
-            }
-            if (!gruposPorId[chaveId].endereco && item.endereco) {
-                gruposPorId[chaveId].endereco = item.endereco;
-            }
-            gruposPorId[chaveId].itens.push(item);
+            const aval = calcularEstimativaProgramadaPorBloco(item);
+            return {
+                ...item,
+                _desfNorm: ehConc ? 'CONCLUIDA' : desf,
+                _ehConc: ehConc,
+                _ehAberta: ehAberta,
+                _ehMalogroOuPend: ehMalogroOuPend,
+                _valorPrevisto: aval.previsto,
+                _valorRealizado: aval.realizado,
+                _racional: aval.resumo,
+                _temValor: aval.previsto > 0 || aval.realizado > 0
+            };
         });
 
+        // Soma os KPIs globais (Ignorando totalmente Malogradas/Pendentes sem material)
         let somaForecastTotal = 0;
-        let somaEmAndamento = 0;
+        let somaAberta = 0;
         let somaRealizado = 0;
-        let qtdIdsUnicos = Object.keys(gruposPorId).length;
-        let qtdBlocosAndamento = 0;
-        let qtdBlocosConcluidos = 0;
+        let qtdAbertas = 0;
+        let qtdConcluidas = 0;
+
+        itensAvaliados.forEach(it => {
+            somaForecastTotal += it._valorPrevisto;
+            somaRealizado += it._valorRealizado;
+            if (it._ehAberta) {
+                somaAberta += it._valorPrevisto;
+                qtdAbertas++;
+            }
+            if (it._ehConc || (it._ehMalogroOuPend && it._valorRealizado > 0)) {
+                qtdConcluidas++;
+            }
+        });
+
+        // Filtra os itens para exibição na tabela conforme o seletor
+        const itensParaTabela = itensAvaliados.filter(it => {
+            if (filtroStatus === 'VALIDAS') {
+                // Oculta malogradas/pendentes que não tiveram nenhum material ou fusão lançada
+                if (it._ehMalogroOuPend && it._valorRealizado === 0) return false;
+                return true;
+            }
+            if (filtroStatus === 'CONCLUIDA') return it._ehConc || it._valorRealizado > 0;
+            if (filtroStatus === 'ABERTAS') return it._ehAberta;
+            return true; // 'TODOS'
+        });
 
         const fmtMoeda = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         corpo.innerHTML = "";
-        let linhasRenderizadas = 0;
 
-        Object.values(gruposPorId).forEach((grupo, idxGrupo) => {
-            // Calcula 1 ÚNICO Forecast para o ID inteiro
-            const infoForecastId = calcularForecastUnicoDoGrupoId(grupo);
-            const qtdBlocosGrupo = grupo.itens.length;
-
-            // Soma o Realizado de todos os blocos daquele ID
-            let realizadoSomaGrupo = 0;
-            let temAndamentoNoGrupo = false;
-            let temConcluidaNoGrupo = false;
-            let temPerdaNoGrupo = false;
-            let temProgramadaNoGrupo = false;
-
-            grupo.itens.forEach(blocoItem => {
-                const desf = String(blocoItem.desfecho || 'PROGRAMADA').toUpperCase().trim();
-                const ehConc = ['CONCLUIDA', 'CONCLUÍDA'].includes(desf);
-                const ehAnd = ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(desf);
-                const ehProg = desf === 'PROGRAMADA' || blocoItem._origem === 'PLANILHA SIMULADA';
-
-                const realBloco = calcularValorRealizadoRegistro(blocoItem).total;
-                blocoItem._valorRealBloco = realBloco;
-
-                if (ehConc) {
-                    realizadoSomaGrupo += realBloco;
-                    qtdBlocosConcluidos++;
-                    temConcluidaNoGrupo = true;
-                } else if (ehAnd) {
-                    qtdBlocosAndamento++;
-                    temAndamentoNoGrupo = true;
-                } else if (ehProg) {
-                    temProgramadaNoGrupo = true;
-                } else {
-                    temPerdaNoGrupo = true;
+        if (modoExibicaoForecast === 'AGRUPADO_ID') {
+            const gruposPorId = {};
+            itensParaTabela.forEach(it => {
+                const idRaiz = extrairIdRaizImovelForecast(it.imovel);
+                const projNorm = String(it.projeto || 'CONSTRUÇÃO ON GOING').toUpperCase().trim();
+                const chave = `${idRaiz}__${projNorm}`;
+                if (!gruposPorId[chave]) {
+                    gruposPorId[chave] = {
+                        idRaiz,
+                        projeto: projNorm,
+                        endereco: it.endereco || '',
+                        dataMaisRecente: it.dataRegistro || '',
+                        itens: []
+                    };
                 }
+                if (it.dataRegistro && it.dataRegistro > gruposPorId[chave].dataMaisRecente) {
+                    gruposPorId[chave].dataMaisRecente = it.dataRegistro;
+                }
+                if (!gruposPorId[chave].endereco && it.endereco) gruposPorId[chave].endereco = it.endereco;
+                gruposPorId[chave].itens.push(it);
             });
 
-            // O Forecast do ID é contabilizado UMA ÚNICA VEZ no card de topo!
-            const valorForecastUnicoId = infoForecastId.totalId > 0 ? infoForecastId.totalId : realizadoSomaGrupo;
-            const forecastRateadoPorBloco = qtdBlocosGrupo > 0 ? (valorForecastUnicoId / qtdBlocosGrupo) : valorForecastUnicoId;
+            const listaGrupos = Object.values(gruposPorId);
+            setTxt('fc-badge-qtd-imoveis', `${listaGrupos.length} ID(s)`);
 
-            somaForecastTotal += valorForecastUnicoId;
-            somaRealizado += realizadoSomaGrupo;
-
-            if (temAndamentoNoGrupo) {
-                const qtdAndNesteGrupo = grupo.itens.filter(i => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(String(i.desfecho || '').toUpperCase())).length;
-                somaEmAndamento += (forecastRateadoPorBloco * qtdAndNesteGrupo);
-            }
-
-            // Aplica filtro da tabela
-            if (filtroStatus === 'PROGRAMADA' && !temProgramadaNoGrupo) return;
-            if (filtroStatus === 'ANDAMENTO' && !temAndamentoNoGrupo) return;
-            if (filtroStatus === 'CONCLUIDA' && !temConcluidaNoGrupo) return;
-            if (filtroStatus === 'PERDA' && !temPerdaNoGrupo) return;
-
-            if (modoExibicaoForecast === 'AGRUPADO_ID') {
-                linhasRenderizadas++;
-                const equipesUnicas = [...new Set(grupo.itens.map(i => i.equipe).filter(Boolean))];
-                const desfechosUnicos = [...new Set(grupo.itens.map(i => String(i.desfecho || '').toUpperCase().trim()))];
-                const statusGrupo = desfechosUnicos.length === 1 ? desfechosUnicos[0] : `${qtdBlocosGrupo} BLOCOS (${desfechosUnicos.join('/')})`;
-                const corDesf = typeof obterClasseCorDesfecho === 'function' ? obterClasseCorDesfecho(desfechosUnicos[0]) : 'bg-slate-200 text-slate-800';
-
-                const diffGrupo = realizadoSomaGrupo - valorForecastUnicoId;
-                let diffHtml = `<span class="text-slate-400 font-mono">Em aberto</span>`;
-                if (temConcluidaNoGrupo) {
-                    if (Math.abs(diffGrupo) <= 5) {
-                        diffHtml = `<span class="text-emerald-700 font-black">🎯 100% no Alvo</span>`;
-                    } else if (diffGrupo > 0) {
-                        diffHtml = `<span class="text-emerald-700 font-black">+ ${fmtMoeda(diffGrupo)} ▲</span>`;
-                    } else {
-                        diffHtml = `<span class="text-amber-700 font-bold">${fmtMoeda(diffGrupo)} ▼</span>`;
-                    }
-                }
-
-                const idSubTabela = `fc_sub_blocos_${idxGrupo}`;
-                const btnVerBlocos = qtdBlocosGrupo > 1
-                    ? `<button type="button" onclick="event.stopPropagation(); alternarDetalhesBlocosForecast('${idSubTabela}', this)" class="mt-1 bg-blue-900 hover:bg-blue-800 text-white font-bold text-[10px] px-2 py-0.5 rounded shadow-sm">📂 Ver ${qtdBlocosGrupo} Blocos Somados</button>`
-                    : '';
-
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-blue-50/50 border-b transition cursor-pointer";
-                tr.onclick = () => { if (grupo.itens[0]._origem === 'SISTEMA') abrirDetalhesAtividade(grupo.itens[0]); };
-                tr.innerHTML = `
-                    <td class="p-2.5"><span class="bg-slate-100 text-slate-700 font-mono px-1.5 py-0.5 rounded text-[10px]">${grupo.dataMaisRecente || '-'}</span></td>
-                    <td class="p-2.5">
-                        <div class="font-black text-blue-950 text-xs">🏢 ID: ${grupo.idRaiz} ${qtdBlocosGrupo > 1 ? `<span class="bg-blue-100 text-blue-900 px-1.5 py-0.2 rounded text-[10px]">(${qtdBlocosGrupo} Blocos)</span>` : ''}</div>
-                        <div class="text-[10px] text-slate-500 truncate max-w-[240px]">📍 ${grupo.endereco || 'Endereço na carga'}</div>
-                        ${btnVerBlocos}
-                    </td>
-                    <td class="p-2.5 font-bold text-slate-800">${equipesUnicas.join(', ')}</td>
-                    <td class="p-2.5">
-                        <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${grupo.projeto}</span>
-                        <div class="text-[10px] text-slate-500 mt-0.5 font-semibold">${infoForecastId.resumoId}</div>
-                    </td>
-                    <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${corDesf}">${statusGrupo}</span></td>
-                    <td class="p-2.5 text-right font-black text-slate-900 bg-slate-50 text-xs">${fmtMoeda(valorForecastUnicoId)}<div class="text-[9px] text-slate-400 font-normal">Total Único do ID</div></td>
-                    <td class="p-2.5 text-right font-black text-emerald-700 bg-emerald-50/70 text-xs">${fmtMoeda(realizadoSomaGrupo)}<div class="text-[9px] text-emerald-800 font-normal">Soma de ${qtdBlocosGrupo} bloco(s)</div></td>
-                    <td class="p-2.5 text-right whitespace-nowrap">${diffHtml}</td>
-                `;
-                corpo.appendChild(tr);
-
-                if (qtdBlocosGrupo > 1) {
-                    const trSub = document.createElement('tr');
-                    trSub.id = idSubTabela;
-                    trSub.className = "hidden bg-slate-100/90 border-b";
-                    const linhasInternas = grupo.itens.map(b => `
-                        <div class="bg-white p-2 rounded-lg border border-slate-200 flex justify-between items-center text-[11px]">
-                            <div>
-                                <span class="font-black text-slate-800">${b.imovel}</span>
-                                <span class="text-slate-500 ml-2">👷 ${b.equipe} (${b.dataRegistro})</span>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <span class="text-slate-500">Rateio Previsto: <b>${fmtMoeda(forecastRateadoPorBloco)}</b></span>
-                                <span class="font-black text-emerald-700">Realizado Bloco: ${fmtMoeda(b._valorRealBloco)}</span>
-                            </div>
-                        </div>
-                    `).join('');
-                    trSub.innerHTML = `<td colspan="8" class="p-3 pl-6"><div class="space-y-1.5"><div class="text-[10px] font-black text-blue-950 uppercase">📦 Decomposição dos ${qtdBlocosGrupo} Blocos do ID ${grupo.idRaiz} (Soma Realizada = ${fmtMoeda(realizadoSomaGrupo)}):</div>${linhasInternas}</div></td>`;
-                    corpo.appendChild(trSub);
-                }
+            if (listaGrupos.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhuma atividade válida no filtro atual.</td></tr>`;
             } else {
-                // MODO RATEADO POR BLOCO: Divide o Forecast do ID proporcionalmente entre os blocos daquele ID
-                grupo.itens.forEach(item => {
-                    linhasRenderizadas++;
-                    const desf = String(item.desfecho || 'PROGRAMADA').toUpperCase().trim();
-                    const ehConcluida = ['CONCLUIDA', 'CONCLUÍDA'].includes(desf);
-                    const valorRealBloco = ehConcluida ? item._valorRealBloco : 0;
-                    const diffBloco = valorRealBloco - forecastRateadoPorBloco;
-                    const corDesf = typeof obterClasseCorDesfecho === 'function' ? obterClasseCorDesfecho(desf) : 'bg-slate-200 text-slate-800';
+                listaGrupos.forEach((grp, idxG) => {
+                    const qtdBl = grp.itens.length;
+                    const somaPrevGrp = grp.itens.reduce((acc, i) => acc + i._valorPrevisto, 0);
+                    const somaRealGrp = grp.itens.reduce((acc, i) => acc + i._valorRealizado, 0);
+                    const equipesUnicas = [...new Set(grp.itens.map(i => i.equipe).filter(Boolean))];
+                    const statusUnicos = [...new Set(grp.itens.map(i => i._desfNorm))];
+                    const statusLabel = statusUnicos.length === 1 ? statusUnicos[0] : `${qtdBl} BLOCOS (${statusUnicos.join('/')})`;
+                    const corDesf = typeof obterClasseCorDesfecho === 'function' ? obterClasseCorDesfecho(statusUnicos[0]) : 'bg-slate-200 text-slate-800';
 
-                    let diffHtml = `<span class="text-slate-400 font-mono">Aguardando</span>`;
-                    if (ehConcluida) {
-                        if (Math.abs(diffBloco) <= 5) diffHtml = `<span class="text-emerald-700 font-black">🎯 No Alvo</span>`;
-                        else if (diffBloco > 0) diffHtml = `<span class="text-emerald-700 font-black">+ ${fmtMoeda(diffBloco)} ▲</span>`;
-                        else diffHtml = `<span class="text-amber-700 font-bold">${fmtMoeda(diffBloco)} ▼</span>`;
+                    let sitHtml = `<span class="text-slate-500 font-bold">⚪ Sem consumo (R$ 0,00)</span>`;
+                    if (somaRealGrp > 0) {
+                        sitHtml = `<span class="text-emerald-700 font-black">✅ Faturado (${fmtMoeda(somaRealGrp)})</span>`;
+                    } else if (somaPrevGrp > 0) {
+                        sitHtml = `<span class="text-blue-700 font-bold">⏳ A Realizar (${fmtMoeda(somaPrevGrp)})</span>`;
                     }
+
+                    const idSub = `fc_grp_sub_${idxG}`;
+                    const btnExpandir = qtdBl > 1
+                        ? `<button type="button" onclick="event.stopPropagation(); alternarDetalhesBlocosForecast('${idSub}')" class="mt-1 bg-blue-900 hover:bg-blue-800 text-white font-bold text-[10px] px-2 py-0.5 rounded">📂 Ver ${qtdBl} Fichas/Blocos</button>`
+                        : '';
+
+                    const resumoRacional = qtdBl === 1
+                        ? grp.itens[0]._racional
+                        : `${qtdBl} blocos válidos somados`;
+
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-blue-50/50 border-b transition cursor-pointer";
+                    tr.onclick = () => { if (grp.itens[0]._origem === 'SISTEMA') abrirDetalhesAtividade(grp.itens[0]); };
+                    tr.innerHTML = `
+                        <td class="p-2.5"><span class="bg-slate-100 text-slate-700 font-mono px-1.5 py-0.5 rounded text-[10px]">${grp.dataMaisRecente || '-'}</span></td>
+                        <td class="p-2.5">
+                            <div class="font-black text-blue-950 text-xs">🏢 ID: ${grp.idRaiz} ${qtdBl > 1 ? `<span class="bg-blue-100 text-blue-900 px-1.5 py-0.2 rounded text-[10px]">(${qtdBl} Blocos)</span>` : ''}</div>
+                            <div class="text-[10px] text-slate-500 truncate max-w-[240px]">📍 ${grp.endereco || '-'}</div>
+                            ${btnExpandir}
+                        </td>
+                        <td class="p-2.5 font-bold text-slate-800">${equipesUnicas.join(', ')}</td>
+                        <td class="p-2.5">
+                            <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${grp.projeto}</span>
+                            <div class="text-[10px] text-slate-600 mt-0.5 font-semibold">${resumoRacional}</div>
+                        </td>
+                        <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${corDesf}">${statusLabel}</span></td>
+                        <td class="p-2.5 text-right font-black text-slate-900 bg-slate-50 text-xs">${fmtMoeda(somaPrevGrp)}</td>
+                        <td class="p-2.5 text-right font-black text-emerald-700 bg-emerald-50/70 text-xs">${fmtMoeda(somaRealGrp)}</td>
+                        <td class="p-2.5 text-right whitespace-nowrap">${sitHtml}</td>
+                    `;
+                    corpo.appendChild(tr);
+
+                    if (qtdBl > 1) {
+                        const trSub = document.createElement('tr');
+                        trSub.id = idSub;
+                        trSub.className = "hidden bg-slate-100/90 border-b";
+                        const cardsSub = grp.itens.map(b => `
+                            <div class="bg-white p-2 rounded-lg border border-slate-200 flex justify-between items-center text-[11px]">
+                                <div>
+                                    <span class="font-black text-slate-800">${b.imovel}</span>
+                                    <span class="ml-2 px-1.5 py-0.2 rounded text-[9px] font-bold ${typeof obterClasseCorDesfecho === 'function' ? obterClasseCorDesfecho(b._desfNorm) : ''}">${b._desfNorm}</span>
+                                    <span class="text-slate-500 ml-2">👷 ${b.equipe} • ${b._racional}</span>
+                                </div>
+                                <div class="font-black text-emerald-700">${fmtMoeda(b._valorRealizado)}</div>
+                            </div>
+                        `).join('');
+                        trSub.innerHTML = `<td colspan="8" class="p-3 pl-6"><div class="space-y-1.5">${cardsSub}</div></td>`;
+                        corpo.appendChild(trSub);
+                    }
+                });
+            }
+        } else {
+            // MODO BLOCO A BLOCO INDIVIDUAL
+            setTxt('fc-badge-qtd-imoveis', `${itensParaTabela.length} reg.`);
+            if (itensParaTabela.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhuma atividade válida no filtro atual.</td></tr>`;
+            } else {
+                itensParaTabela.forEach(it => {
+                    const corDesf = typeof obterClasseCorDesfecho === 'function' ? obterClasseCorDesfecho(it._desfNorm) : 'bg-slate-200 text-slate-800';
+                    let sitHtml = `<span class="text-slate-400 font-bold">⚪ Sem valor (R$ 0,00)</span>`;
+                    if (it._valorRealizado > 0) sitHtml = `<span class="text-emerald-700 font-black">✅ Faturado (${fmtMoeda(it._valorRealizado)})</span>`;
+                    else if (it._valorPrevisto > 0) sitHtml = `<span class="text-blue-700 font-bold">⏳ Previsto (${fmtMoeda(it._valorPrevisto)})</span>`;
 
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-blue-50/40 border-b transition cursor-pointer";
-                    if (item._origem === 'SISTEMA') tr.onclick = () => abrirDetalhesAtividade(item);
+                    if (it._origem === 'SISTEMA') tr.onclick = () => abrirDetalhesAtividade(it);
                     tr.innerHTML = `
-                        <td class="p-2.5"><span class="bg-slate-100 text-slate-600 font-mono px-1.5 py-0.5 rounded text-[9px]">${item.dataRegistro || '-'}</span></td>
+                        <td class="p-2.5"><span class="bg-slate-100 text-slate-600 font-mono px-1.5 py-0.5 rounded text-[9px]">${it.dataRegistro || '-'}</span></td>
                         <td class="p-2.5">
-                            <div class="font-black text-slate-800">${item.imovel || '-'}</div>
-                            <div class="text-[10px] text-slate-500 truncate max-w-[220px]">📍 ${item.endereco || grupo.endereco || '-'}</div>
+                            <div class="font-black text-slate-800">${it.imovel || '-'}</div>
+                            <div class="text-[10px] text-slate-500 truncate max-w-[220px]">📍 ${it.endereco || '-'}</div>
                         </td>
-                        <td class="p-2.5 font-bold text-blue-950">${item.equipe || '-'}</td>
+                        <td class="p-2.5 font-bold text-blue-950">${it.equipe || '-'}</td>
                         <td class="p-2.5">
-                            <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span>
-                            <div class="text-[10px] text-slate-500 mt-0.5 font-semibold">Fração 1/${qtdBlocosGrupo} do ID ${grupo.idRaiz}</div>
+                            <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${it.projeto}</span>
+                            <div class="text-[10px] text-slate-600 mt-0.5 font-semibold">${it._racional}</div>
                         </td>
-                        <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${corDesf}">${desf}</span></td>
-                        <td class="p-2.5 text-right font-black text-slate-800 bg-slate-50">${fmtMoeda(forecastRateadoPorBloco)}<div class="text-[9px] text-slate-400 font-normal">Rateado (${fmtMoeda(valorForecastUnicoId)} ÷ ${qtdBlocosGrupo})</div></td>
-                        <td class="p-2.5 text-right font-black ${ehConcluida ? 'text-emerald-700 bg-emerald-50/60' : 'text-slate-400'}">${fmtMoeda(valorRealBloco)}</td>
-                        <td class="p-2.5 text-right whitespace-nowrap">${diffHtml}</td>
+                        <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${corDesf}">${it._desfNorm}</span></td>
+                        <td class="p-2.5 text-right font-black text-slate-800 bg-slate-50">${fmtMoeda(it._valorPrevisto)}</td>
+                        <td class="p-2.5 text-right font-black text-emerald-700 bg-emerald-50/60">${fmtMoeda(it._valorRealizado)}</td>
+                        <td class="p-2.5 text-right whitespace-nowrap">${sitHtml}</td>
                     `;
                     corpo.appendChild(tr);
                 });
             }
-        });
+        }
 
         const percAtingimento = somaForecastTotal > 0 ? Math.min(100, (somaRealizado / somaForecastTotal) * 100) : 0;
         const gapRestante = Math.max(0, somaForecastTotal - somaRealizado);
 
-        const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-        setTxt('fc-badge-qtd-imoveis', `${qtdIdsUnicos} ID(s)`);
+        function setTxt(id, v) { const el = document.getElementById(id); if (el) el.innerText = v; }
         setTxt('fc-card-valor-previsto', fmtMoeda(somaForecastTotal));
-        setTxt('fc-card-sub-previsto', `Consolidado sobre ${qtdIdsUnicos} condomínio(s)/ID(s) únicos`);
-
-        setTxt('fc-badge-qtd-andamento', `${qtdBlocosAndamento} ativas`);
-        setTxt('fc-card-valor-andamento', fmtMoeda(somaEmAndamento));
-
-        setTxt('fc-badge-qtd-concluidas', `${qtdBlocosConcluidos} bl. concl.`);
+        setTxt('fc-badge-qtd-andamento', `${qtdAbertas} abertas`);
+        setTxt('fc-card-valor-andamento', fmtMoeda(somaAberta));
+        setTxt('fc-badge-qtd-concluidas', `${qtdConcluidas} faturadas`);
         setTxt('fc-card-valor-realizado', fmtMoeda(somaRealizado));
-
         setTxt('fc-badge-perc-atingimento', `${percAtingimento.toFixed(1)}%`);
-        setTxt('fc-card-valor-gap', `Faltam ${fmtMoeda(gapRestante)}`);
+        setTxt('fc-card-valor-gap', `Em aberto: ${fmtMoeda(gapRestante)}`);
 
         const barraProg = document.getElementById('fc-barra-progresso');
         if (barraProg) barraProg.style.width = `${percAtingimento.toFixed(1)}%`;
-
-        if (linhasRenderizadas === 0) {
-            corpo.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhum imóvel encontrado para o filtro de Forecast selecionado.</td></tr>`;
-        }
     };
 
     window.abrirModalImportarForecastPlanilha = function() {
@@ -5806,24 +5837,18 @@ setInterval(() => {
                 </div>
                 <div class="p-4 overflow-y-auto space-y-3 text-xs text-slate-700">
                     <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl space-y-1.5">
-                        <div class="font-black text-emerald-950">💡 Como funciona a importação de Forecast:</div>
-                        <p class="text-[11px] text-emerald-900">
-                            Cole abaixo as linhas da sua planilha (ou carregue um arquivo <b>.CSV</b>). Você pode optar por <b>Apenas Simular o Forecast</b> no painel financeiro ou <b>Publicar como Carga Programada</b> para que os técnicos já iniciem em campo!
-                        </p>
+                        <div class="font-black text-emerald-950">💡 Formato da Planilha:</div>
                         <p class="text-[10px] font-mono bg-white p-2 rounded border border-emerald-200 text-slate-700">
-                            Formato aceito:<br>
                             <b>IMOVEL ; ENDERECO ; PROJETO ; TECNICO ; QTD_BLOCOS ; ANDARES ; HPS</b>
                         </p>
                     </div>
-
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Carregar arquivo .CSV / .TXT (Opcional):</label>
                         <input type="file" accept=".csv,.txt" onchange="carregarArquivoCsvForecastMdu(this)" class="w-full text-xs border border-slate-300 rounded-lg p-2 bg-slate-50">
                     </div>
-
                     <div>
                         <label class="block font-bold text-slate-700 mb-1">Ou cole diretamente as células copiadas do Excel:</label>
-                        <textarea id="txt-import-forecast-mdu" rows="6" class="w-full font-mono text-[11px] border border-slate-300 rounded-xl p-2.5 outline-none" placeholder="848465405;Rua Conde de Bonfim 450 - TIJUCA;CONSTRUÇÃO ON GOING;ANDREO FAGUNDES;2;10;40&#10;848473602;Av Copacabana 800 - COPACABANA;CONSTRUÇÃO F;BRUNO SOARES DA SILVA;1;12;60"></textarea>
+                        <textarea id="txt-import-forecast-mdu" rows="6" class="w-full font-mono text-[11px] border border-slate-300 rounded-xl p-2.5 outline-none"></textarea>
                     </div>
                 </div>
                 <div class="bg-slate-100 p-3 border-t flex flex-wrap justify-between items-center gap-2">
@@ -5833,7 +5858,7 @@ setInterval(() => {
                             📊 Apenas Simular no Forecast
                         </button>
                         <button type="button" onclick="processarLinhasForecastMdu('publicar_campo')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-4 py-2 rounded-xl font-black shadow">
-                            🚀 Publicar Carga p/ Campo + Forecast Real-Time
+                            🚀 Publicar Carga p/ Campo + Forecast
                         </button>
                     </div>
                 </div>
@@ -5855,10 +5880,7 @@ setInterval(() => {
 
     window.processarLinhasForecastMdu = async function(modo) {
         const texto = document.getElementById('txt-import-forecast-mdu')?.value.trim() || '';
-        if (!texto) {
-            alert("⚠️ Cole ao menos uma linha da planilha.");
-            return;
-        }
+        if (!texto) { alert("⚠️ Cole ao menos uma linha da planilha."); return; }
 
         if (modo === 'publicar_campo') {
             const txtPlanilhaPadrao = document.getElementById('txt-linhas-planilha');
@@ -5903,7 +5925,7 @@ setInterval(() => {
     };
 
     window.limparSimulacaoExtraForecast = function() {
-        if (!confirm("Deseja remover os itens de simulação extra da planilha? (Os registros reais do banco não serão afetados)")) return;
+        if (!confirm("Deseja remover os itens de simulação extra da planilha?")) return;
         carteiraExtraSimulada = [];
         localStorage.removeItem('gpd_carteira_forecast_extra');
         atualizarPainelForecastMdu();
@@ -5921,12 +5943,12 @@ setInterval(() => {
         modal.innerHTML = `
             <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
                 <div class="bg-blue-950 text-white p-4 flex justify-between items-center border-b-4 border-cyan-400">
-                    <h3 class="font-bold text-sm">⚙️ Parâmetros Técnicos de Conversão de Forecast MDU</h3>
+                    <h3 class="font-bold text-sm">⚙️ Parâmetros para Atividades Programadas</h3>
                     <button type="button" onclick="document.getElementById('modal-parametros-forecast-lpu').classList.add('hidden')" class="text-white font-bold text-lg">✕</button>
                 </div>
                 <div class="p-4 space-y-3 text-xs text-slate-700">
                     <p class="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border">
-                        Estes multiplicadores estimam automaticamente o consumo de Cabo RL, Caixas NAP, DIO e Fusões de cada ID de imóvel a partir de Andares e HPs:
+                        Usado apenas quando a atividade ainda está <b>Programada / Em Andamento</b> (atividades Concluídas usam o material real lançado e Malogradas s/ material valem R$ 0,00):
                     </p>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
@@ -5934,20 +5956,16 @@ setInterval(() => {
                             <input type="number" step="0.5" id="inp-fc-rl-andar" value="${parametrosEstimativaMdu.metrosRlPorAndar}" class="w-full border rounded-lg p-2 font-bold">
                         </div>
                         <div>
-                            <label class="block font-bold mb-1">Cabo RL Base do ID (m):</label>
+                            <label class="block font-bold mb-1">Cabo RL Base (m):</label>
                             <input type="number" step="1" id="inp-fc-rl-bloco" value="${parametrosEstimativaMdu.metrosRlBasePorBloco}" class="w-full border rounded-lg p-2 font-bold">
                         </div>
                         <div>
-                            <label class="block font-bold mb-1">Qtd. HPs por Caixa NAP:</label>
-                            <input type="number" step="1" id="inp-fc-hps-nap" value="${parametrosEstimativaMdu.hpsPorNap}" class="w-full border rounded-lg p-2 font-bold">
+                            <label class="block font-bold mb-1">1 Caixa NAP a cada X Andares:</label>
+                            <input type="number" step="1" id="inp-fc-and-nap" value="${parametrosEstimativaMdu.andaresPorNap || 3}" class="w-full border rounded-lg p-2 font-bold">
                         </div>
                         <div>
                             <label class="block font-bold mb-1">Fusões por Caixa NAP:</label>
                             <input type="number" step="1" id="inp-fc-fus-nap" value="${parametrosEstimativaMdu.fusoesPorNap}" class="w-full border rounded-lg p-2 font-bold">
-                        </div>
-                        <div>
-                            <label class="block font-bold mb-1">Fusões por DIO:</label>
-                            <input type="number" step="1" id="inp-fc-fus-dio" value="${parametrosEstimativaMdu.fusoesPorDio}" class="w-full border rounded-lg p-2 font-bold">
                         </div>
                         <div>
                             <label class="block font-bold mb-1">Conectores por NAP:</label>
@@ -5966,13 +5984,13 @@ setInterval(() => {
 
     window.salvarParametrosForecastLpu = function() {
         parametrosEstimativaMdu = {
-            metrosRlPorAndar: Math.max(1, Number(document.getElementById('inp-fc-rl-andar')?.value) || 4.5),
-            metrosRlBasePorBloco: Math.max(0, Number(document.getElementById('inp-fc-rl-bloco')?.value) || 25),
-            hpsPorNap: Math.max(1, Number(document.getElementById('inp-fc-hps-nap')?.value) || 8),
+            metrosRlPorAndar: Math.max(1, Number(document.getElementById('inp-fc-rl-andar')?.value) || 4.0),
+            metrosRlBasePorBloco: Math.max(0, Number(document.getElementById('inp-fc-rl-bloco')?.value) || 15),
+            andaresPorNap: Math.max(1, Number(document.getElementById('inp-fc-and-nap')?.value) || 3),
             fusoesPorNap: Math.max(1, Number(document.getElementById('inp-fc-fus-nap')?.value) || 2),
-            fusoesPorDio: Math.max(1, Number(document.getElementById('inp-fc-fus-dio')?.value) || 12),
-            conectoresPorNap: Math.max(0, Number(document.getElementById('inp-fc-con-nap')?.value) || 8),
-            metrosDropPorAtivacao: 35
+            fusoesPorDio: 6,
+            conectoresPorNap: Math.max(0, Number(document.getElementById('inp-fc-con-nap')?.value) || 4),
+            metrosDropPorAtivacao: 30
         };
         localStorage.setItem('gpd_param_forecast_mdu', JSON.stringify(parametrosEstimativaMdu));
         document.getElementById('modal-parametros-forecast-lpu')?.classList.add('hidden');
@@ -5988,17 +6006,17 @@ setInterval(() => {
         const html = `
             <table border="1">
                 <tr style="background:#0f172a;color:#fff;font-weight:bold;font-size:13px;">
-                    <th colspan="8">RELATÓRIO EXECUTIVO DE FORECAST MDU (CARTEIRA PREVISTA POR ID x REALIZADO EM CAMPO) - ${obterDataLocalISO()}</th>
+                    <th colspan="8">RELATÓRIO EXECUTIVO DE FORECAST MDU (MALOGRADAS S/ CONSUMO ZERADAS) - ${obterDataLocalISO()}</th>
                 </tr>
                 <tr style="background:#cbd5e1;font-weight:bold;">
                     <th>DATA / ORIGEM</th>
-                    <th>IMÓVEL / BLOCO</th>
+                    <th>ID IMÓVEL / BLOCO</th>
                     <th>TÉCNICO / EQUIPE</th>
-                    <th>PROJETO E ESTRUTURA</th>
+                    <th>PROJETO E RACIONAL</th>
                     <th>STATUS ATUAL</th>
                     <th>FORECAST PREVISTO (R$)</th>
                     <th>REALIZADO CAMPO (R$)</th>
-                    <th>DIFERENÇA / DESVIO</th>
+                    <th>SITUAÇÃO FINANCEIRA</th>
                 </tr>
                 ${tabela.innerHTML}
             </table>
