@@ -5246,7 +5246,7 @@ setInterval(() => {
     }
 }, 450);
 
-// ================= MÓDULO FORECAST MDU COMPLETO (PLANILHA + TEMPO REAL LPU COM BLOCOS CORRIGIDOS) =================
+// ================= MÓDULO FORECAST MDU COMPLETO (AGRUPAMENTO E RATEIO POR ID SEM DUPLICAR BLOCOS) =================
 (function() {
     const LPU_PADRAO_FORECAST = {
         VISTORIA:    { codigo: "VIST-01", desc: "Vistoria Técnica MDU", unidade: "UN", valor: 167.52 },
@@ -5272,6 +5272,14 @@ setInterval(() => {
     };
 
     let carteiraExtraSimulada = JSON.parse(localStorage.getItem('gpd_carteira_forecast_extra') || '[]');
+    let modoExibicaoForecast = localStorage.getItem('gpd_modo_exib_forecast') || 'AGRUPADO_ID'; // 'AGRUPADO_ID' ou 'RATEADO_BLOCO'
+
+    function extrairIdRaizImovelForecast(strImovel) {
+        let s = String(strImovel || '').toUpperCase().trim();
+        // Remove sufixos como " - BLOCO X", " BLOCO X", " - BL X" para encontrar o ID único do condomínio
+        s = s.replace(/\s*-\s*BLOCO.*$/i, '').replace(/\s+BLOCO.*$/i, '').replace(/\s*-\s*BL\s*\d+.*$/i, '').trim();
+        return s || 'SEM_ID';
+    }
 
     function obterPrecoUnitarioLpu(chaveInterna, chaveTabelaGlobal) {
         if (typeof TABELA_PRECOS !== 'undefined' && TABELA_PRECOS[chaveTabelaGlobal] && Number(TABELA_PRECOS[chaveTabelaGlobal].valor) > 0) {
@@ -5282,8 +5290,9 @@ setInterval(() => {
         return LPU_PADRAO_FORECAST[chaveInterna]?.valor || 0;
     }
 
+    // Calcula o valor REALIZADO de uma linha individual (baseado nos materiais reais daquele bloco)
     function calcularValorRealizadoRegistro(reg) {
-        if (!reg) return { total: 0, itens: {} };
+        if (!reg) return { total: 0, detalhe: {} };
         const proj = String(reg.projeto || '').toUpperCase();
         const ehVistoria = proj.includes('VISTORIA');
 
@@ -5316,47 +5325,58 @@ setInterval(() => {
         };
     }
 
-    // Calcula o Forecast com trava anti-duplicação quando o imóvel já está desmembrado em "- BLOCO X"
-    function calcularValorForecastEstrutural(item) {
-        const proj = String(item.projeto || 'CONSTRUÇÃO ON GOING').toUpperCase();
-        const andares = Math.max(0, Number(item.andares) || 0);
-        const hps = Math.max(0, Number(item.hps) || 0);
+    // Calcula o Forecast Único do Condomínio/ID (para não multiplicar o valor cheio por cada bloco lançado)
+    function calcularForecastUnicoDoGrupoId(grupo) {
+        const primeiro = grupo.itens[0];
+        const proj = String(primeiro.projeto || 'CONSTRUÇÃO ON GOING').toUpperCase();
+        const qtdBlocosReaisNoGrupo = grupo.itens.length;
 
-        let blocos = 1;
-        if (String(item.imovel).toUpperCase().includes('- BLOCO')) {
-            blocos = 1;
-        } else {
-            blocos = Math.max(1, Number(item.qtdBlocosProgramados) || Number(item.blocos) || 1);
-        }
+        // Se for apenas 1 linha programada que ainda não foi desmembrada, respeita qtdBlocosProgramados
+        const qtdBlocosConsiderada = qtdBlocosReaisNoGrupo > 1
+            ? qtdBlocosReaisNoGrupo
+            : Math.max(1, Number(primeiro.qtdBlocosProgramados) || Number(primeiro.blocos) || 1);
+
+        // Andares e HPs de referência do ID (evita somar HPs repetidos se o técnico manteve 20 HPs do prédio em cada bloco)
+        const todosAndaresIguais = grupo.itens.every(i => Number(i.andares) === Number(primeiro.andares));
+        const todosHpsIguais = grupo.itens.every(i => Number(i.hps) === Number(primeiro.hps));
+
+        const andaresBase = Number(primeiro.andares) || 5;
+        const hpsBase = Number(primeiro.hps) || 20;
+
+        const andaresTotaisId = (!todosAndaresIguais && qtdBlocosReaisNoGrupo > 1)
+            ? grupo.itens.reduce((acc, i) => acc + (Number(i.andares) || 0), 0)
+            : andaresBase;
+
+        const hpsTotaisId = (!todosHpsIguais && qtdBlocosReaisNoGrupo > 1)
+            ? grupo.itens.reduce((acc, i) => acc + (Number(i.hps) || 0), 0)
+            : hpsBase;
 
         if (proj.includes('VISTORIA')) {
-            const totalVist = blocos * obterPrecoUnitarioLpu('VISTORIA', 'VISTORIA');
+            const totalVist = obterPrecoUnitarioLpu('VISTORIA', 'VISTORIA');
             return {
-                total: totalVist,
-                resumo: `${blocos} Vistoria(s)`
+                totalId: totalVist,
+                qtdBlocos: qtdBlocosConsiderada,
+                resumoId: `${qtdBlocosConsiderada} Bl | Vistoria MDU`
             };
         }
-
-        const real = calcularValorRealizadoRegistro(item);
-        const andaresRef = andares > 0 ? andares : (hps > 0 ? Math.max(1, Math.ceil(hps / 4)) : 5);
-        const hpsRef = hps > 0 ? hps : (andaresRef * 4);
 
         let estRL = 0, estDrop = 0, estNap = 0, estDio = 0, estFus = 0, estCon = 0, estCx = 0;
 
         if (proj.includes('ATIVAÇÃO') || proj.includes('ATIVACAO')) {
-            estDrop = blocos * parametrosEstimativaMdu.metrosDropPorAtivacao;
-            estCon = blocos * 4;
-            estFus = blocos * 4;
+            estDrop = parametrosEstimativaMdu.metrosDropPorAtivacao;
+            estCon = 4;
+            estFus = 4;
         } else {
-            estRL = (blocos * parametrosEstimativaMdu.metrosRlBasePorBloco) + (andaresRef * parametrosEstimativaMdu.metrosRlPorAndar);
-            estNap = Math.max(blocos, Math.ceil(hpsRef / parametrosEstimativaMdu.hpsPorNap));
-            estDio = blocos;
+            // Fórmula estrutural única do ID (Condomínio)
+            estRL = parametrosEstimativaMdu.metrosRlBasePorBloco + (andaresTotaisId * parametrosEstimativaMdu.metrosRlPorAndar);
+            estNap = Math.max(1, Math.ceil(hpsTotaisId / parametrosEstimativaMdu.hpsPorNap));
+            estDio = 1;
             estFus = (estNap * parametrosEstimativaMdu.fusoesPorNap) + (estDio * parametrosEstimativaMdu.fusoesPorDio);
             estCon = estNap * parametrosEstimativaMdu.conectoresPorNap;
-            estCx = Math.ceil(andaresRef / 2);
+            estCx = Math.ceil(andaresTotaisId / 2);
         }
 
-        const totalEst =
+        const totalEstId =
             (estRL * obterPrecoUnitarioLpu('CABO_RL', 'CABO RL')) +
             (estDrop * obterPrecoUnitarioLpu('CABO_DROP', 'CABO DROP')) +
             (estCon * obterPrecoUnitarioLpu('CONECTORES', 'CONECTORES')) +
@@ -5366,10 +5386,23 @@ setInterval(() => {
             (estCx * obterPrecoUnitarioLpu('CX_SOBREPOR', 'CX SOBREPOR'));
 
         return {
-            total: totalEst > 0 ? totalEst : real.total,
-            resumo: `${blocos} Bl | ${andaresRef} And | ${hpsRef} HPs (Est: ${Math.round(estRL)}m RL, ${estNap} NAP, ${estFus} Fus)`
+            totalId: totalEstId,
+            qtdBlocos: qtdBlocosConsiderada,
+            resumoId: `${qtdBlocosConsiderada} Bl | ${andaresTotaisId} And | ${hpsTotaisId} HPs (Est ID: ${Math.round(estRL)}m RL, ${estNap} NAP, ${estFus} Fus)`
         };
     }
+
+    window.alternarModoExibicaoForecast = function(novoModo) {
+        modoExibicaoForecast = novoModo;
+        localStorage.setItem('gpd_modo_exib_forecast', novoModo);
+        window.atualizarPainelForecastMdu();
+    };
+
+    window.alternarDetalhesBlocosForecast = function(idLinhaSecundaria, btnEl) {
+        const tr = document.getElementById(idLinhaSecundaria);
+        if (!tr) return;
+        tr.classList.toggle('hidden');
+    };
 
     function injetarPainelForecastNoFinanceiro() {
         const viewFin = document.getElementById('subview-financeiro');
@@ -5384,11 +5417,11 @@ setInterval(() => {
                 <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
                     <div>
                         <div class="flex items-center gap-2">
-                            <span class="bg-emerald-400 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded uppercase tracking-wider">Tempo Real + Planilha</span>
-                            <span class="text-xs text-cyan-300 font-mono">Sincronizado com LPU & Campo</span>
+                            <span class="bg-emerald-400 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded uppercase tracking-wider">Cálculo Unificado por ID</span>
+                            <span class="text-xs text-cyan-300 font-mono">Sem duplicação entre blocos</span>
                         </div>
-                        <h3 class="text-base sm:text-lg font-black mt-1">📈 Forecast MDU — Previsão de Receita (Carteira) vs. Produção Realizada</h3>
-                        <p class="text-[11px] text-slate-300">Cruza automaticamente as atividades Programadas/Importadas, obras Em Andamento no campo e entregas Concluídas por bloco.</p>
+                        <h3 class="text-base sm:text-lg font-black mt-1">📈 Forecast MDU — Previsão Consolidada por ID vs. Produção Realizada dos Blocos</h3>
+                        <p class="text-[11px] text-slate-300">O Forecast é calculado uma única vez por ID de Imóvel (ou rateado proporcionalmente por bloco) e comparado com a soma real executada em todos os blocos.</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <button type="button" onclick="abrirModalImportarForecastPlanilha()" class="bg-purple-600 hover:bg-purple-500 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow flex items-center gap-1.5 transition">
@@ -5406,11 +5439,11 @@ setInterval(() => {
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
                     <div class="bg-slate-800/90 border border-slate-700 p-3.5 rounded-xl flex flex-col justify-between">
                         <div class="flex justify-between items-start">
-                            <span class="text-[10px] font-black text-cyan-300 uppercase">1. Forecast Total (Carteira + Campo)</span>
-                            <span class="text-xs bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded font-bold" id="fc-badge-qtd-imoveis">0 reg.</span>
+                            <span class="text-[10px] font-black text-cyan-300 uppercase">1. Forecast Total (Por ID Único)</span>
+                            <span class="text-xs bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded font-bold" id="fc-badge-qtd-imoveis">0 IDs</span>
                         </div>
                         <div class="text-xl sm:text-2xl font-black text-white mt-1.5" id="fc-card-valor-previsto">R$ 0,00</div>
-                        <div class="text-[10px] text-slate-400 mt-1" id="fc-card-sub-previsto">Baseado na carteira do período + planilha</div>
+                        <div class="text-[10px] text-slate-400 mt-1" id="fc-card-sub-previsto">Sem duplicar blocos do mesmo condomínio</div>
                     </div>
 
                     <div class="bg-blue-950/90 border border-blue-700 p-3.5 rounded-xl flex flex-col justify-between">
@@ -5424,11 +5457,11 @@ setInterval(() => {
 
                     <div class="bg-emerald-950/90 border border-emerald-700 p-3.5 rounded-xl flex flex-col justify-between">
                         <div class="flex justify-between items-start">
-                            <span class="text-[10px] font-black text-emerald-300 uppercase">3. Realizado Consolidado</span>
+                            <span class="text-[10px] font-black text-emerald-300 uppercase">3. Realizado Consolidado (Soma Blocos)</span>
                             <span class="text-xs bg-emerald-900 text-emerald-200 px-2 py-0.5 rounded font-bold" id="fc-badge-qtd-concluidas">0 concl.</span>
                         </div>
                         <div class="text-xl sm:text-2xl font-black text-emerald-400 mt-1.5" id="fc-card-valor-realizado">R$ 0,00</div>
-                        <div class="text-[10px] text-emerald-200 mt-1">Medição real dos materiais lançados por bloco</div>
+                        <div class="text-[10px] text-emerald-200 mt-1">Soma real dos materiais de todos os blocos</div>
                     </div>
 
                     <div class="bg-indigo-950/90 border border-indigo-700 p-3.5 rounded-xl flex flex-col justify-between">
@@ -5447,19 +5480,28 @@ setInterval(() => {
             <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div class="p-3 bg-slate-100 border-b border-slate-200 flex flex-wrap justify-between items-center gap-2">
                     <div>
-                        <h4 class="font-black text-slate-800 text-xs sm:text-sm uppercase">📊 Acompanhamento Detalhado por Imóvel / Bloco (Forecast Planejado vs. Medição Real)</h4>
-                        <p class="text-[11px] text-slate-500">Quando o imóvel possui vários blocos desmembrados, cada bloco calcula apenas a sua própria fração sem duplicar o total do condomínio</p>
+                        <h4 class="font-black text-slate-800 text-xs sm:text-sm uppercase">📊 Acompanhamento Forecast Planejado vs. Realizado dos Blocos</h4>
+                        <p class="text-[11px] text-slate-500">Alterne entre ver o ID consolidado (soma todos os blocos do imóvel contra 1 único Forecast) ou ver rateado por bloco:</p>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="inline-flex bg-slate-200 p-1 rounded-xl border border-slate-300">
+                            <button type="button" id="btn-fc-modo-agrupado" onclick="alternarModoExibicaoForecast('AGRUPADO_ID')" class="px-3 py-1 rounded-lg text-[11px] font-black transition">
+                                🏢 Agrupar por ID (Soma Blocos)
+                            </button>
+                            <button type="button" id="btn-fc-modo-rateado" onclick="alternarModoExibicaoForecast('RATEADO_BLOCO')" class="px-3 py-1 rounded-lg text-[11px] font-black transition">
+                                🧱 Dividir Forecast p/ Bloco
+                            </button>
+                        </div>
+
                         <select id="fc-filtro-status-interno" onchange="atualizarPainelForecastMdu()" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white font-bold text-slate-700">
-                            <option value="TODOS">🎯 Todos os Status da Carteira</option>
-                            <option value="PROGRAMADA">📋 Apenas Programadas / Planilha</option>
-                            <option value="ANDAMENTO">🔵 Apenas Em Execução Agora</option>
-                            <option value="CONCLUIDA">🟢 Apenas Concluídas (Realizado)</option>
-                            <option value="PERDA">🔴 Pendentes / Malogradas (Gap)</option>
+                            <option value="TODOS">🎯 Todos os Status</option>
+                            <option value="PROGRAMADA">📋 Programadas / Planilha</option>
+                            <option value="ANDAMENTO">🔵 Em Execução Agora</option>
+                            <option value="CONCLUIDA">🟢 Concluídas (Realizado)</option>
+                            <option value="PERDA">🔴 Pendentes / Malogradas</option>
                         </select>
                         <button type="button" onclick="limparSimulacaoExtraForecast()" id="btn-limpar-simulacao-fc" class="hidden bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-[11px] px-2.5 py-1.5 rounded-lg">
-                            🗑️ Limpar Planilha Simulada
+                            🗑️ Limpar Simulação
                         </button>
                     </div>
                 </div>
@@ -5468,13 +5510,13 @@ setInterval(() => {
                         <thead class="bg-slate-800 text-white uppercase text-[10px]">
                             <tr>
                                 <th class="p-2.5">Data / Origem</th>
-                                <th class="p-2.5">Imóvel / Bloco & Endereço</th>
-                                <th class="p-2.5">Técnico / Equipe</th>
-                                <th class="p-2.5">Projeto / Estrutura (Bl/And/HPs)</th>
-                                <th class="p-2.5 text-center">Status Atual</th>
+                                <th class="p-2.5">ID Imóvel / Blocos Vinculados</th>
+                                <th class="p-2.5">Técnico(s) / Equipe</th>
+                                <th class="p-2.5">Projeto / Estrutura Base do ID</th>
+                                <th class="p-2.5 text-center">Status</th>
                                 <th class="p-2.5 text-right bg-slate-900 text-cyan-300">Forecast Previsto (R$)</th>
-                                <th class="p-2.5 text-right bg-emerald-950 text-emerald-300">Realizado Campo (R$)</th>
-                                <th class="p-2.5 text-right">Diferença / Desvio</th>
+                                <th class="p-2.5 text-right bg-emerald-950 text-emerald-300">Realizado Soma Blocos (R$)</th>
+                                <th class="p-2.5 text-right">Diferença / Desvio Real</th>
                             </tr>
                         </thead>
                         <tbody id="tabela-forecast-mdu-corpo" class="divide-y divide-slate-100 text-slate-700"></tbody>
@@ -5490,6 +5532,19 @@ setInterval(() => {
         injetarPainelForecastNoFinanceiro();
         const corpo = document.getElementById('tabela-forecast-mdu-corpo');
         if (!corpo) return;
+
+        // Atualiza botões de modo
+        const btnAgr = document.getElementById('btn-fc-modo-agrupado');
+        const btnRat = document.getElementById('btn-fc-modo-rateado');
+        if (btnAgr && btnRat) {
+            if (modoExibicaoForecast === 'AGRUPADO_ID') {
+                btnAgr.className = "px-3 py-1 rounded-lg text-[11px] font-black transition bg-blue-900 text-white shadow-sm";
+                btnRat.className = "px-3 py-1 rounded-lg text-[11px] font-bold transition text-slate-700 hover:bg-slate-300";
+            } else {
+                btnRat.className = "px-3 py-1 rounded-lg text-[11px] font-black transition bg-blue-900 text-white shadow-sm";
+                btnAgr.className = "px-3 py-1 rounded-lg text-[11px] font-bold transition text-slate-700 hover:bg-slate-300";
+            }
+        }
 
         const filtroStatus = document.getElementById('fc-filtro-status-interno')?.value || 'TODOS';
         const btnLimparSim = document.getElementById('btn-limpar-simulacao-fc');
@@ -5510,68 +5565,214 @@ setInterval(() => {
             ...carteiraExtraSimulada.map(s => ({ ...s, _origem: 'PLANILHA SIMULADA' }))
         ];
 
+        // PASSO CRÍTICO: Agrupa todos os blocos que pertencem ao mesmo ID Raiz + Projeto (Ex: todos os blocos de 500810546)
+        const gruposPorId = {};
+        unificados.forEach(item => {
+            const idRaiz = extrairIdRaizImovelForecast(item.imovel);
+            const projNorm = String(item.projeto || 'CONSTRUÇÃO ON GOING').toUpperCase().trim();
+            const chaveId = `${idRaiz}__${projNorm}`;
+
+            if (!gruposPorId[chaveId]) {
+                gruposPorId[chaveId] = {
+                    idRaiz,
+                    projeto: projNorm,
+                    endereco: item.endereco || '',
+                    dataMaisRecente: item.dataRegistro || '',
+                    origem: item._origem,
+                    itens: []
+                };
+            }
+            if (item.dataRegistro && item.dataRegistro > gruposPorId[chaveId].dataMaisRecente) {
+                gruposPorId[chaveId].dataMaisRecente = item.dataRegistro;
+            }
+            if (!gruposPorId[chaveId].endereco && item.endereco) {
+                gruposPorId[chaveId].endereco = item.endereco;
+            }
+            gruposPorId[chaveId].itens.push(item);
+        });
+
         let somaForecastTotal = 0;
         let somaEmAndamento = 0;
         let somaRealizado = 0;
-        let qtdImoveis = unificados.length;
-        let qtdAndamento = 0;
-        let qtdConcluidas = 0;
+        let qtdIdsUnicos = Object.keys(gruposPorId).length;
+        let qtdBlocosAndamento = 0;
+        let qtdBlocosConcluidos = 0;
 
-        const linhasProcessadas = [];
+        const fmtMoeda = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        corpo.innerHTML = "";
+        let linhasRenderizadas = 0;
 
-        unificados.forEach(item => {
-            const desf = String(item.desfecho || 'PROGRAMADA').toUpperCase().trim();
-            const ehConcluida = ['CONCLUIDA', 'CONCLUÍDA'].includes(desf);
-            const ehAndamento = ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(desf);
-            const ehProgramada = desf === 'PROGRAMADA' || item._origem === 'PLANILHA SIMULADA';
+        Object.values(gruposPorId).forEach((grupo, idxGrupo) => {
+            // Calcula 1 ÚNICO Forecast para o ID inteiro
+            const infoForecastId = calcularForecastUnicoDoGrupoId(grupo);
+            const qtdBlocosGrupo = grupo.itens.length;
 
-            const calcPrev = calcularValorForecastEstrutural(item);
-            const calcReal = calcularValorRealizadoRegistro(item);
+            // Soma o Realizado de todos os blocos daquele ID
+            let realizadoSomaGrupo = 0;
+            let temAndamentoNoGrupo = false;
+            let temConcluidaNoGrupo = false;
+            let temPerdaNoGrupo = false;
+            let temProgramadaNoGrupo = false;
 
-            const valorPrevisto = calcPrev.total > 0 ? calcPrev.total : calcReal.total;
-            const valorReal = ehConcluida ? calcReal.total : 0;
+            grupo.itens.forEach(blocoItem => {
+                const desf = String(blocoItem.desfecho || 'PROGRAMADA').toUpperCase().trim();
+                const ehConc = ['CONCLUIDA', 'CONCLUÍDA'].includes(desf);
+                const ehAnd = ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(desf);
+                const ehProg = desf === 'PROGRAMADA' || blocoItem._origem === 'PLANILHA SIMULADA';
 
-            somaForecastTotal += valorPrevisto;
-            if (ehAndamento) {
-                somaEmAndamento += (calcReal.total > 0 ? calcReal.total : valorPrevisto);
-                qtdAndamento++;
-            }
-            if (ehConcluida) {
-                somaRealizado += valorReal;
-                qtdConcluidas++;
-            }
+                const realBloco = calcularValorRealizadoRegistro(blocoItem).total;
+                blocoItem._valorRealBloco = realBloco;
 
-            if (filtroStatus === 'PROGRAMADA' && !ehProgramada) return;
-            if (filtroStatus === 'ANDAMENTO' && !ehAndamento) return;
-            if (filtroStatus === 'CONCLUIDA' && !ehConcluida) return;
-            if (filtroStatus === 'PERDA' && !['PENDENTE', 'MALOGRADA'].includes(desf)) return;
-
-            linhasProcessadas.push({
-                item,
-                desf,
-                ehConcluida,
-                ehAndamento,
-                ehProgramada,
-                valorPrevisto,
-                valorReal,
-                resumoEstrutura: calcPrev.resumo
+                if (ehConc) {
+                    realizadoSomaGrupo += realBloco;
+                    qtdBlocosConcluidos++;
+                    temConcluidaNoGrupo = true;
+                } else if (ehAnd) {
+                    qtdBlocosAndamento++;
+                    temAndamentoNoGrupo = true;
+                } else if (ehProg) {
+                    temProgramadaNoGrupo = true;
+                } else {
+                    temPerdaNoGrupo = true;
+                }
             });
+
+            // O Forecast do ID é contabilizado UMA ÚNICA VEZ no card de topo!
+            const valorForecastUnicoId = infoForecastId.totalId > 0 ? infoForecastId.totalId : realizadoSomaGrupo;
+            const forecastRateadoPorBloco = qtdBlocosGrupo > 0 ? (valorForecastUnicoId / qtdBlocosGrupo) : valorForecastUnicoId;
+
+            somaForecastTotal += valorForecastUnicoId;
+            somaRealizado += realizadoSomaGrupo;
+
+            if (temAndamentoNoGrupo) {
+                const qtdAndNesteGrupo = grupo.itens.filter(i => ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(String(i.desfecho || '').toUpperCase())).length;
+                somaEmAndamento += (forecastRateadoPorBloco * qtdAndNesteGrupo);
+            }
+
+            // Aplica filtro da tabela
+            if (filtroStatus === 'PROGRAMADA' && !temProgramadaNoGrupo) return;
+            if (filtroStatus === 'ANDAMENTO' && !temAndamentoNoGrupo) return;
+            if (filtroStatus === 'CONCLUIDA' && !temConcluidaNoGrupo) return;
+            if (filtroStatus === 'PERDA' && !temPerdaNoGrupo) return;
+
+            if (modoExibicaoForecast === 'AGRUPADO_ID') {
+                linhasRenderizadas++;
+                const equipesUnicas = [...new Set(grupo.itens.map(i => i.equipe).filter(Boolean))];
+                const desfechosUnicos = [...new Set(grupo.itens.map(i => String(i.desfecho || '').toUpperCase().trim()))];
+                const statusGrupo = desfechosUnicos.length === 1 ? desfechosUnicos[0] : `${qtdBlocosGrupo} BLOCOS (${desfechosUnicos.join('/')})`;
+                const corDesf = typeof obterClasseCorDesfecho === 'function' ? obterClasseCorDesfecho(desfechosUnicos[0]) : 'bg-slate-200 text-slate-800';
+
+                const diffGrupo = realizadoSomaGrupo - valorForecastUnicoId;
+                let diffHtml = `<span class="text-slate-400 font-mono">Em aberto</span>`;
+                if (temConcluidaNoGrupo) {
+                    if (Math.abs(diffGrupo) <= 5) {
+                        diffHtml = `<span class="text-emerald-700 font-black">🎯 100% no Alvo</span>`;
+                    } else if (diffGrupo > 0) {
+                        diffHtml = `<span class="text-emerald-700 font-black">+ ${fmtMoeda(diffGrupo)} ▲</span>`;
+                    } else {
+                        diffHtml = `<span class="text-amber-700 font-bold">${fmtMoeda(diffGrupo)} ▼</span>`;
+                    }
+                }
+
+                const idSubTabela = `fc_sub_blocos_${idxGrupo}`;
+                const btnVerBlocos = qtdBlocosGrupo > 1
+                    ? `<button type="button" onclick="event.stopPropagation(); alternarDetalhesBlocosForecast('${idSubTabela}', this)" class="mt-1 bg-blue-900 hover:bg-blue-800 text-white font-bold text-[10px] px-2 py-0.5 rounded shadow-sm">📂 Ver ${qtdBlocosGrupo} Blocos Somados</button>`
+                    : '';
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-blue-50/50 border-b transition cursor-pointer";
+                tr.onclick = () => { if (grupo.itens[0]._origem === 'SISTEMA') abrirDetalhesAtividade(grupo.itens[0]); };
+                tr.innerHTML = `
+                    <td class="p-2.5"><span class="bg-slate-100 text-slate-700 font-mono px-1.5 py-0.5 rounded text-[10px]">${grupo.dataMaisRecente || '-'}</span></td>
+                    <td class="p-2.5">
+                        <div class="font-black text-blue-950 text-xs">🏢 ID: ${grupo.idRaiz} ${qtdBlocosGrupo > 1 ? `<span class="bg-blue-100 text-blue-900 px-1.5 py-0.2 rounded text-[10px]">(${qtdBlocosGrupo} Blocos)</span>` : ''}</div>
+                        <div class="text-[10px] text-slate-500 truncate max-w-[240px]">📍 ${grupo.endereco || 'Endereço na carga'}</div>
+                        ${btnVerBlocos}
+                    </td>
+                    <td class="p-2.5 font-bold text-slate-800">${equipesUnicas.join(', ')}</td>
+                    <td class="p-2.5">
+                        <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${grupo.projeto}</span>
+                        <div class="text-[10px] text-slate-500 mt-0.5 font-semibold">${infoForecastId.resumoId}</div>
+                    </td>
+                    <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${corDesf}">${statusGrupo}</span></td>
+                    <td class="p-2.5 text-right font-black text-slate-900 bg-slate-50 text-xs">${fmtMoeda(valorForecastUnicoId)}<div class="text-[9px] text-slate-400 font-normal">Total Único do ID</div></td>
+                    <td class="p-2.5 text-right font-black text-emerald-700 bg-emerald-50/70 text-xs">${fmtMoeda(realizadoSomaGrupo)}<div class="text-[9px] text-emerald-800 font-normal">Soma de ${qtdBlocosGrupo} bloco(s)</div></td>
+                    <td class="p-2.5 text-right whitespace-nowrap">${diffHtml}</td>
+                `;
+                corpo.appendChild(tr);
+
+                if (qtdBlocosGrupo > 1) {
+                    const trSub = document.createElement('tr');
+                    trSub.id = idSubTabela;
+                    trSub.className = "hidden bg-slate-100/90 border-b";
+                    const linhasInternas = grupo.itens.map(b => `
+                        <div class="bg-white p-2 rounded-lg border border-slate-200 flex justify-between items-center text-[11px]">
+                            <div>
+                                <span class="font-black text-slate-800">${b.imovel}</span>
+                                <span class="text-slate-500 ml-2">👷 ${b.equipe} (${b.dataRegistro})</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-slate-500">Rateio Previsto: <b>${fmtMoeda(forecastRateadoPorBloco)}</b></span>
+                                <span class="font-black text-emerald-700">Realizado Bloco: ${fmtMoeda(b._valorRealBloco)}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                    trSub.innerHTML = `<td colspan="8" class="p-3 pl-6"><div class="space-y-1.5"><div class="text-[10px] font-black text-blue-950 uppercase">📦 Decomposição dos ${qtdBlocosGrupo} Blocos do ID ${grupo.idRaiz} (Soma Realizada = ${fmtMoeda(realizadoSomaGrupo)}):</div>${linhasInternas}</div></td>`;
+                    corpo.appendChild(trSub);
+                }
+            } else {
+                // MODO RATEADO POR BLOCO: Divide o Forecast do ID proporcionalmente entre os blocos daquele ID
+                grupo.itens.forEach(item => {
+                    linhasRenderizadas++;
+                    const desf = String(item.desfecho || 'PROGRAMADA').toUpperCase().trim();
+                    const ehConcluida = ['CONCLUIDA', 'CONCLUÍDA'].includes(desf);
+                    const valorRealBloco = ehConcluida ? item._valorRealBloco : 0;
+                    const diffBloco = valorRealBloco - forecastRateadoPorBloco;
+                    const corDesf = typeof obterClasseCorDesfecho === 'function' ? obterClasseCorDesfecho(desf) : 'bg-slate-200 text-slate-800';
+
+                    let diffHtml = `<span class="text-slate-400 font-mono">Aguardando</span>`;
+                    if (ehConcluida) {
+                        if (Math.abs(diffBloco) <= 5) diffHtml = `<span class="text-emerald-700 font-black">🎯 No Alvo</span>`;
+                        else if (diffBloco > 0) diffHtml = `<span class="text-emerald-700 font-black">+ ${fmtMoeda(diffBloco)} ▲</span>`;
+                        else diffHtml = `<span class="text-amber-700 font-bold">${fmtMoeda(diffBloco)} ▼</span>`;
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-blue-50/40 border-b transition cursor-pointer";
+                    if (item._origem === 'SISTEMA') tr.onclick = () => abrirDetalhesAtividade(item);
+                    tr.innerHTML = `
+                        <td class="p-2.5"><span class="bg-slate-100 text-slate-600 font-mono px-1.5 py-0.5 rounded text-[9px]">${item.dataRegistro || '-'}</span></td>
+                        <td class="p-2.5">
+                            <div class="font-black text-slate-800">${item.imovel || '-'}</div>
+                            <div class="text-[10px] text-slate-500 truncate max-w-[220px]">📍 ${item.endereco || grupo.endereco || '-'}</div>
+                        </td>
+                        <td class="p-2.5 font-bold text-blue-950">${item.equipe || '-'}</td>
+                        <td class="p-2.5">
+                            <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto}</span>
+                            <div class="text-[10px] text-slate-500 mt-0.5 font-semibold">Fração 1/${qtdBlocosGrupo} do ID ${grupo.idRaiz}</div>
+                        </td>
+                        <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${corDesf}">${desf}</span></td>
+                        <td class="p-2.5 text-right font-black text-slate-800 bg-slate-50">${fmtMoeda(forecastRateadoPorBloco)}<div class="text-[9px] text-slate-400 font-normal">Rateado (${fmtMoeda(valorForecastUnicoId)} ÷ ${qtdBlocosGrupo})</div></td>
+                        <td class="p-2.5 text-right font-black ${ehConcluida ? 'text-emerald-700 bg-emerald-50/60' : 'text-slate-400'}">${fmtMoeda(valorRealBloco)}</td>
+                        <td class="p-2.5 text-right whitespace-nowrap">${diffHtml}</td>
+                    `;
+                    corpo.appendChild(tr);
+                });
+            }
         });
 
         const percAtingimento = somaForecastTotal > 0 ? Math.min(100, (somaRealizado / somaForecastTotal) * 100) : 0;
         const gapRestante = Math.max(0, somaForecastTotal - somaRealizado);
 
-        const fmtMoeda = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-
-        setTxt('fc-badge-qtd-imoveis', `${qtdImoveis} reg.`);
+        setTxt('fc-badge-qtd-imoveis', `${qtdIdsUnicos} ID(s)`);
         setTxt('fc-card-valor-previsto', fmtMoeda(somaForecastTotal));
-        setTxt('fc-card-sub-previsto', carteiraExtraSimulada.length > 0 ? `Inclui ${carteiraExtraSimulada.length} imóvel(is) da planilha simulada` : `Carteira ativa no filtro atual`);
+        setTxt('fc-card-sub-previsto', `Consolidado sobre ${qtdIdsUnicos} condomínio(s)/ID(s) únicos`);
 
-        setTxt('fc-badge-qtd-andamento', `${qtdAndamento} ativas`);
+        setTxt('fc-badge-qtd-andamento', `${qtdBlocosAndamento} ativas`);
         setTxt('fc-card-valor-andamento', fmtMoeda(somaEmAndamento));
 
-        setTxt('fc-badge-qtd-concluidas', `${qtdConcluidas} concl.`);
+        setTxt('fc-badge-qtd-concluidas', `${qtdBlocosConcluidos} bl. concl.`);
         setTxt('fc-card-valor-realizado', fmtMoeda(somaRealizado));
 
         setTxt('fc-badge-perc-atingimento', `${percAtingimento.toFixed(1)}%`);
@@ -5580,55 +5781,9 @@ setInterval(() => {
         const barraProg = document.getElementById('fc-barra-progresso');
         if (barraProg) barraProg.style.width = `${percAtingimento.toFixed(1)}%`;
 
-        corpo.innerHTML = "";
-        if (linhasProcessadas.length === 0) {
+        if (linhasRenderizadas === 0) {
             corpo.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhum imóvel encontrado para o filtro de Forecast selecionado.</td></tr>`;
-            return;
         }
-
-        linhasProcessadas.forEach(({ item, desf, ehConcluida, valorPrevisto, valorReal, resumoEstrutura }) => {
-            const diff = valorReal - valorPrevisto;
-            const corDesf = typeof obterClasseCorDesfecho === 'function' ? obterClasseCorDesfecho(desf) : 'bg-slate-200 text-slate-800';
-            const badgeOrigem = item._origem === 'PLANILHA SIMULADA'
-                ? `<span class="bg-purple-100 text-purple-900 border border-purple-300 font-black px-1.5 py-0.5 rounded text-[9px]">📊 SIMULAÇÃO</span>`
-                : `<span class="bg-slate-100 text-slate-600 font-mono px-1.5 py-0.5 rounded text-[9px]">${item.dataRegistro || '-'}</span>`;
-
-            let diffHtml = `<span class="text-slate-400 font-mono">Aguardando conclusão</span>`;
-            if (ehConcluida) {
-                if (Math.abs(diff) < 1) {
-                    diffHtml = `<span class="text-emerald-700 font-black">🎯 100% no Alvo</span>`;
-                } else if (diff > 0) {
-                    diffHtml = `<span class="text-emerald-700 font-black">+ ${fmtMoeda(diff)} ▲</span>`;
-                } else {
-                    diffHtml = `<span class="text-amber-700 font-bold">${fmtMoeda(diff)} ▼</span>`;
-                }
-            } else if (['PENDENTE', 'MALOGRADA'].includes(desf)) {
-                diffHtml = `<span class="text-red-600 font-black">- ${fmtMoeda(valorPrevisto)} (Retorno)</span>`;
-            }
-
-            const tr = document.createElement('tr');
-            tr.className = "hover:bg-blue-50/40 border-b transition cursor-pointer";
-            if (item._origem === 'SISTEMA') {
-                tr.onclick = () => abrirDetalhesAtividade(item);
-            }
-            tr.innerHTML = `
-                <td class="p-2.5">${badgeOrigem}</td>
-                <td class="p-2.5">
-                    <div class="font-black text-slate-800">${item.imovel || '-'}</div>
-                    <div class="text-[10px] text-slate-500 truncate max-w-[220px]">📍 ${item.endereco || 'Endereço na carga'}</div>
-                </td>
-                <td class="p-2.5 font-bold text-blue-950">${item.equipe || 'A Definir'}</td>
-                <td class="p-2.5">
-                    <span class="bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">${item.projeto || 'CONSTRUÇÃO'}</span>
-                    <div class="text-[10px] text-slate-500 mt-0.5 font-semibold">${resumoEstrutura}</div>
-                </td>
-                <td class="p-2.5 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${corDesf}">${desf}</span></td>
-                <td class="p-2.5 text-right font-black text-slate-800 bg-slate-50">${fmtMoeda(valorPrevisto)}</td>
-                <td class="p-2.5 text-right font-black ${ehConcluida ? 'text-emerald-700 bg-emerald-50/60' : 'text-slate-400'}">${fmtMoeda(valorReal)}</td>
-                <td class="p-2.5 text-right whitespace-nowrap">${diffHtml}</td>
-            `;
-            corpo.appendChild(tr);
-        });
     };
 
     window.abrirModalImportarForecastPlanilha = function() {
@@ -5771,7 +5926,7 @@ setInterval(() => {
                 </div>
                 <div class="p-4 space-y-3 text-xs text-slate-700">
                     <p class="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-lg border">
-                        Estes multiplicadores estimam automaticamente o consumo de Cabo RL, Caixas NAP, DIO e Fusões das atividades <b>Programadas</b> a partir do número de Blocos, Andares e HPs:
+                        Estes multiplicadores estimam automaticamente o consumo de Cabo RL, Caixas NAP, DIO e Fusões de cada ID de imóvel a partir de Andares e HPs:
                     </p>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
@@ -5779,7 +5934,7 @@ setInterval(() => {
                             <input type="number" step="0.5" id="inp-fc-rl-andar" value="${parametrosEstimativaMdu.metrosRlPorAndar}" class="w-full border rounded-lg p-2 font-bold">
                         </div>
                         <div>
-                            <label class="block font-bold mb-1">Cabo RL Base por Bloco (m):</label>
+                            <label class="block font-bold mb-1">Cabo RL Base do ID (m):</label>
                             <input type="number" step="1" id="inp-fc-rl-bloco" value="${parametrosEstimativaMdu.metrosRlBasePorBloco}" class="w-full border rounded-lg p-2 font-bold">
                         </div>
                         <div>
@@ -5791,7 +5946,7 @@ setInterval(() => {
                             <input type="number" step="1" id="inp-fc-fus-nap" value="${parametrosEstimativaMdu.fusoesPorNap}" class="w-full border rounded-lg p-2 font-bold">
                         </div>
                         <div>
-                            <label class="block font-bold mb-1">Fusões por DIO / Bloco:</label>
+                            <label class="block font-bold mb-1">Fusões por DIO:</label>
                             <input type="number" step="1" id="inp-fc-fus-dio" value="${parametrosEstimativaMdu.fusoesPorDio}" class="w-full border rounded-lg p-2 font-bold">
                         </div>
                         <div>
@@ -5833,7 +5988,7 @@ setInterval(() => {
         const html = `
             <table border="1">
                 <tr style="background:#0f172a;color:#fff;font-weight:bold;font-size:13px;">
-                    <th colspan="8">RELATÓRIO EXECUTIVO DE FORECAST MDU (CARTEIRA PREVISTA x REALIZADO EM CAMPO) - ${obterDataLocalISO()}</th>
+                    <th colspan="8">RELATÓRIO EXECUTIVO DE FORECAST MDU (CARTEIRA PREVISTA POR ID x REALIZADO EM CAMPO) - ${obterDataLocalISO()}</th>
                 </tr>
                 <tr style="background:#cbd5e1;font-weight:bold;">
                     <th>DATA / ORIGEM</th>
