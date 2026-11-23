@@ -2442,7 +2442,14 @@ async function abrirDetalhesAtividade(item) {
             }
         } catch (e) {}
     }
-
+// Sincroniza os dados recém-baixados da nuvem (observações, endereço, acesso) com o objeto exibido no modal
+    const alvoPrincipal = blocosIrmaos.find(r => r.id === item.id) || blocosIrmaos[0];
+    if (alvoPrincipal) {
+        item.observacoes = alvoPrincipal.observacoes || item.observacoes || '';
+        item.endereco = alvoPrincipal.endereco || item.endereco || '';
+        item.liberouAcesso = alvoPrincipal.liberouAcesso || item.liberouAcesso || '';
+        item.tempoPausadoMinutos = alvoPrincipal.tempoPausadoMinutos || item.tempoPausadoMinutos || 0;
+    }
     const temMultiplosBlocos = blocosIrmaos.length > 1;
     document.getElementById('modal-detalhes-titulo').innerText = temMultiplosBlocos
         ? `Detalhes do Imóvel: ${codBase} (${blocosIrmaos.length} Blocos)`
