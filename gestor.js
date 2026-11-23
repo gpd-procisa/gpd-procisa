@@ -2412,7 +2412,7 @@ async function abrirDetalhesAtividade(item) {
                         if (mLib && mLib[1]) alvo.liberouAcesso = mLib[1].trim();
                         const mPausa = obsBruta.match(/\[PAUSA_TOTAL:\s*(\d+)\]/i);
                         if (mPausa && mPausa[1]) alvo.tempoPausadoMinutos = Number(mPausa[1]) || 0;
-                        const mFotos = obsBruta.match(/\[FOTOS:(\[.*?\])\]/);
+                        const mFotos = obsBruta.match(/\[FOTOS:(\[[\s\S]*?\])\]/);
                         if (mFotos && mFotos[1]) {
                             try {
                                 const arrF = JSON.parse(mFotos[1]);
@@ -2423,6 +2423,20 @@ async function abrirDetalhesAtividade(item) {
                                 }
                             } catch (e) {}
                         }
+
+                        // Remove apenas as tags internas do sistema e preserva o texto digitado pelo técnico no campo Observação
+                        const obsTextoLimpo = obsBruta
+                            .replace(/\[FOTOS:\[[\s\S]*?\]\]/gi, '')
+                            .replace(/\[END:\s*[^\]]+\]/gi, '')
+                            .replace(/\[LIBEROU_ACESSO:\s*[^\]]+\]/gi, '')
+                            .replace(/\[PAUSA_TOTAL:\s*\d+\]/gi, '')
+                            .replace(/\[BLOCOS:\s*\d+\]/gi, '')
+                            .replace(/\[TRATADO_POR:\s*[^\]]+\]/gi, '')
+                            .replace(/\[TRATADO_EM:\s*[^\]]+\]/gi, '')
+                            .replace(/\[TRATADO_TS:\s*\d+\]/gi, '')
+                            .trim();
+
+                        if (obsTextoLimpo) alvo.observacoes = obsTextoLimpo;
                     }
                 });
             }
@@ -3065,7 +3079,7 @@ function aplicarAtalhoPeriodo(tipo) {
     else if (tipo === 'tudo') { inpInicio.value = ''; inpFim.value = ''; }
     atualizarDashboardGestor();
 }
-// ================= ABA GRÁFICOS & INDICADORES + FOTOS EM LOTE, EXCEL COM MATERIAIS POR BLOCO E FORECAST MDU (PARTE 3 FINAL) =================
+// ================= ABA GRÁFICOS & INDICADORES + FOTOS EM LOTE, EXCEL COM MATERIAIS POR BLOCO E FORECAST MDU BLINDADO (PARTE 3 FINAL) =================
 
 var filtrosMultiGraficos = {
     segmentos: ['TODOS'],
@@ -3254,7 +3268,7 @@ window.baixarTodasFotosPorIdAtividade = async function(idReg, event, btnEl) {
                 rows.forEach(row => {
                     const alvo = blocosIrmaos.find(b => b.id === row.id);
                     if (alvo && row.observacoes && row.observacoes.includes('[FOTOS:')) {
-                        const mFotos = row.observacoes.match(/\[FOTOS:(\[.*?\])\]/);
+                        const mFotos = row.observacoes.match(/\[FOTOS:(\[[\s\S]*?\])\]/);
                         if (mFotos && mFotos[1]) {
                             try {
                                 const arrF = JSON.parse(mFotos[1]);
@@ -5245,6 +5259,7 @@ setInterval(() => {
         }
     }
 }, 450);
+
 // ================= MÓDULO FORECAST MDU COMPLETO (REGRAS REAIS: MALOGRADA ZERADA S/ MATERIAL E TRAVA DE MÉTRICAS) =================
 (function() {
     const LPU_PADRAO_FORECAST = {
@@ -5288,7 +5303,6 @@ setInterval(() => {
         return LPU_PADRAO_FORECAST[chaveInterna]?.valor || 0;
     }
 
-    // Verifica se o registro tem qualquer material ou fusão real lançada pelo técnico
     function registroPossuiMaterialOuFusaoLancada(reg) {
         if (!reg) return false;
         const somaItens =
@@ -5304,7 +5318,6 @@ setInterval(() => {
         return somaItens > 0;
     }
 
-    // Calcula o valor REALIZADO de uma linha individual (baseado estritamente no que foi instalado/fusionado)
     function calcularValorRealizadoRegistro(reg) {
         if (!reg) return { total: 0, temMaterial: false, resumoReal: 'Sem material' };
         const proj = String(reg.projeto || '').toUpperCase();
@@ -5313,7 +5326,6 @@ setInterval(() => {
         const ehVistoria = proj.includes('VISTORIA');
         const temMat = registroPossuiMaterialOuFusaoLancada(reg);
 
-        // REGRA DO GESTOR: Se for MALOGRADA ou PENDENTE, só tem valor se houver registro real de instalação ou fusão!
         if (!ehConcluida && !temMat) {
             return { total: 0, temMaterial: false, resumoReal: 'Malograda/Pendente s/ consumo (R$ 0,00)' };
         }
@@ -5359,13 +5371,11 @@ setInterval(() => {
         };
     }
 
-    // Calcula a previsão (Forecast) APENAS para atividades Programadas ou Em Execução
     function calcularEstimativaProgramadaPorBloco(blocoItem) {
         const proj = String(blocoItem.projeto || 'CONSTRUÇÃO ON GOING').toUpperCase();
         const desf = String(blocoItem.desfecho || 'PROGRAMADA').toUpperCase().trim();
         const realInfo = calcularValorRealizadoRegistro(blocoItem);
 
-        // 1. Se for MALOGRADA ou PENDENTE: Forecast é ZERO (ou apenas o material real caso tenha feito alguma fusão/instalação)
         if (['MALOGRADA', 'PENDENTE'].includes(desf)) {
             return {
                 previsto: realInfo.total,
@@ -5374,7 +5384,6 @@ setInterval(() => {
             };
         }
 
-        // 2. Se já está CONCLUÍDA: não usa estimativa teórica maluca de HPs; o valor é o que foi realmente instalado!
         if (['CONCLUIDA', 'CONCLUÍDA'].includes(desf)) {
             return {
                 previsto: realInfo.total,
@@ -5383,7 +5392,6 @@ setInterval(() => {
             };
         }
 
-        // 3. Se está PROGRAMADA ou EM ANDAMENTO: se já lançou material parcial em campo, usa o maior entre o lançado e a estimativa realista
         if (proj.includes('VISTORIA')) {
             const vVist = obterPrecoUnitarioLpu('VISTORIA', 'VISTORIA');
             return {
@@ -5408,7 +5416,6 @@ setInterval(() => {
             };
         }
 
-        // Se for EXPANSÃO (CONSTRUÇÃO NAP LOTADA): é apenas ampliação de NAP (1 NAP + 2 Fusões + 4 Conectores + 15m cabo), nunca um prédio inteiro!
         if (proj.includes('NAP LOTADA')) {
             const estRL = 15;
             const estNap = 1;
@@ -5426,7 +5433,6 @@ setInterval(() => {
             };
         }
 
-        // Construção MDU / Projeto F (Programada ou Em Andamento) — Trava contra erro de digitação de HPs (ex: 747 HPs)
         const andaresValidos = Math.min(30, Math.max(1, Number(blocoItem.andares) || 4));
         const estRL = parametrosEstimativaMdu.metrosRlBasePorBloco + (andaresValidos * parametrosEstimativaMdu.metrosRlPorAndar);
         const estNap = Math.max(1, Math.ceil(andaresValidos / Math.max(1, parametrosEstimativaMdu.andaresPorNap || 3)));
@@ -5616,7 +5622,6 @@ setInterval(() => {
             ...carteiraExtraSimulada.map(s => ({ ...s, _origem: 'PLANILHA SIMULADA' }))
         ];
 
-        // Avalia cada registro individualmente com a nova regra estrita
         const itensAvaliados = unificados.map(item => {
             const desf = String(item.desfecho || 'PROGRAMADA').toUpperCase().trim();
             const ehConc = ['CONCLUIDA', 'CONCLUÍDA'].includes(desf);
@@ -5637,7 +5642,6 @@ setInterval(() => {
             };
         });
 
-        // Soma os KPIs globais (Ignorando totalmente Malogradas/Pendentes sem material)
         let somaForecastTotal = 0;
         let somaAberta = 0;
         let somaRealizado = 0;
@@ -5656,16 +5660,14 @@ setInterval(() => {
             }
         });
 
-        // Filtra os itens para exibição na tabela conforme o seletor
         const itensParaTabela = itensAvaliados.filter(it => {
             if (filtroStatus === 'VALIDAS') {
-                // Oculta malogradas/pendentes que não tiveram nenhum material ou fusão lançada
                 if (it._ehMalogroOuPend && it._valorRealizado === 0) return false;
                 return true;
             }
             if (filtroStatus === 'CONCLUIDA') return it._ehConc || it._valorRealizado > 0;
             if (filtroStatus === 'ABERTAS') return it._ehAberta;
-            return true; // 'TODOS'
+            return true;
         });
 
         const fmtMoeda = (v) => `R$ ${Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -5766,7 +5768,6 @@ setInterval(() => {
                 });
             }
         } else {
-            // MODO BLOCO A BLOCO INDIVIDUAL
             setTxt('fc-badge-qtd-imoveis', `${itensParaTabela.length} reg.`);
             if (itensParaTabela.length === 0) {
                 corpo.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-400">Nenhuma atividade válida no filtro atual.</td></tr>`;
