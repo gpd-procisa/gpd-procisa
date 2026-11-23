@@ -2401,7 +2401,7 @@ async function abrirDetalhesAtividade(item) {
                 .select('id, observacoes')
                 .in('id', idsBuscar);
 
-           if (Array.isArray(rowsCompleta)) {
+            if (Array.isArray(rowsCompleta)) {
                 rowsCompleta.forEach(row => {
                     const alvo = blocosIrmaos.find(r => r.id === row.id);
                     if (alvo && row.observacoes) {
@@ -2412,7 +2412,7 @@ async function abrirDetalhesAtividade(item) {
                         if (mLib && mLib[1]) alvo.liberouAcesso = mLib[1].trim();
                         const mPausa = obsBruta.match(/\[PAUSA_TOTAL:\s*(\d+)\]/i);
                         if (mPausa && mPausa[1]) alvo.tempoPausadoMinutos = Number(mPausa[1]) || 0;
-                        const mFotos = obsBruta.match(/\[FOTOS:(\[[\s\S]*?\])\]/);
+                        const mFotos = obsBruta.match(/\[FOTOS:(\[.*?\])\]/);
                         if (mFotos && mFotos[1]) {
                             try {
                                 const arrF = JSON.parse(mFotos[1]);
@@ -2423,23 +2423,6 @@ async function abrirDetalhesAtividade(item) {
                                 }
                             } catch (e) {}
                         }
-
-                        // Remove apenas as tags internas do sistema e preserva o texto digitado pelo técnico no campo Observação
-                        const obsTextoLimpo = obsBruta
-                            .replace(/\[FOTOS:\[[\s\S]*?\]\]/gi, '')
-                            .replace(/\[END:\s*[^\]]+\]/gi, '')
-                            .replace(/\[LIBEROU_ACESSO:\s*[^\]]+\]/gi, '')
-                            .replace(/\[PAUSA_TOTAL:\s*\d+\]/gi, '')
-                            .replace(/\[BLOCOS:\s*\d+\]/gi, '')
-                            .replace(/\[TRATADO_POR:\s*[^\]]+\]/gi, '')
-                            .replace(/\[TRATADO_EM:\s*[^\]]+\]/gi, '')
-                            .replace(/\[TRATADO_TS:\s*\d+\]/gi, '')
-                            .trim();
-
-                        if (obsTextoLimpo) alvo.observacoes = obsTextoLimpo;
-                    }
-                });
-            }
                     }
                 });
             }
