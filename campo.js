@@ -3537,3 +3537,89 @@ setTimeout(() => {
 
 setInterval(organizarTelaPrincipalEBotaoSuporteRodape, 2000);
 setInterval(garantirAberturaSincronizadaNaNuvem, 12000);
+// ================= BLINDAGEM ANTI-TRAVAMENTO AO FINALIZAR ATIVIDADE (MODO CAMPO) =================
+(function() {
+    if (typeof window.salvarRegistro !== 'function' || window._hookBlindagemFinalizacaoCampo) return;
+    window._hookBlindagemFinalizacaoCampo = true;
+
+    const _origSalvarRegistro = window.salvarRegistro;
+
+    window.salvarRegistro = async function(...args) {
+        const equipeAntes = (document.getElementById('sel-equipe')?.value || '').trim().toUpperCase();
+        const lblImovel = (document.getElementById('lbl-imovel-aberto')?.innerText || '').split('(')[0].trim();
+        const inpImovel = (document.getElementById('inp-imovel')?.value || '').trim();
+        const imovelAlvo = (lblImovel && lblImovel !== '-' ? lblImovel : inpImovel).toUpperCase();
+        const imovelBase = imovelAlvo.includes(' - BLOCO') ? imovelAlvo.split(' - BLOCO')[0].trim() : imovelAlvo;
+        const hojeISO = typeof obterDataLocalISO === 'function' ? obterDataLocalISO() : new Date().toISOString().split('T')[0];
+
+        // Executa o salvamento original (Concluída, Pendente ou Malograda)
+        const resultado = await _origSalvarRegistro.apply(this, args);
+
+        // Confirma se o salvamento realmente concluiu (banner verde de sucesso visível)
+        const boxSucesso = document.getElementById('box-ultimo-resumo-whats');
+        const salvouComSucesso = boxSucesso && !boxSucesso.classList.contains('hidden');
+
+        if (salvouComSucesso && equipeAntes && imovelBase) {
+            try {
+                // 1. Apaga no Supabase qualquer abertura fantasma (EM ANDAMENTO / PARALISADA / REABERTA) deste imóvel/técnico hoje
+                if (typeof supabaseClient !== 'undefined') {
+                    const { data: abertos } = await supabaseClient
+                        .from('registros_producao')
+                        .select('id, imovel')
+                        .eq('data_registro', hojeISO)
+                        .eq('equipe', equipeAntes)
+                        .in('desfecho', ['EM ANDAMENTO', 'PARALISADA', 'REABERTA']);
+
+                    if (Array.isArray(abertos) && abertos.length > 0) {
+                        const idsParaApagar = abertos
+                            .filter(r => {
+                                const baseDb = String(r.imovel || '').toUpperCase().split(' - BLOCO')[0].trim();
+                                return baseDb === imovelBase;
+                            })
+                            .map(r => r.id);
+
+                        if (idsParaApagar.length > 0) {
+                            await supabaseClient.from('registros_producao').delete().in('id', idsParaApagar);
+                            if (Array.isArray(window.registrosSalvos)) {
+                                window.registrosSalvos = window.registrosSalvos.filter(r => !idsParaApagar.includes(r.id));
+                            }
+                        }
+                    }
+                }
+
+                // 2. Limpa a memória local e fecha o card de atividade aberta na tela
+                if (Array.isArray(window.registrosSalvos)) {
+                    window.registrosSalvos = window.registrosSalvos.filter(r => {
+                        if (!r) return false;
+                        const mesmoDia = r.dataRegistro === hojeISO;
+                        const mesmaEq = String(r.equipe || '').toUpperCase().trim() === equipeAntes;
+                        const baseLocal = String(r.imovel || '').toUpperCase().split(' - BLOCO')[0].trim();
+                        const aberta = ['EM ANDAMENTO', 'PARALISADA', 'REABERTA'].includes(String(r.desfecho || '').toUpperCase().trim());
+                        return !(mesmoDia && mesmaEq && baseLocal === imovelBase && aberta);
+                    });
+                }
+
+                document.getElementById('bloco-pos-abertura')?.classList.add('hidden');
+                document.getElementById('form-campo-container')?.classList.remove('hidden');
+                const elInpImovel = document.getElementById('inp-imovel');
+                if (elInpImovel) elInpImovel.value = '';
+
+                // Remove rascunhos locais para impedir restauração fantasma ao recarregar
+                Object.keys(localStorage).forEach(k => {
+                    if (k.toLowerCase().includes('rascunho') || k.toLowerCase().includes('checkin_aberto')) {
+                        localStorage.removeItem(k);
+                    }
+                });
+
+                // 3. Atualiza o contador e a aba "Minhas Atividades" para liberar o encerramento do expediente
+                if (typeof window.atualizarAbaMinhasAtividadesCampo === 'function') {
+                    await window.atualizarAbaMinhasAtividadesCampo(false);
+                }
+            } catch (errLimpeza) {
+                console.warn("Aviso na limpeza pós-finalização:", errLimpeza);
+            }
+        }
+
+        return resultado;
+    };
+})();
